@@ -10,8 +10,10 @@ disable-model-invocation: false
 ## Inputs
 
 - Notification from Developer (Agent Teams) with PBI id and
-  `escalation_reason`
-- `.scrum/pbi/<pbi-id>/state.json`
+  `escalation_reason`. Backlog `items[].status` for the PBI is
+  `escalated`.
+- `.scrum/pbi/<pbi-id>/state.json` (`escalation_reason`, round counters,
+  per-stage `*_status`)
 - Latest review files: `.scrum/pbi/<pbi-id>/{design,impl,ut}/review-r{last}.md`
 - `.scrum/pbi/<pbi-id>/metrics/*.json`
 
@@ -19,10 +21,17 @@ disable-model-invocation: false
 
 - SM judgment recorded at
   `.scrum/pbi/<pbi-id>/escalation-resolution.md` (audit trail)
-- `backlog.json` status auto-projected from `pbi/<id>/state.json.phase`:
-  retry resets phase to `design` (→ status `in_progress`); hold/human keeps
-  `phase: escalated` (→ status `blocked`). Never write backlog.status directly.
-- User notified via SM channel when human escalation needed
+- backlog.json `items[].status` updated via
+  `update-backlog-status.sh`:
+  - **retry** → `in_progress_design` (round counters and per-stage
+    `*_status` flags reset on `state.json`)
+  - **hold** / **human-escalate** → stays at `escalated` (until the
+    blocking condition clears, at which point SM moves it to
+    `in_progress_design` to resume)
+  - **block on external dependency** → `blocked` (SM-only status; later
+    transitioned back to `in_progress_design` when the external factor
+    clears)
+- User notified via SM channel when human escalation is needed
 
 ## Response Matrix
 
@@ -32,34 +41,44 @@ disable-model-invocation: false
 | `divergence` | Same as stagnation; mark urgent. (rollback is future work) |
 | `max_rounds` | Inspect findings count trend across rounds. If decreasing, propose 1-time retry with fresh Developer. Else human-escalate. |
 | `budget_exhausted` | Immediate human-escalate |
-| `requirements_unclear` | SM consults PO via clarification ticket; on PO answer, set status back to in_progress and re-spawn Developer to resume PBI |
-| `coverage_tool_unavailable` | Surface install instruction (e.g. `pip install coverage`) to user; PBI on hold until installed |
+| `requirements_unclear` | SM consults PO via clarification ticket; on PO answer, retry (status → `in_progress_design`) and re-spawn Developer to resume PBI |
+| `coverage_tool_unavailable` | Surface install instruction (e.g. `pip install coverage`) to user; PBI on hold (status stays `escalated`, or move to `blocked`) until installed |
 | `coverage_tool_error` | Inspect last pipeline.log entries for the tool error; surface to user; hold |
-| `catalog_lock_timeout` | Check `.scrum/locks/` for stale lock holders. If holder Developer is dead, force-release and retry. Else human-escalate. |
+| `catalog_lock_timeout` | Check `.scrum/locks/` for stale lock holders. If holder Developer is dead, force-release and retry (status → `in_progress_design`). Else human-escalate. |
+| `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). For structural conflicts, human-escalate. |
+| `merge_artifact_missing` | Confirm whether files were intentionally removed. If unintentional, ask Developer to re-add. If intentional, human-escalate to update `paths_touched`. |
+| `merge_regression` | Inspect quality-gate report (`state.merge_failure.report_path`). Trivial regression → Developer fix; structural → human-escalate. |
 
 ## Steps
 
-1. Read state.json for the PBI id.
+1. Read `state.json` for the PBI id.
 2. Identify `escalation_reason`.
 3. Match to Response Matrix action.
-4. For retry: spawn fresh Developer instance for the PBI; reset PBI
-   round counters and phase via:
+4. **For retry** (e.g. `stagnation` after user picks `redesign`,
+   `requirements_unclear` after PO answer, `catalog_lock_timeout`
+   after stale-lock cleanup): spawn fresh Developer instance for the
+   PBI; reset round counters and per-stage flags, then flip backlog
+   status:
    ```bash
    .scrum/scripts/update-pbi-state.sh "$PBI_ID" \
-     phase design escalation_reason null \
+     escalation_reason null \
      design_round 0 impl_round 0 \
      design_status pending impl_status pending \
      ut_status pending coverage_status pending
+   .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_design
    ```
-   This auto-projects backlog.status `blocked → in_progress`.
-5. For hold or human-escalate: prepare summary message (PBI id, last
-   review headlines, escalation reason, recommended user actions);
-   send via SM communications channel.
+5. **For hold or human-escalate**: prepare summary message (PBI id, last
+   review headlines, `escalation_reason`, recommended user actions);
+   send via SM communications channel. Backlog status remains
+   `escalated` (or move to `blocked` if SM is parking the PBI awaiting
+   external resolution).
 6. Write decision to `.scrum/pbi/<pbi-id>/escalation-resolution.md`
    with timestamp, decision, and reasoning.
 
 ## Exit Criteria
 
-- escalation-resolution.md exists for the PBI
-- backlog.json reflects decision
+- `escalation-resolution.md` exists for the PBI
+- backlog.json `items[].status` reflects decision
+  (`in_progress_design` for retry, `escalated` for hold,
+  `blocked` for parked-on-external-dependency)
 - User informed (when human-escalate or hold)

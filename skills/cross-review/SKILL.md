@@ -22,8 +22,8 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 
 ## Inputs
 
-- state.json → phase: pbi_pipeline_active | review
-- backlog.json → all Sprint PBIs with implementation complete
+- `state.json` (overall project phase: `pbi_pipeline_active` or `review`)
+- backlog.json → all Sprint PBIs at `status ∈ {awaiting_cross_review, escalated}`
 - requirements.md + design docs per PBI
 - agents/code-reviewer.md, agents/security-reviewer.md
 - Per-PBI pipeline final reviews (read for context, NOT re-evaluated):
@@ -34,30 +34,39 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 ## Outputs
 
 - `.scrum/reviews/<pbi-id>-review.md` (per PBI)
-- pbi/<id>/state.json → phase: complete → review_complete
-  (backlog.json items[].status auto-projected to review → done by
-  `update-pbi-state.sh`; never write `backlog.json.status` directly)
-- backlog.json → items[].review_doc_path (this field is hand-written; status is not)
-- state.json → phase: review
-- sprint.json → status: "cross_review"
+- backlog.json `items[].status` transitions:
+  - At step 1: `awaiting_cross_review → cross_review` for each Sprint PBI
+  - On both reviewers PASS: `cross_review → done`
+  - On reviewer FAIL: `cross_review → in_progress_impl` (Developer fixes
+    on top of merged code, re-runs UT, re-marks ready-to-merge, SM
+    re-merges, status returns to `awaiting_cross_review`, then this
+    skill re-runs for that PBI)
+- backlog.json → items[].review_doc_path (hand-written; status writes
+  go through `update-backlog-status.sh`)
+- `state.json` (overall project phase: `review`)
+- `sprint.json.status: "cross_review"`
 
 ## Preconditions
 
-- All Sprint PBIs at `pbi/<id>/state.json.phase ∈ {merged, escalated}`.
-  PBIs in `ready_to_merge` or `merge_*` failure states must be
-  driven to one of those terminal states (via `pbi-merge` or
-  `pbi-escalation-handler`) before this skill is invoked.
-- Review target: the merged main HEAD (only the merged PBIs).
+- Every Sprint PBI is at backlog `status ∈ {awaiting_cross_review,
+  escalated}`. PBIs at `in_progress_merge` or any other
+  `in_progress_*` value must be driven to one of those terminal
+  values (via `pbi-merge` or `pbi-escalation-handler`) before this
+  skill is invoked.
+- Review target: the merged main HEAD (only the PBIs at
+  `awaiting_cross_review`; `escalated` PBIs are not reviewed here).
 - App builds + starts (verified during implementation; if uncertain→re-verify)
 
 ## Steps
 
-1. state.json → phase: "review", sprint.json → status: "cross_review"
-2. All Sprint PBIs already at `pbi/<id>/state.json.phase ∈ {merged, escalated}`
-   (terminal states from pbi-merge or pbi-escalation-handler);
-   backlog.status is therefore already `review` (auto-derived).
-   No direct backlog.status write here — `update-backlog-status.sh` rejects
-   post-pipeline statuses by design.
+1. `state.json` → overall phase `"review"`; `sprint.json.status →
+   "cross_review"`. For every Sprint PBI at `status =
+   awaiting_cross_review`, transition to `cross_review`:
+   ```bash
+   .scrum/scripts/update-backlog-status.sh "$PBI_ID" cross_review
+   ```
+2. Sanity check: every Sprint PBI is now at `status ∈ {cross_review,
+   escalated}`. (No PBIs at `awaiting_cross_review` or `in_progress_*`.)
 3. **Pre-review build verification**: Start app→all tests pass. Fail→`TaskGet` Developer status→terminated? re-spawn (Teammate Liveness Protocol)→then relay fix request. Do NOT review non-building code
 4. Collect review inputs per PBI: design_doc_paths, source paths, requirements.md path
 5. **Spawn 2 sub-agents per PBI in parallel (Agent tool)**:
@@ -65,14 +74,19 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
    - `security-reviewer` → source paths + requirements.md
 6. Collect results from both
 7. **Doc-implementation consistency check**: Compare design docs + user-facing docs vs actual code. Mismatch→send Developer to update docs (not code)
-8. **Handle FAIL**: `TaskGet` Developer status→terminated? re-spawn (Teammate Liveness Protocol). Relay findings to Developer→fix→re-spawn failing reviewer(s)→repeat until both PASS
+8. **Handle FAIL**: For each PBI where any reviewer returns FAIL:
+   - `TaskGet` Developer status → terminated? re-spawn (Teammate Liveness Protocol)
+   - Revert that PBI: `update-backlog-status.sh "$PBI_ID" in_progress_impl`
+     (Developer fixes on top of merged code, re-runs through PBI Review →
+     UT Run → ready-to-merge handoff. SM re-merges; PBI returns to
+     `awaiting_cross_review`. Re-trigger step 1 for that single PBI.)
+   - Repeat until both reviewers PASS for every Sprint PBI
 9. Write `.scrum/reviews/<pbi-id>-review.md` (combined code + security review)
-10. Both PASS → advance pipeline phase to `review_complete`
-    (backlog.status auto-projects to `done`):
+10. Both PASS → mark PBI as cross-review-complete:
     ```bash
-    .scrum/scripts/update-pbi-state.sh "$PBI_ID" phase review_complete
+    .scrum/scripts/update-backlog-status.sh "$PBI_ID" done
     ```
-11. Set items[].review_doc_path
+11. Set `items[].review_doc_path`
 
 Ref: FR-009
 
@@ -82,7 +96,7 @@ Ref: FR-009
 - All Sprint PBIs reviewed by code-reviewer + security-reviewer
 - Doc-implementation consistency verified
 - `.scrum/reviews/<pbi-id>-review.md` exists per PBI
-- Passing PBIs: status: "done"
-- review_doc_path set
+- Passing PBIs: `status: done`
+- `review_doc_path` set
 - Unresolvable issues→logged as new PBIs
-- state.json phase: "review"
+- `state.json` overall phase: `review`

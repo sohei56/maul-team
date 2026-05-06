@@ -41,7 +41,7 @@ disable-model-invocation: false
    b. Each defect/change/feedback item → `add-backlog-item.sh` (status: draft). Track each new pbi-id.
    c. "Will be prioritized in next Sprint via Backlog Refinement→Sprint Planning"
    d. After user confirms "that's all"→proceed
-10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status != "done"` (in_progress / review / blocked / refined-but-not-started):
+10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status != "done"` (any `in_progress_*` / `awaiting_cross_review` / `cross_review` / `escalated` / `blocked` / refined-but-not-started):
     a. Create a new draft PBI capturing the remaining work via `add-backlog-item.sh` — embed origin in description (`Carry-over from <pbi-id>: <what is left>`).
     b. Original PBI keeps its current status (immutable historical record of this Sprint).
     c. Track each new pbi-id for the Leftover Summary.
