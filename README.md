@@ -71,7 +71,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Independent cross-review** — the Scrum Master spawns project-managed reviewer sub-agents (`code-reviewer`, `security-reviewer`, `codex-code-reviewer`) for unbiased, design-driven code review that checks implementation against requirements and design docs
+- **Independent cross-review** — the Scrum Master spawns project-managed reviewer sub-agents (`codex-code-reviewer` primary, `security-reviewer`, with `code-reviewer` as Codex-CLI-unavailable fallback) for unbiased, design-driven code review that checks implementation against requirements and design docs
 
 **Constraints addressing AI weaknesses:**
 
@@ -152,18 +152,15 @@ For detailed setup instructions, see [quickstart.md](docs/quickstart.md).
 
 ## Architecture
 
-| Component | Description |
-|-----------|-------------|
-| `scrum-start.sh` | Entry point — validates prereqs, copies agents/skills, launches tmux |
-| `agents/` | Scrum Master (Delegate mode) and Developer agent definitions |
-| `skills/` | 14 ceremony Skills with mandatory Inputs/Outputs |
-| `hooks/` | Phase gates, completion gates, quality gates, dashboard events, session context |
-| `dashboard/app.py` | Textual TUI with real-time panels |
-| `scripts/` | Status line, user setup, contributor setup |
-| `.scrum/` | Runtime state (JSON, gitignored) |
-| `docs/design/` | Design documents governed by `catalog.md` (read-only) + `catalog-config.json` (enabled list) |
-| `agents/` sub-agents | Project-managed specialist sub-agents: `code-reviewer`, `security-reviewer`, `codex-code-reviewer`, plus PBI Pipeline sub-agents (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`, `codex-design-reviewer`, `codex-impl-reviewer`, `codex-ut-reviewer`) |
-| `.mcp-servers/` | MCP server implementations (OpenAI/Codex bridge for cross-model review) |
+- **`scrum-start.sh`** — Entry point: validates prereqs, copies agents/skills, launches tmux
+- **`agents/`** — Scrum Master (Delegate mode) and Developer agent definitions, plus project-managed specialist sub-agents (cross-review + PBI Pipeline). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
+- **`skills/`** — 14 ceremony Skills with mandatory Inputs/Outputs
+- **`hooks/`** — Phase gates, completion gates, quality gates, dashboard events, session context
+- **`dashboard/app.py`** — Textual TUI with real-time panels
+- **`scripts/`** — Status line, user setup, contributor setup
+- **`.scrum/`** — Runtime state (JSON, gitignored)
+- **`docs/design/`** — Design documents governed by `catalog.md` (read-only) + `catalog-config.json` (enabled list)
+- **`.mcp-servers/`** — MCP server implementations (OpenAI/Codex bridge for cross-model review)
 
 ## Development
 

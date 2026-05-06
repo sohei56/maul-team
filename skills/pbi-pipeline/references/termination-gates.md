@@ -3,6 +3,14 @@
 Composite gate model used at end of each Round (design and impl+UT).
 Anthropic + Ralph + GAN-derived. Deterministic — no fuzzy heuristics.
 
+> **Scope note**: termination gates here are **semantic success
+> criteria** evaluated by the pipeline conductor at end of each Round
+> (when to stop a Round: success / stagnation / divergence / hard cap).
+> Distinct from `hooks/completion-gate.sh` and `hooks/quality-gate.sh`
+> which validate **durable state** (state files exist, schemas match,
+> phase transitions are legal). The hooks gate Claude Code lifecycle
+> events; these gates gate Round flow. They do not duplicate.
+
 ## Gate matrix
 
 | Gate | Condition | Outcome |

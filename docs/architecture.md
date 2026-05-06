@@ -211,20 +211,20 @@ execute.
 - Skill directory structure:
   ```
   .claude/skills/
-    sprint-planning/SKILL.md       # Sprint Planning ceremony
-    spawn-teammates/SKILL.md       # Teammate creation (reproducible)
-    install-subagents/SKILL.md     # Sub-agent selection from catalog (reproducible)
-    design/SKILL.md          # Design phase orchestration
-    implementation/SKILL.md  # Implementation phase orchestration
-    cross-review/SKILL.md          # Cross-review process
-    sprint-review/SKILL.md         # Sprint Review ceremony
-    retrospective/SKILL.md         # Retrospective ceremony
-    requirements-sprint/SKILL.md   # Requirements Sprint ceremony
-    integration-sprint/SKILL.md    # Integration Sprint ceremony
-    backlog-refinement/SKILL.md    # PBI refinement process
-    change-process/SKILL.md        # FR-016 Change Process
-    scaffold-design-spec/SKILL.md  # Template stub creation on catalog enable
-    smoke-test/SKILL.md            # Automated test execution and HTTP smoke testing
+    sprint-planning/SKILL.md         # Sprint Planning ceremony
+    spawn-teammates/SKILL.md         # Teammate creation (reproducible)
+    install-subagents/SKILL.md       # Sub-agent selection from catalog (reproducible)
+    pbi-pipeline/SKILL.md            # Per-PBI multi-sub-agent pipeline (R10)
+    pbi-escalation-handler/SKILL.md  # SM-side pbi-pipeline escalation handler
+    cross-review/SKILL.md            # Sprint-end cross-cutting quality gate
+    sprint-review/SKILL.md           # Sprint Review ceremony
+    retrospective/SKILL.md           # Retrospective ceremony
+    requirements-sprint/SKILL.md     # Requirements Sprint ceremony
+    integration-sprint/SKILL.md      # Integration Sprint ceremony
+    backlog-refinement/SKILL.md      # PBI refinement process
+    change-process/SKILL.md          # FR-016 Change Process
+    scaffold-design-spec/SKILL.md    # Template stub creation on catalog enable
+    smoke-test/SKILL.md              # Automated test execution and HTTP smoke testing
   ```
 
 - **Mandatory Inputs/Outputs section**: Every Skill MUST declare, at the
@@ -260,9 +260,10 @@ execute.
   are installed under `.claude/agents/` (FR-019). Developers invoke
   after receiving PBI assignments; missing required sub-agent → BLOCK.
 
-- The Scrum Master preloads all 14 Skills via `skills:` frontmatter.
-  The Developer agent loads 5 Skills: `requirements-sprint`, `design`,
-  `implementation`, `install-subagents`, and `smoke-test`.
+- The Scrum Master preloads ceremony skills via its `skills:` frontmatter
+  (see `agents/scrum-master.md`). The Developer loads
+  `requirements-sprint`, `pbi-pipeline`, `install-subagents`, and
+  `smoke-test`.
 
 ### Alternatives Considered
 - **Prompt-only control**: Rejected — enormous prompt, not reproducible.
@@ -290,12 +291,15 @@ prompt-only management:
 ### Key Technical Details
 
 **Layer 1 — State File**:
-- `.scrum/state.json` contains the `phase` field with valid transitions:
+- `.scrum/state.json` contains the `phase` field; the canonical
+  enum and transitions live in `docs/data-model.md` § ProjectState.
+  Summary:
   ```
   new -> requirements_sprint -> backlog_created -> sprint_planning
-    -> design -> implementation -> review -> sprint_review
+    -> pbi_pipeline_active -> review -> sprint_review
     -> retrospective -> sprint_planning (next Sprint)
-    -> integration_sprint -> complete
+    -> integration_sprint -> backlog_created (defect-fix loop)
+                          -> complete
   ```
 - Phase transitions are performed by the Scrum Master via Skill execution
   (not arbitrary writes).
@@ -386,33 +390,10 @@ docs/design/
     ui/S-030-login-screen.md                        # Enabled
 ```
 
-**Design document frontmatter**:
-```yaml
----
-catalog_id: S-001
-created_sprint: sprint-001
-last_updated_sprint: sprint-003
-related_pbis: [pbi-001, pbi-005, pbi-012]
-frozen: true
-revision_history:
-  - sprint: sprint-001
-    author: dev-001-s1
-    date: "2026-03-01T10:00:00Z"
-    summary: "Initial architecture design"
-    pbis: [pbi-001, pbi-005]
-  - sprint: sprint-003
-    author: dev-004-s3
-    date: "2026-03-05T14:30:00Z"
-    summary: "Added caching layer per PBI-012"
-    pbis: [pbi-012]
-    change_process: true
----
-```
-- `catalog_id` links the document to its `docs/design/catalog.md` entry.
-- `revision_history` is mandatory. Each entry records sprint, author,
-  date, summary, `pbis`, and optionally `change_process: true`.
-- Updates follow FR-020 freeze/Change Process and append to
-  `revision_history`.
+**Design document frontmatter**: schema and `revision_history` rules
+are defined in `docs/data-model.md` § DesignDocument. Updates follow
+FR-020 freeze / Change Process and MUST append a `revision_history`
+entry.
 
 ### Alternatives Considered
 - **Separate `.scrum/designs/catalog.md`**: Rejected — duplicates
@@ -459,16 +440,13 @@ NOT by peer Developers reviewing each other's code.
   isolation, model routing (`codex-code-reviewer`), and tool sandboxing.
 
 ### Key Technical Details
-- **Project-managed agents** (in `agents/`):
-  - `code-reviewer.md` — code quality and design compliance review
-  - `security-reviewer.md` — security vulnerability scanning
-  - `codex-code-reviewer.md` — cross-model review via OpenAI Codex CLI
-  - `pbi-designer.md`, `pbi-implementer.md`, `pbi-ut-author.md` — PBI Pipeline workers
-  - `codex-design-reviewer.md`, `codex-impl-reviewer.md`, `codex-ut-reviewer.md` — PBI Pipeline critical reviewers
+- **Sub-agent catalog**: full list, roles, and tool sandbox in
+  `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
-- Cross-review flow: Scrum Master invokes `cross-review` Skill, which
-  spawns `code-reviewer` and `security-reviewer` (and optionally
-  `codex-code-reviewer`) as sub-agents via the Task tool.
+- Cross-review flow: Scrum Master invokes the `cross-review` skill,
+  which spawns `codex-code-reviewer` (primary) + `security-reviewer`
+  via the Task tool. `code-reviewer` is the fallback when the `codex`
+  CLI is unavailable.
 - PBI Pipeline: the Developer conductor spawns `pbi-*` workers and
   `codex-*-reviewer` critics per Round (see R10).
 - Runtime tracking: `sprint.json` → `developers[].sub_agents` records

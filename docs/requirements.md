@@ -223,15 +223,15 @@ Observe implementation and verify Developers use support sub-agents.
 
 1. **Given** all implementers have completed their work,
    **When** the Scrum Master invokes the `cross-review` Skill,
-   **Then** independent reviewer sub-agents (`code-reviewer`,
+   **Then** independent reviewer sub-agents (`codex-code-reviewer`,
    `security-reviewer`) are spawned and review each PBI against
    the requirements document and design documents.
 
-2. **Given** OpenAI Codex CLI is installed,
+2. **Given** the OpenAI Codex CLI is unavailable,
    **When** the Scrum Master invokes cross-review,
-   **Then** the `codex-code-reviewer` sub-agent is also spawned
-   for cross-model review. If Codex CLI is unavailable, review
-   proceeds with Claude-based reviewers only.
+   **Then** `code-reviewer` (Claude-based) is spawned in place of
+   `codex-code-reviewer`; `security-reviewer` runs in parallel as
+   usual. A warning is logged.
 
 3. **Given** Sprint Planning assigns a PBI to a Developer teammate,
    **When** the Developer prepares for implementation,
@@ -369,14 +369,16 @@ Observe implementation and verify Developers use support sub-agents.
   gates (success / stagnation / divergence / hard cap N=5). **Layer
   2 (Sprint-end cross-review)**: after all per-PBI pipelines reach
   `phase: complete`, the Scrum Master runs the `cross-review` skill
-  which spawns `code-reviewer`, `security-reviewer`, and optionally
-  `codex-code-reviewer` for cross-cutting integration / security
-  perspective. Per-PBI review files at
+  which spawns `codex-code-reviewer` (primary cross-model code review)
+  and `security-reviewer` for cross-cutting integration / security
+  perspective. When the `codex` CLI is unavailable, `cross-review`
+  logs a warning and falls back to `code-reviewer` (Claude-based) for
+  the code-quality pass. Per-PBI review files at
   `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` are read for
   context but NOT re-evaluated. Review issues MUST be either fixed
-  within the Sprint or logged as new PBIs. Codex reviewers fall back
-  to Claude review when the `codex` CLI is unavailable; warning is
-  logged and Sprint-end cross-review compensates.
+  within the Sprint or logged as new PBIs. The same Codex-fallback
+  rule applies to Layer 1 reviewers (`codex-impl-reviewer`,
+  `codex-ut-reviewer`).
 
 - **FR-010**: At Sprint Review, the Scrum Master MUST present the
   Increment with a change summary. A live demo MUST be performed
@@ -448,23 +450,13 @@ Observe implementation and verify Developers use support sub-agents.
   are missing.
 
 - **FR-019**: The system MUST provide project-managed specialist
-  sub-agent definitions in `.claude/agents/`, distributed by
-  `setup-user.sh`. Two scopes:
-
-  **PBI Pipeline sub-agents (required, spawned by Developer)**:
-  `pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
-  `codex-design-reviewer`, `codex-impl-reviewer`, `codex-ut-reviewer`.
-  These are verified by the `install-subagents` skill at PBI start;
-  any missing required sub-agent BLOCKS the pipeline.
-
-  **Sprint-end cross-review sub-agents (spawned by Scrum Master)**:
-  `code-reviewer`, `security-reviewer`, `codex-code-reviewer`. Used
-  by the `cross-review` skill (FR-009 Layer 2).
-
-  Path-level constraints on PBI Pipeline sub-agents are enforced by
-  `hooks/pre-tool-use-path-guard.sh`: `pbi-ut-author` cannot Read /
-  Write / Edit implementation paths; `pbi-implementer` cannot Write /
-  Edit test paths.
+  sub-agents in `.claude/agents/`, distributed by `setup-user.sh`.
+  Sub-agent catalog (purposes, tool sandboxes, spawning parents) in
+  `docs/contracts/sub-agents.md`. The `install-subagents` skill
+  verifies all PBI Pipeline sub-agents are present at PBI start;
+  any missing required sub-agent BLOCKS the pipeline. Path-level
+  constraints on `pbi-implementer` (no test paths) and `pbi-ut-author`
+  (no impl paths) are enforced by `hooks/pre-tool-use-path-guard.sh`.
 
 - **FR-020**: The requirements document MUST be frozen during
   Development Sprints. Design documents MUST be frozen after the
@@ -493,14 +485,14 @@ Observe implementation and verify Developers use support sub-agents.
   needed to achieve the Product Goal. Managed by the Scrum Master.
   PBIs start coarse-grained and are progressively refined.
 
-- **Product Backlog Item (PBI)**: A unit of work with a 5-state
-  lifecycle: `draft` (coarse-grained, e.g. "User Management") ->
-  `refined` (implementation-ready: one function, screen, API, or
-  platform component) -> `in_progress` (Developer implementing) ->
-  `review` (cross-review by another Developer) -> `done` (meets
-  Definition of Done). Each refined PBI produces three
-  deliverables: design document, implementation, and tests.
-  Design is completed and reviewed before implementation begins.
+- **Product Backlog Item (PBI)**: A unit of work with a 6-state
+  lifecycle: `draft` → `refined` → `in_progress` → `review` →
+  `done` (meets Definition of Done), with `blocked` as an escalated
+  state (resolved by SM `pbi-escalation-handler`). Each refined PBI
+  produces three deliverables: design document, implementation, and
+  tests. Design is completed and reviewed before implementation
+  begins. Full schema and validation rules in `docs/data-model.md`
+  § PBI.
 
 - **Sprint Backlog**: The Sprint Goal plus the set of refined PBIs
   selected for the Sprint, with assigned implementers and

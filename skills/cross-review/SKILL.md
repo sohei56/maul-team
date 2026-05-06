@@ -22,7 +22,7 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 
 ## Inputs
 
-- state.json → phase: implementation | review
+- state.json → phase: pbi_pipeline_active | review
 - backlog.json → all Sprint PBIs with implementation complete
 - requirements.md + design docs per PBI
 - agents/code-reviewer.md, agents/security-reviewer.md
@@ -43,7 +43,7 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 
 ## Preconditions
 
-- state.json phase: "implementation" or "review"
+- state.json phase: "pbi_pipeline_active" or "review"
 - backlog.json has PBIs with implementation complete
 - requirements.md exists
 - App builds + starts (verified during implementation; if uncertain→re-verify)
@@ -58,7 +58,7 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 3. **Pre-review build verification**: Start app→all tests pass. Fail→`TaskGet` Developer status→terminated? re-spawn (Teammate Liveness Protocol)→then relay fix request. Do NOT review non-building code
 4. Collect review inputs per PBI: design_doc_paths, source paths, requirements.md path
 5. **Spawn 2 sub-agents per PBI in parallel (Agent tool)**:
-   - `codex-code-reviewer` → design doc paths + source paths + requirements.md. Do NOT pass PBI descriptions, dev communications, .scrum/ state
+   - `codex-code-reviewer` (fallback `code-reviewer` when `codex` CLI unavailable; log warning) → design doc paths + source paths + requirements.md. Do NOT pass PBI descriptions, dev communications, .scrum/ state
    - `security-reviewer` → source paths + requirements.md
 6. Collect results from both
 7. **Doc-implementation consistency check**: Compare design docs + user-facing docs vs actual code. Mismatch→send Developer to update docs (not code)

@@ -74,8 +74,8 @@ responsibilities (what it owns).
 | `sprint-planning` | Sprint Planning | FR-005, FR-006, FR-007, FR-008 |
 | `spawn-teammates` | Teammate creation (reproducible) | FR-001, FR-007 |
 | `install-subagents` | Sub-agent selection from catalog | FR-019 |
-| `design` | Design phase orchestration | FR-004 |
-| `implementation` | Implementation phase orchestration | FR-017 |
+| `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | FR-004, FR-017 |
+| `pbi-escalation-handler` | SM-side handling of pbi-pipeline escalations | FR-004, FR-017 |
 | `cross-review` | Cross-review process | FR-009 |
 | `sprint-review` | Sprint Review | FR-010, FR-011 |
 | `retrospective` | Retrospective | FR-012 |
@@ -96,9 +96,9 @@ body. Below is the reference for all 14 Skills:
 | `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`, `reviewer_id` (round-robin); oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |
 | `spawn-teammates` | `sprint.json` → `pbi_ids`, `developer_count`; `backlog.json` → assigned PBIs | `sprint.json` → `developers[]` (populated, `assigned_work.implement` + `assigned_work.review`), `status: "active"`; Agent Teams teammates spawned |
 | `install-subagents` | PBI assignment (task context); project-managed agent definitions | `.claude/agents/*.md` (installed); `sprint.json` → `developers[].sub_agents` (at runtime) |
-| `design` | `state.json` → `phase: sprint_planning`; `sprint.json` → `developers[]`; `docs/design/catalog.md`; existing `docs/design/specs/**/*.md` (stubs already created by `scaffold-design-spec`); `requirements.md` (source requirements for reference) | `docs/design/specs/{category}/*.md` (populated with design content, `revision_history` incl. `pbis`); `backlog.json` → `items[].design_doc_paths`; `state.json` → `phase: design` |
-| `implementation` | `state.json` → `phase: design`; `sprint.json`; `docs/design/specs/**/*.md`; `requirements.md` | Source code; test files; `backlog.json` → `items[].status: in_progress`; `state.json` → `phase: implementation` |
-| `cross-review` | `state.json` → `phase: implementation`; `backlog.json` → all PBIs in current Sprint with `status: in_progress` complete; `requirements.md`; relevant `docs/design/specs/**/*.md` for each PBI; `agents/code-reviewer.md`, `agents/security-reviewer.md` available | `sprint.json` → `status: "cross_review"`; `backlog.json` → `items[].status: in_progress → review → done`, `items[].review_doc_path` set; `reviews/<pbi-id>-review.md` (created by reviewer sub-agents); `state.json` → `phase: review` |
+| `pbi-pipeline` | `state.json` → `phase: sprint_planning \| pbi_pipeline_active`; `sprint.json` → `developers[]`; `docs/design/catalog.md`; existing `docs/design/specs/**/*.md`; `requirements.md`; `.scrum/config.json` (coverage thresholds) | Source code; test files; `docs/design/specs/{category}/*.md` (catalog spec updates as side-effect); `.scrum/pbi/<pbi-id>/{state,design,impl,ut,metrics,feedback,pipeline.log}` (see `data-model.md` § PbiPipelineState); `backlog.json` → `items[].status: refined → in_progress → review`; `state.json` → `phase: pbi_pipeline_active` |
+| `pbi-escalation-handler` | Developer notification `[<pbi-id>] ESCALATED reason=<reason>`; `.scrum/pbi/<pbi-id>/state.json`; `.scrum/pbi/<pbi-id>/pipeline.log` | `.scrum/pbi/<pbi-id>/escalation-resolution.md`; SM decision (retry / split / hold / human-escalate) |
+| `cross-review` | `state.json` → `phase: pbi_pipeline_active \| review`; `backlog.json` → all Sprint PBIs whose `pbi-pipeline` reached `phase: complete`; `requirements.md`; relevant `docs/design/specs/**/*.md`; per-PBI pipeline final reviews at `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` (read for context, not re-evaluated) | `sprint.json` → `status: "cross_review"`; `.scrum/pbi/<pbi-id>/state.json` → `phase: review_complete` (backlog.status auto-projects to `done`); `backlog.json` → `items[].review_doc_path`; `reviews/<pbi-id>-review.md`; `state.json` → `phase: review` |
 | `sprint-review` | `state.json` → `phase: review`; `sprint.json`; `backlog.json` | `sprint.json` → `status: "sprint_review"`; `sprint-history.json` → `sprints[]` (appended); `state.json` → `phase: sprint_review` |
 | `retrospective` | `state.json` → `phase: sprint_review`; `improvements.json` (existing improvements and `last_consolidation_sprint`); `sprint.json` → `id` (for consolidation check) | `improvements.json` → `entries[]` (appended), stale entries archived every 3 Sprints (`status: archived`, `archived_at` set, `last_consolidation_sprint` updated); `sprint.json` → `status: "complete"`; `state.json` → `phase: retrospective` |
 | `integration-sprint` | `state.json` → `phase: retrospective`; user confirmation | `.scrum/test-results.json` (structured test results from automated testing); `state.json` → `phase: integration_sprint → complete` |
@@ -161,24 +161,12 @@ body. Below is the reference for all 14 Skills:
 **Launch**: Scrum Master or Developer invokes via Task tool (`Task(subagent_type="<agent-name>")`)
 **Role**: Ephemeral worker within the spawning agent's session
 
-### Reviewer Sub-Agents (spawned by Scrum Master during cross-review)
-
-| Agent | Purpose | Tools |
-|-------|---------|-------|
-| `code-reviewer` | Code quality, design compliance, best practices | Read, Grep, Glob, Bash (read-only) |
-| `security-reviewer` | Security vulnerability scanning (OWASP Top 10) | Read, Grep, Glob, Bash (read-only) |
-| `codex-code-reviewer` | Cross-model review via OpenAI Codex CLI | Read, Grep, Glob, Bash |
-
-### PBI Pipeline Sub-Agents (spawned by Developer per Round)
-
-| Agent | Purpose | Tools |
-|-------|---------|-------|
-| `pbi-designer` | Author per-PBI design spec | Read, Write, Edit, Grep, Glob, Bash |
-| `pbi-implementer` | Implement PBI source (no test writes) | Read, Write, Edit, Grep, Glob, Bash |
-| `pbi-ut-author` | Black-box unit tests (no impl reads) | Read, Write, Edit, Grep, Glob, Bash |
-| `codex-design-reviewer` | Cross-model critical design review | Read, Grep, Glob, Bash |
-| `codex-impl-reviewer` | Cross-model impl review (no test visibility) | Read, Grep, Glob, Bash |
-| `codex-ut-reviewer` | Cross-model UT review (no impl visibility) | Read, Grep, Glob, Bash |
+Full sub-agent catalog (roles, spawning parents, tool sandboxes) in
+`docs/contracts/sub-agents.md`. Cross-review uses `codex-code-reviewer`
+(primary) + `security-reviewer`, with `code-reviewer` as fallback when
+the `codex` CLI is unavailable. PBI Pipeline uses `pbi-{designer,
+implementer, ut-author}` workers and `codex-{design, impl, ut}-reviewer`
+critics per Round.
 
 ### Inputs
 - Task description from spawning agent (via Task tool prompt)
