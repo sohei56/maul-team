@@ -114,37 +114,12 @@ definitions), `skills/` (16 Skills covering all Scrum ceremonies
 plus the cleanup-audit maintenance skill), `hooks/`, `dashboard/`,
 `scripts/`, `tests/`, `docs/`, and the runtime `.scrum/` directory.
 
-## Running Tests
+## Running Tests and Linting
 
-```bash
-# Run all fast tests (unit + lint)
-bats tests/unit/ tests/lint/
-
-# Run unit tests only
-bats tests/unit/
-
-# Run agent/skill definition linting
-bats tests/lint/
-
-# Run integration tests (script-to-script)
-bats tests/integration/script-compose.bats
-
-# Run agent smoke tests (requires API key, costs credits)
-ANTHROPIC_API_KEY=sk-... bats tests/integration/agent-smoke.bats
-```
-
-## Linting
-
-```bash
-# Lint all shell scripts
-shellcheck scrum-start.sh scripts/*.sh hooks/*.sh
-
-# Check agent definition YAML frontmatter
-bats tests/lint/agent-frontmatter.bats
-
-# Check skill definition YAML frontmatter
-bats tests/lint/skill-frontmatter.bats
-```
+This document targets end users running the framework. Contributors
+should refer to [CONTRIBUTING.md § Running Tests](../CONTRIBUTING.md#running-tests)
+for the full bats / shellcheck / ruff invocations and dev-tool
+prerequisites.
 
 ## Key Concepts
 
