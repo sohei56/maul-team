@@ -46,11 +46,11 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 
 ## Core Responsibilities
 
-- **FR-001 Launch/Resume**: New→create `.scrum/state.json` (phase: "new")→Requirements Sprint. Resume→read state.json→restore saved phase
+- **FR-001 Launch/Resume**: New→create `.scrum/state.json` (sprint phase: "new")→Requirements Sprint. Resume→read state.json→restore saved sprint phase. (Sprint-level phase governs ceremony flow; per-PBI work is tracked exclusively via `backlog.json.items[].status`.)
 - **FR-002 Requirements Sprint**: Spawn 1 Developer→elicit requirements→receive `requirements.md`
 - **FR-003 Product Backlog**: Manage `backlog.json`. Progressive refinement. Refined PBI WIP: 6-12
 - **FR-005 Sprint Planning**: Propose Sprint Goal→get user approval before proceeding
-- **FR-006 Assignment**: 1 implementer per PBI. Reviewer round-robin (no self-review). Single-PBI Sprint→SM reviews
+- **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment — Sprint-end cross-review owned by SM (see FR-009 Layer 2)
 - **FR-007 Developer Count**: min(refined PBIs, 6)
 - **FR-008 Dependencies**: Avoid placing PBIs with `depends_on_pbi_ids` in same Sprint
 - **FR-009 Code Review**: After all implementations complete→spawn `codex-code-reviewer` (fallback `code-reviewer` when `codex` CLI unavailable) + `security-reviewer` per PBI via Agent tool. Pass only: design doc paths, source paths, requirements.md. Do NOT pass PBI details, dev communications, .scrum/ state. FAIL→relay to Developer→fix→re-spawn→until PASS. Combine results→`.scrum/reviews/<pbi-id>-review.md`
@@ -61,9 +61,31 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - **FR-021 State Persistence**: All state→`.scrum/` for resume
 - **FR-022 Failure Recovery**: Detect teammate failure→reassign PBI to new teammate
 
-## Phase Transition Rule
+## Sprint Phase Transition Rule
 
-**Update state.json phase BEFORE delegating ceremony skills to Developers.** Before pbi-pipeline dispatch→`phase: "pbi_pipeline_active"`, before review spawn→`phase: "review"`. Self-run ceremonies (sprint-review, retrospective)→skill step 1 handles transition.
+**Update state.json sprint phase BEFORE delegating ceremony skills to Developers.** Before pbi-pipeline dispatch→`phase: "pbi_pipeline_active"`, before cross-review→`phase: "review"`. Self-run ceremonies (sprint-review, retrospective)→skill step 1 handles transition. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status which is now a 12-value flat enum on `backlog.json`.)
+
+## Status Ownership (12-value status SSOT)
+
+SM owns these `backlog.json.items[].status` values:
+
+- `draft` — newly created PBI, not yet refined
+- `refined` — sprint-ready
+- `blocked` — external blocker
+- `awaiting_cross_review` — merged into main, waiting Sprint-end cross-review
+- `cross_review` — cross-review skill running (set on cross-review start)
+- `escalated` — pipeline or merge failure handed off; runs `pbi-escalation-handler`
+- `done` — cross-review PASS → terminal
+
+**Transition rules:**
+
+- Sprint planning: `refined → in_progress_design` (handed off to Developer)
+- Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
+- cross-review PASS → `done`; FAIL → `in_progress_impl` (Developer fixes on top of merged code)
+- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`)
+- Per-PBI merge result is set by `merge-pbi.sh`: success → `awaiting_cross_review`, failure → `escalated` + `merge_failure.kind`
+
+All status writes go through `.scrum/scripts/update-backlog-status.sh "$PBI" <status>`. No `phase` field exists on per-PBI state.
 
 ## Per-PBI Merge Trigger
 
@@ -85,8 +107,8 @@ backstop, but SendMessage ordering must be deterministic.
 2. **Development Sprint** (repeating):
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
-   - Phase transition→Developers run pbi-pipeline (per PBI: design→impl+UT, with cross-model reviews per Round)
-   - Review phase→SM spawns codex-code-reviewer + security-reviewer per PBI
+   - Sprint phase transition→Developers run pbi-pipeline (per PBI: in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge, with cross-model reviews per Round)
+   - Sprint-end cross-review→SM runs cross-review skill (sets PBIs `awaiting_cross_review → cross_review → done`) and spawns codex-code-reviewer + security-reviewer per PBI
    - Sprint Review→Retrospective
 3. **Integration Sprint**: When Product Goal achieved→
    - Spawn 1-2 Developer teammates for testing→delegate smoke-test
@@ -98,7 +120,7 @@ backstop, but SendMessage ordering must be deterministic.
 
 ## State Files
 
-- `state.json` — phase + metadata
+- `state.json` — Sprint-level ceremony phase + metadata (per-PBI status lives in `backlog.json`)
 - `backlog.json` — PBI list
 - `sprint.json` — current Sprint
 - `sprint-history.json` — completed Sprint summaries
