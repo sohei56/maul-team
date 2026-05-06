@@ -87,8 +87,11 @@ and Sprint Review presents the Increment to the user.
    **When** Sprint Planning occurs,
    **Then** the Scrum Master refines coarse-grained PBIs into
    implementation-ready PBIs (one per function, screen, API, or
-   platform component), assigns each to one implementer, and
-   assigns reviewers round-robin (no self-review).
+   platform component) and assigns each to exactly one
+   implementer (1 Developer = 1 PBI). No per-PBI reviewer is
+   assigned — Sprint-end cross-review is performed by the
+   Scrum Master via independent reviewer sub-agents (FR-009
+   Layer 2).
 
 3. **Given** Sprint Planning is complete,
    **When** the Design phase begins,
@@ -257,9 +260,9 @@ Observe implementation and verify Developers use support sub-agents.
   PBIs until the Developer count is within the 1-6 range.
 
 - What happens when a Sprint has only one PBI?
-  The single Developer implements the PBI. Since round-robin review
-  requires at least two Developers, the Scrum Master performs the
-  cross-review.
+  The single Developer implements the PBI. Sprint-end cross-review
+  is independent of Developer count — the Scrum Master always
+  performs it via reviewer sub-agents (FR-009 Layer 2).
 
 - What happens when cross-review finds issues that cannot be fixed
   within the Sprint?
@@ -342,10 +345,13 @@ Observe implementation and verify Developers use support sub-agents.
   The Scrum Master MUST present them to the user for approval in
   natural language.
 
-- **FR-006**: The system MUST assign each PBI to one implementer.
-  Reviewers MUST be assigned round-robin across Developers so that
-  no Developer reviews their own work. In a single-PBI Sprint (one
-  Developer), the Scrum Master MUST perform the review.
+- **FR-006**: The system MUST assign each PBI to exactly one
+  implementer (1 Developer = 1 PBI). The system MUST NOT assign
+  per-PBI reviewers to Developers. Sprint-end review is owned by
+  the Scrum Master and performed by independent reviewer
+  sub-agents (see FR-009 Layer 2). The legacy `reviewer_id`
+  field is removed from `backlog.json` items, and `assigned_work`
+  no longer contains a `review` array.
 
 - **FR-007**: The system MUST determine the Developer count per
   Sprint as min(number of refined PBIs, 6). Each Developer is
@@ -539,7 +545,9 @@ Observe implementation and verify Developers use support sub-agents.
 
 - **SC-003**: Every Development Sprint produces at least one
   Increment that meets the Definition of Done, including
-  cross-review by a different Developer.
+  Sprint-end cross-review by independent reviewer sub-agents
+  (`codex-code-reviewer` and `security-reviewer`) spawned by
+  the Scrum Master.
 
 - **SC-004**: The user can understand project status at any time
   through the TUI dashboard without inspecting code, logs, or

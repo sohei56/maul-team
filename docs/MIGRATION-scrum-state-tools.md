@@ -76,15 +76,15 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 
 The current wrapper set covers the pbi-pipeline migration and the four migrated skill SKILL files. The following raw writes are **not yet** covered and will be blocked by the `PreToolUse` hook at runtime until the listed follow-ups land:
 
-1. **`skills/sprint-planning/SKILL.md` step 11.2** writes `items[].catalog_targets` via raw `jq`. Required follow-up:
+1. **`skills/sprint-planning/SKILL.md` step 10.2** writes `items[].catalog_targets` via raw `jq`. Required follow-up:
    - Add `catalog_targets` (array of strings) to `docs/contracts/scrum-state/backlog.schema.json` under `items` (currently rejected by `additionalProperties: false`).
    - Ship a wrapper, e.g. `.scrum/scripts/set-backlog-item-field.sh <pbi-id> catalog_targets <json-array>` (or per-field setters).
-2. **Sprint creation / init** (sprint-planning step 9) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).
-3. **Backlog item field updates** (sprint-planning step 10) — `items[].sprint_id`, `items[].implementer_id`, `items[].reviewer_id` have no wrapper. They need the same per-field setter as gap (1), or one setter per field.
+2. **Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).
+3. **Backlog item field updates** (sprint-planning step 9) — `items[].sprint_id`, `items[].implementer_id` have no wrapper. They need the same per-field setter as gap (1), or one setter per field.
 4. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks.
 5. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 
-Each of these has a `TODO(scrum-state-tools)` comment in the relevant file pointing back to this document. Until they land, sprint-planning step 11.2 (and likely 9 and 10) **will fail at runtime** when the hook fires.
+Each of these has a `TODO(scrum-state-tools)` comment in the relevant file pointing back to this document. Until they land, sprint-planning step 10.2 (and likely 8 and 9) **will fail at runtime** when the hook fires.
 
 ## Worktree / merge governance wrappers (2026-05-04)
 

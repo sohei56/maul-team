@@ -76,7 +76,6 @@ Valid phases:
 | `priority` | integer | Order in backlog (1 = highest) |
 | `sprint_id` | string \| null | Sprint this PBI is assigned to, null if in backlog |
 | `implementer_id` | string \| null | Developer teammate assigned to implement |
-| `reviewer_id` | string \| null | Reviewer ID: a Developer teammate (round-robin) or `"scrum-master"` (single-PBI Sprint) |
 | `design_doc_paths` | string[] | Paths to design documents relative to project root (catalog specs in `docs/design/specs/`, plus PBI working design at `.scrum/pbi/<pbi-id>/design/design.md`) |
 | `review_doc_path` | string \| null | Path to review results relative to project root |
 | `catalog_targets` | string[] | Catalog spec paths the PBI may touch. Recorded by `sprint-planning` skill; used to prevent parallel write contention (Layer 1 of `catalog-contention` defense). |
@@ -102,8 +101,7 @@ draft -> refined -> in_progress -> review -> done
 - `blocked` — `pbi-pipeline` escalated. SM `pbi-escalation-handler` decides retry / split / hold / human-escalate. See escalation-resolution.md in PBI workspace.
 
 ### Validation Rules
-- `implementer_id` and `reviewer_id` MUST differ (FR-006). Reviewers are assigned round-robin. In a single-PBI Sprint, `reviewer_id` is `"scrum-master"`.
-- `implementer_id` and `reviewer_id` are set only when `status` is `refined` or later.
+- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — Sprint-end review is performed by the Scrum Master via independent reviewer sub-agents (see `cross-review` skill, FR-009 Layer 2).
 - `design_doc_paths` is populated when design documents are produced (before `in_progress`).
 - `acceptance_criteria` MUST be non-empty when transitioning from `draft` to `refined`.
 - `depends_on_pbi_ids` is used by the Scrum Master to avoid placing dependent PBIs in the same Sprint (FR-008).
@@ -136,9 +134,8 @@ draft -> refined -> in_progress -> review -> done
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Teammate identifier (e.g., `"dev-001-s3"`) |
-| `assigned_work` | object | PBI assignments split by responsibility |
-| `assigned_work.implement` | string[] | PBI IDs this Developer implements |
-| `assigned_work.review` | string[] | PBI IDs this Developer reviews (round-robin assigned) |
+| `assigned_work` | object | PBI assignments |
+| `assigned_work.implement` | string[] | PBI IDs this Developer implements (per-PBI review is handled inside `pbi-pipeline`; Sprint-end cross-review is owned by SM) |
 | `current_pbi` | string \| null | PBI ID currently being driven through `pbi-pipeline` (1 PBI at a time, sequential). Null between PBIs. |
 | `current_pbi_phase` | enum \| null | Mirror of the PBI's internal phase: `design`, `impl_ut`, `complete`, `escalated`. See `PbiPipelineState`. |
 | `status` | enum | `"active"`, `"idle"`, `"failed"` |
@@ -566,7 +563,6 @@ state.json
 backlog.json
   └── items[].sprint_id -> sprint.json.id
   └── items[].implementer_id -> sprint.json.developers[].id
-  └── items[].reviewer_id -> sprint.json.developers[].id
   └── items[].design_doc_paths[] -> docs/design/specs/{category}/{id}-{slug}.md
                                   | .scrum/pbi/<pbi-id>/design/design.md
   └── items[].review_doc_path -> reviews/<pbi-id>-review.md
@@ -578,7 +574,6 @@ sprint.json
   └── pbi_ids[] -> backlog.json.items[].id
   └── developers[].current_pbi -> backlog.json.items[].id
   └── developers[].assigned_work.implement[] -> backlog.json.items[].id
-  └── developers[].assigned_work.review[] -> backlog.json.items[].id
 
 .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
   └── pbi_id -> backlog.json.items[].id

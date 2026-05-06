@@ -48,10 +48,10 @@ responsibilities (what it owns).
 | FR-003 | Create and maintain Product Backlog; progressive refinement |
 | FR-004 | Orchestrate Design phase: determine design document granularity (R8), assign Developers, ensure existing designs are read |
 | FR-005 | Propose Sprint Goals (PO-reviewable scope), get user approval |
-| FR-006 | Assign implementers and round-robin reviewers (no self-review); single-PBI Sprint: Scrum Master reviews |
+| FR-006 | Assign implementers (one per PBI). Sprint-end review is owned by SM via cross-review (FR-009 Layer 2) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Orchestrate cross-review: assign review pairs, collect results; single-PBI Sprint: Scrum Master performs review |
+| FR-009 | Orchestrate cross-review at Sprint end: SM spawns `codex-code-reviewer` (fallback `code-reviewer`) and `security-reviewer` per merged PBI, collects results, drives fix loop until PASS |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -93,8 +93,8 @@ body. Below is the reference for all 14 Skills:
 |-------|------------------------|------------------------------|
 | `requirements-sprint` | `state.json` → `phase: new` | `requirements.md` (created); `state.json` → `phase: requirements_sprint → backlog_created` |
 | `backlog-refinement` | `backlog.json` → `items[]` with `status: draft`; `requirements.md`; count of existing `refined` PBIs (WIP check) | `backlog.json` → `items[].status: refined`, `acceptance_criteria`, `ux_change`, `design_doc_paths` (refined WIP capped at 6-12) |
-| `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`, `reviewer_id` (round-robin); oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |
-| `spawn-teammates` | `sprint.json` → `pbi_ids`, `developer_count`; `backlog.json` → assigned PBIs | `sprint.json` → `developers[]` (populated, `assigned_work.implement` + `assigned_work.review`), `status: "active"`; Agent Teams teammates spawned |
+| `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`; oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |
+| `spawn-teammates` | `sprint.json` → `pbi_ids`, `developer_count`; `backlog.json` → assigned PBIs | `sprint.json` → `developers[]` (populated, `assigned_work.implement`), `status: "active"`; Agent Teams teammates spawned |
 | `install-subagents` | PBI assignment (task context); project-managed agent definitions | `.claude/agents/*.md` (installed); `sprint.json` → `developers[].sub_agents` (at runtime) |
 | `pbi-pipeline` | `state.json` → `phase: sprint_planning \| pbi_pipeline_active`; `sprint.json` → `developers[]`; `docs/design/catalog.md`; existing `docs/design/specs/**/*.md`; `requirements.md`; `.scrum/config.json` (coverage thresholds) | Source code; test files; `docs/design/specs/{category}/*.md` (catalog spec updates as side-effect); `.scrum/pbi/<pbi-id>/{state,design,impl,ut,metrics,feedback,pipeline.log}` (see `data-model.md` § PbiPipelineState); `backlog.json` → `items[].status: refined → in_progress → review`; `state.json` → `phase: pbi_pipeline_active` |
 | `pbi-escalation-handler` | Developer notification `[<pbi-id>] ESCALATED reason=<reason>`; `.scrum/pbi/<pbi-id>/state.json`; `.scrum/pbi/<pbi-id>/pipeline.log` | `.scrum/pbi/<pbi-id>/escalation-resolution.md`; SM decision (retry / split / hold / human-escalate) |

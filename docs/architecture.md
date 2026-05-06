@@ -240,7 +240,7 @@ execute.
   ## Outputs (files/keys updated)
   - `sprint.json` -> `developers[]` (populated with spawned teammates)
   - `state.json` -> `phase` (transitions to `design`)
-  - `backlog.json` -> `items[].implementer_id`, `items[].reviewer_id` (round-robin)
+  - `backlog.json` -> `items[].implementer_id`
   ```
 
 - Each Skill declares Inputs, Outputs, preconditions, steps, exit
@@ -250,9 +250,9 @@ execute.
 - **`spawn-teammates`**: Reproducible teammate creation during Sprint
   Planning. Developer count = min(refined PBIs, 6). Reads `sprint.json`
   + `backlog.json`, spawns teammates with consistent naming (`dev-001-s{N}`,
-  ...). Each Developer implements their assigned PBI; reviewers are
-  assigned round-robin (no self-review). In a single-PBI Sprint,
-  the Scrum Master performs the review.
+  ...). Each Developer implements their assigned PBI. There is no
+  reviewer assignment — Sprint-end cross-review is performed by the
+  Scrum Master via independent reviewer sub-agents (FR-009 Layer 2).
 
 - **`install-subagents`**: Verify PBI Pipeline sub-agents
   (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
