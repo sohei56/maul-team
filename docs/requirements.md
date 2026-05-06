@@ -596,9 +596,8 @@ Observe implementation and verify Developers use support sub-agents.
   external catalog dependency.
 - The user's environment supports TUI rendering (standard terminal
   emulator with basic ANSI support).
-- Python 3.9+ is installed and available on the user's PATH.
-  The TUI dashboard depends on `textual` and `watchdog` Python
-  packages, installable via `pip install textual watchdog`.
+- Python 3.9+ is installed and available on the user's PATH (TUI
+  dependencies covered by SC-007).
 - Agent Teams can be re-created per Sprint without significant
   setup overhead, as stated in the Claude Code Agent Teams
   documentation. The Scrum Master (team lead) session persists
