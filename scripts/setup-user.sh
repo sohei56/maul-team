@@ -202,7 +202,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/phase-gate.sh"
+            "command": ".claude/hooks/status-gate.sh"
           }
         ]
       },
