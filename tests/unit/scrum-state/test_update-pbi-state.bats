@@ -11,7 +11,6 @@ setup() {
   cat > .scrum/pbi/pbi-001/state.json <<'EOF'
 {
   "pbi_id": "pbi-001",
-  "phase": "design",
   "design_round": 0,
   "impl_round": 0,
   "design_status": "pending",
@@ -46,11 +45,9 @@ teardown() {
   [ "$output" = "2/in_review/1/pending" ]
 }
 
-@test "update-pbi-state: escalates with reason" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase escalated escalation_reason stagnation
+@test "update-pbi-state: sets escalation_reason" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 escalation_reason stagnation
   [ "$status" -eq 0 ]
-  run jq -r '.phase' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
-  [ "$output" = "escalated" ]
   run jq -r '.escalation_reason' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
   [ "$output" = "stagnation" ]
 }
@@ -61,6 +58,21 @@ teardown() {
   [ "$status" -eq 0 ]
   run jq -r '.escalation_reason' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
   [ "$output" = "null" ]
+}
+
+@test "update-pbi-state: accepts merge_conflict / merge_artifact_missing / merge_regression escalation_reason" {
+  for r in merge_conflict merge_artifact_missing merge_regression; do
+    run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 escalation_reason "$r"
+    [ "$status" -eq 0 ]
+    run jq -r '.escalation_reason' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+    [ "$output" = "$r" ]
+  done
+}
+
+@test "update-pbi-state: rejects phase as a writable field (phase no longer exists in schema)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase design
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"unknown field"* ]]
 }
 
 @test "update-pbi-state: rejects unknown field (typo guard)" {
@@ -82,7 +94,7 @@ teardown() {
 }
 
 @test "update-pbi-state: rejects bad pbi-id" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" "BAD ID" phase design
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" "BAD ID" design_round 1
   [ "$status" -eq 64 ]
 }
 
@@ -110,25 +122,6 @@ teardown() {
   env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 design_round 1
   after="$(jq -r '.updated_at' "$TEST_TMP/.scrum/pbi/pbi-001/state.json")"
   [ "$before" != "$after" ]
-}
-
-@test "update-pbi-state: accepts ready_to_merge phase" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase ready_to_merge
-  [ "$status" -eq 0 ]
-  run jq -r '.phase' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
-  [ "$output" = "ready_to_merge" ]
-}
-
-@test "update-pbi-state: accepts merged phase" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase merged
-  [ "$status" -eq 0 ]
-}
-
-@test "update-pbi-state: accepts merge_conflict / merge_artifact_missing / merge_regression" {
-  for p in merge_conflict merge_artifact_missing merge_regression; do
-    run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase "$p"
-    [ "$status" -eq 0 ]
-  done
 }
 
 @test "update-pbi-state: sets branch / worktree / base_sha" {

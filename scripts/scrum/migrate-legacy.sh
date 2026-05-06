@@ -129,7 +129,11 @@ echo "Migrating $SCRUM_DIR (schemas: $SCHEMA_DIR)..."
 
 # --- backlog.json ---
 # Rename .pbis -> .items, lowercase PBI ids, lowercase depends_on refs,
-# drop fields the schema does not allow (additionalProperties: false on items).
+# drop fields the schema does not allow (additionalProperties: false on items),
+# and remap legacy 6-value status to the 12-value enum (best-effort —
+# without phase context, in_progress maps to in_progress_design and
+# review maps to awaiting_cross_review; PBI-G's migrate-status-v2.sh
+# does the precise phase-aware mapping when pbi-state.json is available).
 BACKLOG_EXPR='
   (if has("pbis") then .items = .pbis | del(.pbis) else . end)
   | .items |= ((. // []) | map(
@@ -138,12 +142,17 @@ BACKLOG_EXPR='
          then .depends_on_pbi_ids |= map(ascii_downcase)
          else . end)
       | del(.estimated_points)
+      | del(.reviewer_id)
+      | (if .status == "in_progress" then .status = "in_progress_design"
+         elif .status == "review"    then .status = "awaiting_cross_review"
+         else . end)
     ))
 '
 apply_migration "$SCRUM_DIR/backlog.json" "$BACKLOG_EXPR" "$SCHEMA_DIR/backlog.schema.json" || true
 
 # --- sprint.json ---
-# Lowercase pbi_ids[] and per-developer assigned_work refs. Ensure started_at
+# Lowercase pbi_ids[] and per-developer assigned_work.implement refs. Drop
+# legacy assigned_work.review (peer-review model removed). Ensure started_at
 # (schema requires it; legacy files only have created_at).
 # shellcheck disable=SC2016  # $now is a jq variable bound below via --arg
 SPRINT_EXPR='
@@ -152,7 +161,7 @@ SPRINT_EXPR='
      then .developers |= map(
        (if (.assigned_work // null) != null
         then .assigned_work.implement |= ((. // []) | map(ascii_downcase))
-             | .assigned_work.review  |= ((. // []) | map(ascii_downcase))
+             | del(.assigned_work.review)
         else . end)
        | (if (.current_pbi // null) != null
           then .current_pbi |= ascii_downcase

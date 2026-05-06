@@ -14,8 +14,11 @@ case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
 
 STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
-PHASE="$(jq -r '.phase' "$STATE")"
-[ "$PHASE" = "ready_to_merge" ] || fail E_INVALID_ARG "expected phase=ready_to_merge, got $PHASE"
+BACKLOG=".scrum/backlog.json"
+[ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
+STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' "$BACKLOG")"
+[ "$STATUS" = "in_progress_merge" ] \
+  || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$STATUS'"
 BRANCH="$(jq -r '.branch' "$STATE")"
 
 # Read paths_touched — portable (Bash 3.2+)
@@ -95,7 +98,7 @@ fi
 MERGED_SHA="$(git rev-parse HEAD)"
 "$HERE/mark-pbi-merged.sh" "$PBI" "$MERGED_SHA"
 
-# Cleanup the worktree + branch (phase is now merged — cleanup will succeed)
+# Cleanup the worktree + branch (status is now awaiting_cross_review — cleanup will succeed)
 "$HERE/cleanup-pbi-worktree.sh" "$PBI"
 
 printf '[merge-pbi] %s merged at %s\n' "$PBI" "$MERGED_SHA"

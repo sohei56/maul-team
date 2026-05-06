@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/scrum/cleanup-pbi-worktree.sh — remove worktree + branch after merge or escalation.
-# Idempotent. Refuses for non-terminal phases to prevent accidental work loss.
+# Idempotent. Refuses for non-terminal status to prevent accidental work loss.
+# Terminal status (cleanup allowed): awaiting_cross_review, cross_review, escalated, done.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/lib/errors.sh"
@@ -11,10 +12,12 @@ case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
 
 STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
-PHASE="$(jq -r '.phase' "$STATE")"
-case "$PHASE" in
-  merged|escalated) ;;
-  *) fail E_INVALID_ARG "refuse to cleanup pbi $PBI in phase=$PHASE (need merged or escalated)" ;;
+BACKLOG=".scrum/backlog.json"
+[ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
+STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' "$BACKLOG")"
+case "$STATUS" in
+  awaiting_cross_review|cross_review|escalated|done) ;;
+  *) fail E_INVALID_ARG "refuse to cleanup pbi $PBI in status=$STATUS (need awaiting_cross_review|cross_review|escalated|done)" ;;
 esac
 
 WT=".scrum/worktrees/$PBI"

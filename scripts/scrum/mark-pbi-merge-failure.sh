@@ -3,7 +3,9 @@
 # Args: <pbi-id> <kind> <pre_head_sha> <detail>
 #   kind=conflict|artifact_missing → detail is comma-separated paths
 #   kind=regression                → detail is a single report_path
-# Increments merge_failure_count; on count=3 promotes phase to escalated.
+# Increments merge_failure_count; on count=3 escalates (status=escalated +
+# escalation_reason mapped from kind). Below 3, leaves backlog status
+# untouched (typically already in_progress_merge from mark-pbi-ready-to-merge).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -11,8 +13,6 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
-# shellcheck source=lib/derive.sh
-source "$HERE/lib/derive.sh"
 
 [ "$#" -eq 4 ] || fail E_INVALID_ARG "usage: mark-pbi-merge-failure.sh <pbi-id> <kind> <pre-head-sha> <detail>"
 PBI="$1"; KIND="$2"; PRE="$3"; DETAIL="$4"
@@ -37,27 +37,30 @@ case "$KIND" in
     ;;
 esac
 
-# Decide phase: escalate at 3rd failure
+# Map kind → escalation_reason for the escalated case.
+case "$KIND" in
+  conflict)          ESC_REASON="merge_conflict" ;;
+  artifact_missing)  ESC_REASON="merge_artifact_missing" ;;
+  regression)        ESC_REASON="merge_regression" ;;
+esac
+
 if [ "$NEW_COUNT" -ge 3 ]; then
-  NEW_PHASE="escalated"
-  EXPR=".phase = \"escalated\" | .escalation_reason = \"stagnation\" | .merge_failure = $MF | .merge_failure_count = $NEW_COUNT"
+  EXPR=".escalation_reason = \"$ESC_REASON\" | .merge_failure = $MF | .merge_failure_count = $NEW_COUNT"
 else
-  case "$KIND" in
-    conflict)          NEW_PHASE="merge_conflict" ;;
-    artifact_missing)  NEW_PHASE="merge_artifact_missing" ;;
-    regression)        NEW_PHASE="merge_regression" ;;
-  esac
-  EXPR=".phase = \"$NEW_PHASE\" | .merge_failure = $MF | .merge_failure_count = $NEW_COUNT"
+  EXPR=".merge_failure = $MF | .merge_failure_count = $NEW_COUNT"
 fi
 
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 
-# Project to backlog
-DERIVED="$(derive_backlog_status_from_phase "$NEW_PHASE")"
-BACKLOG=".scrum/backlog.json"
-BACKLOG_SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
-if [ -f "$BACKLOG" ] && jq -e --arg id "$PBI" '.items | map(select(.id==$id)) | length > 0' "$BACKLOG" >/dev/null; then
-  atomic_write "$BACKLOG" "(.items[] | select(.id == \"$PBI\")).status = \"$DERIVED\"" "$BACKLOG_SCHEMA"
+# Backlog status: only flip on escalation (count >= 3). Below that, the PBI
+# stays at its current status (typically in_progress_merge) so the Developer
+# can fix and retry.
+if [ "$NEW_COUNT" -ge 3 ]; then
+  BACKLOG=".scrum/backlog.json"
+  if [ -f "$BACKLOG" ] && jq -e --arg id "$PBI" '.items | map(select(.id==$id)) | length > 0' "$BACKLOG" >/dev/null; then
+    "$HERE/update-backlog-status.sh" "$PBI" escalated
+  fi
 fi
 
-printf '[mark-pbi-merge-failure] %s kind=%s count=%d phase=%s\n' "$PBI" "$KIND" "$NEW_COUNT" "$NEW_PHASE"
+printf '[mark-pbi-merge-failure] %s kind=%s count=%d reason=%s\n' \
+  "$PBI" "$KIND" "$NEW_COUNT" "$([ "$NEW_COUNT" -ge 3 ] && echo "$ESC_REASON" || echo "(retry)")"

@@ -7,25 +7,26 @@ setup() {
   mkdir -p .scrum/pbi/pbi-001 docs/contracts/scrum-state
   for s in pbi-state backlog; do cp "$PROJECT_ROOT/docs/contracts/scrum-state/${s}.schema.json" docs/contracts/scrum-state/; done
   cat > .scrum/pbi/pbi-001/state.json <<'EOF'
-{"pbi_id":"pbi-001","phase":"ready_to_merge","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z","merge_failure_count":0}
+{"pbi_id":"pbi-001","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z","merge_failure_count":0}
 EOF
   cat > .scrum/backlog.json <<'EOF'
-{"items":[{"id":"pbi-001","title":"x","status":"review"}]}
+{"items":[{"id":"pbi-001","title":"x","status":"in_progress_merge"}]}
 EOF
 }
 teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP"; }
 
-@test "mark-failure conflict: sets merge_conflict + records paths + increments counter" {
+@test "mark-failure conflict: records merge_failure object + increments counter; status stays in_progress_merge" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 conflict abcdef0 "src/a,src/b"
   [ "$status" -eq 0 ]
-  run jq -r '.phase' .scrum/pbi/pbi-001/state.json
-  [ "$output" = "merge_conflict" ]
   run jq -r '.merge_failure_count' .scrum/pbi/pbi-001/state.json
   [ "$output" = "1" ]
   run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
   [ "$output" = "conflict" ]
   run jq -r '.merge_failure.paths | length' .scrum/pbi/pbi-001/state.json
   [ "$output" = "2" ]
+  # Below the 3rd-failure threshold: backlog status untouched.
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
 }
 
 @test "mark-failure regression: stores report_path" {
@@ -35,15 +36,32 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = ".scrum/pbi/pbi-001/qg.log" ]
 }
 
-@test "mark-failure: 3rd consecutive failure escalates" {
-  # set counter to 2 first
+@test "mark-failure: 3rd consecutive conflict escalates with reason=merge_conflict" {
   jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 conflict abcdef0 "src/a"
   [ "$status" -eq 0 ]
-  run jq -r '.phase' .scrum/pbi/pbi-001/state.json
-  [ "$output" = "escalated" ]
   run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
-  [ "$output" = "stagnation" ]
+  [ "$output" = "merge_conflict" ]
   run jq -r '.items[0].status' .scrum/backlog.json
-  [ "$output" = "blocked" ]
+  [ "$output" = "escalated" ]
+}
+
+@test "mark-failure: 3rd consecutive artifact_missing → reason=merge_artifact_missing" {
+  jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 artifact_missing abcdef0 "src/missing"
+  [ "$status" -eq 0 ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "merge_artifact_missing" ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
+}
+
+@test "mark-failure: 3rd consecutive regression → reason=merge_regression" {
+  jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 regression abcdef0 "report.log"
+  [ "$status" -eq 0 ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "merge_regression" ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
 }

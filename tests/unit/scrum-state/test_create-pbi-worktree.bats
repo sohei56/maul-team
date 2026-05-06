@@ -16,7 +16,7 @@ setup() {
 {"id":"sprint-001","status":"active","started_at":"2026-05-04T10:00:00Z","base_sha":"$SHA","base_sha_captured_at":"2026-05-04T10:00:00Z"}
 EOF
   cat > .scrum/pbi/pbi-001/state.json <<'EOF'
-{"pbi_id":"pbi-001","phase":"design","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z"}
+{"pbi_id":"pbi-001","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z"}
 EOF
 }
 
