@@ -43,16 +43,19 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 
 ## Preconditions
 
-- state.json phase: "pbi_pipeline_active" or "review"
-- backlog.json has PBIs with implementation complete
-- requirements.md exists
+- All Sprint PBIs at `pbi/<id>/state.json.phase ∈ {merged, escalated}`.
+  PBIs in `ready_to_merge` or `merge_*` failure states must be
+  driven to one of those terminal states (via `pbi-merge` or
+  `pbi-escalation-handler`) before this skill is invoked.
+- Review target: the merged main HEAD (only the merged PBIs).
 - App builds + starts (verified during implementation; if uncertain→re-verify)
 
 ## Steps
 
 1. state.json → phase: "review", sprint.json → status: "cross_review"
-2. All Sprint PBIs already at `pbi/<id>/state.json.phase = complete` from
-   pbi-pipeline; backlog.status is therefore already `review` (auto-derived).
+2. All Sprint PBIs already at `pbi/<id>/state.json.phase ∈ {merged, escalated}`
+   (terminal states from pbi-merge or pbi-escalation-handler);
+   backlog.status is therefore already `review` (auto-derived).
    No direct backlog.status write here — `update-backlog-status.sh` rejects
    post-pipeline statuses by design.
 3. **Pre-review build verification**: Start app→all tests pass. Fail→`TaskGet` Developer status→terminated? re-spawn (Teammate Liveness Protocol)→then relay fix request. Do NOT review non-building code

@@ -7,6 +7,8 @@
   "properties": {
     "id": {"type": "string", "pattern": "^sprint-[0-9]+$"},
     "goal": {"type": ["string", "null"]},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "base_sha_captured_at": {"type": "string", "format": "date-time"},
     "type": {"enum": ["development", "integration"]},
     "status": {
       "enum": ["planning", "active", "cross_review", "sprint_review", "complete", "failed"]

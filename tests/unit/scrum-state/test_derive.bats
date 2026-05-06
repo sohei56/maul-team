@@ -72,3 +72,33 @@ setup() {
   run is_post_pipeline_status refined
   [ "$status" -ne 0 ]
 }
+
+@test "derive: ready_to_merge → review" {
+  run derive_backlog_status_from_phase ready_to_merge
+  [ "$status" -eq 0 ]
+  [ "$output" = "review" ]
+}
+
+@test "derive: merged → review" {
+  run derive_backlog_status_from_phase merged
+  [ "$status" -eq 0 ]
+  [ "$output" = "review" ]
+}
+
+@test "derive: merge_conflict → review" {
+  run derive_backlog_status_from_phase merge_conflict
+  [ "$status" -eq 0 ]
+  [ "$output" = "review" ]
+}
+
+@test "derive: merge_artifact_missing → review" {
+  run derive_backlog_status_from_phase merge_artifact_missing
+  [ "$status" -eq 0 ]
+  [ "$output" = "review" ]
+}
+
+@test "derive: merge_regression → review" {
+  run derive_backlog_status_from_phase merge_regression
+  [ "$status" -eq 0 ]
+  [ "$output" = "review" ]
+}

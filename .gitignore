@@ -1,4 +1,6 @@
 # Runtime state (not committed)
+# Match both .scrum/ directory (main repo) and .scrum symlink (PBI worktrees).
+.scrum
 .scrum/
 
 # Git worktrees (project-local)

@@ -69,6 +69,12 @@ disable-model-invocation: false
        or split the PBI to remove overlap.
     4. If overlap unavoidable → note in sprint.json that runtime flock
        will arbitrate (Layer 2 of catalog-contention defense).
+
+> **Note (worktree governance).** Per-PBI worktrees give physical
+> isolation, so two PBIs touching the same source file no longer
+> corrupt each other at write time. Conflicts surface during
+> `pbi-merge` and the assigned Developer rebases. Pre-separation is
+> still required for catalog files (see `catalog-contention.md`).
 12. **Present Sprint summary + options**:
     - 1. Start Sprint
     - 2. Adjust Sprint Goal

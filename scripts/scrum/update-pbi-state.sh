@@ -8,7 +8,9 @@
 # single typo fails the whole batch (intentional).
 #
 # Writable fields (see docs/contracts/scrum-state/pbi-state.schema.json):
-#   phase             design|impl_ut|complete|review_complete|escalated
+#   phase             design|impl_ut|complete|ready_to_merge|merged|
+#                     merge_conflict|merge_artifact_missing|merge_regression|
+#                     review_complete|escalated
 #   design_round      integer >= 0
 #   impl_round        integer >= 0
 #   design_status     pending|in_review|fail|pass
@@ -18,9 +20,18 @@
 #   escalation_reason null|stagnation|divergence|max_rounds|budget_exhausted|
 #                     requirements_unclear|coverage_tool_error|
 #                     coverage_tool_unavailable|catalog_lock_timeout
+#   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
+#   worktree          .scrum/worktrees/pbi-NNN (validated)
+#   base_sha          hex sha, 7..40 chars
+#   head_sha          hex sha, 7..40 chars
+#   merged_sha        hex sha, 7..40 chars
+#   ready_at          ISO-8601 datetime string
+#   merged_at         ISO-8601 datetime string
+#   merge_failure_count  non-negative integer
 #
 # pbi_id, started_at, updated_at are NOT settable here.
 # updated_at is auto-stamped by atomic_write.
+# Complex fields (paths_touched, merge_failure) use dedicated wrappers.
 #
 # Side effect: when the batch sets `phase`, this script also projects the
 # derived backlog.json items[].status (see lib/derive.sh) so the two SSOTs
@@ -61,7 +72,7 @@ while [ "$#" -ge 2 ]; do
   case "$F" in
     phase)
       case "$V" in
-        design|impl_ut|complete|review_complete|escalated) ;;
+        design|impl_ut|complete|ready_to_merge|merged|merge_conflict|merge_artifact_missing|merge_regression|review_complete|escalated) ;;
         *) fail E_INVALID_ARG "bad phase: $V" ;;
       esac
       EXPR="$EXPR | .phase = \"$V\""
@@ -95,6 +106,41 @@ while [ "$#" -ge 2 ]; do
           ;;
         *) fail E_INVALID_ARG "bad escalation_reason: $V" ;;
       esac
+      ;;
+    branch)
+      case "$V" in
+        pbi/pbi-[0-9]*) ;;
+        *) fail E_INVALID_ARG "bad branch (must be pbi/pbi-NNN): $V" ;;
+      esac
+      EXPR="$EXPR | .branch = \"$V\""
+      ;;
+    worktree)
+      case "$V" in
+        .scrum/worktrees/pbi-[0-9]*) ;;
+        *) fail E_INVALID_ARG "bad worktree (must be .scrum/worktrees/pbi-NNN): $V" ;;
+      esac
+      EXPR="$EXPR | .worktree = \"$V\""
+      ;;
+    base_sha|head_sha|merged_sha)
+      case "$V" in
+        [0-9a-f]*) [ ${#V} -ge 7 ] && [ ${#V} -le 40 ] || fail E_INVALID_ARG "$F length must be 7..40: $V" ;;
+        *) fail E_INVALID_ARG "$F must be hex sha: $V" ;;
+      esac
+      EXPR="$EXPR | .$F = \"$V\""
+      ;;
+    ready_at|merged_at)
+      # ISO-8601 sanity (full validation is left to the schema validator)
+      case "$V" in
+        [0-9][0-9][0-9][0-9]-*) ;;
+        *) fail E_INVALID_ARG "$F must be ISO-8601: $V" ;;
+      esac
+      EXPR="$EXPR | .$F = \"$V\""
+      ;;
+    merge_failure_count)
+      case "$V" in
+        ''|*[!0-9]*) fail E_INVALID_ARG "merge_failure_count must be non-negative integer (got: $V)" ;;
+      esac
+      EXPR="$EXPR | .merge_failure_count = $V"
       ;;
     *) fail E_INVALID_ARG "unknown field: $F" ;;
   esac

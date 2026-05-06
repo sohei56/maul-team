@@ -19,7 +19,9 @@ disable-model-invocation: false
 
 ## Outputs
 
-- Source code + test code committed to project (normal paths)
+- Source code + test code committed to the PBI branch in the PBI
+  worktree via `.scrum/scripts/commit-pbi.sh`. Never commit
+  directly with raw `git commit`.
 - .scrum/pbi/<pbi-id>/ artifacts (design, reviews, metrics, feedback,
   summaries, pipeline.log)
 - backlog.json status: auto-derived from `pbi/<id>/state.json.phase` by
@@ -43,7 +45,13 @@ disable-model-invocation: false
      → see references/feedback-routing.md
    - termination check → see references/termination-gates.md
    ↓ success
-[Completion] update backlog.json + notify SM
+[Completion]
+   - run .scrum/scripts/mark-pbi-ready-to-merge.sh <pbi-id>
+     (sets phase=ready_to_merge, head_sha, paths_touched, ready_at;
+     projects backlog status to review)
+   - notify SM: "[<pbi-id>] PBI_READY_TO_MERGE branch=pbi/<id> sha=<head>"
+   - stop and wait for SM SendMessage (MERGED / MERGE_CONFLICT /
+     ARTIFACT_MISSING / MERGE_REGRESSION)
 ```
 
 ## Sub-agents spawned
@@ -78,9 +86,8 @@ write escalation_reason, notify SM via Agent Teams. SM handles via the
 
 ## Exit Criteria
 
-- state.json: `phase = complete` OR `phase = escalated`
-  (cross-review skill is responsible for the final `complete → review_complete`
-  transition that yields `done` in backlog.json)
-- backlog.json items[].status reflects the projected value (`review` for
-  complete, `blocked` for escalated). The pipeline does not write it directly.
+- state.json: `phase = ready_to_merge` OR `phase = escalated`
+- backlog.json items[].status reflects the projected value (`review`
+  for both ready_to_merge and merged; `blocked` for escalated). The
+  pipeline does not write it directly.
 - SM notified

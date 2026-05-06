@@ -63,6 +63,10 @@ When assigned→run `smoke-test` skill:
 
 - **No implementation without PBI.** No code write/edit/fix without assigned PBI. Includes Integration Sprint. Defect found→report to SM only.
 - **No work before Sprint start.** No code before phase: implementation. During Planning→estimation + clarification only.
+- **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree.
+- **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
+- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>`. A wrong-branch state means the worktree was tampered with — stop and report.
+- **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
 ## Communication
 
@@ -82,5 +86,12 @@ When assigned→run `smoke-test` skill:
 - `.scrum/test-results.json` — write during Integration Sprint
 - `.scrum/pbi/<pbi-id>/` — PBI working area (state.json, design/,
   impl/, ut/, metrics/, feedback/, pipeline.log). Created and managed
-  by the pbi-pipeline skill.
+  by the pbi-pipeline skill. New fields populated by the worktree /
+  merge wrappers: `branch`, `worktree`, `base_sha`, `head_sha`,
+  `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
+  `merge_failure`, `merge_failure_count`.
+- `.scrum/worktrees/<pbi-id>/` — git worktree for the PBI's own
+  branch (`pbi/<pbi-id>`). Read/write within. Has a `.scrum`
+  symlink back to the main repo's SSOT. Created by SM via
+  `create-pbi-worktree.sh`; removed after merge.
 - `.scrum/locks/` — catalog write contention via flock.

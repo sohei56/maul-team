@@ -111,3 +111,46 @@ teardown() {
   after="$(jq -r '.updated_at' "$TEST_TMP/.scrum/pbi/pbi-001/state.json")"
   [ "$before" != "$after" ]
 }
+
+@test "update-pbi-state: accepts ready_to_merge phase" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase ready_to_merge
+  [ "$status" -eq 0 ]
+  run jq -r '.phase' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "ready_to_merge" ]
+}
+
+@test "update-pbi-state: accepts merged phase" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase merged
+  [ "$status" -eq 0 ]
+}
+
+@test "update-pbi-state: accepts merge_conflict / merge_artifact_missing / merge_regression" {
+  for p in merge_conflict merge_artifact_missing merge_regression; do
+    run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 phase "$p"
+    [ "$status" -eq 0 ]
+  done
+}
+
+@test "update-pbi-state: sets branch / worktree / base_sha" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" \
+    pbi-001 branch pbi/pbi-001 worktree .scrum/worktrees/pbi-001 base_sha abcdef0123456789
+  [ "$status" -eq 0 ]
+  run jq -r '"\(.branch)|\(.worktree)|\(.base_sha)"' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "pbi/pbi-001|.scrum/worktrees/pbi-001|abcdef0123456789" ]
+}
+
+@test "update-pbi-state: sets head_sha / merged_sha / merge_failure_count" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" \
+    pbi-001 head_sha 1234567 merged_sha abcdef0 merge_failure_count 2
+  [ "$status" -eq 0 ]
+}
+
+@test "update-pbi-state: rejects malformed sha" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 head_sha NOT_A_SHA
+  [ "$status" -ne 0 ]
+}
+
+@test "update-pbi-state: rejects bad branch name" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 branch main
+  [ "$status" -ne 0 ]
+}

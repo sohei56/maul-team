@@ -11,6 +11,7 @@ setup() {
     install-subagents
     pbi-pipeline
     pbi-escalation-handler
+    pbi-merge
     cross-review
     sprint-review
     retrospective
@@ -30,7 +31,7 @@ extract_frontmatter() {
   awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' "$file"
 }
 
-@test "all 14 skill directories contain SKILL.md" {
+@test "all 15 skill directories contain SKILL.md" {
   for skill in "${SKILL_NAMES[@]}"; do
     local skill_file="${PROJECT_ROOT}/skills/${skill}/SKILL.md"
     [ -f "$skill_file" ] || {

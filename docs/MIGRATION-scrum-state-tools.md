@@ -85,3 +85,38 @@ The current wrapper set covers the pbi-pipeline migration and the four migrated 
 5. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 
 Each of these has a `TODO(scrum-state-tools)` comment in the relevant file pointing back to this document. Until they land, sprint-planning step 11.2 (and likely 9 and 10) **will fail at runtime** when the hook fires.
+
+## Worktree / merge governance wrappers (2026-05-04)
+
+| Wrapper | Writes |
+|---|---|
+| `freeze-sprint-base.sh` | `sprint.base_sha`, `sprint.base_sha_captured_at` (once per Sprint) |
+| `create-pbi-worktree.sh` | `pbi/<id>/state.json` `branch`, `worktree`, `base_sha`; creates git worktree + `.scrum` symlink |
+| `commit-pbi.sh` | git commit on `pbi/<id>` branch + `pbi/<id>/state.json.head_sha` |
+| `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `phase=ready_to_merge`, `head_sha`, `paths_touched`, `ready_at`; backlog item `status=review` |
+| `mark-pbi-merged.sh` | `pbi/<id>/state.json` `phase=merged`, `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at` |
+| `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `phase ∈ merge_*`, `merge_failure`, `merge_failure_count++`; on 3rd consecutive failure: `phase=escalated`, `escalation_reason=stagnation`, backlog `status=blocked` |
+| `cleanup-pbi-worktree.sh` | removes git worktree + `pbi/<id>` branch (post-merge) |
+| `merge-pbi.sh` | orchestrator (calls mark-pbi-merged or mark-pbi-merge-failure + cleanup) |
+
+### Backward compatibility (sprints in flight at upgrade time)
+
+This change extends `cross-review` to require every Sprint PBI at
+`pbi/<id>/state.json.phase ∈ {merged, escalated}`. PBIs from sprints
+that completed under the old (pre-merge-governance) flow may sit at
+`phase=complete` or `phase=review_complete` with no `branch` /
+`worktree` / `base_sha` in `state.json`.
+
+If you upgrade a project with sprints in flight, choose one of:
+
+- (A) Let the in-flight sprint finish under the old flow. Skip
+  `cross-review` precondition by manually advancing each PBI's
+  `state.phase` to `merged` via
+  `update-pbi-state.sh <pbi-id> phase merged`. Then run
+  `cross-review` and `sprint-review` as usual. Future sprints use the
+  new flow.
+- (B) Drop the in-flight sprint and replan. New sprints follow the
+  new flow from the start.
+
+For new projects: no migration needed. The new flow is in effect from
+Sprint 1.

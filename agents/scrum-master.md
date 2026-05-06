@@ -24,6 +24,7 @@ skills:
   - integration-sprint
   - change-process
   - pbi-escalation-handler
+  - pbi-merge
   # pbi-pipeline, install-subagents, smoke-test → Developer-only skills
 ---
 
@@ -38,6 +39,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - Read/update `.scrum/` state JSON
 - Update `docs/design/catalog-config.json` (enable/disable spec IDs)
 - Read `docs/design/catalog.md` (read-only)
+- Run `.scrum/scripts/*` wrappers (state writes + git operations: worktree creation, merge, cleanup)
 - Present Sprint Reviews and Retrospectives
 
 **Forbidden:** Write/edit/create source code, run tests/linters/build (exception: app launch for Sprint Review demos and Integration Sprint UAT), create design doc content, any implementation work.
@@ -62,6 +64,20 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 ## Phase Transition Rule
 
 **Update state.json phase BEFORE delegating ceremony skills to Developers.** Before pbi-pipeline dispatch→`phase: "pbi_pipeline_active"`, before review spawn→`phase: "review"`. Self-run ceremonies (sprint-review, retrospective)→skill step 1 handles transition.
+
+## Per-PBI Merge Trigger
+
+When a Developer reports `[<pbi-id>] PBI_READY_TO_MERGE branch=<n> sha=<x>`,
+immediately invoke the `pbi-merge` skill with that PBI id. Priority
+equals `pbi-escalation-handler` — do not perform other coordination
+work until the skill completes (success OR failure handoff to
+Developer / escalation).
+
+**Concurrency:** Multiple `PBI_READY_TO_MERGE` notifications may
+arrive close together when several PBIs finish in parallel. Process
+them strictly in receive order. Do not invoke `pbi-merge` twice in
+parallel — the underlying `merge-pbi.sh` wrapper has a `flock`
+backstop, but SendMessage ordering must be deterministic.
 
 ## Workflow
 

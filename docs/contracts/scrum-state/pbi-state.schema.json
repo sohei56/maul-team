@@ -6,7 +6,12 @@
   "additionalProperties": false,
   "properties": {
     "pbi_id": {"type": "string", "pattern": "^pbi-[0-9]+$"},
-    "phase": {"enum": ["design", "impl_ut", "complete", "review_complete", "escalated"]},
+    "phase": {"enum": [
+      "design", "impl_ut", "complete",
+      "ready_to_merge", "merged",
+      "merge_conflict", "merge_artifact_missing", "merge_regression",
+      "review_complete", "escalated"
+    ]},
     "design_round": {"type": "integer", "minimum": 0},
     "impl_round": {"type": "integer", "minimum": 0},
     "design_status": {"enum": ["pending", "in_review", "fail", "pass"]},
@@ -27,6 +32,26 @@
         "catalog_lock_timeout"
       ]
     },
+    "branch": {"type": "string", "pattern": "^pbi/pbi-[0-9]+$"},
+    "worktree": {"type": "string", "pattern": "^\\.scrum/worktrees/pbi-[0-9]+$"},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "head_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "paths_touched": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "ready_at": {"type": "string", "format": "date-time"},
+    "merged_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "merged_at": {"type": "string", "format": "date-time"},
+    "merge_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "pre_head_at_failure"],
+      "properties": {
+        "kind": {"enum": ["conflict", "artifact_missing", "regression"]},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "report_path": {"type": "string"},
+        "pre_head_at_failure": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"}
+      }
+    },
+    "merge_failure_count": {"type": "integer", "minimum": 0},
     "started_at": {"type": "string", "format": "date-time"},
     "updated_at": {"type": "string", "format": "date-time"}
   }

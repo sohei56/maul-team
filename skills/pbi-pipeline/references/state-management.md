@@ -113,3 +113,25 @@ When a PBI completes or escalates:
   `update-backlog-status.sh` directly — it rejects post-pipeline statuses.
 - Add `pipeline_summary` to backlog.json item (rounds, final coverage)
   via a separate jq invocation (status is not part of the summary write).
+
+## New fields (worktree / merge governance)
+
+- `branch`, `worktree`, `base_sha` — written by `create-pbi-worktree.sh`
+  at Sprint start
+- `head_sha` — updated each round by `commit-pbi.sh`
+- `paths_touched`, `ready_at` — written by `mark-pbi-ready-to-merge.sh`
+- `merged_sha`, `merged_at` — written by `mark-pbi-merged.sh`
+- `merge_failure`, `merge_failure_count` — written by
+  `mark-pbi-merge-failure.sh`
+
+## Phase → status projection (extended)
+
+| state.phase | items[].status |
+|---|---|
+| design / impl_ut | in_progress |
+| complete | review |
+| ready_to_merge | review |
+| merged | review |
+| merge_conflict / merge_artifact_missing / merge_regression | review |
+| escalated | blocked |
+| review_complete | done |

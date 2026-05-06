@@ -15,11 +15,16 @@ _SCRUM_DERIVE_SH_LOADED=1
 # unknown phase (caller decides whether to fail or fall back).
 derive_backlog_status_from_phase() {
   case "$1" in
-    design)           echo "in_progress" ;;
-    impl_ut)          echo "in_progress" ;;
-    complete)         echo "review" ;;
-    review_complete)  echo "done" ;;
-    escalated)        echo "blocked" ;;
+    design)                 echo "in_progress" ;;
+    impl_ut)                echo "in_progress" ;;
+    complete)               echo "review" ;;
+    ready_to_merge)         echo "review" ;;
+    merged)                 echo "review" ;;
+    merge_conflict)         echo "review" ;;
+    merge_artifact_missing) echo "review" ;;
+    merge_regression)       echo "review" ;;
+    review_complete)        echo "done" ;;
+    escalated)              echo "blocked" ;;
     *) return 1 ;;
   esac
 }
