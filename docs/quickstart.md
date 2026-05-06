@@ -123,37 +123,23 @@ prerequisites.
 
 ## Key Concepts
 
-### Agents
-- `agents/scrum-master.md` — Team lead in **Delegate mode**.
-- `agents/developer.md` — Teammate template, spawned per Sprint.
-- Sub-agents (cross-review + PBI pipeline) — see
-  [docs/contracts/sub-agents.md](contracts/sub-agents.md) for the full
-  catalog with roles and tool sandboxes.
+For deeper detail, follow these pointers:
 
-### Skills
-Markdown files in `.claude/skills/<name>/SKILL.md` encapsulating Scrum
-ceremonies. Each declares `## Inputs` and `## Outputs` for explicit
-data dependencies. Invoked explicitly (`disable-model-invocation: true`).
-
-### Hooks
-Enforce Sprint workflow rules via shell scripts:
-`status-gate.sh` (tool gating), `session-context.sh` (status injection),
-`completion-gate.sh` (exit criteria), `quality-gate.sh` (DoD).
-
-### State Files
-Runtime state in `.scrum/` (JSON, one file per concern).
-See `data-model.md` for schemas.
-
-### Dashboard
-- **Textual TUI** (`dashboard/app.py`): 4-panel real-time view in tmux.
-- **Status line** (`scripts/statusline.sh`): compact 3-line fallback.
-- **Hooks** feed events to `.scrum/dashboard.json` and `communications.json`.
-
-### Design Documents
-Governed by `docs/design/catalog.md` — no design document may be created
-unless its spec type is listed and enabled in the catalog. Files live at
-`docs/design/specs/{category}/{id}-{slug}.md`. Each includes `revision_history`
-in YAML frontmatter with `pbis` field.
+- **Agents and sub-agents**: top-level Scrum Master + Developer plus 9
+  specialist sub-agents — see [docs/contracts/sub-agents.md](contracts/sub-agents.md).
+- **Skills**: Markdown + YAML frontmatter under `.claude/skills/<name>/SKILL.md`,
+  each with `## Inputs` / `## Outputs`. Invocation, side effects, and
+  state writes are documented per skill.
+- **Hooks** (`status-gate`, `session-context`, `completion-gate`,
+  `quality-gate`, `pre-tool-use-*`): enforce Sprint workflow at the
+  Claude Code tool layer — see [docs/architecture.md](architecture.md) R7.
+- **State files** in `.scrum/` (one JSON file per concern): schemas in
+  [docs/data-model.md](data-model.md); writes go through
+  `.scrum/scripts/*.sh` wrappers.
+- **Dashboard**: Textual TUI (`dashboard/app.py`) with a 3-line
+  statusline fallback (`scripts/statusline.sh`).
+- **Design documents**: governed by `docs/design/catalog.md`; files
+  live at `docs/design/specs/{category}/{id}-{slug}.md`.
 
 ## Development Workflow
 
@@ -185,7 +171,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 # Interact with the Scrum team, then verify:
 # - .scrum/ directory exists with state files
 # - .claude/agents/ contains scrum-master.md and developer.md
-# - .claude/skills/ contains all 14 ceremony skills
+# - .claude/skills/ contains all installed Scrum ceremony skills
 # - Status line displays at bottom of terminal
 # - Textual dashboard appears in tmux side pane (if tmux available)
 # - Hooks are configured in .claude/settings.json
