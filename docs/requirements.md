@@ -419,12 +419,8 @@ Observe implementation and verify Developers use support sub-agents.
   Developers, and current project workflow phase
   (`state.json.phase`, e.g. `pbi_pipeline_active`);
   (b) **Real-time PBI Progress Board** — each PBI's 12-value
-  status (SM-managed:
-  `draft → refined → blocked → awaiting_cross_review →
-  cross_review → escalated → done`; Developer-managed:
-  `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review
-  ⇄ in_progress_ut_run → in_progress_merge`) updated as work
-  progresses;
+  status (see Q&A 2026-02-25 below and `docs/data-model.md` §
+  State Transitions: status) updated as work progresses;
   (c) **Communication Log** — messages exchanged between agents
   (Scrum Master <-> Developers, Developer <-> Developer);
   (d) **File Change Log** — files created, modified, or deleted
@@ -503,17 +499,14 @@ Observe implementation and verify Developers use support sub-agents.
   PBIs start coarse-grained and are progressively refined.
 
 - **Product Backlog Item (PBI)**: A unit of work with a 12-state
-  lifecycle split between SM-managed (`draft`, `refined`, `blocked`,
-  `awaiting_cross_review`, `cross_review`, `escalated`, `done`) and
-  Developer-managed (`in_progress_design`, `in_progress_impl`,
-  `in_progress_pbi_review`, `in_progress_ut_run`,
-  `in_progress_merge`) states. `escalated` is the gate-trip /
-  merge-failure state resolved by SM `pbi-escalation-handler`;
-  `blocked` is an SM-decided hold for external blockers. Each
-  refined PBI produces three deliverables: design document,
-  implementation, and tests. Design is completed and reviewed before
-  implementation begins. Full schema and transition graph in
-  `docs/data-model.md` § PBI.
+  lifecycle split between SM-managed and Developer-managed states
+  (see Q&A 2026-02-25 below for the full enum, and
+  `docs/data-model.md` § PBI for the schema and transition graph).
+  `escalated` is the gate-trip / merge-failure state resolved by
+  SM `pbi-escalation-handler`; `blocked` is an SM-decided hold for
+  external blockers. Each refined PBI produces three deliverables:
+  design document, implementation, and tests. Design is completed
+  and reviewed before implementation begins.
 
 - **Sprint Backlog**: The Sprint Goal plus the set of refined PBIs
   selected for the Sprint, with assigned implementers and
