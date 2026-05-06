@@ -25,7 +25,10 @@ disable-model-invocation: false
 ## Steps
 
 1. **Uncommitted file check (mandatory)**: Run `git status`→uncommitted changes exist→warn user with file list→user must choose: commit now, stash, or proceed anyway→resolve before continuing
-2. **Transition state**: state.json → phase: "sprint_planning" (TUI reflects immediately)
+2. **Transition state**: state.json → phase: "sprint_planning" (TUI reflects immediately):
+   ```bash
+   .scrum/scripts/update-state-phase.sh sprint_planning
+   ```
 3. Propose Sprint Goal→user approval before proceeding
 4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008)
 5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
@@ -37,11 +40,12 @@ disable-model-invocation: false
     > existing wrappers require `.scrum/sprint.json` to exist and raw
     > Write/Edit is blocked. See `docs/MIGRATION-scrum-state-tools.md`.
 
-9. Update backlog.json: sprint_id, implementer_id
-
-    > **TODO(scrum-state-tools):** Needs `set-backlog-item-field.sh`
-    > (or per-field wrappers) for `items[].{sprint_id,implementer_id}`.
-    > See `docs/MIGRATION-scrum-state-tools.md`.
+9. Update backlog.json: sprint_id, implementer_id. For each PBI in
+   the Sprint:
+   ```bash
+   .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" sprint_id "$SPRINT_ID"
+   .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" implementer_id "$DEV_ID"
+   ```
 
 10. **Catalog Target Assignment** (PBI Pipeline parallel-safety):
 
@@ -49,19 +53,11 @@ disable-model-invocation: false
     1. Read PBI description + requirements to identify catalog spec
        paths it will touch (entries enabled in catalog-config.json).
     2. Record in backlog.json items[].catalog_targets[]:
-
-       > **TODO(scrum-state-tools):** Blocked at runtime — needs (a)
-       > `catalog_targets` added to `backlog.schema.json` (currently
-       > rejected by `additionalProperties: false`); (b) a wrapper such
-       > as `set-backlog-item-field.sh`. See
-       > `docs/MIGRATION-scrum-state-tools.md`.
-
        ```bash
-       jq --arg id "$PBI_ID" --argjson targets "$TARGETS_JSON" \
-         '(.items[] | select(.id == $id)).catalog_targets = $targets' \
-         .scrum/backlog.json > .scrum/backlog.json.tmp \
-         && mv .scrum/backlog.json.tmp .scrum/backlog.json
+       .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" catalog_targets "$TARGETS_JSON"
        ```
+       where `$TARGETS_JSON` is a JSON-encoded array, e.g.
+       `'["docs/design/specs/foo.md","docs/design/specs/bar.md"]'`.
     3. **Conflict check**: For PBIs with overlapping catalog_targets in
        this sprint, ensure they are NOT assigned to different
        developers in parallel. Either sequence them on one developer,

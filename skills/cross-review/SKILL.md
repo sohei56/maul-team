@@ -59,9 +59,14 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 
 ## Steps
 
-1. `state.json` → overall phase `"review"`; `sprint.json.status →
-   "cross_review"`. For every Sprint PBI at `status =
-   awaiting_cross_review`, transition to `cross_review`:
+1. Set `state.json` overall phase to `"review"` and `sprint.json.status`
+   to `"cross_review"`:
+   ```bash
+   .scrum/scripts/update-state-phase.sh review
+   .scrum/scripts/update-sprint-status.sh cross_review
+   ```
+   Then, for every Sprint PBI at `status = awaiting_cross_review`,
+   transition to `cross_review`:
    ```bash
    .scrum/scripts/update-backlog-status.sh "$PBI_ID" cross_review
    ```
@@ -86,7 +91,10 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
     ```bash
     .scrum/scripts/update-backlog-status.sh "$PBI_ID" done
     ```
-11. Set `items[].review_doc_path`
+11. Set `items[].review_doc_path`:
+    ```bash
+    .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" review_doc_path ".scrum/reviews/${PBI_ID}-review.md"
+    ```
 
 Ref: FR-009
 

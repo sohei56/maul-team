@@ -6,7 +6,7 @@ Each schema corresponds to one file under `.scrum/` and is the single source of 
 |-------------------------------------|---------------------------------------|-------------------------------------------------------|
 | `.scrum/state.json`                 | `state.schema.json`                   | `.scrum/scripts/update-state-phase.sh`                |
 | `.scrum/sprint.json`                | `sprint.schema.json`                  | `.scrum/scripts/update-sprint-status.sh`, `set-sprint-developer.sh` |
-| `.scrum/backlog.json`               | `backlog.schema.json`                 | `.scrum/scripts/update-backlog-status.sh`             |
+| `.scrum/backlog.json`               | `backlog.schema.json`                 | `.scrum/scripts/update-backlog-status.sh`, `set-backlog-item-field.sh`, `add-backlog-item.sh` |
 | `.scrum/communications.json`        | `communications.schema.json`          | `.scrum/scripts/append-communication.sh`              |
 | `.scrum/dashboard.json`             | `dashboard.schema.json`               | `.scrum/scripts/append-dashboard-event.sh`            |
 | `.scrum/pbi/<id>/state.json`        | `pbi-state.schema.json`               | `.scrum/scripts/update-pbi-state.sh`                  |

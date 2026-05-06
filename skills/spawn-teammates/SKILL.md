@@ -50,7 +50,13 @@ disable-model-invocation: false
      into `.scrum/pbi/<pbi-id>/state.json`.
 
 6. **Reconcile backlog.json**: Update all PBI implementer_id to match final dev-NNN-sN IDs
-7. Update sprint.json→developers[] + developer_count (TUI dashboard reads both)
+7. Register each Developer in sprint.json. For every entry from step 5a:
+   ```bash
+   .scrum/scripts/set-sprint-developer.sh "$DEV_ID" status active
+   .scrum/scripts/set-sprint-developer.sh "$DEV_ID" current_pbi "$ASSIGNED_PBI"
+   ```
+   (`developer_count` is set during sprint creation in `sprint-planning`;
+   the wrapper above auto-grows the `developers[]` array.)
 8. Spawn Agent Teams teammates (agents/developer.md). Name = exact ID
    from 5a. Compute `PROJECT_ROOT=$(git rev-parse --show-toplevel)` at
    spawn time and substitute it into the task prompt below in place of
@@ -75,7 +81,10 @@ disable-model-invocation: false
    Then stop and wait.
    ```
 9. Verify all teammates active + assignments received
-10. sprint.json → status: "active"
+10. sprint.json → status: "active":
+    ```bash
+    .scrum/scripts/update-sprint-status.sh active
+    ```
 
 Ref: FR-007
 
@@ -85,7 +94,10 @@ When Teammate Liveness Protocol detects terminated Developer:
 
 1. Read `sprint.json`→get developer entry + assigned_work
 2. Read `backlog.json`→get PBI status to determine remaining work
-3. Update `sprint.json` developer status: "failed"
+3. Update `sprint.json` developer status: "failed":
+   ```bash
+   .scrum/scripts/set-sprint-developer.sh "$DEV_ID" status failed
+   ```
 4. Spawn new teammate: same ID (e.g., `dev-001-s{N}`), `agents/developer.md`
 5. Task prompt = remaining work only (always via `pbi-pipeline`).
    Branch on the PBI's backlog status:
@@ -94,7 +106,10 @@ When Teammate Liveness Protocol detects terminated Developer:
    - `in_progress_impl` / `in_progress_pbi_review` / `in_progress_ut_run` → "Resume pbi-pipeline for PBI-XXX from the impl→pbi_review→ut_run cycle; design docs at: ..."
    - `in_progress_merge` → "Re-run `mark-pbi-ready-to-merge.sh` and re-notify SM; the prior worktree is intact"
    - cross-review FAIL (status reverted to `in_progress_impl`) → "Fix cross-review findings for PBI-XXX: [findings]. Source at: ... Then re-run UT and re-mark ready-to-merge"
-6. Update `sprint.json` developer status: "active"
+6. Update `sprint.json` developer status: "active":
+   ```bash
+   .scrum/scripts/set-sprint-developer.sh "$DEV_ID" status active
+   ```
 
 ## Exit Criteria
 

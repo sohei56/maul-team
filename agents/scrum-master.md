@@ -63,7 +63,14 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 
 ## Sprint Phase Transition Rule
 
-**Update state.json sprint phase BEFORE delegating ceremony skills to Developers.** Before pbi-pipeline dispatch→`phase: "pbi_pipeline_active"`, before cross-review→`phase: "review"`. Self-run ceremonies (sprint-review, retrospective)→skill step 1 handles transition. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status which is now a 12-value flat enum on `backlog.json`.)
+**Update state.json sprint phase BEFORE delegating ceremony skills to Developers.** Before pbi-pipeline dispatch→`phase: "pbi_pipeline_active"`; before cross-review→`phase: "review"`:
+
+```bash
+.scrum/scripts/update-state-phase.sh pbi_pipeline_active
+.scrum/scripts/update-state-phase.sh review
+```
+
+Self-run ceremonies (sprint-review, retrospective) handle the transition in their own step 1. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status which is now a 12-value flat enum on `backlog.json`.)
 
 ## Status Ownership (12-value status SSOT)
 
@@ -98,8 +105,9 @@ Developer / escalation).
 **Concurrency:** Multiple `PBI_READY_TO_MERGE` notifications may
 arrive close together when several PBIs finish in parallel. Process
 them strictly in receive order. Do not invoke `pbi-merge` twice in
-parallel — the underlying `merge-pbi.sh` wrapper has a `flock`
-backstop, but SendMessage ordering must be deterministic.
+parallel — the underlying `merge-pbi.sh` wrapper has an `mkdir`-based
+directory-lock backstop (`.scrum/.locks/merge.lock.d`; portable across
+macOS / Linux), but SendMessage ordering must be deterministic.
 
 ## Workflow
 

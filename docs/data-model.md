@@ -162,9 +162,11 @@ State descriptions:
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"sprint-001"`) |
-| `goal` | string | Sprint Goal text |
-| `type` | enum | `"requirements"`, `"development"`, or `"integration"` |
-| `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"` |
+| `goal` | string \| null | Sprint Goal text |
+| `base_sha` | string \| null | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Set once by `freeze-sprint-base.sh`; never re-written. |
+| `base_sha_captured_at` | ISO 8601 string \| null | When `base_sha` was captured (set by `freeze-sprint-base.sh`). |
+| `type` | enum | `"development"` or `"integration"` |
+| `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"`, `"failed"` |
 | `pbi_ids` | string[] | IDs of PBIs in the Sprint Backlog |
 | `developer_count` | integer | Number of Developer teammates: min(refined PBIs, 6) |
 | `developers` | Developer[] | Active Developer teammate definitions |
@@ -179,7 +181,7 @@ State descriptions:
 | `assigned_work` | object | PBI assignments |
 | `assigned_work.implement` | string[] | PBI IDs this Developer implements (per-PBI review is handled inside `pbi-pipeline`; Sprint-end cross-review is owned by SM) |
 | `current_pbi` | string \| null | PBI ID currently being driven through `pbi-pipeline` (1 PBI at a time, sequential). Null between PBIs. |
-| `status` | enum | `"active"`, `"idle"`, `"failed"` |
+| `status` | enum | `"active"` or `"failed"` (the dashboard renders `"unknown"` when no entry exists; not a writable value) |
 | `sub_agents` | string[] | Names of specialist sub-agents actually invoked via the Task tool (runtime-populated, not candidates) |
 
 > **Note**: The legacy `current_pbi_phase` field was removed in v2. The
@@ -395,7 +397,7 @@ messages with sender, recipient, and timestamp.
 | `sender_id` | string | Agent ID of the sender (e.g., `"scrum-master"`, `"dev-001-s3"`) |
 | `sender_role` | string | Human-readable role (e.g., `"Scrum Master"`, `"Developer"`) |
 | `recipient_id` | string \| null | Agent ID of the recipient; null = broadcast to all |
-| `type` | enum | Message type: `"task_assignment"`, `"progress_update"`, `"review_request"`, `"review_result"`, `"phase_notification"`, `"change_request"`, `"file_change"`, `"agent_spawn"`, `"status_change"`, `"session_event"` |
+| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_change"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"status_change"`, `"report"`, `"review"`, `"escalation"`, `"info"`. |
 | `content` | string | Human-readable message summary |
 
 ### Rules

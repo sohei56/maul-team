@@ -39,10 +39,23 @@ teardown() {
   [ "${output// /}" = "3" ]
 }
 
-@test "append-pbi-log: rejects unknown phase" {
+@test "append-pbi-log: rejects unknown stage" {
   run "$PROJECT_ROOT/scripts/scrum/append-pbi-log.sh" pbi-001 wibble 1 spawn x
   [ "$status" -eq 64 ]
-  [[ "$output" == *"bad phase"* ]]
+  [[ "$output" == *"bad stage"* ]]
+}
+
+@test "append-pbi-log: rejects legacy impl_ut stage (renamed in v2)" {
+  run "$PROJECT_ROOT/scripts/scrum/append-pbi-log.sh" pbi-001 impl_ut 1 spawn x
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad stage"* ]]
+}
+
+@test "append-pbi-log: accepts pbi_review and ut_run stages" {
+  run "$PROJECT_ROOT/scripts/scrum/append-pbi-log.sh" pbi-001 pbi_review 1 start ok
+  [ "$status" -eq 0 ]
+  run "$PROJECT_ROOT/scripts/scrum/append-pbi-log.sh" pbi-001 ut_run 1 start ok
+  [ "$status" -eq 0 ]
 }
 
 @test "append-pbi-log: rejects bad pbi-id format" {

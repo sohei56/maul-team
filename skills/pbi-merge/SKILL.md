@@ -41,7 +41,9 @@ disable-model-invocation: false
 1. **Acquire lock by serial processing.** If another `pbi-merge` skill
    invocation is in flight (multiple ready-to-merge notifications
    arrived close together), do not run them in parallel. Process them
-   in receive order. The wrapper itself uses `flock` as a backstop.
+   in receive order. The wrapper itself uses an `mkdir`-based directory
+   lock at `.scrum/.locks/merge.lock.d` as a backstop (portable across
+   macOS / Linux; `flock(2)` is unavailable on stock macOS).
 
 2. **Run the wrapper:**
    ```
@@ -92,5 +94,5 @@ disable-model-invocation: false
   `backlog.json.items[].status` manually; the wrapper writes through
   `mark-pbi-*` helpers.
 - Never run two `pbi-merge` invocations in parallel — even though the
-  wrapper has a `flock`, the SendMessage ordering depends on serial
-  processing.
+  wrapper has an `mkdir`-based lock backstop, the SendMessage ordering
+  depends on serial processing.

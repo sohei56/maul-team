@@ -26,7 +26,10 @@ disable-model-invocation: false
 
 ## Steps
 
-1. state.json → phase: "integration_sprint"
+1. state.json → phase: "integration_sprint":
+   ```bash
+   .scrum/scripts/update-state-phase.sh integration_sprint
+   ```
 2. Spawn 1-2 Developer teammates for testing (spawn-teammates skill)
 3. Delegate smoke-test skill→**wait for completion** (do NOT proceed early)
 4. **Quality gate — test-results.json**:
@@ -45,7 +48,10 @@ disable-model-invocation: false
    b. SM self-review: related code, adjacent features, shared components→propose additional fixes→user confirmation
    c. Consolidate full defect list→user confirms complete
 7. **Defect→PBI**: Each confirmed defect→backlog.json PBI (status: draft→immediately refined, acceptance_criteria: expected vs actual, priority by severity). **No fix without assigned PBI — non-negotiable**
-8. **Return to Development Sprint**: state.json → phase: "backlog_created"→normal Sprint cycle (Refinement→Planning→Design→Implementation→Review→Sprint Review→Retrospective)→after fix Sprint→re-evaluate Product Goal→re-enter Integration Sprint
+8. **Return to Development Sprint**: state.json → phase: "backlog_created"→normal Sprint cycle (Refinement→Planning→Design→Implementation→Review→Sprint Review→Retrospective)→after fix Sprint→re-evaluate Product Goal→re-enter Integration Sprint:
+   ```bash
+   .scrum/scripts/update-state-phase.sh backlog_created
+   ```
 9. **Release decision**: User confirms release-ready→
    a. **CLAUDE.md regeneration**: Delegate Developer→fully regenerate `CLAUDE.md` at project root:
       - **Directory structure** (current state, scanned from filesystem)
@@ -53,7 +59,10 @@ disable-model-invocation: false
       - **Tech stack + key conventions** (commands, code style, status flows)
       - Target ~200 lines (目安). Exceeded→warn user, do not block
       - **Full regeneration**: prior content overwritten. Warn user before write if existing CLAUDE.md has content not derivable from requirements.md/code (manual edits at risk)
-   b. state.json phase: "complete"
+   b. state.json phase: "complete":
+      ```bash
+      .scrum/scripts/update-state-phase.sh complete
+      ```
    Not ready→identify remaining work→Development Sprint
 
 Ref: FR-013

@@ -24,7 +24,11 @@ disable-model-invocation: false
 
 ## Steps
 
-1. state.json → phase: "sprint_review", sprint.json → status: "sprint_review"
+1. state.json → phase: "sprint_review", sprint.json → status: "sprint_review":
+   ```bash
+   .scrum/scripts/update-state-phase.sh sprint_review
+   .scrum/scripts/update-sprint-status.sh sprint_review
+   ```
 2. **Present change summary**: Sprint Goal, completed PBIs (status: done), incomplete PBIs (carry-over candidates)
 3. **Launch app (mandatory)**: Detect start command (package.json/Makefile/docker-compose etc)→start→confirm running→fail→fix+retry (never skip demo)→tell user access URL/port
 4. **Demo EVERY completed PBI (mandatory)**:

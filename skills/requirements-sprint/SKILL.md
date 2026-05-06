@@ -25,7 +25,10 @@ disable-model-invocation: false
 
 ## Steps
 
-1. Update `state.json` → `phase: "requirements_sprint"`
+1. Update `state.json` → `phase: "requirements_sprint"`:
+   ```bash
+   .scrum/scripts/update-state-phase.sh requirements_sprint
+   ```
 2. Spawn 1 Developer for requirements interview
 3. Developer engages user in natural language:
    - Business: problem, users, goals
@@ -42,7 +45,11 @@ disable-model-invocation: false
      - **Project overview**: purpose, users, key features (from requirements.md)
      - **Cautions level only**: key constraints, security concerns, critical conventions. No detailed architecture/directory structure (Integration Sprint regenerates that)
      - Target ~200 lines (目安). Exceeded→warn user, do not block
-9. Update `state.json` → `phase: "backlog_created"`. Terminate Requirements Sprint Developer
+9. Update `state.json` → `phase: "backlog_created"`:
+   ```bash
+   .scrum/scripts/update-state-phase.sh backlog_created
+   ```
+   Then terminate Requirements Sprint Developer.
 
 Ref: FR-002
 

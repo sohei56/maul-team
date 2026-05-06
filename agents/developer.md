@@ -88,11 +88,14 @@ round counters, `escalation_reason`, `merge_failure`, etc.
 It does NOT update the high-level status (no `phase` field exists).
 
 **Escalation:** termination-gate trip (stagnation / divergence /
-max_rounds / budget_exhausted / coverage_tool_*) →
+max_rounds / budget_exhausted / coverage_tool_* / requirements_unclear /
+catalog_lock_timeout) →
 `update-backlog-status.sh "$PBI" escalated` +
 `update-pbi-state.sh "$PBI" escalation_reason <kind>` →
 notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
-`pbi-escalation-handler`.
+`pbi-escalation-handler`. (Merge-side reasons —
+`merge_conflict`, `merge_artifact_missing` — are SM-owned and set by
+`mark-pbi-merge-failure.sh`; Developer never writes those.)
 
 ## Communication
 
@@ -108,7 +111,9 @@ notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
 - `docs/design/catalog.md` — type reference (read-only)
 - `docs/design/catalog-config.json` — enabled specs (read-only)
 - `docs/design/specs/**/*.md` — read existing; write for assigned PBIs
-- `.scrum/reviews/<pbi-id>-review.md` — write review results
+- `.scrum/reviews/<pbi-id>-review.md` — read-only context for fix loops
+  after Sprint-end cross-review FAIL. **Written by Scrum Master via the
+  `cross-review` skill, not by Developer.**
 - `.scrum/test-results.json` — write during Integration Sprint
 - `.scrum/pbi/<pbi-id>/` — PBI working area (state.json, design/,
   impl/, ut/, metrics/, feedback/, pipeline.log). Created and managed
