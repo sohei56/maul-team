@@ -292,15 +292,8 @@ prompt-only management:
 
 **Layer 1 — State File**:
 - `.scrum/state.json` contains the `phase` field; the canonical
-  enum and transitions live in `docs/data-model.md` § ProjectState.
-  Summary:
-  ```
-  new -> requirements_sprint -> backlog_created -> sprint_planning
-    -> pbi_pipeline_active -> review -> sprint_review
-    -> retrospective -> sprint_planning (next Sprint)
-    -> integration_sprint -> backlog_created (defect-fix loop)
-                          -> complete
-  ```
+  enum and transitions live in `docs/data-model.md` § ProjectState
+  (a single ASCII graph + per-phase glossary).
 - Phase transitions are performed by the Scrum Master via Skill execution
   (not arbitrary writes).
 
