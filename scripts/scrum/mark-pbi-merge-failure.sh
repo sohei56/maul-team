@@ -2,7 +2,6 @@
 # scripts/scrum/mark-pbi-merge-failure.sh — record a merge failure attempt.
 # Args: <pbi-id> <kind> <pre_head_sha> <detail>
 #   kind=conflict|artifact_missing → detail is comma-separated paths
-#   kind=regression                → detail is a single report_path
 # Increments merge_failure_count; on count=3 escalates (status=escalated +
 # escalation_reason mapped from kind). Below 3, leaves backlog status
 # untouched (typically already in_progress_merge from mark-pbi-ready-to-merge).
@@ -17,7 +16,7 @@ source "$HERE/lib/atomic.sh"
 [ "$#" -eq 4 ] || fail E_INVALID_ARG "usage: mark-pbi-merge-failure.sh <pbi-id> <kind> <pre-head-sha> <detail>"
 PBI="$1"; KIND="$2"; PRE="$3"; DETAIL="$4"
 case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
-case "$KIND" in conflict|artifact_missing|regression) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
+case "$KIND" in conflict|artifact_missing) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
 case "$PRE" in [0-9a-f]*) [ ${#PRE} -ge 7 ] || fail E_INVALID_ARG "pre-head sha too short" ;; *) fail E_INVALID_ARG "pre-head must be hex" ;; esac
 
 STATE=".scrum/pbi/$PBI/state.json"
@@ -27,21 +26,13 @@ PREV_COUNT="$(jq -r '.merge_failure_count // 0' "$STATE")"
 NEW_COUNT=$((PREV_COUNT + 1))
 
 # Build merge_failure object
-case "$KIND" in
-  conflict|artifact_missing)
-    PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | jq -R . | jq -s .)"
-    MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
-    ;;
-  regression)
-    MF="{\"kind\":\"regression\",\"pre_head_at_failure\":\"$PRE\",\"report_path\":\"$DETAIL\"}"
-    ;;
-esac
+PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | jq -R . | jq -s .)"
+MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
 
 # Map kind → escalation_reason for the escalated case.
 case "$KIND" in
   conflict)          ESC_REASON="merge_conflict" ;;
   artifact_missing)  ESC_REASON="merge_artifact_missing" ;;
-  regression)        ESC_REASON="merge_regression" ;;
 esac
 
 if [ "$NEW_COUNT" -ge 3 ]; then

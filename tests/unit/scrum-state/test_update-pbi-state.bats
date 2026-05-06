@@ -60,13 +60,19 @@ teardown() {
   [ "$output" = "null" ]
 }
 
-@test "update-pbi-state: accepts merge_conflict / merge_artifact_missing / merge_regression escalation_reason" {
-  for r in merge_conflict merge_artifact_missing merge_regression; do
+@test "update-pbi-state: accepts merge_conflict / merge_artifact_missing escalation_reason" {
+  for r in merge_conflict merge_artifact_missing; do
     run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 escalation_reason "$r"
     [ "$status" -eq 0 ]
     run jq -r '.escalation_reason' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
     [ "$output" = "$r" ]
   done
+}
+
+@test "update-pbi-state: rejects merge_regression escalation_reason (removed)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 escalation_reason merge_regression
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad escalation_reason"* ]]
 }
 
 @test "update-pbi-state: rejects phase as a writable field (phase no longer exists in schema)" {

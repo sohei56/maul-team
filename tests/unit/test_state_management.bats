@@ -20,7 +20,7 @@ update_state() {
 @test "atomic update preserves untouched fields" {
   mkdir -p .scrum/pbi/pbi-001
   cat > .scrum/pbi/pbi-001/state.json <<'EOF'
-{ "pbi_id": "pbi-001", "phase": "design", "design_round": 0,
+{ "pbi_id": "pbi-001", "design_round": 0,
   "impl_round": 0, "design_status": "pending",
   "impl_status": "pending", "ut_status": "pending",
   "coverage_status": "pending", "escalation_reason": null,

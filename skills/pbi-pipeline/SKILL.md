@@ -45,10 +45,10 @@ escalated / done` are SM-side and must NOT be written by this skill.
 [Init] create .scrum/pbi/<pbi-id>/ + state.json (rounds, *_status)
        update-backlog-status.sh "$PBI_ID" in_progress_design
    ↓
-[Design Stage] Rounds 1..5 → see references/phase1-design.md
+[Design Stage] Rounds 1..5 → see references/design-stage.md
    - status: in_progress_design
    ↓ success
-[Impl Stage] Rounds 1..5 → see references/phase2-impl-ut.md
+[Impl Stage] Rounds 1..5 → see references/impl-ut-stage.md
    - status: in_progress_impl
    - per round: spawn impl + UT in parallel
    ↓
@@ -56,7 +56,8 @@ escalated / done` are SM-side and must NOT be written by this skill.
    - status: in_progress_pbi_review
    - codex-impl-reviewer + codex-ut-reviewer in parallel
    - aggregate findings; FAIL → status reverts to in_progress_impl
-     (next impl round)
+     (next impl round). See [feedback routing](references/feedback-routing.md)
+     for how findings/test failures are split between impl and UT agents.
    ↓ PASS
 [UT Run Stage]
    - status: in_progress_ut_run
@@ -70,7 +71,7 @@ escalated / done` are SM-side and must NOT be written by this skill.
      in_progress_merge)
    - notify SM: "[<pbi-id>] PBI_READY_TO_MERGE branch=pbi/<id> sha=<head>"
    - stop and wait for SM SendMessage (MERGED / MERGE_CONFLICT /
-     ARTIFACT_MISSING / MERGE_REGRESSION)
+     ARTIFACT_MISSING)
 ```
 
 ## Sub-agents spawned
@@ -105,6 +106,10 @@ When a termination gate triggers escalation, set backlog status to
 `escalation_reason` into state.json via `update-pbi-state.sh`, and
 notify SM via Agent Teams. SM handles via the
 `pbi-escalation-handler` skill.
+
+See [termination gates](references/termination-gates.md) for the
+composite gate matrix (success / stagnation / divergence / hard cap)
+evaluated at end of each Round.
 
 ## Exit Criteria
 

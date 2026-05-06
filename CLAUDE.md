@@ -16,12 +16,13 @@ agents/                  # Agent and sub-agent definitions
   codex-design-reviewer.md  # Critical design review (spawned by Developer)
   codex-impl-reviewer.md    # Critical impl review — no test visibility (spawned by Developer)
   codex-ut-reviewer.md      # Critical UT review — no impl visibility (spawned by Developer)
-skills/                  # 14 Ceremony Skills (YAML frontmatter + Markdown)
+skills/                  # 16 Skills (15 Scrum ceremonies + 1 maintenance) — YAML frontmatter + Markdown
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
   change-process/        # Manage changes to frozen design docs
   cross-review/          # Sprint-end cross-cutting quality gate
   pbi-pipeline/          # PBI conductor pipeline (orchestrator + references/)
   pbi-escalation-handler/ # SM-side escalation handler
+  pbi-merge/             # SM-side per-PBI merge orchestration
   install-subagents/     # Install specialist sub-agents for PBI work
   integration-sprint/    # Product-wide QA and integration testing
   requirements-sprint/   # Elicit requirements from user
@@ -31,7 +32,8 @@ skills/                  # 14 Ceremony Skills (YAML frontmatter + Markdown)
   spawn-teammates/       # Spawn developer teammates for sprint
   sprint-planning/       # Sprint planning and PBI assignment
   sprint-review/         # Sprint review ceremony
-hooks/                   # Claude Code hooks (status gates, completion gates, quality gates, dashboard events, session context)
+  cleanup-audit/         # 8-axis multi-agent repo hygiene audit (read-only)
+hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, completion + quality + stop-failure gates, dashboard events, session context)
   lib/                   # Shared hook helpers (validation, logging)
 dashboard/               # Textual TUI dashboard (Python)
   app.py                 # Main TUI application
@@ -116,16 +118,16 @@ Direct edits are blocked by `hooks/pre-tool-use-scrum-state-guard.sh`
 (registered as `PreToolUse`). Schemas under
 `docs/contracts/scrum-state/` are the SSOT. See
 `docs/MIGRATION-scrum-state-tools.md` for the wrapper map, the
-v1→v2 status migration guide, and known gaps. The PBI state schema
+v1→v2 status migration history, and known gaps. The PBI state schema
 gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
 `head_sha`, `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
 `merge_failure`, `merge_failure_count`); the legacy `phase` field
 was removed in v2, with all PBI lifecycle now driven by the 12-value
 `backlog.json.items[].status` enum. Merge-failure detail is preserved
-via `pbi-state.json.merge_failure.kind` plus
-`escalation_reason ∈ {merge_conflict, merge_artifact_missing,
-merge_regression}` when status flips to `escalated`. The sprint schema
-gained `base_sha` and `base_sha_captured_at`.
+via `pbi-state.json.merge_failure.kind ∈ {conflict, artifact_missing}`
+plus `escalation_reason ∈ {merge_conflict, merge_artifact_missing}`
+when 3 consecutive failures flip status to `escalated`. The sprint
+schema gained `base_sha` and `base_sha_captured_at`.
 
 ## Git workflow
 
@@ -145,19 +147,28 @@ SM merges per-PBI immediately by running the `pbi-merge` skill
 which calls `.scrum/scripts/merge-pbi.sh`:
 1. `--no-ff` merge into main
 2. verify every `paths_touched` file is on HEAD
-3. run the existing `hooks/quality-gate.sh`
-4. set backlog `status=awaiting_cross_review`, mirror `merged_sha`
+3. set backlog `status=awaiting_cross_review`, mirror `merged_sha`
    to backlog, remove worktree + branch
 
-Three failure paths roll back main and instruct the Developer to
-fix on `pbi/<id>` and re-notify. Three consecutive failures of any
-kind set backlog `status=escalated` (with `escalation_reason` and
+Quality verification (lint/test) is performed Sprint-end by
+`cross-review`, not per-PBI merge. Two failure paths (merge conflict,
+missing artifact) roll back main and instruct the Developer to fix on
+`pbi/<id>` and re-notify. Three consecutive failures of any kind set
+backlog `status=escalated` (with `escalation_reason` and
 `merge_failure.kind` recorded) and trigger `pbi-escalation-handler`.
 
-The hook `pre-tool-use-no-branch-ops.sh` blocks raw
-`git checkout -b`, `switch -c`, `branch <new>`, `merge`, `push`,
-`rebase` from the Bash tool unless invoked through
-`.scrum/scripts/*`.
+In **deployed target projects** (registered via `setup-user.sh`), the
+hook `pre-tool-use-no-branch-ops.sh` blocks raw `git checkout -b`,
+`switch -c`, `branch <new>`, `merge`, `push`, `rebase` from the Bash
+tool unless invoked through `.scrum/scripts/*`. The framework repo
+itself does **not** register this hook (see `.claude/settings.json`)
+so that framework dev work — branching, merging, pushing — proceeds
+normally. The same scope applies to other PreToolUse guards shipped
+with the framework (`status-gate.sh`, `pre-tool-use-path-guard.sh`):
+they protect downstream target projects, not this repo. The one
+exception is `pre-tool-use-scrum-state-guard.sh`, which **is**
+registered in the framework's own `.claude/settings.json` because
+this repo also writes to `.scrum/` during integration tests.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

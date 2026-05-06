@@ -8,9 +8,10 @@
 # Outputs a permissionDecision JSON object.
 #
 # Note: this hook reads the project-level Scrum phase from .scrum/state.json
-# (which retains its `phase` field for the Sprint state machine: design,
-# implementation, sprint_planning, ...). It is unrelated to the per-PBI
-# 12-value status enum stored in .scrum/backlog.json.items[].status.
+# (which retains its `phase` field for the Sprint state machine:
+# sprint_planning, pbi_pipeline_active, review, sprint_review, ...). It is
+# unrelated to the per-PBI 12-value status enum stored in
+# .scrum/backlog.json.items[].status.
 set -euo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -208,11 +209,11 @@ if [ "$phase" = "pbi_pipeline_active" ]; then
   esac
 fi
 
-# Source code gating: only implementation, review, and pbi_pipeline_active phases allow source edits
+# Source code gating: only review and pbi_pipeline_active phases allow source edits
 if is_source_file "$target_path"; then
   case "$phase" in
-    implementation|review|pbi_pipeline_active) ;;
-    *) deny "$phase phase: source code changes not allowed. Only permitted during implementation/review." ;;
+    review|pbi_pipeline_active) ;;
+    *) deny "$phase phase: source code changes not allowed. Only permitted during pbi_pipeline_active/review." ;;
   esac
 fi
 

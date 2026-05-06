@@ -38,7 +38,7 @@ teardown() {
 }
 
 @test "session-context.sh outputs phase context for existing project" {
-  # Set up a .scrum/state.json with design phase
+  # Set up a .scrum/state.json with pbi_pipeline_active phase
   mkdir -p .scrum
   cp "$FIXTURES_DIR/hook-state-design.json" .scrum/state.json
 
@@ -52,7 +52,7 @@ teardown() {
   # additionalContext must mention the phase
   local ctx
   ctx="$(echo "$output" | jq -r '.additionalContext')"
-  [[ "$ctx" == *"design"* ]]
+  [[ "$ctx" == *"pbi_pipeline_active"* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -160,9 +160,9 @@ teardown() {
 # status-gate.sh
 # ---------------------------------------------------------------------------
 
-@test "status-gate.sh allows Edit during implementation" {
+@test "status-gate.sh allows Edit during pbi_pipeline_active" {
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=implementation
+  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=pbi_pipeline_active
 
   # Simulate an Edit tool event on a source file
   local event_json
@@ -177,9 +177,9 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
-@test "status-gate.sh denies source Edit during design" {
+@test "status-gate.sh denies source Edit during requirements_sprint" {
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/hook-state-design.json" .scrum/state.json  # phase=design
+  jq -n '{"phase": "requirements_sprint", "current_sprint_id": "sprint-001"}' > .scrum/state.json
 
   # Simulate an Edit tool event on a source file
   local event_json
@@ -241,7 +241,7 @@ teardown() {
 
 @test "status-gate.sh denies Write to docs/design/catalog.md" {
   mkdir -p .scrum
-  echo '{"phase": "design"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
 
   local event_json
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/catalog.md"}}'
@@ -256,7 +256,7 @@ teardown() {
 
 @test "status-gate.sh denies Edit to docs/design/catalog.md in any phase" {
   mkdir -p .scrum
-  echo '{"phase": "implementation"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
 
   local event_json
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"docs/design/catalog.md"}}'
@@ -271,7 +271,7 @@ teardown() {
 
 @test "status-gate.sh denies design spec write when ID not in catalog-config.json" {
   mkdir -p .scrum docs/design
-  echo '{"phase": "implementation"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
   printf '| ID | Spec Name | Granularity |\n|---|---|---|\n| S-030 | Screen Design | One per screen |\n' > docs/design/catalog.md
   echo '{"enabled": ["S-001"]}' > docs/design/catalog-config.json
 
@@ -288,7 +288,7 @@ teardown() {
 
 @test "status-gate.sh denies design spec write when ID not in catalog.md" {
   mkdir -p .scrum docs/design
-  echo '{"phase": "design"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
   printf '| ID | Spec Name | Granularity |\n|---|---|---|\n| S-001 | System Architecture | One per project |\n' > docs/design/catalog.md
   echo '{"enabled": ["S-030"]}' > docs/design/catalog-config.json
 
@@ -305,7 +305,7 @@ teardown() {
 
 @test "status-gate.sh allows design spec write when ID in both catalog.md and config" {
   mkdir -p .scrum docs/design
-  echo '{"phase": "design"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
   printf '| ID | Spec Name | Granularity |\n|---|---|---|\n| S-030 | Screen Design | One per screen |\n' > docs/design/catalog.md
   echo '{"enabled": ["S-030"]}' > docs/design/catalog-config.json
 
@@ -320,9 +320,9 @@ teardown() {
   [ "$decision" = "allow" ]
 }
 
-@test "status-gate.sh enforces catalog in implementation phase too" {
+@test "status-gate.sh enforces catalog in pbi_pipeline_active phase via Write" {
   mkdir -p .scrum docs/design
-  echo '{"phase": "implementation"}' > .scrum/state.json
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
   printf '| ID | Spec Name | Granularity |\n|---|---|---|\n| S-030 | Screen Design | One per screen |\n' > docs/design/catalog.md
   echo '{"enabled": ["S-030"]}' > docs/design/catalog-config.json
 
@@ -372,30 +372,31 @@ teardown() {
   assert_success
 }
 
-@test "completion-gate.sh blocks stop when PBIs still refined in implementation" {
+@test "completion-gate.sh blocks stop when active PBI pipeline non-terminal" {
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json   # phase=implementation
+  # phase=pbi_pipeline_active; declare pbi-001 as an active pipeline
+  jq '.active_pbi_pipelines = ["pbi-001"]' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json  # pbi_ids=["pbi-001"]
-  cp "$FIXTURES_DIR/valid-backlog.json" .scrum/backlog.json # pbi-001 status=refined
+  cp "$FIXTURES_DIR/valid-backlog.json" .scrum/backlog.json # pbi-001 status=refined (non-terminal)
 
   run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
   [ "$status" -eq 2 ]
 }
 
-@test "completion-gate.sh allows stop when PBIs started in implementation" {
+@test "completion-gate.sh allows stop when active PBI pipeline terminal" {
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
+  # phase=pbi_pipeline_active; pbi-001 reached awaiting_cross_review (terminal)
+  jq '.active_pbi_pipelines = ["pbi-001"]' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
-
-  # Create backlog with PBI status=in_progress (not refined)
-  jq '.items[0].status = "in_progress"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+  jq '.items[0].status = "awaiting_cross_review"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
   run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
   assert_success
 }
 
-@test "completion-gate.sh allows stop when state files missing in implementation" {
+@test "completion-gate.sh allows stop when no active pipelines in pbi_pipeline_active" {
   mkdir -p .scrum
+  # phase=pbi_pipeline_active with no active_pbi_pipelines entries
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
   # Intentionally do NOT create sprint.json or backlog.json
 

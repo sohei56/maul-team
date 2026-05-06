@@ -44,7 +44,7 @@ If you are mid-Sprint when upgrading:
 - For partial-C1 languages (Go, Rust, Bash), set `c1_threshold` in
   `.scrum/config.json`; ad-hoc relaxation forbidden.
 - Update `.claude/settings.json` to register
-  `hooks/pre-tool-use-path-guard.sh` after `phase-gate.sh` (handled
+  `hooks/pre-tool-use-path-guard.sh` after `status-gate.sh` (handled
   automatically by `setup-user.sh`).
 
 ## Verifying the upgrade

@@ -21,6 +21,7 @@ setup() {
     change-process
     scaffold-design-spec
     smoke-test
+    cleanup-audit
   )
 }
 
@@ -31,7 +32,7 @@ extract_frontmatter() {
   awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' "$file"
 }
 
-@test "all 15 skill directories contain SKILL.md" {
+@test "all 16 skill directories contain SKILL.md" {
   for skill in "${SKILL_NAMES[@]}"; do
     local skill_file="${PROJECT_ROOT}/skills/${skill}/SKILL.md"
     [ -f "$skill_file" ] || {

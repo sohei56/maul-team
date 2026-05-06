@@ -44,19 +44,7 @@
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
           "merged_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
-          "merged_at": {"type": "string", "format": "date-time"},
-          "pipeline_summary": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "rounds_design": {"type": "integer", "minimum": 0},
-              "rounds_impl": {"type": "integer", "minimum": 0},
-              "final_coverage_c0": {"type": "number"},
-              "final_coverage_c1": {"type": ["number", "null"]},
-              "outcome": {"enum": ["complete", "escalated"]},
-              "escalation_reason": {"type": ["string", "null"]}
-            }
-          }
+          "merged_at": {"type": "string", "format": "date-time"}
         }
       }
     }

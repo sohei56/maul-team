@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # scripts/scrum/merge-pbi.sh — SM-side merge orchestrator.
-# Phases: pre-check → no-ff merge → artifact verify → quality-gate → record → cleanup.
+# Phases: pre-check → no-ff merge → artifact verify → record → cleanup.
 # Failure modes call mark-pbi-merge-failure.sh and roll back main.
+# Quality verification (lint/test) is performed Sprint-end by cross-review,
+# not per-PBI merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 
@@ -80,19 +81,6 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   git reset --hard "$PRE_HEAD" >/dev/null \
     || fail E_INVALID_ARG "CRITICAL: rollback failed after artifact_missing — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD)"
   fail E_INVALID_ARG "artifact_missing: $CSV"
-fi
-
-# Run quality-gate (skippable for tests)
-if [ "${SCRUM_SKIP_QUALITY_GATE:-0}" != "1" ]; then
-  REPORT=".scrum/pbi/$PBI/quality-gate-out.log"
-  mkdir -p ".scrum/pbi/$PBI"
-  if ! "$ROOT/hooks/quality-gate.sh" >"$REPORT" 2>&1; then
-    # Record the failure BEFORE rolling back (see artifact_missing path).
-    "$HERE/mark-pbi-merge-failure.sh" "$PBI" regression "$PRE_HEAD" "$REPORT"
-    git reset --hard "$PRE_HEAD" >/dev/null \
-      || fail E_INVALID_ARG "CRITICAL: rollback failed after regression — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD; report=$REPORT)"
-    fail E_INVALID_ARG "merge_regression — see $REPORT"
-  fi
 fi
 
 MERGED_SHA="$(git rev-parse HEAD)"

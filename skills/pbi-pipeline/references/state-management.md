@@ -46,7 +46,7 @@ MUST NOT be written by this skill.
 stagnation | divergence | max_rounds | budget_exhausted |
 requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
 catalog_lock_timeout |
-merge_conflict | merge_artifact_missing | merge_regression
+merge_conflict | merge_artifact_missing
 ```
 
 The merge-* values are written by SM-side `mark-pbi-merge-failure.sh`,
@@ -150,8 +150,6 @@ escalates:
 - Backlog status was already written by the Developer
   (`in_progress_merge` via `mark-pbi-ready-to-merge.sh`, or
   `escalated` via `update-backlog-status.sh`).
-- Add `pipeline_summary` to backlog.json item (rounds, final coverage)
-  via a separate jq invocation (status is not part of the summary write).
 
 ## New fields (worktree / merge governance)
 

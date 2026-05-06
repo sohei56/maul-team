@@ -129,8 +129,8 @@ claude-scrum-team/
 │   ├── scaffold-design-spec/ # Template stub creation on catalog enable
 │   └── smoke-test/           # Automated test execution and HTTP smoke testing
 ├── hooks/
-│   ├── phase-gate.sh        # PreToolUse: gates tools by phase
-│   ├── session-context.sh   # SessionStart: injects phase context
+│   ├── status-gate.sh       # PreToolUse: gates tools by status
+│   ├── session-context.sh   # SessionStart: injects status context
 │   ├── completion-gate.sh   # Stop: verifies exit criteria
 │   ├── quality-gate.sh      # TaskCompleted: enforces DoD
 │   └── dashboard-event.sh   # PostToolUse/TeammateIdle: feeds dashboard + comms
@@ -203,7 +203,7 @@ data dependencies. Invoked explicitly (`disable-model-invocation: true`).
 
 ### Hooks
 Enforce Sprint workflow rules via shell scripts:
-`phase-gate.sh` (tool gating), `session-context.sh` (phase injection),
+`status-gate.sh` (tool gating), `session-context.sh` (status injection),
 `completion-gate.sh` (exit criteria), `quality-gate.sh` (DoD).
 
 ### State Files

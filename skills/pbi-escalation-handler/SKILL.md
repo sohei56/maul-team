@@ -23,14 +23,18 @@ disable-model-invocation: false
   `.scrum/pbi/<pbi-id>/escalation-resolution.md` (audit trail)
 - backlog.json `items[].status` updated via
   `update-backlog-status.sh`:
-  - **retry** → `in_progress_design` (round counters and per-stage
-    `*_status` flags reset on `state.json`)
+  - **retry** → `in_progress_design` (round counters, per-stage
+    `*_status` flags, and `merge_failure_count` reset on `state.json`;
+    worktree preserved)
   - **hold** / **human-escalate** → stays at `escalated` (until the
     blocking condition clears, at which point SM moves it to
-    `in_progress_design` to resume)
+    `in_progress_design` to resume; worktree preserved for inspection)
   - **block on external dependency** → `blocked` (SM-only status; later
     transitioned back to `in_progress_design` when the external factor
-    clears)
+    clears; worktree preserved)
+  - **abandon** → SM calls `cleanup-pbi-worktree.sh` to remove the
+    worktree + `pbi/<id>` branch; backlog status stays `escalated`
+    unless the user explicitly reclassifies (e.g., to `done`)
 - User notified via SM channel when human escalation is needed
 
 ## Response Matrix
@@ -47,7 +51,6 @@ disable-model-invocation: false
 | `catalog_lock_timeout` | Check `.scrum/locks/` for stale lock holders. If holder Developer is dead, force-release and retry (status → `in_progress_design`). Else human-escalate. |
 | `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). For structural conflicts, human-escalate. |
 | `merge_artifact_missing` | Confirm whether files were intentionally removed. If unintentional, ask Developer to re-add. If intentional, human-escalate to update `paths_touched`. |
-| `merge_regression` | Inspect quality-gate report (`state.merge_failure.report_path`). Trivial regression → Developer fix; structural → human-escalate. |
 
 ## Steps
 
@@ -57,22 +60,32 @@ disable-model-invocation: false
 4. **For retry** (e.g. `stagnation` after user picks `redesign`,
    `requirements_unclear` after PO answer, `catalog_lock_timeout`
    after stale-lock cleanup): spawn fresh Developer instance for the
-   PBI; reset round counters and per-stage flags, then flip backlog
-   status:
+   PBI; reset round counters, per-stage flags, and `merge_failure_count`
+   (so a retried PBI starts merge attempts at strike 0), then flip
+   backlog status:
    ```bash
    .scrum/scripts/update-pbi-state.sh "$PBI_ID" \
      escalation_reason null \
      design_round 0 impl_round 0 \
      design_status pending impl_status pending \
-     ut_status pending coverage_status pending
+     ut_status pending coverage_status pending \
+     merge_failure_count 0
    .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_design
    ```
+   The existing worktree at `.scrum/worktrees/<pbi-id>/` is preserved —
+   the fresh Developer resumes on the same branch (no `cleanup-pbi-worktree.sh`).
 5. **For hold or human-escalate**: prepare summary message (PBI id, last
    review headlines, `escalation_reason`, recommended user actions);
    send via SM communications channel. Backlog status remains
    `escalated` (or move to `blocked` if SM is parking the PBI awaiting
-   external resolution).
-6. Write decision to `.scrum/pbi/<pbi-id>/escalation-resolution.md`
+   external resolution). Worktree is preserved for inspection.
+6. **For abandon** (user decides the PBI is no longer viable): call
+   `.scrum/scripts/cleanup-pbi-worktree.sh "$PBI_ID"` to remove the
+   worktree + `pbi/<id>` branch. Backlog status stays `escalated` as
+   the audit trail; flip to `done` only if the user explicitly
+   reclassifies the PBI as resolved. SM owns this cleanup — neither
+   merge-pbi nor the Developer ever cleans up an escalated worktree.
+7. Write decision to `.scrum/pbi/<pbi-id>/escalation-resolution.md`
    with timestamp, decision, and reasoning.
 
 ## Exit Criteria

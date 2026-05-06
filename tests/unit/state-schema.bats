@@ -35,7 +35,7 @@ load '../test_helper/common-setup'
   run jq -e '
     .phase as $p |
     ["new","requirements_sprint","backlog_created","sprint_planning",
-     "design","implementation","review","sprint_review",
+     "pbi_pipeline_active","review","sprint_review",
      "retrospective","integration_sprint","complete"] |
     index($p) != null
   ' "$file"

@@ -19,12 +19,13 @@ disable-model-invocation: false
 
 - backlog.json `items[].status` transitions to one of:
   - `awaiting_cross_review` (success — written by `mark-pbi-merged.sh`)
-  - `escalated` (recoverable failure — written by
-    `mark-pbi-merge-failure.sh`; `state.merge_failure.kind` and
-    `state.escalation_reason ∈ {merge_conflict, merge_artifact_missing,
-    merge_regression}` carry the detail. Developer is asked to fix and
-    re-notify. After 3 consecutive failures the PBI stays at
-    `escalated` and `pbi-escalation-handler` takes over.)
+  - `in_progress_merge` (recoverable failure under the 3-strike threshold;
+    `mark-pbi-merge-failure.sh` records `state.merge_failure.kind ∈
+    {conflict, artifact_missing}` but leaves backlog status untouched so
+    the Developer can fix on `pbi/<id>` and re-notify).
+  - `escalated` (3rd consecutive failure — `mark-pbi-merge-failure.sh`
+    sets `escalation_reason ∈ {merge_conflict, merge_artifact_missing}`
+    and `pbi-escalation-handler` takes over).
 - backlog.json `items[].merged_sha` mirrored on success
 - Worktree `.scrum/worktrees/<pbi-id>` removed on success
 - Sprint-level state untouched
@@ -52,20 +53,22 @@ disable-model-invocation: false
      is now `awaiting_cross_review`. SendMessage to Developer
      (`sprint.json.developers[].current_pbi == <pbi-id>`):
      `[<pbi-id>] MERGED at <merged_sha>. Stand by for next assignment.`
-   - non-zero → re-read `state.json.merge_failure.kind`:
-     - `merge_conflict` (status now `escalated`,
-       `escalation_reason = merge_conflict`) → SendMessage:
+   - non-zero → re-read `state.json.merge_failure.kind` (status remains
+     `in_progress_merge` while `merge_failure_count < 3`):
+     - `conflict` → SendMessage:
        `[<pbi-id>] MERGE_CONFLICT paths=[<state.merge_failure.paths>]. Rebase pbi/<pbi-id> onto main HEAD <git rev-parse main>, fix, re-notify PBI_READY_TO_MERGE.`
-     - `merge_artifact_missing` (status now `escalated`,
-       `escalation_reason = merge_artifact_missing`) → SendMessage:
+     - `artifact_missing` → SendMessage:
        `[<pbi-id>] ARTIFACT_MISSING paths=[<state.merge_failure.paths>]. Re-add files to pbi/<pbi-id> branch (likely lost during a rebase or .gitignore mishap), re-notify PBI_READY_TO_MERGE.`
-     - `merge_regression` (status now `escalated`,
-       `escalation_reason = merge_regression`) → SendMessage:
-       `[<pbi-id>] MERGE_REGRESSION. Failed checks: see <state.merge_failure.report_path>. Fix on pbi/<pbi-id>, re-notify.`
-     - 3rd consecutive failure of any kind (status `escalated`,
-       `merge_failure_count >= 3`) → invoke `pbi-escalation-handler`
+     - 3rd consecutive failure of any kind (status flips to `escalated`,
+       `merge_failure_count >= 3`, `escalation_reason ∈ {merge_conflict,
+       merge_artifact_missing}`) → invoke `pbi-escalation-handler`
        skill with `<pbi-id>` (further Developer iteration is
        unproductive).
+
+   Note: `merge_failure.kind` uses unprefixed values (`conflict`,
+   `artifact_missing`) while `escalation_reason` uses the `merge_*`
+   prefix (`merge_conflict`, `merge_artifact_missing`). The mapping is
+   one-to-one; `mark-pbi-merge-failure.sh` writes both.
 
    The Developer's expected response to a recoverable failure is to
    fix on `pbi/<pbi-id>`, run `mark-pbi-ready-to-merge.sh` again

@@ -71,7 +71,7 @@ Used until automated sub-agent invocation is mockable.
    runs the `cross-review` skill at Sprint end, advancing status to
    `cross_review` and finally `done`. Verify:
    - `backlog.json` PBI status `done`
-   - `pipeline_summary` populated with round counts and coverage
+   - `.scrum/pbi/<pbi-id>/pipeline.log` records the round counts and final coverage
 
 6. **Path-guard violation check**
 

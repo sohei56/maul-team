@@ -17,7 +17,7 @@
 #   escalation_reason null|stagnation|divergence|max_rounds|budget_exhausted|
 #                     requirements_unclear|coverage_tool_error|
 #                     coverage_tool_unavailable|catalog_lock_timeout|
-#                     merge_conflict|merge_artifact_missing|merge_regression
+#                     merge_conflict|merge_artifact_missing
 #   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
 #   worktree          .scrum/worktrees/pbi-NNN (validated)
 #   base_sha          hex sha, 7..40 chars
@@ -84,7 +84,7 @@ while [ "$#" -ge 2 ]; do
     escalation_reason)
       case "$V" in
         null) EXPR="$EXPR | .escalation_reason = null" ;;
-        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|merge_conflict|merge_artifact_missing|merge_regression)
+        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|merge_conflict|merge_artifact_missing)
           EXPR="$EXPR | .escalation_reason = \"$V\""
           ;;
         *) fail E_INVALID_ARG "bad escalation_reason: $V" ;;

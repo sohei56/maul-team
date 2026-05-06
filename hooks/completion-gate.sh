@@ -64,32 +64,6 @@ phase="$(jq -r '.phase // "unknown"' "$STATE_FILE")"
 current_sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
 
 case "$phase" in
-  implementation)
-    # All Sprint PBIs must have status != "refined" (work must have started)
-    if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
-      # Allow stop when state files are missing — blocking would trap users
-      echo "[completion-gate] WARNING: sprint.json or backlog.json missing; cannot verify PBI status." >&2
-      allow_stop
-    fi
-
-    not_started_pbis=""
-    while IFS= read -r pbi_id; do
-      [ -z "$pbi_id" ] && continue
-      status="$(get_pbi_status "$pbi_id")"
-      if [ "$status" = "refined" ]; then
-        not_started_pbis="${not_started_pbis}${not_started_pbis:+, }${pbi_id} (status: refined)"
-      fi
-    done <<EOF
-$(get_sprint_pbi_ids)
-EOF
-
-    if [ -n "$not_started_pbis" ]; then
-      block_stop "Implementation phase: the following Sprint PBIs have not been started (still 'refined'): ${not_started_pbis}. All PBIs must have work started before stopping."
-    fi
-
-    allow_stop
-    ;;
-
   review)
     # All Sprint PBIs must have status "done"
     if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then

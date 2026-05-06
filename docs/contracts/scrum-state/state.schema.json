@@ -11,13 +11,11 @@
         "requirements_sprint",
         "backlog_created",
         "sprint_planning",
-        "design",
-        "implementation",
+        "pbi_pipeline_active",
         "review",
         "sprint_review",
         "retrospective",
         "integration_sprint",
-        "pbi_pipeline_active",
         "complete"
       ]
     },

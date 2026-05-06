@@ -54,5 +54,6 @@ Ref: FR-019
 
 ## Exit Criteria
 
-- Available sub-agents verified
-- Can proceed regardless of sub-agent availability
+- All 6 required sub-agents verified present (per "Required Sub-Agents"
+  list above) with valid YAML frontmatter
+- BLOCKED if any required sub-agent is missing

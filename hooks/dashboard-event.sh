@@ -108,6 +108,13 @@ is_pbi_pipeline_agent() {
 # event_type: "start" | "stop"
 # PBI status is read from backlog.json (12-value SSOT) — pbi-state.json no
 # longer carries phase after the status/phase unification.
+#
+# This hook runs in PreToolUse-handler context, which is itself the guard
+# layer — there is no user-facing wrapper for the dashboard `pbi_pipelines`
+# projection (it is a derived view, refreshed on every PostToolUse). Raw jq
+# is the documented mechanism for hook-side dashboard maintenance; user-
+# facing writers must still go through .scrum/scripts/* wrappers. See
+# docs/MIGRATION-scrum-state-tools.md "Known gaps" #4.
 update_pbi_pipelines() {
   local pbi_id="$1" agent_name="$2" event_type="$3"
   [ -z "$pbi_id" ] && return 0
