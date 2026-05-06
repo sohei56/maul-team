@@ -55,8 +55,10 @@ For partial-C1 languages (Go, Rust, Bash), set `c1_threshold` in
 `.scrum/config.json`. Ad-hoc relaxation is forbidden — the threshold
 must be declared in config.
 
-See `docs/MIGRATION-pbi-pipeline.md` if you are upgrading from the
-legacy single-session design + implementation flow.
+See `docs/MIGRATION-pbi-pipeline.md` for a conceptual map between
+the legacy single-session design + implementation flow and today's
+pbi-pipeline conductor + sub-agents (the legacy skills are no
+longer shipped).
 
 If tmux is available, `scrum-start.sh` creates a split layout:
 - **Main pane**: `claude --agent scrum-master` (interactive session in
