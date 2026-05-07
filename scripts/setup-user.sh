@@ -26,6 +26,52 @@ copy_tree() {
   done
 }
 
+# ensure_gitignore_excludes_scrum
+# Idempotently appends `.scrum` and `.scrum/` to TARGET_DIR/.gitignore so that
+# runtime state cannot be accidentally tracked. Past incident: when .scrum/
+# was tracked, branch switches silently removed branch-local state files.
+# Behavior:
+#   - Never overwrites existing content; append-only.
+#   - Skips entries already present (whole-line match via grep -Fxq).
+#   - Creates .gitignore if missing.
+ensure_gitignore_excludes_scrum() {
+  local gitignore_file="$TARGET_DIR/.gitignore"
+  local header="# Claude Scrum Team runtime state (must stay untracked)"
+  local entries=('.scrum' '.scrum/')
+  local missing=()
+  local entry
+
+  for entry in "${entries[@]}"; do
+    if [ ! -f "$gitignore_file" ] || ! grep -Fxq "$entry" "$gitignore_file"; then
+      missing+=("$entry")
+    fi
+  done
+
+  if [ "${#missing[@]}" -eq 0 ]; then
+    echo "  .gitignore already excludes .scrum — no changes."
+    return 0
+  fi
+
+  [ -f "$gitignore_file" ] || : > "$gitignore_file"
+
+  # Ensure file ends with newline before appending (portable on macOS).
+  if [ -s "$gitignore_file" ] \
+     && [ "$(tail -c1 "$gitignore_file" 2>/dev/null | wc -l | tr -d ' ')" = "0" ]; then
+    printf '\n' >> "$gitignore_file"
+  fi
+
+  if ! grep -Fxq "$header" "$gitignore_file" 2>/dev/null; then
+    [ -s "$gitignore_file" ] && printf '\n' >> "$gitignore_file"
+    printf '%s\n' "$header" >> "$gitignore_file"
+  fi
+
+  for entry in "${missing[@]}"; do
+    printf '%s\n' "$entry" >> "$gitignore_file"
+  done
+
+  echo "  Updated $gitignore_file: added ${missing[*]}"
+}
+
 echo "=== claude-scrum-team: Project Setup ==="
 echo ""
 
@@ -78,6 +124,18 @@ echo "Copying hook scripts to $TARGET_DIR/.claude/hooks/..."
 copy_tree "$PROJECT_ROOT/hooks/*.sh" "$TARGET_DIR/.claude/hooks" true
 copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib"
 
+# --- Copy non-hook shared agent helpers ---
+# `scripts/lib/codex-invoke.sh` is sourced by codex-* reviewer agents during
+# PBI-pipeline review steps. It is not a hook helper, so it lives outside
+# `.claude/hooks/lib/`. The codex-design-reviewer.md instruction sources it
+# at `scripts/lib/codex-invoke.sh` (relative to project root).
+echo "Copying agent helpers to $TARGET_DIR/scripts/lib/..."
+copy_tree "$PROJECT_ROOT/scripts/lib/*.sh" "$TARGET_DIR/scripts/lib"
+
+# --- Ensure .scrum/ is gitignored (must run BEFORE any .scrum/ write) ---
+echo "Ensuring .scrum/ is gitignored in $TARGET_DIR..."
+ensure_gitignore_excludes_scrum
+
 # --- Copy scrum-state SSOT wrappers ---
 # pre-tool-use-scrum-state-guard blocks raw writes to .scrum/*.json. Without
 # the wrappers, agents have no permitted way to mutate state.
@@ -86,24 +144,6 @@ copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib"
 echo "Copying scrum-state wrappers to $TARGET_DIR/.scrum/scripts/..."
 copy_tree "$PROJECT_ROOT/scripts/scrum/*.sh" "$TARGET_DIR/.scrum/scripts" true
 copy_tree "$PROJECT_ROOT/scripts/scrum/lib/*.sh" "$TARGET_DIR/.scrum/scripts/lib"
-
-# Clean up wrappers from the legacy deploy location (scripts/scrum/) so they
-# don't shadow the new layout. Only removes files we recognize as ours; leaves
-# any unrelated files the user may have placed there.
-legacy_dir="$TARGET_DIR/scripts/scrum"
-if [ -d "$legacy_dir" ]; then
-  for wrapper in "$PROJECT_ROOT/scripts/scrum/"*.sh; do
-    [ -f "$legacy_dir/$(basename "$wrapper")" ] && rm -f "$legacy_dir/$(basename "$wrapper")"
-  done
-  if [ -d "$legacy_dir/lib" ]; then
-    for wrapper_lib in "$PROJECT_ROOT/scripts/scrum/lib/"*.sh; do
-      [ -f "$legacy_dir/lib/$(basename "$wrapper_lib")" ] && rm -f "$legacy_dir/lib/$(basename "$wrapper_lib")"
-    done
-    rmdir "$legacy_dir/lib" 2>/dev/null || true
-  fi
-  rmdir "$legacy_dir" 2>/dev/null || true
-  rmdir "$TARGET_DIR/scripts" 2>/dev/null || true
-fi
 
 # --- Copy PBI Pipeline configuration template ---
 # Provide .scrum-config.example.json so users can copy it to .scrum/config.json
@@ -369,8 +409,11 @@ else
 fi
 
 # --- Check Codex CLI for cross-model code review ---
-# The codex-code-reviewer agent calls `codex review` directly via CLI.
-# When codex is not installed, the agent falls back to Claude-based review.
+# The codex-{design,impl,ut}-reviewer sub-agents call `codex` directly via
+# CLI for per-PBI cross-model review (Layer 1 in the PBI Pipeline). When
+# codex is not installed, those sub-agents fall back to Claude-based review.
+# Sprint-end cross-review (Layer 2) is independent of codex and runs the
+# 5 aspect-specialized reviewer sub-agents regardless.
 
 if command -v codex >/dev/null 2>&1; then
   echo ""

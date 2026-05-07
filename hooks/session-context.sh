@@ -10,6 +10,7 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
+BACKLOG_FILE=".scrum/backlog.json"
 
 # Build context based on available state
 if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
@@ -33,12 +34,13 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
     context="${context} Active Sprint: ${sprint_id} (${sprint_type}, ${sprint_status}). Sprint Goal: ${sprint_goal}."
   fi
 
-  # PBI Pipeline awareness: surface active PBI pipelines so spawned sub-agents
-  # know which PBI(s) are in flight. Full env propagation (SCRUM_PBI_ID) is
-  # not possible via this hook — sub-agent prompts must include the PBI id
-  # explicitly. This addition is informational for the agent reading context.
-  if [ "$phase" = "pbi_pipeline_active" ]; then
-    active_pipelines="$(jq -r '.active_pbi_pipelines // [] | join(", ")' "$STATE_FILE" 2>/dev/null)"
+  # PBI Pipeline awareness: derive active pipelines from backlog.json (the
+  # 12-value status SSOT) so spawned sub-agents know which PBI(s) are in
+  # flight. Any status starting with `in_progress_` counts as active. Full
+  # env propagation (SCRUM_PBI_ID) is not possible via this hook — sub-agent
+  # prompts must include the PBI id explicitly.
+  if [ "$phase" = "pbi_pipeline_active" ] && [ -f "$BACKLOG_FILE" ]; then
+    active_pipelines="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | .id] | join(", ")' "$BACKLOG_FILE" 2>/dev/null)"
     if [ -n "$active_pipelines" ]; then
       context="${context} Active PBI pipelines: ${active_pipelines}."
     fi

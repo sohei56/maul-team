@@ -27,6 +27,16 @@ stderr_log() {
   printf '[%s] %s: %s\n' "$1" "$2" "$3" >&2
 }
 
+# Emit a BLOCKED message and exit 2 (the Claude Code hook deny convention).
+# Usage: hook_block <hook_name> <what> <remediation>
+# Example: hook_block "scrum-guard" "Edit .scrum/state.json" \
+#                     "Use .scrum/scripts/* instead."
+# Output:  [scrum-guard] BLOCKED: Edit .scrum/state.json. Use .scrum/scripts/* instead.
+hook_block() {
+  stderr_log "$1" "BLOCKED" "$2. $3"
+  exit 2
+}
+
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
 # Authoritative timestamp helper. scripts/scrum/lib/atomic.sh::_iso_utc_now
 # mirrors this format; keep both in sync if format changes.
@@ -68,22 +78,6 @@ get_pbi_status_from_backlog() {
   else
     printf '%s' "$out"
   fi
-}
-
-# Read a top-level field from .scrum/pbi/<pbi_id>/state.json, with optional
-# default if the file is missing or the field is null.
-# Usage: get_pbi_pipeline_state <pbi_id> <field> [default]
-get_pbi_pipeline_state() {
-  local pbi_id="$1"
-  local field="$2"
-  local default="${3:-}"
-  local file=".scrum/pbi/${pbi_id}/state.json"
-  if [ ! -f "$file" ]; then
-    printf '%s' "$default"
-    return
-  fi
-  jq -r --arg f "$field" --arg d "$default" '(.[$f] // $d) | tostring' "$file" 2>/dev/null \
-    || printf '%s' "$default"
 }
 
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via

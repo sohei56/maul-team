@@ -48,14 +48,14 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 1. **You describe your project** — the Scrum Master spawns a Developer to elicit requirements and write `requirements.md`
 2. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
 3. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
-4. **Design + Implementation + Cross-Review** — Developers design and implement their PBIs in parallel, then review each other's work (no self-review)
+4. **Design + Implementation + Cross-Review** — Developers design and implement their PBIs in parallel; the Scrum Master then runs cross-review by spawning 5 aspect-specialized reviewer sub-agents over the whole Sprint Increment
 5. **Sprint Review** — the SM launches the app and demos every completed PBI; you confirm each works
 6. **Retrospective** — the team reflects and records improvements for the next Sprint
 7. **Repeat** until the Product Goal is achieved, then an **Integration Sprint** runs automated tests and a final UAT
 
 ## Features
 
-- **14 ceremony skills** covering the full Scrum lifecycle: requirements elicitation, backlog refinement, sprint planning, design, implementation, cross-review, sprint review, retrospective, and integration testing
+- **15 ceremony skills** covering the full Scrum lifecycle: requirements elicitation, backlog refinement, sprint planning, design, implementation, per-PBI merge, cross-review, sprint review, retrospective, and integration testing
 - **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint
 - **Real-time TUI dashboard** — Textual-based four-panel display (Sprint Overview, PBI Progress Board, Communication Log, Work Log) with watchdog filesystem monitoring
 - **Design document governance** — immutable catalog (`catalog.md`) with editable enablement config (`catalog-config.json`), enforced by status-gate hooks
@@ -71,7 +71,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Independent cross-review** — the Scrum Master spawns project-managed reviewer sub-agents (`codex-code-reviewer` primary, `security-reviewer`, with `code-reviewer` as Codex-CLI-unavailable fallback) for unbiased, design-driven code review that checks implementation against requirements and design docs
+- **Independent cross-review** — the Scrum Master runs static analysis once and spawns 5 aspect-specialized reviewer sub-agents in parallel over the whole Sprint Increment (`requirement-conformance-reviewer`, `functional-quality-reviewer`, `security-reviewer`, `maintainability-reviewer`, `docs-consistency-reviewer`). Per-PBI Codex-CLI cross-model review remains in the PBI Pipeline via `codex-impl-reviewer` and `codex-ut-reviewer`
 
 **Constraints addressing AI weaknesses:**
 
@@ -103,7 +103,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  │          ▼                                                  │
  │  6. Implementation    Build features with TDD (parallel)    │
  │          ▼                                                  │
- │  7. Cross-Review      Devs review each other's work         │
+ │  7. Cross-Review      SM spawns 5 aspect reviewer agents    │
  │          ▼                                                  │
  │  8. Sprint Review     Demo to PO, accept/reject PBIs        │
  │          ▼                                                  │
@@ -146,7 +146,7 @@ For detailed setup instructions, see [quickstart.md](docs/quickstart.md).
 |--------|-----------------|
 | Describe what you want to build | Elicit and write detailed requirements |
 | Approve Sprint Goals | Plan Sprints and assign PBIs |
-| Review demos in the running app | Design, implement, and cross-review code |
+| Review demos in the running app | Design, implement, and run cross-review on the Increment |
 | Report defects during UAT | Fix defects and re-test automatically |
 | Make release decisions | Run automated test suites |
 
@@ -154,7 +154,7 @@ For detailed setup instructions, see [quickstart.md](docs/quickstart.md).
 
 - **`scrum-start.sh`** — Entry point: validates prereqs, copies agents/skills, launches tmux
 - **`agents/`** — Scrum Master (Delegate mode) and Developer agent definitions, plus project-managed specialist sub-agents (cross-review + PBI Pipeline). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
-- **`skills/`** — 14 ceremony Skills with mandatory Inputs/Outputs
+- **`skills/`** — 15 ceremony Skills with mandatory Inputs/Outputs
 - **`hooks/`** — Phase gates, completion gates, quality gates, dashboard events, session context
 - **`dashboard/app.py`** — Textual TUI with real-time panels
 - **`scripts/`** — Status line, user setup, contributor setup

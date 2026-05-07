@@ -16,7 +16,7 @@ responsibilities (what it owns).
   implementation work; can only manage tasks, communicate with teammates,
   and review output). Enforced via agent definition instruction +
   Shift+Tab toggle at runtime.
-**Skills**: All 14 ceremony Skills preloaded via `skills:` field
+**Skills**: All 15 ceremony Skills preloaded via `skills:` field
 
 ### Inputs
 - User natural language (direct conversation)
@@ -75,6 +75,7 @@ responsibilities (what it owns).
 | `spawn-teammates` | Teammate creation (reproducible) | FR-001, FR-007 |
 | `install-subagents` | Sub-agent selection from catalog | FR-019 |
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | FR-004, FR-017 |
+| `pbi-merge` | SM-side per-PBI merge orchestration (immediate post-PBI merge into main with rollback / 3-strike escalation) | FR-004, FR-022 |
 | `pbi-escalation-handler` | SM-side handling of pbi-pipeline escalations | FR-004, FR-017 |
 | `cross-review` | Cross-review process | FR-009 |
 | `sprint-review` | Sprint Review | FR-010, FR-011 |
@@ -87,7 +88,7 @@ responsibilities (what it owns).
 ### Skill Inputs/Outputs Reference
 
 Every Skill MUST declare `## Inputs` and `## Outputs` at the top of its
-body. Below is the reference for all 14 Skills:
+body. Below is the reference for all 15 Skills:
 
 | Skill | Inputs (required state) | Outputs (files/keys updated) |
 |-------|------------------------|------------------------------|
@@ -97,6 +98,7 @@ body. Below is the reference for all 14 Skills:
 | `spawn-teammates` | `sprint.json` → `pbi_ids`, `developer_count`; `backlog.json` → assigned PBIs | `sprint.json` → `developers[]` (populated, `assigned_work.implement`), `status: "active"`; Agent Teams teammates spawned |
 | `install-subagents` | PBI assignment (task context); project-managed agent definitions | `.claude/agents/*.md` (installed); `sprint.json` → `developers[].sub_agents` (at runtime) |
 | `pbi-pipeline` | `state.json` → `phase: sprint_planning \| pbi_pipeline_active`; `sprint.json` → `developers[]`; `docs/design/catalog.md`; existing `docs/design/specs/**/*.md`; `requirements.md`; `.scrum/config.json` (coverage thresholds) | Source code; test files; `docs/design/specs/{category}/*.md` (catalog spec updates as side-effect); `.scrum/pbi/<pbi-id>/{state,design,impl,ut,metrics,feedback,pipeline.log}` (see `data-model.md` § PbiPipelineState); `backlog.json` → `items[].status` walks the Developer-managed slice (`in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`); on termination-gate trip flips to `escalated`; `state.json` → `phase: pbi_pipeline_active` |
+| `pbi-merge` | Developer notification `[<pbi-id>] PBI_READY_TO_MERGE`; `backlog.json` → `items[].status: in_progress_merge`; `.scrum/pbi/<pbi-id>/state.json` (head_sha, paths_touched, ready_at, merge_failure_count); `.scrum/sprint.json` (developer assignment) | `backlog.json` → `items[].status: in_progress_merge → awaiting_cross_review` (success) or unchanged (recoverable failure, status remains `in_progress_merge` while count < 3) or `escalated` (3rd failure); `items[].merged_sha`; `.scrum/pbi/<pbi-id>/state.json` (`merged_sha`, `merged_at`, or `merge_failure.{kind,paths}` + `merge_failure_count` ++); merge commit on `main`; worktree `.scrum/worktrees/<pbi-id>` removed on success; SendMessage to Developer with success/conflict/escalation status |
 | `pbi-escalation-handler` | Developer notification `[<pbi-id>] ESCALATED reason=<reason>`; `.scrum/pbi/<pbi-id>/state.json`; `.scrum/pbi/<pbi-id>/pipeline.log` | `.scrum/pbi/<pbi-id>/escalation-resolution.md`; SM decision (retry / split / hold / human-escalate) |
 | `cross-review` | `state.json` → `phase: pbi_pipeline_active \| review`; `backlog.json` → all Sprint PBIs at `status ∈ {awaiting_cross_review, escalated}` (incl. `paths_touched`); `requirements.md`; relevant `docs/design/specs/**/*.md`; `sprint.json.base_sha`; per-PBI pipeline final reviews at `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` (read for context, not re-evaluated) | `sprint.json` → `status: "cross_review"`; `.scrum/reviews/static-analysis-r{n}.json` (per-round tool output for `maintainability-reviewer`); `.scrum/reviews/sprint-impl-diff.txt` (non-doc diff for `docs-consistency-reviewer`); `.scrum/reviews/aspect-<aspect>-review.md` (5 raw aspect outputs); `.scrum/reviews/<pbi-id>-review.md` (per-PBI digest); `backlog.json` → `items[].status: awaiting_cross_review → cross_review → done` on aspect-1/2/3 PASS, or `cross_review → in_progress_impl` on aspect-1/2/3 FAIL; aspect-4/5 FAIL → new draft PBI appended (title prefix `[cross-review-followup:<pbi-id>:<aspect>]`, `parent_pbi_id` set, dedup); `items[].review_doc_path`; `state.json` → `phase: review` |
 | `sprint-review` | `state.json` → `phase: review`; `sprint.json`; `backlog.json` | `sprint.json` → `status: "sprint_review"`; `sprint-history.json` → `sprints[]` (appended); `state.json` → `phase: sprint_review` |

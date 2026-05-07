@@ -8,7 +8,7 @@ setup() {
   cd "$TEST_TMP" || exit 1
   mkdir -p .scrum docs/contracts/scrum-state
   cp "$PROJECT_ROOT/docs/contracts/scrum-state/dashboard.schema.json" docs/contracts/scrum-state/
-  printf '{"max_events":100,"events":[],"pbi_pipelines":[]}\n' > .scrum/dashboard.json
+  printf '{"max_events":100,"events":[]}\n' > .scrum/dashboard.json
 }
 
 teardown() {
@@ -19,7 +19,7 @@ teardown() {
 
 @test "append-dashboard-event: file_changed event with file path" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" \
-    --type file_changed --agent dev-001-s1 --file "src/x.py" --change-type modify
+    --type file_changed --agent dev-001-s1 --file "src/x.py" --change-type modified
   [ "$status" -eq 0 ]
   run jq -r '.events[0].type' "$TEST_TMP/.scrum/dashboard.json"
   [ "$output" = "file_changed" ]
@@ -68,15 +68,21 @@ teardown() {
   [[ "$output" == *"bad --type"* ]]
 }
 
+@test "append-dashboard-event: rejects bad --change-type" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" \
+    --type file_changed --file "x.py" --change-type modify
+  [ "$status" -ne 0 ]
+}
+
 @test "append-dashboard-event: rejects bad --pbi format" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" --type test_run --pbi WIBBLE
   [ "$status" -eq 64 ]
 }
 
-@test "append-dashboard-event: preserves pre-existing pbi_pipelines array" {
-  printf '{"max_events":100,"events":[],"pbi_pipelines":[{"pbi_id":"pbi-001","status":"in_progress_design"}]}\n' > "$TEST_TMP/.scrum/dashboard.json"
+@test "append-dashboard-event: preserves unknown top-level fields" {
+  printf '{"max_events":100,"events":[],"_extra":[{"k":"v"}]}\n' > "$TEST_TMP/.scrum/dashboard.json"
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" --type test_run
   [ "$status" -eq 0 ]
-  run jq -r '.pbi_pipelines | length' "$TEST_TMP/.scrum/dashboard.json"
+  run jq -r '._extra | length' "$TEST_TMP/.scrum/dashboard.json"
   [ "$output" = "1" ]
 }

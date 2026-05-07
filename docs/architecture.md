@@ -215,6 +215,7 @@ execute.
     spawn-teammates/SKILL.md         # Teammate creation (reproducible)
     install-subagents/SKILL.md       # Sub-agent selection from catalog (reproducible)
     pbi-pipeline/SKILL.md            # Per-PBI multi-sub-agent pipeline (R10)
+    pbi-merge/SKILL.md               # SM-side per-PBI merge orchestration
     pbi-escalation-handler/SKILL.md  # SM-side pbi-pipeline escalation handler
     cross-review/SKILL.md            # Sprint-end cross-cutting quality gate
     sprint-review/SKILL.md           # Sprint Review ceremony
@@ -492,10 +493,11 @@ by default).
 - Skill: `skills/pbi-pipeline/` (orchestrator SKILL.md + 8 references)
 - SM-side escalation: `skills/pbi-escalation-handler/SKILL.md`
 - Path enforcement hook: `hooks/pre-tool-use-path-guard.sh`
-- Codex invocation: `hooks/lib/codex-invoke.sh`
+- Codex invocation: `scripts/lib/codex-invoke.sh`
 - Per-PBI state: `.scrum/pbi/<pbi-id>/state.json` and
   `pipeline.log`
 - Catalog write contention: 3-layer defense (sprint-planning
   pre-separation, runtime flock, mtime conflict detection).
-- TUI: dashboard PBI Pipeline pane reads
-  `dashboard.json.pbi_pipelines`.
+- TUI: dashboard PBI Board reads `backlog.json.items[].status`
+  (12-value SSOT) and per-PBI round counters from
+  `.scrum/pbi/<pbi-id>/state.json`.

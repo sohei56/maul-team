@@ -82,3 +82,24 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
   [ "$status" -ne 0 ]
 }
+
+@test "merge-pbi: refuses when current branch is not main" {
+  PRE_HEAD="$(git rev-parse HEAD)"
+  git checkout -q -b feature/test
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli SCRUM_SKIP_QUALITY_GATE=1 "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "must run with 'main' checked out"
+  # Side-effect-free: HEAD unchanged on the feature branch
+  [ "$(git rev-parse HEAD)" = "$PRE_HEAD" ]
+}
+
+@test "merge-pbi: refuses when .scrum/ is tracked in git" {
+  git add -f .scrum/sprint.json
+  git commit -q -m "track sprint.json"
+  PRE_HEAD="$(git rev-parse HEAD)"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli SCRUM_SKIP_QUALITY_GATE=1 "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "tracked in git"
+  # Side-effect-free: HEAD unchanged
+  [ "$(git rev-parse HEAD)" = "$PRE_HEAD" ]
+}

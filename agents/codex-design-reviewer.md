@@ -63,7 +63,7 @@ missing_error_handling.
 
 1. Read all provided files in full.
 2. Build review instructions to a temp file.
-3. Source `hooks/lib/codex-invoke.sh` then call
+3. Source `scripts/lib/codex-invoke.sh` then call
    `codex_review_or_fallback "$instr" "$out"`.
 4. If exit 0: read $out and write to the review-r{n}.md path.
 5. If exit 1 (Codex unavailable): perform same-criteria Claude review

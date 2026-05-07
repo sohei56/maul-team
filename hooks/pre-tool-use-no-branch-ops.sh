@@ -22,10 +22,7 @@ esac
 
 # Patterns: any of these in the command is a hard block.
 # We match on word-boundaries to avoid false positives ("git status" should pass).
-block() {
-  stderr_log "no-branch-ops" "BLOCKED" "$1. Use .scrum/scripts/* wrappers instead."
-  exit 2
-}
+block() { hook_block "no-branch-ops" "$1" "Use .scrum/scripts/* wrappers instead."; }
 
 if echo "$CMD" | grep -Eq '(^|[[:space:];|&])git[[:space:]]+checkout[[:space:]]+-b\b'; then
   block "git checkout -b"

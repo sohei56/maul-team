@@ -6,7 +6,7 @@ commits in Phase 3.
 
 Coverage scope:
   - Pure helpers (format_phase, read_json, get_backlog_items): full coverage.
-  - Panel widgets (SprintOverview.update_content, PBIProgressBoard.update_content):
+  - Panel widgets (SprintOverview.update_content, UnifiedPbiBoard.update_content):
     covered via Textual's app.run_test() pilot pattern. Widgets need an active
     App context (NoActiveAppError otherwise), so each panel test instantiates
     a minimal harness App and drives it with asyncio.run.
@@ -28,11 +28,10 @@ from textual.app import App, ComposeResult
 
 from dashboard.app import (
     SCRUM_STATE_DIR,
-    PBIProgressBoard,
     SprintOverview,
+    UnifiedPbiBoard,
     _format_round,
     _humanize_age,
-    _pbi_sort_key,
     format_phase,
     get_backlog_items,
     read_json,
@@ -49,8 +48,8 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 
 class TestFormatPhase:
     def test_known_phase_renders_blue(self) -> None:
-        result = format_phase("implementation")
-        assert "Implementation" in result
+        result = format_phase("pbi_pipeline_active")
+        assert "PBI Pipelines Running" in result
         assert "white on blue" in result
 
     def test_known_phase_complete(self) -> None:
@@ -94,7 +93,7 @@ class TestReadJsonValidated:
         target.write_text((FIXTURES_DIR / "valid-state.json").read_text(), encoding="utf-8")
         result = read_json_validated(target)
         assert isinstance(result, dict)
-        assert result["phase"] == "implementation"
+        assert result["phase"] == "pbi_pipeline_active"
 
     def test_valid_sprint_passes(self, tmp_path: Path) -> None:
         target = tmp_path / "sprint.json"
@@ -210,9 +209,9 @@ class _SprintOverviewHarness(App):
         yield SprintOverview(id="overview")
 
 
-class _PBIBoardHarness(App):
+class _UnifiedPbiBoardHarness(App):
     def compose(self) -> ComposeResult:
-        yield PBIProgressBoard(id="board")
+        yield UnifiedPbiBoard(id="board")
 
 
 def _run_async(coro):
@@ -265,7 +264,7 @@ class TestSprintOverview:
         assert "No project state" in rendered
 
 
-class TestPBIProgressBoard:
+class TestUnifiedPbiBoard:
     def test_fixture_pbi_appears_as_row(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -276,9 +275,9 @@ class TestPBIProgressBoard:
             _seed_scrum_dir(scrum)
             monkeypatch.setattr(dash, "SCRUM_DIR", scrum)
 
-            app = _PBIBoardHarness()
+            app = _UnifiedPbiBoardHarness()
             async with app.run_test():
-                board = app.query_one("#board", PBIProgressBoard)
+                board = app.query_one("#board", UnifiedPbiBoard)
                 board.update_content()
                 rows = [board.get_row_at(i) for i in range(board.row_count)]
                 return [[str(c) for c in row] for row in rows]
@@ -304,29 +303,13 @@ class TestPBIProgressBoard:
             (scrum / "backlog.json").write_text('{"items": []}', encoding="utf-8")
             monkeypatch.setattr(dash, "SCRUM_DIR", scrum)
 
-            app = _PBIBoardHarness()
+            app = _UnifiedPbiBoardHarness()
             async with app.run_test():
-                board = app.query_one("#board", PBIProgressBoard)
+                board = app.query_one("#board", UnifiedPbiBoard)
                 board.update_content()
                 return board.row_count
 
         assert _run_async(runner()) == 0
-
-
-class TestPipelineHelpers:
-    """Pure helpers used by PbiPipelinePane.update_content."""
-
-    def test_pbi_sort_key_orders_numerically(self) -> None:
-        items = [{"pbi_id": "pbi-010"}, {"pbi_id": "pbi-002"}, {"pbi_id": "pbi-001"}]
-        ordered = sorted(items, key=_pbi_sort_key)
-        assert [p["pbi_id"] for p in ordered] == ["pbi-001", "pbi-002", "pbi-010"]
-
-    def test_pbi_sort_key_falls_back_for_malformed_id(self) -> None:
-        items = [{"pbi_id": "pbi-002"}, {"pbi_id": "garbage"}, {"pbi_id": "pbi-001"}]
-        ordered = sorted(items, key=_pbi_sort_key)
-        # Numeric IDs sort first, malformed last (deterministic).
-        assert ordered[0]["pbi_id"] == "pbi-001"
-        assert ordered[-1]["pbi_id"] == "garbage"
 
     def test_humanize_age_returns_dim_placeholder_on_invalid(self) -> None:
         now = datetime(2026, 5, 3, 12, 0, 0, tzinfo=timezone.utc)

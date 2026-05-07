@@ -151,32 +151,33 @@ EOF
     ;;
 
   pbi_pipeline_active)
-    # All active PBI pipelines must be terminal (done) or escalated.
-    # Escalated PBIs additionally require a recorded resolution.
-    # Status is read from backlog.json (12-value SSOT) — pbi-state.json no
-    # longer carries phase after the status/phase unification.
-    active_pipelines="$(jq -r '.active_pbi_pipelines[]?' "$STATE_FILE" 2>/dev/null)"
+    # Active pipelines are derived from backlog.json (12-value SSOT): any
+    # PBI whose status starts with `in_progress_` is mid-pipeline. The
+    # allow-list captures Developer-side handoff (`in_progress_merge`),
+    # SM-side cross-review staging (`awaiting_cross_review` / `cross_review`),
+    # and terminal `done`. `escalated` requires a recorded resolution.
+    if [ ! -f "$BACKLOG_FILE" ]; then
+      allow_stop
+    fi
+
     blocked_pipelines=""
-    while IFS= read -r pbi_id; do
+    while IFS=$'\t' read -r pbi_id pbi_status; do
       [ -z "$pbi_id" ] && continue
-      pbi_status="$(get_pbi_status "$pbi_id")"
       case "$pbi_status" in
-        done|awaiting_cross_review|cross_review) ;;
+        done|awaiting_cross_review|cross_review|in_progress_merge) ;;
         escalated)
           if [ ! -f ".scrum/pbi/$pbi_id/escalation-resolution.md" ]; then
             blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (escalated, no resolution)"
           fi
           ;;
-        *)
+        in_progress_*)
           blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (status: ${pbi_status})"
           ;;
       esac
-    done <<EOF
-$active_pipelines
-EOF
+    done < <(jq -r '.items[]? | [.id, .status] | @tsv' "$BACKLOG_FILE" 2>/dev/null)
 
     if [ -n "$blocked_pipelines" ]; then
-      block_stop "PBI Pipeline phase: pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'done' / 'awaiting_cross_review' / 'cross_review' or 'escalated' (with resolution recorded) before stopping."
+      block_stop "Project phase 'pbi_pipeline_active': pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'done' / 'awaiting_cross_review' / 'cross_review' / 'in_progress_merge' or 'escalated' (with resolution recorded) before stopping."
     fi
     allow_stop
     ;;

@@ -53,20 +53,15 @@ not by this skill.
 ## Initialization
 
 ```bash
-PBI_DIR=".scrum/pbi/${PBI_ID}"
-mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
-NOW="$(date -Iseconds)"
-jq -n --arg id "$PBI_ID" --arg now "$NOW" '{
-  pbi_id: $id,
-  design_round: 0, impl_round: 0,
-  design_status: "pending", impl_status: "pending",
-  ut_status: "pending", coverage_status: "pending",
-  escalation_reason: null,
-  started_at: $now, updated_at: $now
-}' > "$PBI_DIR/state.json"
-
+.scrum/scripts/init-pbi-state.sh "$PBI_ID"
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_design
 ```
+
+`init-pbi-state.sh` creates `.scrum/pbi/<pbi-id>/` with the standard
+`design`, `impl`, `ut`, `metrics`, `feedback` subdirectories and seeds
+`state.json` with all required fields (rounds at 0, statuses at
+`pending`, `escalation_reason: null`). It is idempotent — re-running on
+an existing valid state is a no-op.
 
 ## Atomic update helpers
 
@@ -136,18 +131,19 @@ Use the `append-pbi-log.sh` wrapper instead of raw `printf >>`:
 ## Sprint-level state side-effects
 
 When a PBI starts pipeline:
-- Append PBI id to `.scrum/state.json.active_pbi_pipelines[]`
 - Set `.scrum/sprint.json.developers[<dev>].current_pbi = "<pbi_id>"`
 - The Developer's current stage is read directly from
   `backlog.json.items[].status`; no separate sprint-level field
-  duplicates it.
+  duplicates it. Active pipelines are derived from backlog by filtering
+  items whose status starts with `in_progress_`.
 
 When a PBI completes (handed off to SM via `in_progress_merge`) or
 escalates:
-- Remove from `active_pbi_pipelines[]`
 - Backlog status was already written by the Developer
   (`in_progress_merge` via `mark-pbi-ready-to-merge.sh`, or
   `escalated` via `update-backlog-status.sh`).
+- No additional sprint-level cleanup is needed — readers re-derive the
+  active set from `backlog.json` on each query.
 
 ## New fields (worktree / merge governance)
 

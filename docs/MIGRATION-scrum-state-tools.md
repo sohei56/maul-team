@@ -15,7 +15,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`; `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
-| `jq '.phase = "design"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh design` |
+| `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
 | `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | `.scrum/scripts/append-communication.sh --from <id> --to <id\|null> --kind <type> --content <text> [--role <role>] [--pbi <pbi-id>]` |
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | `.scrum/scripts/append-dashboard-event.sh --type <type> [--agent <id>] [--pbi <pbi-id>] [--file <path>] [--change-type <ct>] [--detail <text>] [--status-from <s>] [--status-to <s>]` |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
@@ -80,7 +80,7 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 The current wrapper set covers the pbi-pipeline migration, the four migrated skill SKILL files, and the sprint-planning per-PBI item-field updates. Remaining gaps:
 
 1. **Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).
-2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. The same exemption applies to `hooks/dashboard-event.sh::update_pbi_pipelines`, which raw-mutates the `pbi_pipelines` projection in `dashboard.json` from hook context (guard runs as PreToolUse and cannot intercept its own handler); a wrapper is desirable but not blocking.
+2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks.
 3. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 
 Until gap #1 lands, sprint-planning step 8 (sprint.json creation) **will fail at runtime** when the hook fires. Steps 9 and 10.2 are now covered by `set-backlog-item-field.sh`.

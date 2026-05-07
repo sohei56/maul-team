@@ -75,7 +75,7 @@ OD batch に bundle した T2 項目:
 | T1-4 | retry 時に `merge_failure_count` リセット | `pbi-escalation-handler/SKILL.md` Step 4: `update-pbi-state.sh` 引数に `merge_failure_count 0` 追加 |
 | T1-5 | escalated PBI worktree cleanup ownership 明確化 | `pbi-escalation-handler/SKILL.md` Outputs + Step 6 (新設 abandon path): retry/hold/blocked は worktree 保持、abandon のみ SM が `cleanup-pbi-worktree.sh` を実行 |
 | T1-6 | branch-ops regex の read-only ブロック解消 | `pre-tool-use-no-branch-ops.sh`: `git branch <name>` 検出 regex を「非ハイフン始まり」要件に変更し `-a/-d/-D/--list/-v` をパススルー |
-| T1-7 | dashboard-event.sh raw jq 書き込み 文書化 | `dashboard-event.sh::update_pbi_pipelines` にコメント追加 (hook context は PreToolUse guard 対象外, wrapper 不要), `MIGRATION-scrum-state-tools.md` Known gaps #4 に追記 |
+| T1-7 | dashboard-event.sh raw jq 書き込み 文書化 | `dashboard-event.sh::update_pbi_pipelines` にコメント追加 (hook context は PreToolUse guard 対象外, wrapper 不要), `MIGRATION-scrum-state-tools.md` Known gaps #4 に追記 [obsolete: `update_pbi_pipelines` 関数は e93c729 で削除、`active_pbi_pipelines[]` フィールド自体も 2026-05-07 PR-OD1 で撤去] |
 | T1-8 | install-subagents BLOCK/Can-proceed 矛盾解消 | `install-subagents/SKILL.md` Exit Criteria を「全 6 sub-agent 確認 / 不在なら BLOCKED」に書き換え |
 
 ### Verification (T1)

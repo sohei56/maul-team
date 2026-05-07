@@ -18,7 +18,7 @@ disable-model-invocation: false
 
 ## Required Sub-Agents
 
-Verify these 10 sub-agents exist with valid YAML frontmatter at
+Verify these 11 sub-agents exist with valid YAML frontmatter at
 `.claude/agents/<name>.md`:
 
 **PBI Pipeline (Developer-spawned, per Round):**

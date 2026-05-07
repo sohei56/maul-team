@@ -117,7 +117,7 @@ macOS / Linux), but SendMessage ordering must be deterministic.
 2. **Development Sprint** (repeating):
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
-   - Sprint phase transition→Developers run pbi-pipeline (per PBI: in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge, with cross-model reviews per Round)
+   - Sprint phase transition→Developers run pbi-pipeline (per PBI status walks the Developer-managed slice from `in_progress_design` to `in_progress_merge`; see `docs/data-model.md` § State Transitions for the full graph)
    - Sprint-end cross-review→SM runs cross-review skill (sets PBIs `awaiting_cross_review → cross_review → done`) and spawns 5 aspect reviewers (requirement-conformance / functional-quality / security / maintainability / docs-consistency) in parallel over the whole Sprint
    - Sprint Review→Retrospective
 3. **Integration Sprint**: When Product Goal achieved→

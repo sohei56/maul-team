@@ -3,7 +3,6 @@
 # Usage: append-dashboard-event.sh --type <type> [--agent <id>] [--pbi <pbi-id>] [--file <path>]
 #                                  [--change-type <ct>] [--detail <text>] [--status-from <s>] [--status-to <s>]
 #
-# The wrapper does NOT touch `pbi_pipelines[]` (managed by hooks/dashboard-event.sh).
 # atomic_write serialises concurrent writers via mkdir lock and re-validates the
 # result against the schema.
 set -euo pipefail

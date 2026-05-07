@@ -9,8 +9,9 @@ setup() {
   cd "$TEST_TMP" || exit 1
 
   # Minimum viable .scrum layout
-  mkdir -p .scrum docs/design/specs hooks/lib
+  mkdir -p .scrum docs/design/specs hooks/lib scripts/lib
   cp -r "${BATS_TEST_DIRNAME}/../../hooks/lib/"* hooks/lib/
+  cp -r "${BATS_TEST_DIRNAME}/../../scripts/lib/"* scripts/lib/
   cp "${BATS_TEST_DIRNAME}/../fixtures/fake-codex.sh" .
   chmod +x fake-codex.sh
 
@@ -25,17 +26,18 @@ EOF
 
   cat > .scrum/state.json <<'EOF'
 { "phase": "pbi_pipeline_active",
-  "current_sprint": "sprint-001",
-  "active_pbi_pipelines": [] }
+  "current_sprint": "sprint-001" }
 EOF
 
   cat > .scrum/sprint.json <<'EOF'
-{ "sprint_id": "sprint-001",
+{ "id": "sprint-001",
   "status": "active",
+  "started_at": "2026-05-07T00:00:00Z",
   "developers": [
     { "id": "dev-001-s1",
-      "assigned_pbis": ["pbi-001"],
+      "assigned_work": {"implement": ["pbi-001"]},
       "current_pbi": "pbi-001",
+      "status": "active",
       "sub_agents": [] }
   ]
 }
@@ -98,7 +100,7 @@ set_backlog_status() {
   echo "# Design for $PBI_ID" > "$PBI_DIR/design/design.md"
 
   # Simulate codex-design-reviewer via fake-codex
-  source hooks/lib/codex-invoke.sh
+  source scripts/lib/codex-invoke.sh
   echo "stub instructions" > "$TEST_TMP/instr.md"
   codex_review_or_fallback "$TEST_TMP/instr.md" "$PBI_DIR/design/review-r1.md"
 
@@ -136,7 +138,7 @@ set_backlog_status() {
   }' > "$PBI_DIR/state.json"
   set_backlog_status "$PBI_ID" "in_progress_pbi_review"
 
-  source hooks/lib/codex-invoke.sh
+  source scripts/lib/codex-invoke.sh
   echo "stub" > "$TEST_TMP/instr.md"
   codex_review_or_fallback "$TEST_TMP/instr.md" "$PBI_DIR/impl/review-r1.md"
   codex_review_or_fallback "$TEST_TMP/instr.md" "$PBI_DIR/ut/review-r1.md"

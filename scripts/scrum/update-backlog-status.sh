@@ -11,6 +11,13 @@
 #                 cross_review, escalated, done
 #   Dev-managed:  in_progress_design, in_progress_impl, in_progress_pbi_review,
 #                 in_progress_ut_run, in_progress_merge
+#
+# Actor ownership above is a doc-only convention (see CLAUDE.md "PBI
+# status flow" and docs/data-model.md "State Transitions"). This wrapper
+# does NOT enforce which actor calls it for which transition — agents
+# are trusted to follow the documented graph. Adding machine-level
+# enforcement would require an --as-actor flag and a transition table;
+# that is out of scope for this wrapper.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

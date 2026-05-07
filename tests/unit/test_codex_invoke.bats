@@ -3,7 +3,7 @@
 setup() {
   TEST_TMP="$(mktemp -d /tmp/claude/codex-test.XXXXXX 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/codex-test.XXXXXX")"
   cd "$TEST_TMP" || exit 1
-  HOOK_LIB="${BATS_TEST_DIRNAME}/../../hooks/lib/codex-invoke.sh"
+  HOOK_LIB="${BATS_TEST_DIRNAME}/../../scripts/lib/codex-invoke.sh"
 }
 
 teardown() {

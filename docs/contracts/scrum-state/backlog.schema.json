@@ -40,7 +40,6 @@
           "depends_on_pbi_ids": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
           "ux_change": {"type": "boolean"},
           "parent_pbi_id": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"},
-          "size": {"enum": ["XS", "S", "M", "L", "XL"]},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
           "merged_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},

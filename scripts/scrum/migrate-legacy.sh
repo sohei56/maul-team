@@ -71,17 +71,21 @@ _diff_strings() {
   rm -rf "$d"
 }
 
-# apply_migration <path> <jq_expr> <schema_path>
-apply_migration() {
+# apply_migration_with_args <path> <jq_expr> <schema_path> [jq_extra_args...]
+# Extra args are forwarded to both jq invocations (e.g. --arg name value).
+# Use this when the migration expression references jq variables.
+apply_migration_with_args() {
   local path="$1" expr="$2" schema="$3"
+  shift 3
+
   if [ ! -f "$path" ]; then
     echo "  skip: $path (not present)"
     return 0
   fi
 
   local before after
-  before="$(jq -S . "$path")"
-  if ! after="$(jq -S "$expr" "$path" 2>&1)"; then
+  before="$(jq -S "$@" . "$path")"
+  if ! after="$(jq -S "$@" "$expr" "$path" 2>&1)"; then
     echo "  ERROR: jq failed on $path: $after" >&2
     return 1
   fi
@@ -111,6 +115,12 @@ apply_migration() {
     echo "    -> validation FAILED, original left untouched: $err" >&2
     return 1
   fi
+}
+
+# apply_migration <path> <jq_expr> <schema_path> — thin wrapper for callers
+# that do not need extra jq args.
+apply_migration() {
+  apply_migration_with_args "$@"
 }
 
 echo "Migrating $SCRUM_DIR (schemas: $SCHEMA_DIR)..."
@@ -166,32 +176,10 @@ SPRINT_EXPR='
      )
      end)
 '
-if [ -f "$SCRUM_DIR/sprint.json" ]; then
-  before="$(jq -S . "$SCRUM_DIR/sprint.json")"
-  after="$(jq -S --arg now "$NOW" "$SPRINT_EXPR" "$SCRUM_DIR/sprint.json")"
-  if [ "$before" = "$after" ]; then
-    echo "  ok: $SCRUM_DIR/sprint.json (already canonical)"
-  else
-    echo "  migrate: $SCRUM_DIR/sprint.json"
-    if [ "$DRY_RUN" = 1 ]; then
-      _diff_strings "$before" "$after"
-      echo "    (dry-run; no file written)"
-    else
-      tmp="$SCRUM_DIR/sprint.json.tmp.$$"
-      printf '%s\n' "$after" > "$tmp"
-      if err="$(_validate_against_schema "$tmp" "$SCHEMA_DIR/sprint.schema.json" 2>&1)"; then
-        cp "$SCRUM_DIR/sprint.json" "$SCRUM_DIR/sprint.json.legacy.bak"
-        mv "$tmp" "$SCRUM_DIR/sprint.json"
-        echo "    -> migrated (.legacy.bak saved)"
-      else
-        rm -f "$tmp"
-        echo "    -> validation FAILED, original left untouched: $err" >&2
-      fi
-    fi
-  fi
-else
-  echo "  skip: $SCRUM_DIR/sprint.json (not present)"
-fi
+apply_migration_with_args \
+  "$SCRUM_DIR/sprint.json" "$SPRINT_EXPR" "$SCHEMA_DIR/sprint.schema.json" \
+  --arg now "$NOW" \
+  || true
 
 # --- state.json ---
 # Rename .current_sprint -> .current_sprint_id (preserving null), remap legacy

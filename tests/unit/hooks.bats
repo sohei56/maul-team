@@ -374,10 +374,10 @@ teardown() {
 
 @test "completion-gate.sh blocks stop when active PBI pipeline non-terminal" {
   mkdir -p .scrum
-  # phase=pbi_pipeline_active; declare pbi-001 as an active pipeline
-  jq '.active_pbi_pipelines = ["pbi-001"]' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
-  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json  # pbi_ids=["pbi-001"]
-  cp "$FIXTURES_DIR/valid-backlog.json" .scrum/backlog.json # pbi-001 status=refined (non-terminal)
+  # Active pipelines are derived from backlog.json: any in_progress_* status.
+  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=pbi_pipeline_active
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_design"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
   run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
   [ "$status" -eq 2 ]
@@ -385,8 +385,8 @@ teardown() {
 
 @test "completion-gate.sh allows stop when active PBI pipeline terminal" {
   mkdir -p .scrum
-  # phase=pbi_pipeline_active; pbi-001 reached awaiting_cross_review (terminal)
-  jq '.active_pbi_pipelines = ["pbi-001"]' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  # pbi-001 reached awaiting_cross_review (terminal); not derived as active.
+  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "awaiting_cross_review"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
@@ -394,9 +394,21 @@ teardown() {
   assert_success
 }
 
-@test "completion-gate.sh allows stop when no active pipelines in pbi_pipeline_active" {
+@test "completion-gate.sh allows stop when active PBI pipeline in_progress_merge" {
+  # in_progress_merge is the Developer-side terminal status: PBI is ready
+  # for SM-side merge orchestration and the Developer's session may stop.
   mkdir -p .scrum
-  # phase=pbi_pipeline_active with no active_pbi_pipelines entries
+  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_merge"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  assert_success
+}
+
+@test "completion-gate.sh allows stop when backlog absent in pbi_pipeline_active" {
+  mkdir -p .scrum
+  # phase=pbi_pipeline_active with no backlog.json — nothing to gate on
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
   # Intentionally do NOT create sprint.json or backlog.json
 

@@ -26,10 +26,7 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/validate.sh
 . "$HOOK_DIR/lib/validate.sh"
 
-block() {
-  stderr_log "scrum-guard" "BLOCKED" "$1. Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md."
-  exit 2
-}
+block() { hook_block "scrum-guard" "$1" "Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md."; }
 
 # Normalize a path against $PWD: make absolute, collapse '/./' segments.
 # Threat model is honest agent — we don't try to defeat clever obfuscation

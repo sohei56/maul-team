@@ -91,66 +91,6 @@ is_duplicate_comms() {
   return 1
 }
 
-# Check whether an agent name is one of the PBI Pipeline sub-agents.
-is_pbi_pipeline_agent() {
-  case "$1" in
-    pbi-designer|pbi-implementer|pbi-ut-author) return 0 ;;
-    codex-design-reviewer|codex-impl-reviewer|codex-ut-reviewer) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-# Update .scrum/dashboard.json.pbi_pipelines for the given PBI id.
-# Replaces (or inserts) the entry for the PBI with current status/round/agents.
-# event_type: "start" | "stop"
-# PBI status is read from backlog.json (12-value SSOT) — pbi-state.json no
-# longer carries phase after the status/phase unification.
-#
-# This hook runs in PreToolUse-handler context, which is itself the guard
-# layer — there is no user-facing wrapper for the dashboard `pbi_pipelines`
-# projection (it is a derived view, refreshed on every PostToolUse). Raw jq
-# is the documented mechanism for hook-side dashboard maintenance; user-
-# facing writers must still go through .scrum/scripts/* wrappers. See
-# docs/MIGRATION-scrum-state-tools.md "Known gaps" #4.
-update_pbi_pipelines() {
-  local pbi_id="$1" agent_name="$2" event_type="$3"
-  [ -z "$pbi_id" ] && return 0
-  ensure_dashboard_file
-  local now; now="$(get_timestamp)"
-  local sprint_file=".scrum/sprint.json"
-  local backlog_file=".scrum/backlog.json"
-
-  local dev="unknown"
-  if [ -f "$sprint_file" ]; then
-    dev="$(jq -r --arg id "$pbi_id" '.developers[]? | select(.current_pbi == $id) | .id // empty' "$sprint_file" 2>/dev/null)"
-    [ -z "$dev" ] && dev="unknown"
-  fi
-
-  local pbi_status round
-  pbi_status="$(get_pbi_status_from_backlog "$pbi_id" "$backlog_file" "unknown")"
-  if [ "$pbi_status" = "in_progress_design" ]; then
-    round="$(get_pbi_pipeline_state "$pbi_id" design_round 0)"
-  else
-    round="$(get_pbi_pipeline_state "$pbi_id" impl_round 0)"
-  fi
-
-  local tmp="${DASHBOARD_FILE}.tmp.$$"
-  jq --arg id "$pbi_id" --arg dev "$dev" --arg pbi_status "$pbi_status" \
-     --argjson round "$round" --arg now "$now" --arg agent "$agent_name" \
-     --arg ev "$event_type" '
-    .pbi_pipelines = (.pbi_pipelines // []) |
-    .pbi_pipelines |= map(select(.pbi_id != $id)) |
-    .pbi_pipelines += [{
-      pbi_id: $id,
-      developer: $dev,
-      status: $pbi_status,
-      round: $round,
-      active_subagents: (if $ev == "start" then [$agent] else [] end),
-      last_event_at: $now
-    }]
-  ' "$DASHBOARD_FILE" > "$tmp" && mv "$tmp" "$DASHBOARD_FILE"
-}
-
 # Determine the change type for a file operation
 determine_change_type() {
   local tool_name="$1"
@@ -398,10 +338,6 @@ case "$hook_type" in
       }')"
 
     append_dashboard_event "$event_json"
-
-    if [ -n "$subagent_name" ] && is_pbi_pipeline_agent "$subagent_name" && [ -n "$pbi_id" ]; then
-      update_pbi_pipelines "$pbi_id" "$subagent_name" "start"
-    fi
     ;;
 
   SubagentStop|subagent_stop)
@@ -426,10 +362,6 @@ case "$hook_type" in
       }')"
 
     append_dashboard_event "$event_json"
-
-    if [ -n "$subagent_name" ] && is_pbi_pipeline_agent "$subagent_name" && [ -n "$pbi_id" ]; then
-      update_pbi_pipelines "$pbi_id" "$subagent_name" "stop"
-    fi
 
     # Also emit a communication message
     message_json="$(jq -n \
@@ -516,38 +448,6 @@ case "$hook_type" in
         }')"
       append_comms_message "$message_json"
     fi
-    ;;
-
-  *)
-    # Other hook types — emit as status_transition (closest valid schema type)
-    tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
-    reason="$(echo "$hook_event" | jq -r '.reason // empty')"
-    user_prompt="$(echo "$hook_event" | jq -r '.user_prompt // empty' | head -c 100)"
-
-    if [ -n "$tool_name" ]; then
-      detail="Tool: ${tool_name}"
-    elif [ -n "$user_prompt" ]; then
-      detail="User: ${user_prompt}"
-    elif [ -n "$reason" ]; then
-      detail="Event (${hook_type}): ${reason}"
-    else
-      detail="Event: ${hook_type}"
-    fi
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "status_transition",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
     ;;
 esac
 

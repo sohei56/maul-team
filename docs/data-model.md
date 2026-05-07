@@ -19,7 +19,6 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 | `product_goal` | string | User-defined desired future state of the product |
 | `current_sprint_id` | string \| null | ID of the active Sprint, null if none |
 | `phase` | enum | Current workflow phase (see State Transitions) |
-| `active_pbi_pipelines` | string[] | PBI IDs currently being driven through `pbi-pipeline` (set during `pbi_pipeline_active`) |
 | `created_at` | ISO 8601 string | Project creation timestamp |
 | `updated_at` | ISO 8601 string | Last state change timestamp |
 
@@ -83,6 +82,8 @@ Valid phases:
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `created_at` | ISO 8601 string | Creation timestamp |
 | `updated_at` | ISO 8601 string | Last update timestamp |
+| `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
+| `merged_at` | ISO 8601 string \| absent | Mirror of `pbi/<id>/state.json.merged_at`; written by `mark-pbi-merged.sh` |
 
 ### State Transitions: `status` (12-value enum, actor-split)
 
@@ -423,29 +424,19 @@ Stores timestamped agent activity events written by Claude Code hooks
 |-------|------|-------------|
 | `events` | DashboardEvent[] | Ordered list of recent events |
 | `max_events` | integer | Maximum events to retain (default: 100, oldest trimmed) |
-| `pbi_pipelines` | PbiPipelineSnapshot[] | One entry per active PBI pipeline (replaced in place by `dashboard-event.sh` on each sub-agent start/stop) |
-
-### Embedded: PbiPipelineSnapshot
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `pbi_id` | string | PBI identifier |
-| `developer` | string | Developer ID currently driving the pipeline |
-| `status` | enum | Mirror of `backlog.json.items[].status` (12-value enum) |
-| `round` | integer | Current Round number (design Round when status is `in_progress_design`; impl Round otherwise) |
-| `active_subagents` | string[] | Names of sub-agents currently spawned (set on `start`, cleared on `stop`) |
-| `last_event_at` | ISO 8601 string | Timestamp of the most recent dashboard-event update |
 
 ### Embedded: DashboardEvent
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | ISO 8601 string | When the event occurred |
-| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"` |
+| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"test_run"`, `"review_verdict"` |
 | `agent_id` | string \| null | Developer or agent ID that triggered the event |
 | `pbi_id` | string \| null | Related PBI ID, if applicable |
 | `file_path` | string \| null | Absolute or relative file path (populated when `type` is `"file_changed"`) |
 | `change_type` | enum \| null | `"created"`, `"modified"`, or `"deleted"` (populated when `type` is `"file_changed"`) |
+| `status_from` | string \| null | Previous PBI status (populated when `type` is `"status_transition"`) |
+| `status_to` | string \| null | New PBI status (populated when `type` is `"status_transition"`) |
 | `detail` | string | Human-readable event description |
 
 ### Rules
@@ -613,14 +604,34 @@ merge_conflict | merge_artifact_missing
 
 ---
 
+## Entity: Config
+
+**File**: `.scrum/config.json` (optional; defaults apply if absent)
+**Owner**: Project (manually authored by the user)
+**Readers**: `pbi-pipeline` skill (test runner, coverage tool, path guard
+  globs), `quality-gate.sh`
+
+There is no JSON Schema for `.scrum/config.json` — the de-facto contract
+is `.scrum-config.example.json` at the repo root, copied verbatim by
+`setup-user.sh` (when the user does not already have one). It documents
+the available keys (`test_runner`, `coverage_tool`, `pragma_pattern`,
+`path_guard`) and the substitutable templates (`{pbi_id}`, `{round}`).
+Add a schema only if/when an incompatible migration is actually needed
+(per the Phase B "Out of scope" stance in
+`docs/contracts/scrum-state/README.md`).
+
+---
+
 ## File Relationships
 
 ```
 state.json
   └── current_sprint_id -> sprint.json.id
 
-state.json
-  └── active_pbi_pipelines[] -> .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
+backlog.json
+  └── items[] | select(.status | startswith("in_progress_"))
+        -> .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
+       (active pipelines are derived from backlog status, not a separate field)
 
 backlog.json
   └── items[].sprint_id -> sprint.json.id
@@ -650,8 +661,6 @@ communications.json
 dashboard.json
   └── events[].agent_id -> sprint.json.developers[].id
   └── events[].pbi_id -> backlog.json.items[].id
-  └── pbi_pipelines[].pbi_id -> backlog.json.items[].id
-  └── pbi_pipelines[].developer -> sprint.json.developers[].id
 
 test-results.json
   (standalone — no foreign key references; read by completion-gate.sh and dashboard)

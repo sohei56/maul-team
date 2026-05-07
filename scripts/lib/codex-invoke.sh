@@ -4,7 +4,7 @@
 # codex-impl-reviewer, codex-ut-reviewer).
 #
 # Usage:
-#   source hooks/lib/codex-invoke.sh
+#   source scripts/lib/codex-invoke.sh
 #   codex_review_or_fallback <instructions_file> <output_file>
 # Returns:
 #   0 on success (output_file populated by Codex)
