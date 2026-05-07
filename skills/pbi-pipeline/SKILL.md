@@ -15,13 +15,20 @@ disable-model-invocation: false
 - requirements.md path
 - Related catalog specs (read-only references)
 - .scrum/config.json
-- 6 sub-agent definitions verified by install-subagents
+- 6 PBI Pipeline sub-agent definitions (subset of the 11 catalog
+  sub-agents verified by install-subagents): `pbi-designer`,
+  `pbi-implementer`, `pbi-ut-author`, `codex-design-reviewer`,
+  `codex-impl-reviewer`, `codex-ut-reviewer`
 
 ## Outputs
 
 - Source code + test code committed to the PBI branch in the PBI
-  worktree via `.scrum/scripts/commit-pbi.sh`. Never commit
-  directly with raw `git commit`.
+  worktree via `.scrum/scripts/commit-pbi.sh`. Never commit directly
+  with raw `git commit`: a raw `git commit -A` would stage the
+  `.scrum -> ../../../.scrum` symlink that `create-pbi-worktree.sh`
+  installs, and that symlink would then propagate to `main` on the
+  per-PBI merge. `commit-pbi.sh` excludes the symlink via
+  `git add -A -- ':!.scrum'` and only it is safe.
 - .scrum/pbi/<pbi-id>/ artifacts (design, reviews, metrics, feedback,
   summaries, pipeline.log)
 - backlog.json `items[].status` driven via

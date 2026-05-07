@@ -28,6 +28,19 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = "awaiting_cross_review" ]
 }
 
+@test "mark-merged: clears prior merge_failure record on success" {
+  # Seed a stale merge_failure record from a prior retry.
+  jq '. + {merge_failure: {kind: "conflict", paths: ["a"], pre_head_at_failure: "2222222"}, merge_failure_count: 1}' \
+    .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" \
+    && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merged.sh" pbi-001 abcdef0
+  [ "$status" -eq 0 ]
+  run jq -r 'has("merge_failure")' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "false" ]
+  run jq -r '.merge_failure_count' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "0" ]
+}
+
 @test "mark-merged: refuses if backlog status is not in_progress_merge" {
   jq '(.items[] | select(.id=="pbi-001")).status = "in_progress_design"' .scrum/backlog.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/backlog.json
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merged.sh" pbi-001 abcdef0

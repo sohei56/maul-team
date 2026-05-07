@@ -91,8 +91,9 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 - Design documents governed by `docs/design/catalog.md` (read-only type reference) + `docs/design/catalog-config.json` (editable enabled list)
 - Developer teammates named with Sprint suffix: `dev-001-s{N}`
 - PBI status flow (12 values, actor-split; status is sole SSOT, pipeline `phase` removed):
-  - SM-managed: `draft → refined → blocked → awaiting_cross_review → cross_review → escalated → done`
+  - SM-managed: `draft → refined → … → awaiting_cross_review → cross_review → done` (happy path); plus escalation recovery `escalated → in_progress_design` (retry) or `escalated → blocked → in_progress_design` (parked on external dep, then resumed)
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
+  - Full graph (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
 - Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
 - PBI development flows through the `pbi-pipeline` skill: the

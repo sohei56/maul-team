@@ -31,7 +31,10 @@ PREV_STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
   || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$PREV_STATUS'"
 
 NOW="$(_iso_utc_now)"
-EXPR=".merged_sha = \"$SHA\" | .merged_at = \"$NOW\" | .merge_failure_count = 0"
+# On success, drop `merge_failure` so a stale failure record from a prior
+# retry does not survive into the post-merge state. (Schema declares
+# `merge_failure` as a non-nullable object — `del()` is the only safe clear.)
+EXPR=".merged_sha = \"$SHA\" | .merged_at = \"$NOW\" | .merge_failure_count = 0 | del(.merge_failure)"
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 
 # Mirror merged_sha + merged_at to backlog item (status flip happens via wrapper below).

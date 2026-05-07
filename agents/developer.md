@@ -65,7 +65,7 @@ When assigned→run `smoke-test` skill:
 - **No work before Sprint start.** No code until status enters `in_progress_impl`. During Planning→estimation + clarification only.
 - **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree.
 - **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
-- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>`. A wrong-branch state means the worktree was tampered with — stop and report.
+- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>`. A wrong-branch state means the worktree was tampered with — stop and report. Raw `git commit -a` / `git add -A` would stage the `.scrum -> ../../../.scrum` symlink that `create-pbi-worktree.sh` installs and leak it onto `main` at merge time; `commit-pbi.sh` excludes the symlink and is the only safe path.
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
 ## Status Ownership (12-value status SSOT)
