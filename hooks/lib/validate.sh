@@ -19,6 +19,14 @@ ensure_scrum_dir() {
   fi
 }
 
+# Print a structured log line to stderr.
+# Usage: stderr_log <hook_name> <level> <message>
+# Example: stderr_log "scrum-guard" "BLOCKED" "Edit .scrum/state.json"
+#   → "[scrum-guard] BLOCKED: Edit .scrum/state.json"
+stderr_log() {
+  printf '[%s] %s: %s\n' "$1" "$2" "$3" >&2
+}
+
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
 # Authoritative timestamp helper. scripts/scrum/lib/atomic.sh::_iso_utc_now
 # mirrors this format; keep both in sync if format changes.
@@ -136,12 +144,12 @@ validate_json_file() {
   shift
 
   if [ ! -f "$file" ]; then
-    echo "[validate] WARNING: $file does not exist." >&2
+    stderr_log "validate" "WARNING" "$file does not exist."
     return 1
   fi
 
   if ! jq empty "$file" 2>/dev/null; then
-    echo "[validate] WARNING: $file contains invalid JSON." >&2
+    stderr_log "validate" "WARNING" "$file contains invalid JSON."
     log_hook "validate" "ERROR" "$file contains invalid JSON"
     return 1
   fi
@@ -149,7 +157,7 @@ validate_json_file() {
   local field
   for field in "$@"; do
     if ! jq -e "has(\"$field\")" "$file" >/dev/null 2>&1; then
-      echo "[validate] WARNING: $file missing required field '$field'." >&2
+      stderr_log "validate" "WARNING" "$file missing required field '$field'."
       log_hook "validate" "WARN" "$file missing required field '$field'"
       return 1
     fi

@@ -22,8 +22,12 @@
 # Better to miss enforcement than to break unrelated tool calls.
 set -euo pipefail
 
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/validate.sh
+. "$HOOK_DIR/lib/validate.sh"
+
 block() {
-  echo "[scrum-guard] BLOCKED: $1. Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md." >&2
+  stderr_log "scrum-guard" "BLOCKED" "$1. Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md."
   exit 2
 }
 

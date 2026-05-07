@@ -64,7 +64,7 @@ case "$phase" in
     # All Sprint PBIs must have status "done"
     if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
       # Allow stop when state files are missing — blocking would trap users
-      echo "[completion-gate] WARNING: sprint.json or backlog.json missing; cannot verify PBI status." >&2
+      stderr_log "completion-gate" "WARNING" "sprint.json or backlog.json missing; cannot verify PBI status."
       allow_stop
     fi
 

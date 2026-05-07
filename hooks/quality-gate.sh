@@ -17,11 +17,11 @@ BACKLOG_FILE=".scrum/backlog.json"
 # ---------------------------------------------------------------------------
 
 warn() {
-  echo "[quality-gate] WARNING: $1" >&2
+  stderr_log "quality-gate" "WARNING" "$1"
 }
 
 info() {
-  echo "[quality-gate] INFO: $1" >&2
+  stderr_log "quality-gate" "INFO" "$1"
 }
 
 # Extract PBI ID from hook event.  The TaskCompleted payload may contain
