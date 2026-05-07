@@ -77,14 +77,10 @@ The 7 SM-managed status values (see [docs/data-model.md § State Transitions: st
 
 See `references/sub-agent-prompts.md` for full input prompt templates.
 
-| Agent | When | Parallel with |
-|---|---|---|
-| pbi-designer | Design Round Step 1 | – |
-| codex-design-reviewer | Design Round Step 2 | – |
-| pbi-implementer | Impl Round Step 1 | pbi-ut-author |
-| pbi-ut-author | Impl Round Step 1 | pbi-implementer |
-| codex-impl-reviewer | PBI Review Stage | codex-ut-reviewer |
-| codex-ut-reviewer | PBI Review Stage | codex-impl-reviewer |
+- `pbi-designer` — Design Round Step 1 (sequential)
+- `codex-design-reviewer` — Design Round Step 2 (sequential)
+- `pbi-implementer` ‖ `pbi-ut-author` — Impl Round Step 1 (parallel pair)
+- `codex-impl-reviewer` ‖ `codex-ut-reviewer` — PBI Review Stage (parallel pair)
 
 ## State management
 
