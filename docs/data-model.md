@@ -19,7 +19,6 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 | `product_goal` | string | User-defined desired future state of the product |
 | `current_sprint_id` | string \| null | ID of the active Sprint, null if none |
 | `phase` | enum | Current workflow phase (see State Transitions) |
-| `active_pbi_pipelines` | string[] | PBI IDs currently being driven through `pbi-pipeline` (set during `pbi_pipeline_active`) |
 | `created_at` | ISO 8601 string | Project creation timestamp |
 | `updated_at` | ISO 8601 string | Last state change timestamp |
 
@@ -607,8 +606,10 @@ merge_conflict | merge_artifact_missing
 state.json
   └── current_sprint_id -> sprint.json.id
 
-state.json
-  └── active_pbi_pipelines[] -> .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
+backlog.json
+  └── items[] | select(.status | startswith("in_progress_"))
+        -> .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
+       (active pipelines are derived from backlog status, not a separate field)
 
 backlog.json
   └── items[].sprint_id -> sprint.json.id

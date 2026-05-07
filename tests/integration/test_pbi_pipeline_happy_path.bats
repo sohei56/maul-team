@@ -25,8 +25,7 @@ EOF
 
   cat > .scrum/state.json <<'EOF'
 { "phase": "pbi_pipeline_active",
-  "current_sprint": "sprint-001",
-  "active_pbi_pipelines": [] }
+  "current_sprint": "sprint-001" }
 EOF
 
   cat > .scrum/sprint.json <<'EOF'

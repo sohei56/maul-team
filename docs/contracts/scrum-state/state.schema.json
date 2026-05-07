@@ -21,11 +21,6 @@
     },
     "current_sprint_id": {"type": ["string", "null"], "pattern": "^sprint-[0-9]+$"},
     "product_goal": {"type": ["string", "null"]},
-    "active_pbi_pipelines": {
-      "type": "array",
-      "items": {"type": "string", "pattern": "^pbi-[0-9]+$"},
-      "uniqueItems": true
-    },
     "created_at": {"type": "string", "format": "date-time"},
     "updated_at": {"type": "string", "format": "date-time"}
   }

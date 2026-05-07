@@ -136,18 +136,19 @@ Use the `append-pbi-log.sh` wrapper instead of raw `printf >>`:
 ## Sprint-level state side-effects
 
 When a PBI starts pipeline:
-- Append PBI id to `.scrum/state.json.active_pbi_pipelines[]`
 - Set `.scrum/sprint.json.developers[<dev>].current_pbi = "<pbi_id>"`
 - The Developer's current stage is read directly from
   `backlog.json.items[].status`; no separate sprint-level field
-  duplicates it.
+  duplicates it. Active pipelines are derived from backlog by filtering
+  items whose status starts with `in_progress_`.
 
 When a PBI completes (handed off to SM via `in_progress_merge`) or
 escalates:
-- Remove from `active_pbi_pipelines[]`
 - Backlog status was already written by the Developer
   (`in_progress_merge` via `mark-pbi-ready-to-merge.sh`, or
   `escalated` via `update-backlog-status.sh`).
+- No additional sprint-level cleanup is needed — readers re-derive the
+  active set from `backlog.json` on each query.
 
 ## New fields (worktree / merge governance)
 
