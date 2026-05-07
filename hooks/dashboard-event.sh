@@ -33,6 +33,16 @@ append_comms_message() {
   append_to_json_array "$COMMS_FILE" messages "$message_json" max_messages "$MAX_MESSAGES"
 }
 
+# Shorten UUID-style agent IDs to first 8 chars for readability.
+shorten_id() {
+  local id="$1"
+  if echo "$id" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-'; then
+    echo "${id%%-*}"
+  else
+    echo "$id"
+  fi
+}
+
 # Map a session ID to a friendly developer name via session-map.json
 # Returns the friendly name if found, or the original ID otherwise
 resolve_agent_name() {
@@ -180,15 +190,6 @@ hook_type="$(echo "$hook_event" | jq -r '.hook_event_name // .hook_type // .type
 raw_agent_id="$(echo "$hook_event" | jq -r '.agent_id // .session_id // "unknown"')"
 timestamp="$(get_timestamp)"
 
-# Shorten UUID-style agent IDs to first 8 chars for readability
-shorten_id() {
-  local id="$1"
-  if echo "$id" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-'; then
-    echo "${id%%-*}"
-  else
-    echo "$id"
-  fi
-}
 short_id="$(shorten_id "$raw_agent_id")"
 # Resolve to friendly developer name if a mapping exists
 agent_id="$(resolve_agent_name "$short_id")"
@@ -467,6 +468,54 @@ case "$hook_type" in
       }')"
 
     append_dashboard_event "$event_json"
+    ;;
+
+  FileChanged|file_changed)
+    # Claude Code FileChanged event: a watched file changed (often from
+    # an external editor). Mirror to the dashboard so users see it
+    # alongside tool-driven file_changed events emitted from PostToolUse.
+    file_path="$(echo "$hook_event" | jq -r '.file_path // .path // empty')"
+    change_type="$(echo "$hook_event" | jq -r '.change_type // "modified"')"
+    [ -n "$file_path" ] || exit 0
+
+    short_path="$(basename "$file_path")"
+    detail="External ${change_type} on ${file_path}"
+
+    event_json="$(jq -n \
+      --arg ts "$timestamp" \
+      --arg agent "$agent_id" \
+      --arg fp "$file_path" \
+      --arg ct "$change_type" \
+      --arg detail "$detail" \
+      '{
+        "timestamp": $ts,
+        "type": "file_changed",
+        "agent_id": $agent,
+        "file_path": $fp,
+        "change_type": $ct,
+        "detail": $detail
+      }')"
+
+    append_dashboard_event "$event_json"
+
+    comms_content="external ${change_type} ${short_path}"
+    if ! is_duplicate_comms "$agent_id" "$comms_content"; then
+      message_json="$(jq -n \
+        --arg ts "$timestamp" \
+        --arg sid "$agent_id" \
+        --arg role "external" \
+        --arg type "file_change" \
+        --arg content "$comms_content" \
+        '{
+          "timestamp": $ts,
+          "sender_id": $sid,
+          "sender_role": $role,
+          "recipient_id": null,
+          "type": $type,
+          "content": $content
+        }')"
+      append_comms_message "$message_json"
+    fi
     ;;
 
   *)
