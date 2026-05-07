@@ -22,7 +22,9 @@ disable-model-invocation: false
   - `in_progress_merge` (recoverable failure under the 3-strike threshold;
     `mark-pbi-merge-failure.sh` records `state.merge_failure.kind ∈
     {conflict, artifact_missing}` but leaves backlog status untouched so
-    the Developer can fix on `pbi/<id>` and re-notify).
+    the Developer can fix on `pbi/<id>` and re-notify). Status stays
+    `in_progress_merge` across retries; each `mark-pbi-ready-to-merge.sh`
+    re-notification re-stamps `head_sha`, `paths_touched`, and `ready_at`.
   - `escalated` (3rd consecutive failure — `mark-pbi-merge-failure.sh`
     sets `escalation_reason ∈ {merge_conflict, merge_artifact_missing}`
     and `pbi-escalation-handler` takes over).
@@ -34,7 +36,9 @@ disable-model-invocation: false
 
 - SM has just received `[<pbi-id>] PBI_READY_TO_MERGE` from a Developer
 - backlog.json `items[].status == "in_progress_merge"` for this PBI
-- Main worktree is clean (`git status --porcelain` empty)
+- Main worktree has no tracked-file changes (`git status --porcelain`
+  shows only untracked entries — `.scrum/` is untracked by design and
+  does not block the merge)
 
 ## Steps
 
@@ -57,10 +61,17 @@ disable-model-invocation: false
      `[<pbi-id>] MERGED at <merged_sha>. Stand by for next assignment.`
    - non-zero → re-read `state.json.merge_failure.kind` (status remains
      `in_progress_merge` while `merge_failure_count < 3`):
-     - `conflict` → SendMessage:
-       `[<pbi-id>] MERGE_CONFLICT paths=[<state.merge_failure.paths>]. Rebase pbi/<pbi-id> onto main HEAD <git rev-parse main>, fix, re-notify PBI_READY_TO_MERGE.`
+     - `conflict` → SM runs
+       `bash .scrum/scripts/merge-main-into-pbi.sh <pbi-id>` to merge
+       main HEAD into the PBI worktree. If that wrapper also exits
+       non-zero, the worktree is left in mid-merge state and SM
+       SendMessages the Developer:
+       `[<pbi-id>] MERGE_CONFLICT paths=[<state.merge_failure.paths>]. Resolve conflicts in .scrum/worktrees/<pbi-id>, then run commit-pbi.sh and mark-pbi-ready-to-merge.sh. Do NOT use raw git rebase — it is blocked by pre-tool-use-no-branch-ops.`
+       (If `merge-main-into-pbi.sh` succeeded cleanly, SM instructs the
+       Developer to re-run `mark-pbi-ready-to-merge.sh` to re-stamp
+       `head_sha` / `paths_touched` and re-notify.)
      - `artifact_missing` → SendMessage:
-       `[<pbi-id>] ARTIFACT_MISSING paths=[<state.merge_failure.paths>]. Re-add files to pbi/<pbi-id> branch (likely lost during a rebase or .gitignore mishap), re-notify PBI_READY_TO_MERGE.`
+       `[<pbi-id>] ARTIFACT_MISSING paths=[<state.merge_failure.paths>]. Re-add files on pbi/<pbi-id> via commit-pbi.sh (files likely lost during conflict resolution or .gitignore drift), re-notify PBI_READY_TO_MERGE.`
      - 3rd consecutive failure of any kind (status flips to `escalated`,
        `merge_failure_count >= 3`, `escalation_reason ∈ {merge_conflict,
        merge_artifact_missing}`) → invoke `pbi-escalation-handler`
@@ -72,9 +83,13 @@ disable-model-invocation: false
    prefix (`merge_conflict`, `merge_artifact_missing`). The mapping is
    one-to-one; `mark-pbi-merge-failure.sh` writes both.
 
-   The Developer's expected response to a recoverable failure is to
-   fix on `pbi/<pbi-id>`, run `mark-pbi-ready-to-merge.sh` again
-   (which flips status back to `in_progress_merge`), and re-notify.
+   Throughout the recovery loop the backlog status remains
+   `in_progress_merge`. The Developer fixes on `pbi/<pbi-id>` (in the
+   PBI worktree), runs `commit-pbi.sh` to record the fix, then
+   `mark-pbi-ready-to-merge.sh` to re-stamp `head_sha` / `paths_touched`
+   / `ready_at`. SM retries `merge-pbi.sh`. The status only changes when
+   the merge succeeds (→ `awaiting_cross_review`) or when the 3rd
+   consecutive failure flips it to `escalated`.
 
 4. **No further coordination work** until the merge attempt finishes
    and the Developer (if applicable) has been messaged. Receive
