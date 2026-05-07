@@ -14,6 +14,8 @@ export SCRUM_LOCK_TIMEOUT
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: merge-pbi.sh <pbi-id>"
 PBI="$1"
@@ -23,7 +25,7 @@ STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
 BACKLOG=".scrum/backlog.json"
 [ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
-STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' "$BACKLOG")"
+STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
 [ "$STATUS" = "in_progress_merge" ] \
   || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$STATUS'"
 BRANCH="$(jq -r '.branch' "$STATE")"

@@ -9,6 +9,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: mark-pbi-merged.sh <pbi-id> <merged-sha>"
 PBI="$1"; SHA="$2"
@@ -24,7 +26,7 @@ STATE=".scrum/pbi/$PBI/state.json"
 # Gate: backlog status must be in_progress_merge before merging.
 BACKLOG=".scrum/backlog.json"
 [ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
-PREV_STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' "$BACKLOG")"
+PREV_STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
 [ "$PREV_STATUS" = "in_progress_merge" ] \
   || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$PREV_STATUS'"
 

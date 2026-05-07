@@ -38,6 +38,30 @@ ensure_json_file() {
   fi
 }
 
+# Read .items[] | select(.id==id) | .status from backlog.json. Returns the
+# status string, or `default` (default: "unknown") when the file is missing
+# or no matching item exists. Mirrors scripts/scrum/lib/queries.sh::
+# get_pbi_status; intentionally duplicated to keep hooks/lib/ standalone.
+# Usage: get_pbi_status_from_backlog <pbi_id> [backlog_path] [default]
+get_pbi_status_from_backlog() {
+  local pbi_id="$1"
+  local backlog="${2:-.scrum/backlog.json}"
+  local default="${3:-unknown}"
+  if [ ! -f "$backlog" ]; then
+    printf '%s' "$default"
+    return
+  fi
+  local out
+  out="$(jq -r --arg id "$pbi_id" --arg d "$default" \
+    '.items[]? | select(.id == $id) | .status // $d' \
+    "$backlog" 2>/dev/null)"
+  if [ -z "$out" ]; then
+    printf '%s' "$default"
+  else
+    printf '%s' "$out"
+  fi
+}
+
 # Read a top-level field from .scrum/pbi/<pbi_id>/state.json, with optional
 # default if the file is missing or the field is null.
 # Usage: get_pbi_pipeline_state <pbi_id> <field> [default]

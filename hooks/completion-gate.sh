@@ -41,14 +41,10 @@ get_sprint_pbi_ids() {
   jq -r '.pbi_ids[]? // empty' "$SPRINT_FILE" 2>/dev/null
 }
 
-# Get the status of a PBI by its ID from the backlog
+# Get the status of a PBI by its ID from the backlog (thin wrapper around
+# the canonical helper in hooks/lib/validate.sh).
 get_pbi_status() {
-  local pbi_id="$1"
-  if [ ! -f "$BACKLOG_FILE" ]; then
-    echo "unknown"
-    return
-  fi
-  jq -r --arg id "$pbi_id" '.items[] | select(.id == $id) | .status // "unknown"' "$BACKLOG_FILE" 2>/dev/null
+  get_pbi_status_from_backlog "$1" "$BACKLOG_FILE" "unknown"
 }
 
 # ---------------------------------------------------------------------------

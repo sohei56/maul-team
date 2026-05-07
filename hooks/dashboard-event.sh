@@ -117,12 +117,7 @@ update_pbi_pipelines() {
   fi
 
   local pbi_status round
-  if [ -f "$backlog_file" ]; then
-    pbi_status="$(jq -r --arg id "$pbi_id" '.items[]? | select(.id == $id) | .status // "unknown"' "$backlog_file" 2>/dev/null)"
-    [ -z "$pbi_status" ] && pbi_status="unknown"
-  else
-    pbi_status="unknown"
-  fi
+  pbi_status="$(get_pbi_status_from_backlog "$pbi_id" "$backlog_file" "unknown")"
   if [ "$pbi_status" = "in_progress_design" ]; then
     round="$(get_pbi_pipeline_state "$pbi_id" design_round 0)"
   else

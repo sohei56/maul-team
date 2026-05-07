@@ -4,7 +4,10 @@
 # Terminal status (cleanup allowed): awaiting_cross_review, cross_review, escalated, done.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: cleanup-pbi-worktree.sh <pbi-id>"
 PBI="$1"
@@ -14,7 +17,7 @@ STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
 BACKLOG=".scrum/backlog.json"
 [ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
-STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' "$BACKLOG")"
+STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
 case "$STATUS" in
   awaiting_cross_review|cross_review|escalated|done) ;;
   *) fail E_INVALID_ARG "refuse to cleanup pbi $PBI in status=$STATUS (need awaiting_cross_review|cross_review|escalated|done)" ;;
