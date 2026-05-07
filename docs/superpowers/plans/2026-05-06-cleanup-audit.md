@@ -3,7 +3,7 @@
 **Date:** 2026-05-06
 **Branch:** `refactor/status-phase-unification`
 **Status:** OD batch 完了 / T1 完了 (Option C) / T2 完了 / T3 完了 / T4 完了 / T5 完了 (T5-1 deferred)
-**Methodology:** 8-axis parallel sub-agent investigation (see `skills/cleanup-audit/`)
+**Methodology:** 8-axis parallel sub-agent investigation (see `.claude/skills/cleanup-audit/`)
 
 ## Background
 
@@ -13,7 +13,7 @@
 
 1. 8軸監査で発見した issue を tier化して系統的に解消
 2. OD-1〜6 の未決事項を一掃した上で T1（実バグ）→ T2（drift）→ T3（doc redundancy）→ T4（code redundancy）→ T5（cosmetic）順に潰す
-3. 監査メソドロジーを再利用可能な skill 化（別ファイル: `skills/cleanup-audit/`）
+3. 監査メソドロジーを再利用可能な skill 化（別ファイル: `.claude/skills/cleanup-audit/`）
 
 ## Reference
 
