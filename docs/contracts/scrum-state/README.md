@@ -13,7 +13,7 @@ Each schema corresponds to one file under `.scrum/` and is the single source of 
 
 ## Design choices
 
-- **Top-level `additionalProperties: true`** — top-level objects routinely grow (`max_events`, `max_messages`, `pbi_pipelines`, etc.). Permissive at the root catches drift via item-level strictness without requiring lockstep schema bumps for new top-level config.
+- **Top-level `additionalProperties: true`** — top-level objects routinely grow (`max_events`, `max_messages`, etc.). Permissive at the root catches drift via item-level strictness without requiring lockstep schema bumps for new top-level config.
 - **Item-level `additionalProperties: false`** — array items (PBIs, developers, messages, events) are where typos cause silent dashboard breakage. Strict here.
 - **No `schema_version` field** — YAGNI. Existing files don't carry one. Add if/when an incompatible migration is actually needed.
 - **Mirror today's shape exactly** — every field name in the fixtures and writers is allowed; no aspirational renames.

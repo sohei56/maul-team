@@ -501,5 +501,6 @@ by default).
   `pipeline.log`
 - Catalog write contention: 3-layer defense (sprint-planning
   pre-separation, runtime flock, mtime conflict detection).
-- TUI: dashboard PBI Pipeline pane reads
-  `dashboard.json.pbi_pipelines`.
+- TUI: dashboard PBI Board reads `backlog.json.items[].status`
+  (12-value SSOT) and per-PBI round counters from
+  `.scrum/pbi/<pbi-id>/state.json`.

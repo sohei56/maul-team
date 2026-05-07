@@ -38,22 +38,6 @@ ensure_json_file() {
   fi
 }
 
-# Read a top-level field from .scrum/pbi/<pbi_id>/state.json, with optional
-# default if the file is missing or the field is null.
-# Usage: get_pbi_pipeline_state <pbi_id> <field> [default]
-get_pbi_pipeline_state() {
-  local pbi_id="$1"
-  local field="$2"
-  local default="${3:-}"
-  local file=".scrum/pbi/${pbi_id}/state.json"
-  if [ ! -f "$file" ]; then
-    printf '%s' "$default"
-    return
-  fi
-  jq -r --arg f "$field" --arg d "$default" '(.[$f] // $d) | tostring' "$file" 2>/dev/null \
-    || printf '%s' "$default"
-}
-
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via
 # max_default), write atomically.
 # Usage: append_to_json_array <filepath> <array_field> <item_json> <max_field> <max_default>

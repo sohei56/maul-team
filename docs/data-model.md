@@ -423,18 +423,6 @@ Stores timestamped agent activity events written by Claude Code hooks
 |-------|------|-------------|
 | `events` | DashboardEvent[] | Ordered list of recent events |
 | `max_events` | integer | Maximum events to retain (default: 100, oldest trimmed) |
-| `pbi_pipelines` | PbiPipelineSnapshot[] | One entry per active PBI pipeline (replaced in place by `dashboard-event.sh` on each sub-agent start/stop) |
-
-### Embedded: PbiPipelineSnapshot
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `pbi_id` | string | PBI identifier |
-| `developer` | string | Developer ID currently driving the pipeline |
-| `status` | enum | Mirror of `backlog.json.items[].status` (12-value enum) |
-| `round` | integer | Current Round number (design Round when status is `in_progress_design`; impl Round otherwise) |
-| `active_subagents` | string[] | Names of sub-agents currently spawned (set on `start`, cleared on `stop`) |
-| `last_event_at` | ISO 8601 string | Timestamp of the most recent dashboard-event update |
 
 ### Embedded: DashboardEvent
 
@@ -650,8 +638,6 @@ communications.json
 dashboard.json
   └── events[].agent_id -> sprint.json.developers[].id
   └── events[].pbi_id -> backlog.json.items[].id
-  └── pbi_pipelines[].pbi_id -> backlog.json.items[].id
-  └── pbi_pipelines[].developer -> sprint.json.developers[].id
 
 test-results.json
   (standalone — no foreign key references; read by completion-gate.sh and dashboard)

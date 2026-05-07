@@ -9,9 +9,8 @@ Panels:
       assignments
   (b) Unified PBI Board — single DataTable showing each PBI's 12-value
       status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
-      counters and live agents come from `pbi/<id>/state.json` and
-      `dashboard.json.pbi_pipelines[]`, but the status displayed is
-      always the backlog SSOT — there is no separate phase column.
+      counters come from `pbi/<id>/state.json`, but the status displayed
+      is always the backlog SSOT — there is no separate phase column.
   (c) Communication Log — scrollable agent message log
   (d) Work Log — scrollable activity/work log
 """
@@ -311,12 +310,12 @@ class SprintOverview(Static):
 class UnifiedPbiBoard(DataTable):
     """Single PBI board driven by the 12-value status SSOT.
 
-    Columns: ID, Title, Status, Round, Dev, Agents, Updated.
+    Columns: ID, Title, Status, Round, Dev, Updated.
 
     Status comes exclusively from ``backlog.json.items[].status`` — the
     SSOT after the status/phase unification. Per-PBI round counters and
     last_updated come from ``pbi/<id>/state.json`` (which no longer
-    carries a phase field), and live agents from ``dashboard.json``.
+    carries a phase field).
     """
 
     DEFAULT_CSS = """
@@ -327,14 +326,13 @@ class UnifiedPbiBoard(DataTable):
     """
 
     def on_mount(self) -> None:
-        self.add_columns("ID", "Title", "Status", "Round", "Dev", "Agents", "Updated")
+        self.add_columns("ID", "Title", "Status", "Round", "Dev", "Updated")
         self.cursor_type = "row"
         self.update_content()
 
     def update_content(self) -> None:
         backlog = read_json_validated(SCRUM_DIR / "backlog.json")
         sprint = read_json_validated(SCRUM_DIR / "sprint.json")
-        dashboard = read_json_validated(SCRUM_DIR / "dashboard.json") or {}
         self.clear()
 
         # PBI → developer (lowercase keys for case-insensitive lookup)
@@ -344,14 +342,6 @@ class UnifiedPbiBoard(DataTable):
                 did = dev.get("id", "?")
                 for pbi_id in (dev.get("assigned_work") or {}).get("implement") or []:
                     pbi_impl_map[pbi_id.lower()] = did
-
-        # PBI → live pipeline metadata from dashboard.json hook stream
-        pipelines_by_id: dict[str, dict] = {}
-        if isinstance(dashboard, dict):
-            for pipe in dashboard.get("pbi_pipelines", []) or []:
-                pid = (pipe.get("pbi_id") or "").lower()
-                if pid:
-                    pipelines_by_id[pid] = pipe
 
         items = get_backlog_items(backlog)
         now = datetime.now(timezone.utc)
@@ -384,12 +374,6 @@ class UnifiedPbiBoard(DataTable):
                 else:
                     round_no = state.get("impl_round") or state.get("design_round")
 
-            # Live agents come from dashboard.json (hook-maintained); fall
-            # back to "-" when no events have arrived yet.
-            pipe = pipelines_by_id.get(pbi_key) or {}
-            agents = pipe.get("active_subagents") or []
-            agents_cell = ", ".join(agents) if agents else "[dim]-[/dim]"
-
             round_cell = _format_round(round_no) if round_no is not None else "[dim]-[/dim]"
 
             updated_at = state.get("updated_at") if state else None
@@ -403,7 +387,6 @@ class UnifiedPbiBoard(DataTable):
                 status_display,
                 round_cell,
                 dev,
-                agents_cell,
                 updated_cell,
                 key=pbi_id,
             )

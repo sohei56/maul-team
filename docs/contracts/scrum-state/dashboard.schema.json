@@ -36,30 +36,6 @@
           "status_to": {"type": ["string", "null"]}
         }
       }
-    },
-    "pbi_pipelines": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["pbi_id"],
-        "additionalProperties": true,
-        "properties": {
-          "pbi_id": {"type": "string", "pattern": "^pbi-[0-9]+$"},
-          "developer": {"type": ["string", "null"]},
-          "status": {
-            "enum": [
-              "draft", "refined", "blocked",
-              "in_progress_design", "in_progress_impl", "in_progress_pbi_review",
-              "in_progress_ut_run", "in_progress_merge",
-              "awaiting_cross_review", "cross_review",
-              "escalated", "done", "unknown"
-            ]
-          },
-          "round": {"type": "integer", "minimum": 0},
-          "active_subagents": {"type": "array", "items": {"type": "string"}},
-          "last_event_at": {"type": "string", "format": "date-time"}
-        }
-      }
     }
   }
 }
