@@ -229,10 +229,7 @@ Observe implementation and verify Developers use support sub-agents.
 
 1. **Given** all implementers have completed their work and merged,
    **When** the Scrum Master invokes the `cross-review` Skill,
-   **Then** 5 aspect reviewer sub-agents
-   (`requirement-conformance-reviewer`,
-   `functional-quality-reviewer`, `security-reviewer`,
-   `maintainability-reviewer`, `docs-consistency-reviewer`) are
+   **Then** the 5 aspect reviewer sub-agents enumerated in US5 are
    spawned in parallel and review the **whole Sprint Increment**
    against `requirements.md` and design documents. Findings tag
    PBIs by reverse-lookup against `paths_touched`.
@@ -648,7 +645,7 @@ Observe implementation and verify Developers use support sub-agents.
 
 ### 2026-04-12
 
-- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns 5 aspect-specialized sub-agents in parallel (`requirement-conformance-reviewer`, `functional-quality-reviewer`, `security-reviewer`, `maintainability-reviewer`, `docs-consistency-reviewer`) via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly.
+- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly.
 - Q: Where do specialist sub-agents come from? A: All sub-agents are project-managed in `agents/` and distributed by `setup-user.sh`. The external awesome-claude-code-subagents catalog dependency was removed. FR-019 and User Story 5 updated.
 
 ### 2026-02-26
