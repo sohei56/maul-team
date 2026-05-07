@@ -174,11 +174,23 @@ C8 (`install-subagents:21` の 10/11) は T2c-6 で吸収。
 | **PR-OD1** | 2026-05-07 | `932ee8f` | ✅ | `state.json.active_pbi_pipelines[]` を schema/hook 両方から削除。`completion-gate.sh` と `session-context.sh` を `backlog.json` 由来 (`select(.status \| startswith("in_progress_"))`) に切替。data-model.md / state-management.md / MIGRATION docs 同期。T2a-1 / T2b-6 / T2d-15 / 旧 `update-state-phase.sh design` 例 (T2d-stale) 一括解消。|
 | **PR-T4-A** | 2026-05-07 | `ad5e068` | ✅ | `dashboard-event.sh` 末尾 `*)` default + `setup-user.sh` legacy_dir cleanup 削除 (T4-8, T4-9 / OD-8)。|
 | **PR-T2a-2** | 2026-05-07 | `183eee0` | ✅ | `init-pbi-state.sh` ラッパー新設 (idempotent, schema 検証込み)。state-management.md / scrum-state README 同期。4 unit tests 追加。|
+| **PR-OD4**   | 2026-05-07 | `809f1e1` | ✅ | `merge-main-into-pbi.sh` + `safe-switch-to-main.sh` 新設 (sandbox: bash → git -C worktree merge --no-ff main)。setup-user.sh は既存 glob で deploy。14 unit tests (happy / no-op / conflict / rejection 全パス)。|
+| **PR-T1-B**  | 2026-05-07 | `1a71046` | ✅ | `pbi-merge/SKILL.md` の rebase 指示を `merge-main-into-pbi.sh` フローに書換。T2c-1 (precondition: tracked changes 無し / `.scrum/` untracked OK) と T2c-4 (リトライ中も `in_progress_merge`、`mark-pbi-ready-to-merge.sh` 再実行で `head_sha`/`paths_touched`/`ready_at` 再スタンプ) 同梱。|
+| **PR-T2d**   | 2026-05-07 | `151c57d` | ✅ | T2d-12 (skill count 14→15: pbi-merge を README:58/157, agent-interfaces.md:19/90, architecture.md skill tree に追加)、T2d-13/T3-5 (peer-review prose: README:51/106/149)、T2d-14 (Skills Mapping + Skill IO Reference に pbi-merge 行追加)、T2d-stale (`codex-code-reviewer` → 5-aspect reviewer 表現に: README:74, setup-user.sh:404)、T2d-misc (旧 plan 2026-05-06:78 に obsolete 注記)。|
+| **PR-T2b**   | 2026-05-07 | `d0f1a51` | ✅ | T2b-1 (backlog `size` enum 削除)、T2b-2 (data-model PBI table に `merged_sha`/`merged_at` 行追加)、T2b-3/T2b-4 (DashboardEvent type enum に `tool_use`/`test_run`/`review_verdict` + `status_from`/`status_to` 行追加)、T2b-5 (scrum-state README writer table を 7 wrapper 全列挙に書換)、T2b-7 (CLAUDE.md sprint flow に `\| failed` terminal 追加)、T2b-8 (Config entity を data-model.md に追加: `.scrum-config.example.json` を de-facto contract と注記)、T2b-9 (dashboard.schema `change_type` を `enum(created\|modified\|deleted\|null)` に締める + テスト fixture 修正 + 拒否テスト追加)。|
+| **PR-T2c**   | 2026-05-07 | `6636049` | ✅ | T2c-2 (update-backlog-status.sh に actor ownership は doc-only convention 注記)、T2c-3 (CLAUDE.md SM-managed flow に `escalated → in_progress_design` / `escalated → blocked → in_progress_design` 明示)、T2c-5 (pbi-pipeline/SKILL.md Outputs + developer.md Strict Rules: `commit-pbi.sh` のみが安全 (`.scrum` symlink 除外))、T2c-6 (install-subagents 10→11)、T2c-7 (pbi-pipeline 6 sub-agent を "subset of 11" 表現に)、T2c-8 (`mark-pbi-merged.sh` で success 時に `del(.merge_failure)` + 回帰テスト)。|
+| **PR-T4-B**  | 2026-05-07 | `538106d` | ✅ | hooks の重複 `block()` を `hooks/lib/validate.sh::hook_block(hook,what,remediation)` に集約。各 hook は 1-line wrapper で call site 互換維持。|
+| **PR-T4-C**  | 2026-05-07 | `e381a84` | ✅ | `migrate-legacy.sh` sprint-migration block (26行 literal copy) を `apply_migration_with_args` に統合。`apply_migration` を thin wrapper に格下げ。|
+| **PR-T5-1**  | 2026-05-07 | `a553868` | ✅ | `hooks/lib/codex-invoke.sh` → `scripts/lib/codex-invoke.sh` (codex-* reviewer agents 用 helper であり hook 用ではない)。call site 更新: codex-design-reviewer.md, test_codex_invoke.bats, test_pbi_pipeline_happy_path.bats (setup() で `scripts/lib/` も copy), architecture.md。setup-user.sh は `scripts/lib/*.sh` → `<target>/scripts/lib/` を deploy。|
+| **PR-T3-2**  | 2026-05-07 | `66a2f1f` | ✅ | requirements.md Q&A と scrum-master.md Workflow に重複していた 12-value PBI status 列挙を `docs/data-model.md § State Transitions` への canonical reference に縮約 (CLAUDE.md は always-loaded primer なので summary 維持)。|
+| **PR-T3-4**  | 2026-05-07 | `c20f538` | ✅ | requirements.md AS1 + cross-review Q&A の 5-reviewer 列挙 → US5 への参照に縮約。|
 
 ### このセッションで未着手の PR
 
-OD-3 (smoke test, runtime 必要), OD-4, OD-2, T1-B, T2b/T2c の一部, T3-1〜T3-6, T4-B/C, T5-1, OD-5/T4-7。
-**注:** OD-3 は実 Claude Code harness で hook が発火するか検証が必要。`SubagentStart`/`TaskCompleted`/`TeammateIdle`/`FileChanged`/`Agent` matcher の挙動は次セッションで実機確認すべし。
+- **OD-3 / OD-2 / OD-5 / T4-7** (runtime 検証必須): 実 Claude Code harness で `SubagentStart`/`TaskCompleted`/`TeammateIdle`/`FileChanged`/`Agent` matcher が発火するか smoke 検証 → 結果次第で hooks の SSOT-wrapper 経由化 (OD-2) と `quality-gate.sh` の処遇 (OD-5/T4-7) を確定。
+- **PR-T3-1 / PR-T3-3 / PR-T3-6** (markdown 冗長 残り): sub-agents catalog clusters (C1+C2+C6+C10), setup boilerplate (C4+C5+C7), README lifecycle ASCII vs 形式 flow 整合 (C11)。低 ROI のため独立 PR として deferral。
+
+**注:** stop-failure.sh の event type 修正 (T1-3) と `dashboard-event.sh` の `sender_role: "system"` (T1-4) は OD-2 batch に同梱予定 (= 未着手)。
 
 ## Verification
 
