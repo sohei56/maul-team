@@ -28,7 +28,7 @@ PREV_STATUS="$(jq -r --arg id "$PBI" '.items[] | select(.id==$id).status // ""' 
 [ "$PREV_STATUS" = "in_progress_merge" ] \
   || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$PREV_STATUS'"
 
-NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+NOW="$(_iso_utc_now)"
 EXPR=".merged_sha = \"$SHA\" | .merged_at = \"$NOW\" | .merge_failure_count = 0"
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 

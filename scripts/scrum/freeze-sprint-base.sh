@@ -21,7 +21,7 @@ if jq -e 'has("base_sha") and .base_sha != null and .base_sha != ""' "$SPRINT" >
 fi
 
 SHA="$(git rev-parse HEAD)"
-NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+NOW="$(_iso_utc_now)"
 
 atomic_write "$SPRINT" \
   ".base_sha = \"$SHA\" | .base_sha_captured_at = \"$NOW\"" \

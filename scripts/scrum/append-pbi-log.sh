@@ -12,6 +12,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
+# shellcheck source=lib/atomic.sh
+source "$HERE/lib/atomic.sh"
 
 [ "$#" -eq 5 ] || fail E_INVALID_ARG "usage: append-pbi-log.sh <pbi-id> <stage> <round> <event> <detail>"
 PBI="$1"; PHASE="$2"; ROUND="$3"; EVENT="$4"; DETAIL="$5"
@@ -30,5 +32,5 @@ esac
 
 LOGF=".scrum/pbi/$PBI/pipeline.log"
 mkdir -p "$(dirname "$LOGF")"
-ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+ts="$(_iso_utc_now)"
 printf '%s\t%s\t%s\t%s\t%s\n' "$ts" "$PHASE" "$ROUND" "$EVENT" "$DETAIL" >> "$LOGF"

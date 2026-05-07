@@ -32,7 +32,7 @@ fi
 
 # Build paths_touched array literal for jq.
 PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -s .)"
-NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+NOW="$(_iso_utc_now)"
 
 EXPR=".head_sha = \"$HEAD\""
 EXPR="$EXPR | .ready_at = \"$NOW\""
