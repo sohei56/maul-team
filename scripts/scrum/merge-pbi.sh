@@ -12,6 +12,12 @@ source "$HERE/lib/errors.sh"
 PBI="$1"
 case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
 
+# Pre-flight: .scrum/ must remain untracked. When tracked, branch switches
+# silently delete state files that exist only on the current branch.
+if [ -n "$(git ls-files .scrum/ 2>/dev/null)" ]; then
+  fail E_INVALID_ARG ".scrum/ is tracked in git — runtime state must stay untracked. Recover with: git rm -r --cached .scrum/ && echo '.scrum/' >> .gitignore"
+fi
+
 STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
 BACKLOG=".scrum/backlog.json"
@@ -52,8 +58,11 @@ fi
 
 PRE_HEAD="$(git rev-parse HEAD)"
 
-# Ensure we are on main
-git checkout main >/dev/null 2>&1 || fail E_INVALID_ARG "could not checkout main"
+# Refuse to auto-switch to main — switching branches mid-merge silently
+# destroys branch-local files when .scrum/ has ever been tracked.
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+[ "$CURRENT_BRANCH" = "main" ] \
+  || fail E_INVALID_ARG "merge-pbi.sh must run with 'main' checked out (current: '$CURRENT_BRANCH')"
 
 # Attempt merge
 if ! git merge --no-ff "$BRANCH" -m "merge: $PBI" >/dev/null 2>&1; then
