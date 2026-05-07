@@ -23,6 +23,15 @@ disable-model-invocation: false
 - state.json phase: "new" or "requirements_sprint"
 - No existing requirements.md (new) or incomplete (resume)
 
+## Roles
+
+- **Scrum Master** — state.json transitions (steps 1, 9), Developer
+  lifecycle (step 2 spawn, step 9 terminate), `backlog.json`
+  initialization (step 6), user confirmation prompts (steps 7, 8a).
+- **Developer (Requirements interviewer)** — user dialogue (steps 3,
+  4), `docs/requirements.md` authoring (step 5), `CLAUDE.md`
+  authoring when overwrite/append chosen (step 8b).
+
 ## Steps
 
 1. Update `state.json` → `phase: "requirements_sprint"`:
