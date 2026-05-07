@@ -6,8 +6,14 @@
 # not per-PBI merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# Merge takes longer than atomic_write (git ops + artifact verify); raise the
+# default lock timeout. External override via SCRUM_LOCK_TIMEOUT still wins.
+: "${SCRUM_LOCK_TIMEOUT:=30}"
+export SCRUM_LOCK_TIMEOUT
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
+# shellcheck source=lib/atomic.sh
+source "$HERE/lib/atomic.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: merge-pbi.sh <pbi-id>"
 PBI="$1"
@@ -28,20 +34,11 @@ while IFS= read -r line; do
   PATHS+=("$line")
 done < <(jq -r '.paths_touched[]' "$STATE")
 
-# Lock main worktree against parallel merges (mkdir-based, macOS compatible)
-mkdir -p .scrum/.locks
-MERGE_LOCK_DIR=".scrum/.locks/merge.lock.d"
-LOCK_TIMEOUT_SEC="${SCRUM_LOCK_TIMEOUT:-30}"
-LOCK_POLL_SEC="${SCRUM_LOCK_POLL:-0.05}"
-_lock_iters="$(awk -v t="$LOCK_TIMEOUT_SEC" -v p="$LOCK_POLL_SEC" 'BEGIN{print int(t/p)+1}')"
-_lock_i=0
-while ! mkdir "$MERGE_LOCK_DIR" 2>/dev/null; do
-  _lock_i=$((_lock_i + 1))
-  if [ "$_lock_i" -ge "$_lock_iters" ]; then
-    fail E_LOCK_TIMEOUT "another merge is in progress (lock: $MERGE_LOCK_DIR)"
-  fi
-  sleep "$LOCK_POLL_SEC"
-done
+# Lock main worktree against parallel merges (mkdir-based, macOS compatible).
+# `_acquire_lock` is the canonical helper from lib/atomic.sh.
+mkdir -p "$SCRUM_LOCK_DIR"
+MERGE_LOCK_DIR="$SCRUM_LOCK_DIR/merge.lock.d"
+_acquire_lock "$MERGE_LOCK_DIR"
 # shellcheck disable=SC2064
 trap "rmdir '$MERGE_LOCK_DIR' 2>/dev/null || true" EXIT
 
