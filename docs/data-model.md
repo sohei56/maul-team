@@ -82,6 +82,8 @@ Valid phases:
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `created_at` | ISO 8601 string | Creation timestamp |
 | `updated_at` | ISO 8601 string | Last update timestamp |
+| `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
+| `merged_at` | ISO 8601 string \| absent | Mirror of `pbi/<id>/state.json.merged_at`; written by `mark-pbi-merged.sh` |
 
 ### State Transitions: `status` (12-value enum, actor-split)
 
@@ -428,11 +430,13 @@ Stores timestamped agent activity events written by Claude Code hooks
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | ISO 8601 string | When the event occurred |
-| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"` |
+| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"test_run"`, `"review_verdict"` |
 | `agent_id` | string \| null | Developer or agent ID that triggered the event |
 | `pbi_id` | string \| null | Related PBI ID, if applicable |
 | `file_path` | string \| null | Absolute or relative file path (populated when `type` is `"file_changed"`) |
 | `change_type` | enum \| null | `"created"`, `"modified"`, or `"deleted"` (populated when `type` is `"file_changed"`) |
+| `status_from` | string \| null | Previous PBI status (populated when `type` is `"status_transition"`) |
+| `status_to` | string \| null | New PBI status (populated when `type` is `"status_transition"`) |
 | `detail` | string | Human-readable event description |
 
 ### Rules
@@ -597,6 +601,24 @@ merge_conflict | merge_artifact_missing
 - Backlog `status: in_progress_merge` requires all four `*_status` fields to be `"pass"`.
 - Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`).
 - `coverage_status: pending` is permanent when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate.
+
+---
+
+## Entity: Config
+
+**File**: `.scrum/config.json` (optional; defaults apply if absent)
+**Owner**: Project (manually authored by the user)
+**Readers**: `pbi-pipeline` skill (test runner, coverage tool, path guard
+  globs), `quality-gate.sh`
+
+There is no JSON Schema for `.scrum/config.json` — the de-facto contract
+is `.scrum-config.example.json` at the repo root, copied verbatim by
+`setup-user.sh` (when the user does not already have one). It documents
+the available keys (`test_runner`, `coverage_tool`, `pragma_pattern`,
+`path_guard`) and the substitutable templates (`{pbi_id}`, `{round}`).
+Add a schema only if/when an incompatible migration is actually needed
+(per the Phase B "Out of scope" stance in
+`docs/contracts/scrum-state/README.md`).
 
 ---
 

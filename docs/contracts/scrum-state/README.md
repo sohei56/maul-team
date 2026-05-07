@@ -2,14 +2,16 @@
 
 Each schema corresponds to one file under `.scrum/` and is the single source of truth for its on-disk shape today. Both the validated wrapper scripts (`.scrum/scripts/*.sh` in deployed projects; `scripts/scrum/*.sh` in this framework's source tree) and readers (dashboard, hooks) MUST validate against these schemas.
 
-| File                                | Schema                                | Write script (Phase B)                                |
+| File                                | Schema                                | Permitted writers (`.scrum/scripts/*.sh`)             |
 |-------------------------------------|---------------------------------------|-------------------------------------------------------|
-| `.scrum/state.json`                 | `state.schema.json`                   | `.scrum/scripts/update-state-phase.sh`                |
-| `.scrum/sprint.json`                | `sprint.schema.json`                  | `.scrum/scripts/update-sprint-status.sh`, `set-sprint-developer.sh` |
-| `.scrum/backlog.json`               | `backlog.schema.json`                 | `.scrum/scripts/update-backlog-status.sh`, `set-backlog-item-field.sh`, `add-backlog-item.sh` |
-| `.scrum/communications.json`        | `communications.schema.json`          | `.scrum/scripts/append-communication.sh`              |
-| `.scrum/dashboard.json`             | `dashboard.schema.json`               | `.scrum/scripts/append-dashboard-event.sh`            |
-| `.scrum/pbi/<id>/state.json`        | `pbi-state.schema.json`               | `.scrum/scripts/init-pbi-state.sh`, `update-pbi-state.sh` |
+| `.scrum/state.json`                 | `state.schema.json`                   | `update-state-phase.sh`                               |
+| `.scrum/sprint.json`                | `sprint.schema.json`                  | `update-sprint-status.sh`, `set-sprint-developer.sh`, `freeze-sprint-base.sh` |
+| `.scrum/backlog.json`               | `backlog.schema.json`                 | `update-backlog-status.sh`, `set-backlog-item-field.sh`, `add-backlog-item.sh`; also `mark-pbi-ready-to-merge.sh`, `mark-pbi-merged.sh`, `mark-pbi-merge-failure.sh` (which delegate to `update-backlog-status.sh`) |
+| `.scrum/communications.json`        | `communications.schema.json`          | `append-communication.sh`                             |
+| `.scrum/dashboard.json`             | `dashboard.schema.json`               | `append-dashboard-event.sh`                           |
+| `.scrum/pbi/<id>/state.json`        | `pbi-state.schema.json`               | `init-pbi-state.sh` (initial), `update-pbi-state.sh` (low-level); higher-level callers: `create-pbi-worktree.sh`, `commit-pbi.sh`, `mark-pbi-ready-to-merge.sh`, `mark-pbi-merged.sh`, `mark-pbi-merge-failure.sh` |
+
+Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh`, `cleanup-pbi-worktree.sh`, `migrate-legacy.sh`) drive git operations and the writers above; they do not bypass the schema-validated writes.
 
 ## Design choices
 

@@ -93,7 +93,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 - PBI status flow (12 values, actor-split; status is sole SSOT, pipeline `phase` removed):
   - SM-managed: `draft → refined → blocked → awaiting_cross_review → cross_review → escalated → done`
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
-- Sprint status flow: `planning → active → cross_review → sprint_review → complete`
+- Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
 - Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per

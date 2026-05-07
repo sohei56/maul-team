@@ -30,7 +30,7 @@
           "agent_id": {"type": ["string", "null"]},
           "pbi_id": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"},
           "file_path": {"type": ["string", "null"]},
-          "change_type": {"type": ["string", "null"]},
+          "change_type": {"enum": ["created", "modified", "deleted", null]},
           "detail": {"type": ["string", "null"]},
           "status_from": {"type": ["string", "null"]},
           "status_to": {"type": ["string", "null"]}

@@ -19,7 +19,7 @@ teardown() {
 
 @test "append-dashboard-event: file_changed event with file path" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" \
-    --type file_changed --agent dev-001-s1 --file "src/x.py" --change-type modify
+    --type file_changed --agent dev-001-s1 --file "src/x.py" --change-type modified
   [ "$status" -eq 0 ]
   run jq -r '.events[0].type' "$TEST_TMP/.scrum/dashboard.json"
   [ "$output" = "file_changed" ]
@@ -66,6 +66,12 @@ teardown() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" --type giga_event
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad --type"* ]]
+}
+
+@test "append-dashboard-event: rejects bad --change-type" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" \
+    --type file_changed --file "x.py" --change-type modify
+  [ "$status" -ne 0 ]
 }
 
 @test "append-dashboard-event: rejects bad --pbi format" {
