@@ -53,20 +53,15 @@ not by this skill.
 ## Initialization
 
 ```bash
-PBI_DIR=".scrum/pbi/${PBI_ID}"
-mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
-NOW="$(date -Iseconds)"
-jq -n --arg id "$PBI_ID" --arg now "$NOW" '{
-  pbi_id: $id,
-  design_round: 0, impl_round: 0,
-  design_status: "pending", impl_status: "pending",
-  ut_status: "pending", coverage_status: "pending",
-  escalation_reason: null,
-  started_at: $now, updated_at: $now
-}' > "$PBI_DIR/state.json"
-
+.scrum/scripts/init-pbi-state.sh "$PBI_ID"
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_design
 ```
+
+`init-pbi-state.sh` creates `.scrum/pbi/<pbi-id>/` with the standard
+`design`, `impl`, `ut`, `metrics`, `feedback` subdirectories and seeds
+`state.json` with all required fields (rounds at 0, statuses at
+`pending`, `escalation_reason: null`). It is idempotent — re-running on
+an existing valid state is a no-op.
 
 ## Atomic update helpers
 

@@ -9,7 +9,7 @@ Each schema corresponds to one file under `.scrum/` and is the single source of 
 | `.scrum/backlog.json`               | `backlog.schema.json`                 | `.scrum/scripts/update-backlog-status.sh`, `set-backlog-item-field.sh`, `add-backlog-item.sh` |
 | `.scrum/communications.json`        | `communications.schema.json`          | `.scrum/scripts/append-communication.sh`              |
 | `.scrum/dashboard.json`             | `dashboard.schema.json`               | `.scrum/scripts/append-dashboard-event.sh`            |
-| `.scrum/pbi/<id>/state.json`        | `pbi-state.schema.json`               | `.scrum/scripts/update-pbi-state.sh`                  |
+| `.scrum/pbi/<id>/state.json`        | `pbi-state.schema.json`               | `.scrum/scripts/init-pbi-state.sh`, `update-pbi-state.sh` |
 
 ## Design choices
 
