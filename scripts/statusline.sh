@@ -4,16 +4,6 @@
 # Outputs 3 ANSI-formatted lines for the status line display.
 set -euo pipefail
 
-# Read stdin (session JSON from Claude Code) — currently unused but available
-# for future session-aware rendering
-if [ -t 0 ]; then
-  # shellcheck disable=SC2034 # reserved for future session-aware rendering
-  session_json=""
-else
-  # shellcheck disable=SC2034
-  session_json="$(cat)"
-fi
-
 STATE_FILE=".scrum/state.json"
 BACKLOG_FILE=".scrum/backlog.json"
 SPRINT_FILE=".scrum/sprint.json"

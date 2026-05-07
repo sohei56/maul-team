@@ -1,31 +1,47 @@
 # Termination Gates Reference
 
-Composite gate model used at end of each Round (design and impl+UT).
-Anthropic + Ralph + GAN-derived. Deterministic — no fuzzy heuristics.
+Composite gate model used at end of each Round (design and the
+impl/pbi-review/ut-run cycle). Anthropic + Ralph + GAN-derived.
+Deterministic — no fuzzy heuristics.
 
 > **Scope note**: termination gates here are **semantic success
 > criteria** evaluated by the pipeline conductor at end of each Round
 > (when to stop a Round: success / stagnation / divergence / hard cap).
 > Distinct from `hooks/completion-gate.sh` and `hooks/quality-gate.sh`
 > which validate **durable state** (state files exist, schemas match,
-> phase transitions are legal). The hooks gate Claude Code lifecycle
+> status transitions are legal). The hooks gate Claude Code lifecycle
 > events; these gates gate Round flow. They do not duplicate.
 
 ## Gate matrix
 
 | Gate | Condition | Outcome |
 |---|---|---|
-| Success | (phase-specific success criteria all true) | STOP success |
+| Success | (stage-specific success criteria all true) | STOP success |
 | Stagnation | Same `signature` repeats in 2 consecutive Rounds (Critical/High only) | STOP escalate (`stagnation`) |
 | Divergence | (CRITICAL+HIGH count) increases Round n → n+1 | STOP escalate (`divergence`) |
 | Hard cap | `round_n >= 5` | STOP escalate (`max_rounds`) |
 | Budget cap (future) | (cumulative token > threshold) | STOP escalate (`budget_exhausted`) |
 
-## Phase-specific success criteria
+## Status transition on escalation
 
-- **Design phase**: `design-reviewer.verdict == PASS`
-- **Impl+UT phase**: see `coverage-gate.md` § Pass criteria
-  (8 conditions)
+When any escalate gate fires:
+
+```bash
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"
+.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
+```
+
+The new backlog status is `escalated` regardless of which stage the
+gate fired in (`in_progress_design / impl / pbi_review / ut_run`).
+SM picks it up via the `pbi-escalation-handler` skill.
+
+## Stage-specific success criteria
+
+- **Design stage**: `design-reviewer.verdict == PASS`
+- **PBI Review stage**: both `codex-impl-reviewer.verdict == PASS` and
+  `codex-ut-reviewer.verdict == PASS`
+- **UT Run stage**: see `coverage-gate.md` § Pass criteria
+  (test failures + coverage thresholds + pragma audit)
 
 ## Stagnation detection
 
@@ -47,8 +63,8 @@ if [ -n "$common" ]; then
 fi
 ```
 
-For impl+UT phase, build the set from BOTH impl and ut review files
-(union).
+For the PBI Review stage, build the set from BOTH impl and ut review
+files (union).
 
 ## Divergence detection
 
@@ -62,7 +78,7 @@ if [ "$count_n" -gt "$count_prev" ]; then
 fi
 ```
 
-For impl+UT phase, count from BOTH reviews (sum).
+For the PBI Review stage, count from BOTH reviews (sum).
 
 ## Hard cap
 
@@ -78,5 +94,5 @@ fi
 2. If stagnation → STOP escalate (stagnation)
 3. If divergence → STOP escalate (divergence)
 4. If hard cap → STOP escalate (max_rounds)
-5. Otherwise: proceed to next Round (or build feedback first for
-   impl+UT phase)
+5. Otherwise: proceed to next Round (or build feedback first for the
+   impl/pbi-review/ut-run cycle)

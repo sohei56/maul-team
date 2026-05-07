@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Integration: single PBI completes successfully in 1 design Round + 1 impl Round.
 # Sub-agents are not actually spawned (this test exercises Developer-side
-# orchestration logic, file plumbing, state transitions, and gate evaluation
+# orchestration logic, file plumbing, status transitions, and gate evaluation
 # only). Real sub-agent invocation is covered by manual smoke test.
 
 setup() {
@@ -36,7 +36,6 @@ EOF
     { "id": "dev-001-s1",
       "assigned_pbis": ["pbi-001"],
       "current_pbi": "pbi-001",
-      "current_pbi_phase": "design",
       "sub_agents": [] }
   ]
 }
@@ -44,7 +43,7 @@ EOF
 
   cat > .scrum/backlog.json <<'EOF'
 { "items": [
-  { "id": "pbi-001", "title": "test PBI", "status": "in_progress",
+  { "id": "pbi-001", "title": "test PBI", "status": "in_progress_design",
     "design_doc_paths": [], "review_doc_path": null,
     "catalog_targets": [],
     "pipeline_summary": null }
@@ -61,12 +60,22 @@ teardown() {
   rm -rf "$TEST_TMP"
 }
 
+# Helper: set backlog PBI status without going through the wrapper script
+# (the wrapper requires a full project layout we don't reconstruct here).
+set_backlog_status() {
+  local pbi_id="$1" new_status="$2"
+  jq --arg id "$pbi_id" --arg s "$new_status" \
+     '(.items[] | select(.id == $id)).status = $s' \
+     .scrum/backlog.json > .scrum/backlog.json.tmp
+  mv .scrum/backlog.json.tmp .scrum/backlog.json
+}
+
 @test "pipeline initializes PBI directory and state" {
   PBI_ID=pbi-001
   PBI_DIR=".scrum/pbi/$PBI_ID"
   mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
   jq -n --arg id "$PBI_ID" --arg now "$(date -Iseconds)" '{
-    pbi_id: $id, phase: "design",
+    pbi_id: $id,
     design_round: 0, impl_round: 0,
     design_status: "pending", impl_status: "pending",
     ut_status: "pending", coverage_status: "pending",
@@ -76,10 +85,11 @@ teardown() {
 
   [ -d "$PBI_DIR/design" ]
   [ -d "$PBI_DIR/metrics" ]
-  jq -e '.phase == "design"' "$PBI_DIR/state.json"
+  jq -e '.design_status == "pending"' "$PBI_DIR/state.json"
+  jq -e '.items[0].status == "in_progress_design"' .scrum/backlog.json
 }
 
-@test "design phase Round 1 success transitions to impl_ut" {
+@test "design Round 1 success transitions to in_progress_impl" {
   PBI_ID=pbi-001
   PBI_DIR=".scrum/pbi/$PBI_ID"
   mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
@@ -95,33 +105,36 @@ teardown() {
   # Verdict from review file
   grep -q '\*\*Verdict: PASS\*\*' "$PBI_DIR/design/review-r1.md"
 
-  # Conductor would update state on PASS
+  # Conductor would update both state.json and backlog.json on PASS
   jq -n --arg id "$PBI_ID" --arg now "$(date -Iseconds)" '{
-    pbi_id: $id, phase: "impl_ut",
+    pbi_id: $id,
     design_round: 1, impl_round: 0,
     design_status: "pass", impl_status: "pending",
     ut_status: "pending", coverage_status: "pending",
     escalation_reason: null,
     started_at: $now, updated_at: $now
   }' > "$PBI_DIR/state.json"
+  set_backlog_status "$PBI_ID" "in_progress_impl"
 
-  jq -e '.phase == "impl_ut" and .design_status == "pass"' "$PBI_DIR/state.json"
+  jq -e '.design_status == "pass"' "$PBI_DIR/state.json"
+  jq -e '.items[0].status == "in_progress_impl"' .scrum/backlog.json
   rm -f "$TEST_TMP/instr.md"
 }
 
-@test "impl+UT phase Round 1 success transitions to complete" {
+@test "impl+UT cycle Round 1 success transitions to in_progress_merge" {
   PBI_ID=pbi-001
   PBI_DIR=".scrum/pbi/$PBI_ID"
   mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
 
   jq -n --arg id "$PBI_ID" --arg now "$(date -Iseconds)" '{
-    pbi_id: $id, phase: "impl_ut",
+    pbi_id: $id,
     design_round: 1, impl_round: 1,
     design_status: "pass", impl_status: "in_review",
     ut_status: "in_review", coverage_status: "pending",
     escalation_reason: null,
     started_at: $now, updated_at: $now
   }' > "$PBI_DIR/state.json"
+  set_backlog_status "$PBI_ID" "in_progress_pbi_review"
 
   source hooks/lib/codex-invoke.sh
   echo "stub" > "$TEST_TMP/instr.md"
@@ -155,9 +168,16 @@ EOF
   awk "BEGIN{exit !($c0 >= 100)}"
   awk "BEGIN{exit !($c1 >= 100)}"
 
-  jq '.phase = "complete" | .impl_status = "pass" | .ut_status = "pass" | .coverage_status = "pass"' "$PBI_DIR/state.json" > "$PBI_DIR/state.json.tmp"
+  # Conductor advances through pbi_review → ut_run → merge as each gate passes.
+  set_backlog_status "$PBI_ID" "in_progress_ut_run"
+  jq '.impl_status = "pass"' "$PBI_DIR/state.json" > "$PBI_DIR/state.json.tmp"
   mv "$PBI_DIR/state.json.tmp" "$PBI_DIR/state.json"
 
-  jq -e '.phase == "complete"' "$PBI_DIR/state.json"
+  set_backlog_status "$PBI_ID" "in_progress_merge"
+  jq '.ut_status = "pass" | .coverage_status = "pass"' "$PBI_DIR/state.json" > "$PBI_DIR/state.json.tmp"
+  mv "$PBI_DIR/state.json.tmp" "$PBI_DIR/state.json"
+
+  jq -e '.impl_status == "pass" and .ut_status == "pass" and .coverage_status == "pass"' "$PBI_DIR/state.json"
+  jq -e '.items[0].status == "in_progress_merge"' .scrum/backlog.json
   rm -f "$TEST_TMP/instr.md"
 }

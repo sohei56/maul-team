@@ -5,6 +5,9 @@ load '../test_helper/common-setup'
 
 setup() {
   PROJECT_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
+  # Deployed Scrum-ceremony skills (skills/) — distributed to target
+  # projects by setup-user.sh. Dev-only skills (e.g. cleanup-audit) live
+  # under .claude/skills/ and are not covered by this lint suite.
   SKILL_NAMES=(
     sprint-planning
     spawn-teammates

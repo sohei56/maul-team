@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # scripts/scrum/merge-pbi.sh — SM-side merge orchestrator.
-# Phases: pre-check → no-ff merge → artifact verify → quality-gate → record → cleanup.
+# Phases: pre-check → no-ff merge → artifact verify → record → cleanup.
 # Failure modes call mark-pbi-merge-failure.sh and roll back main.
+# Quality verification (lint/test) is performed Sprint-end by cross-review,
+# not per-PBI merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
+# Merge takes longer than atomic_write (git ops + artifact verify); raise the
+# default lock timeout. External override via SCRUM_LOCK_TIMEOUT still wins.
+: "${SCRUM_LOCK_TIMEOUT:=30}"
+export SCRUM_LOCK_TIMEOUT
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
+# shellcheck source=lib/atomic.sh
+source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: merge-pbi.sh <pbi-id>"
 PBI="$1"
@@ -14,8 +23,11 @@ case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
 
 STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"
-PHASE="$(jq -r '.phase' "$STATE")"
-[ "$PHASE" = "ready_to_merge" ] || fail E_INVALID_ARG "expected phase=ready_to_merge, got $PHASE"
+BACKLOG=".scrum/backlog.json"
+[ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
+STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
+[ "$STATUS" = "in_progress_merge" ] \
+  || fail E_INVALID_ARG "expected backlog status=in_progress_merge, got '$STATUS'"
 BRANCH="$(jq -r '.branch' "$STATE")"
 
 # Read paths_touched — portable (Bash 3.2+)
@@ -24,20 +36,11 @@ while IFS= read -r line; do
   PATHS+=("$line")
 done < <(jq -r '.paths_touched[]' "$STATE")
 
-# Lock main worktree against parallel merges (mkdir-based, macOS compatible)
-mkdir -p .scrum/.locks
-MERGE_LOCK_DIR=".scrum/.locks/merge.lock.d"
-LOCK_TIMEOUT_SEC="${SCRUM_LOCK_TIMEOUT:-30}"
-LOCK_POLL_SEC="${SCRUM_LOCK_POLL:-0.05}"
-_lock_iters="$(awk -v t="$LOCK_TIMEOUT_SEC" -v p="$LOCK_POLL_SEC" 'BEGIN{print int(t/p)+1}')"
-_lock_i=0
-while ! mkdir "$MERGE_LOCK_DIR" 2>/dev/null; do
-  _lock_i=$((_lock_i + 1))
-  if [ "$_lock_i" -ge "$_lock_iters" ]; then
-    fail E_LOCK_TIMEOUT "another merge is in progress (lock: $MERGE_LOCK_DIR)"
-  fi
-  sleep "$LOCK_POLL_SEC"
-done
+# Lock main worktree against parallel merges (mkdir-based, macOS compatible).
+# `_acquire_lock` is the canonical helper from lib/atomic.sh.
+mkdir -p "$SCRUM_LOCK_DIR"
+MERGE_LOCK_DIR="$SCRUM_LOCK_DIR/merge.lock.d"
+_acquire_lock "$MERGE_LOCK_DIR"
 # shellcheck disable=SC2064
 trap "rmdir '$MERGE_LOCK_DIR' 2>/dev/null || true" EXIT
 
@@ -79,23 +82,10 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   fail E_INVALID_ARG "artifact_missing: $CSV"
 fi
 
-# Run quality-gate (skippable for tests)
-if [ "${SCRUM_SKIP_QUALITY_GATE:-0}" != "1" ]; then
-  REPORT=".scrum/pbi/$PBI/quality-gate-out.log"
-  mkdir -p ".scrum/pbi/$PBI"
-  if ! "$ROOT/hooks/quality-gate.sh" >"$REPORT" 2>&1; then
-    # Record the failure BEFORE rolling back (see artifact_missing path).
-    "$HERE/mark-pbi-merge-failure.sh" "$PBI" regression "$PRE_HEAD" "$REPORT"
-    git reset --hard "$PRE_HEAD" >/dev/null \
-      || fail E_INVALID_ARG "CRITICAL: rollback failed after regression — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD; report=$REPORT)"
-    fail E_INVALID_ARG "merge_regression — see $REPORT"
-  fi
-fi
-
 MERGED_SHA="$(git rev-parse HEAD)"
 "$HERE/mark-pbi-merged.sh" "$PBI" "$MERGED_SHA"
 
-# Cleanup the worktree + branch (phase is now merged — cleanup will succeed)
+# Cleanup the worktree + branch (status is now awaiting_cross_review — cleanup will succeed)
 "$HERE/cleanup-pbi-worktree.sh" "$PBI"
 
 printf '[merge-pbi] %s merged at %s\n' "$PBI" "$MERGED_SHA"

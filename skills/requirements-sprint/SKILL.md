@@ -23,9 +23,21 @@ disable-model-invocation: false
 - state.json phase: "new" or "requirements_sprint"
 - No existing requirements.md (new) or incomplete (resume)
 
+## Roles
+
+- **Scrum Master** — state.json transitions (steps 1, 9), Developer
+  lifecycle (step 2 spawn, step 9 terminate), `backlog.json`
+  initialization (step 6), user confirmation prompts (steps 7, 8a).
+- **Developer (Requirements interviewer)** — user dialogue (steps 3,
+  4), `docs/requirements.md` authoring (step 5), `CLAUDE.md`
+  authoring when overwrite/append chosen (step 8b).
+
 ## Steps
 
-1. Update `state.json` → `phase: "requirements_sprint"`
+1. Update `state.json` → `phase: "requirements_sprint"`:
+   ```bash
+   .scrum/scripts/update-state-phase.sh requirements_sprint
+   ```
 2. Spawn 1 Developer for requirements interview
 3. Developer engages user in natural language:
    - Business: problem, users, goals
@@ -42,7 +54,11 @@ disable-model-invocation: false
      - **Project overview**: purpose, users, key features (from requirements.md)
      - **Cautions level only**: key constraints, security concerns, critical conventions. No detailed architecture/directory structure (Integration Sprint regenerates that)
      - Target ~200 lines (目安). Exceeded→warn user, do not block
-9. Update `state.json` → `phase: "backlog_created"`. Terminate Requirements Sprint Developer
+9. Update `state.json` → `phase: "backlog_created"`:
+   ```bash
+   .scrum/scripts/update-state-phase.sh backlog_created
+   ```
+   Then terminate Requirements Sprint Developer.
 
 Ref: FR-002
 

@@ -9,8 +9,7 @@
     {
       "id": "dev-001-s1",
       "assigned_work": {
-        "implement": ["pbi-001"],
-        "review": []
+        "implement": ["pbi-001"]
       },
       "status": "active",
       "sub_agents": []

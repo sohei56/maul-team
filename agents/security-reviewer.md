@@ -61,4 +61,4 @@ Path traversal, CSRF protection, auth endpoint rate limiting, stack trace leakag
 
 - DO NOT modify files (read-only)
 - DO NOT suggest fixes (describe vulnerability only)
-- Security only. Code quality→code-reviewer scope
+- Security only. Code quality / abstraction / dead code → `maintainability-reviewer` scope. Requirement coverage → `requirement-conformance-reviewer`. Cross-PBI correctness → `functional-quality-reviewer`. Doc accuracy → `docs-consistency-reviewer`.

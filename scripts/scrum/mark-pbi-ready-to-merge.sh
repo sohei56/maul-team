@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scripts/scrum/mark-pbi-ready-to-merge.sh — Developer-side handoff wrapper.
-# Computes paths_touched (base..HEAD) and atomically sets phase/head/ready.
+# Computes paths_touched (base..HEAD), atomically sets head_sha/ready_at/
+# paths_touched on pbi-state.json, then sets backlog status to in_progress_merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -8,8 +9,6 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
-# shellcheck source=lib/derive.sh
-source "$HERE/lib/derive.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: mark-pbi-ready-to-merge.sh <pbi-id>"
 PBI="$1"
@@ -33,21 +32,18 @@ fi
 
 # Build paths_touched array literal for jq.
 PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -s .)"
-NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+NOW="$(_iso_utc_now)"
 
-EXPR=".phase = \"ready_to_merge\""
-EXPR="$EXPR | .head_sha = \"$HEAD\""
+EXPR=".head_sha = \"$HEAD\""
 EXPR="$EXPR | .ready_at = \"$NOW\""
 EXPR="$EXPR | .paths_touched = $PATHS_JSON"
 
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 
-# Project to backlog status (review).
-DERIVED="$(derive_backlog_status_from_phase ready_to_merge)"
+# Update backlog status to in_progress_merge (silently skip if PBI not in backlog).
 BACKLOG=".scrum/backlog.json"
-BACKLOG_SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
 if [ -f "$BACKLOG" ] && jq -e --arg id "$PBI" '.items | map(select(.id==$id)) | length > 0' "$BACKLOG" >/dev/null; then
-  atomic_write "$BACKLOG" "(.items[] | select(.id == \"$PBI\")).status = \"$DERIVED\"" "$BACKLOG_SCHEMA"
+  "$HERE/update-backlog-status.sh" "$PBI" in_progress_merge
 fi
 
 printf '[mark-pbi-ready-to-merge] %s @ %s (%d paths)\n' "$PBI" "$HEAD" "${#PATHS[@]}"

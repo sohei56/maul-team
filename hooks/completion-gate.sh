@@ -41,14 +41,10 @@ get_sprint_pbi_ids() {
   jq -r '.pbi_ids[]? // empty' "$SPRINT_FILE" 2>/dev/null
 }
 
-# Get the status of a PBI by its ID from the backlog
+# Get the status of a PBI by its ID from the backlog (thin wrapper around
+# the canonical helper in hooks/lib/validate.sh).
 get_pbi_status() {
-  local pbi_id="$1"
-  if [ ! -f "$BACKLOG_FILE" ]; then
-    echo "unknown"
-    return
-  fi
-  jq -r --arg id "$pbi_id" '.items[] | select(.id == $id) | .status // "unknown"' "$BACKLOG_FILE" 2>/dev/null
+  get_pbi_status_from_backlog "$1" "$BACKLOG_FILE" "unknown"
 }
 
 # ---------------------------------------------------------------------------
@@ -64,37 +60,11 @@ phase="$(jq -r '.phase // "unknown"' "$STATE_FILE")"
 current_sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
 
 case "$phase" in
-  implementation)
-    # All Sprint PBIs must have status != "refined" (work must have started)
-    if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
-      # Allow stop when state files are missing — blocking would trap users
-      echo "[completion-gate] WARNING: sprint.json or backlog.json missing; cannot verify PBI status." >&2
-      allow_stop
-    fi
-
-    not_started_pbis=""
-    while IFS= read -r pbi_id; do
-      [ -z "$pbi_id" ] && continue
-      status="$(get_pbi_status "$pbi_id")"
-      if [ "$status" = "refined" ]; then
-        not_started_pbis="${not_started_pbis}${not_started_pbis:+, }${pbi_id} (status: refined)"
-      fi
-    done <<EOF
-$(get_sprint_pbi_ids)
-EOF
-
-    if [ -n "$not_started_pbis" ]; then
-      block_stop "Implementation phase: the following Sprint PBIs have not been started (still 'refined'): ${not_started_pbis}. All PBIs must have work started before stopping."
-    fi
-
-    allow_stop
-    ;;
-
   review)
     # All Sprint PBIs must have status "done"
     if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
       # Allow stop when state files are missing — blocking would trap users
-      echo "[completion-gate] WARNING: sprint.json or backlog.json missing; cannot verify PBI status." >&2
+      stderr_log "completion-gate" "WARNING" "sprint.json or backlog.json missing; cannot verify PBI status."
       allow_stop
     fi
 
@@ -181,26 +151,24 @@ EOF
     ;;
 
   pbi_pipeline_active)
-    # All active PBI pipelines must be either 'complete' or 'escalated'.
+    # All active PBI pipelines must be terminal (done) or escalated.
     # Escalated PBIs additionally require a recorded resolution.
+    # Status is read from backlog.json (12-value SSOT) — pbi-state.json no
+    # longer carries phase after the status/phase unification.
     active_pipelines="$(jq -r '.active_pbi_pipelines[]?' "$STATE_FILE" 2>/dev/null)"
     blocked_pipelines=""
     while IFS= read -r pbi_id; do
       [ -z "$pbi_id" ] && continue
-      if [ ! -f ".scrum/pbi/$pbi_id/state.json" ]; then
-        blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (no state.json)"
-        continue
-      fi
-      pbi_phase="$(get_pbi_pipeline_state "$pbi_id" phase unknown)"
-      case "$pbi_phase" in
-        complete) ;;
+      pbi_status="$(get_pbi_status "$pbi_id")"
+      case "$pbi_status" in
+        done|awaiting_cross_review|cross_review) ;;
         escalated)
           if [ ! -f ".scrum/pbi/$pbi_id/escalation-resolution.md" ]; then
             blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (escalated, no resolution)"
           fi
           ;;
         *)
-          blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (phase: ${pbi_phase})"
+          blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (status: ${pbi_status})"
           ;;
       esac
     done <<EOF
@@ -208,7 +176,7 @@ $active_pipelines
 EOF
 
     if [ -n "$blocked_pipelines" ]; then
-      block_stop "PBI Pipeline phase: pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'complete' or 'escalated' (with resolution recorded) before stopping."
+      block_stop "PBI Pipeline phase: pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'done' / 'awaiting_cross_review' / 'cross_review' or 'escalated' (with resolution recorded) before stopping."
     fi
     allow_stop
     ;;

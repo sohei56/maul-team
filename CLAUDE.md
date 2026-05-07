@@ -4,24 +4,18 @@
 
 ```text
 scrum-start.sh           # Entry point — validates prereqs, launches tmux
-agents/                  # Agent and sub-agent definitions
+agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-master, developer; sub-agents listed in docs/contracts/sub-agents.md)
   scrum-master.md        # Team lead (Delegate mode)
   developer.md           # Developer teammate (PBI pipeline conductor)
-  code-reviewer.md       # Independent code review (spawned by Scrum Master)
-  security-reviewer.md   # Security vulnerability scanning (spawned by Scrum Master)
-  codex-code-reviewer.md # Cross-model code review via Codex CLI (Sprint-end)
-  pbi-designer.md        # PBI design author (spawned by Developer)
-  pbi-implementer.md     # Implementation author — no test writes (spawned by Developer)
-  pbi-ut-author.md       # Black-box test author — no impl reads (spawned by Developer)
-  codex-design-reviewer.md  # Critical design review (spawned by Developer)
-  codex-impl-reviewer.md    # Critical impl review — no test visibility (spawned by Developer)
-  codex-ut-reviewer.md      # Critical UT review — no impl visibility (spawned by Developer)
-skills/                  # 14 Ceremony Skills (YAML frontmatter + Markdown)
+  # Sprint-end cross-review (5-aspect parallel): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
+  # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
+skills/                  # 15 Skills (Scrum ceremonies) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
   change-process/        # Manage changes to frozen design docs
   cross-review/          # Sprint-end cross-cutting quality gate
   pbi-pipeline/          # PBI conductor pipeline (orchestrator + references/)
   pbi-escalation-handler/ # SM-side escalation handler
+  pbi-merge/             # SM-side per-PBI merge orchestration
   install-subagents/     # Install specialist sub-agents for PBI work
   integration-sprint/    # Product-wide QA and integration testing
   requirements-sprint/   # Elicit requirements from user
@@ -31,7 +25,9 @@ skills/                  # 14 Ceremony Skills (YAML frontmatter + Markdown)
   spawn-teammates/       # Spawn developer teammates for sprint
   sprint-planning/       # Sprint planning and PBI assignment
   sprint-review/         # Sprint review ceremony
-hooks/                   # Claude Code hooks (phase gates, completion gates, quality gates, dashboard events, session context)
+.claude/skills/          # Dev-only skills for THIS repo (not deployed to target projects)
+  cleanup-audit/         # 8-axis multi-agent repo hygiene audit (read-only)
+hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, completion + quality + stop-failure gates, dashboard events, session context)
   lib/                   # Shared hook helpers (validation, logging)
 dashboard/               # Textual TUI dashboard (Python)
   app.py                 # Main TUI application
@@ -94,9 +90,11 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 - All state persisted to `.scrum/` JSON files for resume capability
 - Design documents governed by `docs/design/catalog.md` (read-only type reference) + `docs/design/catalog-config.json` (editable enabled list)
 - Developer teammates named with Sprint suffix: `dev-001-s{N}`
-- PBI status flow: `draft → refined → in_progress → review → done | blocked`
+- PBI status flow (12 values, actor-split; status is sole SSOT, pipeline `phase` removed):
+  - SM-managed: `draft → refined → blocked → awaiting_cross_review → cross_review → escalated → done`
+  - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete`
-- Phase flow: `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
+- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
@@ -113,13 +111,17 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 Direct edits are blocked by `hooks/pre-tool-use-scrum-state-guard.sh`
 (registered as `PreToolUse`). Schemas under
 `docs/contracts/scrum-state/` are the SSOT. See
-`docs/MIGRATION-scrum-state-tools.md` for the wrapper map and known
-gaps. The PBI state schema gained worktree / merge fields (`branch`,
-`worktree`, `base_sha`, `head_sha`, `paths_touched`, `ready_at`,
-`merged_sha`, `merged_at`, `merge_failure`, `merge_failure_count`)
-and new phase enum values (`ready_to_merge`, `merged`,
-`merge_conflict`, `merge_artifact_missing`, `merge_regression`).
-The sprint schema gained `base_sha` and `base_sha_captured_at`.
+`docs/MIGRATION-scrum-state-tools.md` for the wrapper map, the
+v1→v2 status migration history, and known gaps. The PBI state schema
+gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
+`head_sha`, `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
+`merge_failure`, `merge_failure_count`); the legacy `phase` field
+was removed in v2, with all PBI lifecycle now driven by the 12-value
+`backlog.json.items[].status` enum. Merge-failure detail is preserved
+via `pbi-state.json.merge_failure.kind ∈ {conflict, artifact_missing}`
+plus `escalation_reason ∈ {merge_conflict, merge_artifact_missing}`
+when 3 consecutive failures flip status to `escalated`. The sprint
+schema gained `base_sha` and `base_sha_captured_at`.
 
 ## Git workflow
 
@@ -136,21 +138,25 @@ completion they run `.scrum/scripts/mark-pbi-ready-to-merge.sh`
 and notify SM `[<pbi-id>] PBI_READY_TO_MERGE`.
 
 SM merges per-PBI immediately by running the `pbi-merge` skill
-which calls `.scrum/scripts/merge-pbi.sh`:
-1. `--no-ff` merge into main
-2. verify every `paths_touched` file is on HEAD
-3. run the existing `hooks/quality-gate.sh`
-4. mark `phase=merged`, mirror `merged_sha` to backlog, remove
-   worktree + branch
+(see [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md) for
+the full protocol: `--no-ff` merge, `paths_touched` verification,
+SendMessage matrix for `conflict` / `artifact_missing`, and
+3-strike escalation to `pbi-escalation-handler`). Quality
+verification (lint/test) is performed Sprint-end by `cross-review`,
+not per-PBI merge.
 
-Three failure paths roll back main and instruct the Developer to
-fix on `pbi/<id>` and re-notify. Three consecutive failures of any
-kind escalate via `pbi-escalation-handler`.
-
-The hook `pre-tool-use-no-branch-ops.sh` blocks raw
-`git checkout -b`, `switch -c`, `branch <new>`, `merge`, `push`,
-`rebase` from the Bash tool unless invoked through
-`.scrum/scripts/*`.
+In **deployed target projects** (registered via `setup-user.sh`), the
+hook `pre-tool-use-no-branch-ops.sh` blocks raw `git checkout -b`,
+`switch -c`, `branch <new>`, `merge`, `push`, `rebase` from the Bash
+tool unless invoked through `.scrum/scripts/*`. The framework repo
+itself does **not** register this hook (see `.claude/settings.json`)
+so that framework dev work — branching, merging, pushing — proceeds
+normally. The same scope applies to other PreToolUse guards shipped
+with the framework (`status-gate.sh`, `pre-tool-use-path-guard.sh`):
+they protect downstream target projects, not this repo. The one
+exception is `pre-tool-use-scrum-state-guard.sh`, which **is**
+registered in the framework's own `.claude/settings.json` because
+this repo also writes to `.scrum/` during integration tests.
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

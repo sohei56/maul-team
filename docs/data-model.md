@@ -44,7 +44,6 @@ Valid phases:
 - `retrospective` — Sprint Retrospective
 - `integration_sprint` — Integration Sprint in progress
 - `complete` — product released
-- `design`, `implementation` — legacy values retained read-only for backward-compatible dashboards. Not used by the current flow.
 
 ---
 
@@ -76,34 +75,75 @@ Valid phases:
 | `priority` | integer | Order in backlog (1 = highest) |
 | `sprint_id` | string \| null | Sprint this PBI is assigned to, null if in backlog |
 | `implementer_id` | string \| null | Developer teammate assigned to implement |
-| `reviewer_id` | string \| null | Reviewer ID: a Developer teammate (round-robin) or `"scrum-master"` (single-PBI Sprint) |
 | `design_doc_paths` | string[] | Paths to design documents relative to project root (catalog specs in `docs/design/specs/`, plus PBI working design at `.scrum/pbi/<pbi-id>/design/design.md`) |
 | `review_doc_path` | string \| null | Path to review results relative to project root |
 | `catalog_targets` | string[] | Catalog spec paths the PBI may touch. Recorded by `sprint-planning` skill; used to prevent parallel write contention (Layer 1 of `catalog-contention` defense). |
-| `pipeline_summary` | object \| null | Set by `pbi-pipeline` on completion. Fields: `design_rounds`, `impl_rounds`, `final_c0`, `final_c1`, `final_test_count`, `completed_at`, `escalation_reason` (null on success). |
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
 | `ux_change` | boolean | Whether this PBI involves UX changes (determines live demo in FR-010) |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `created_at` | ISO 8601 string | Creation timestamp |
 | `updated_at` | ISO 8601 string | Last update timestamp |
 
-### State Transitions: `status`
+### State Transitions: `status` (12-value enum, actor-split)
+
+`status` is the sole SSOT for PBI lifecycle (the legacy
+`pbi-state.json.phase` was removed in v2). Two actors own disjoint
+slices of the enum:
 
 ```
-draft -> refined -> in_progress -> review -> done
-                                          -> blocked (escalated)
+SM-managed (7):  draft, refined, blocked, awaiting_cross_review,
+                 cross_review, escalated, done
+Dev-managed (5): in_progress_design, in_progress_impl,
+                 in_progress_pbi_review, in_progress_ut_run,
+                 in_progress_merge
 ```
+
+ASCII transition graph:
+
+```
+[SM]  draft → refined
+                ↓ (Sprint Planning assigns Developer)
+[Dev] in_progress_design
+        ↓ design pass (codex-design-reviewer)
+[Dev] in_progress_impl ←──────────┐
+        ↓                          │ FAIL
+[Dev] in_progress_pbi_review ──────┤  (codex-impl-reviewer + codex-ut-reviewer)
+        ↓ PASS                     │
+[Dev] in_progress_ut_run ──────────┘ FAIL  (real test execution + coverage gate)
+        ↓ PASS
+[Dev] in_progress_merge            (Developer signals "ready for merge")
+        ↓ SM picks up, runs merge-pbi.sh
+        ↓ merge PASS
+[SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
+        ↓ Sprint-end SM invokes cross-review skill
+[SM]  cross_review ── FAIL → [Dev] in_progress_impl  (Developer fixes on top of merged code)
+        ↓ PASS
+[SM]  done
+
+  any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
+  in_progress_merge       → [SM] escalated  (SM merge failed)
+  [SM] escalated → [Dev] in_progress_design  (SM retry; round counters reset)
+  [SM] escalated → [SM] blocked              (SM hold / human-escalate)
+  [SM] blocked   → [Dev] in_progress_design  (external blocker resolved)
+```
+
+State descriptions:
 
 - `draft` — coarse-grained (e.g., "User Management"). Created during initial backlog creation.
 - `refined` — implementation-ready (one function, screen, API, or platform component). Refined during Sprint Planning. `acceptance_criteria` must be filled.
-- `in_progress` — Developer actively driving the `pbi-pipeline` skill.
-- `review` — Sprint-end `cross-review` skill running (per-PBI reviews already completed inside `pbi-pipeline`).
-- `done` — meets Definition of Done (FR-017): `pbi-pipeline` reached `phase: complete`.
-- `blocked` — `pbi-pipeline` escalated. SM `pbi-escalation-handler` decides retry / split / hold / human-escalate. See escalation-resolution.md in PBI workspace.
+- `in_progress_design` — `pbi-pipeline` Design phase: `pbi-designer` + `codex-design-reviewer` Round loop active.
+- `in_progress_impl` — `pbi-pipeline` Impl phase: `pbi-implementer` writing source code.
+- `in_progress_pbi_review` — Per-PBI Round review: `codex-impl-reviewer` + `codex-ut-reviewer` evaluating; FAIL loops back to `in_progress_impl`.
+- `in_progress_ut_run` — Real test execution + coverage gate; FAIL loops back to `in_progress_impl`.
+- `in_progress_merge` — Developer has signalled ready-for-merge (`mark-pbi-ready-to-merge.sh`); SM is about to run `merge-pbi.sh`.
+- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` skill.
+- `cross_review` — Sprint-end `cross-review` skill running for this PBI.
+- `done` — Cross-review PASS. Definition of Done (FR-017) met.
+- `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
+- `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears.
 
 ### Validation Rules
-- `implementer_id` and `reviewer_id` MUST differ (FR-006). Reviewers are assigned round-robin. In a single-PBI Sprint, `reviewer_id` is `"scrum-master"`.
-- `implementer_id` and `reviewer_id` are set only when `status` is `refined` or later.
+- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — Sprint-end review is performed by the Scrum Master via independent reviewer sub-agents (see `cross-review` skill, FR-009 Layer 2).
 - `design_doc_paths` is populated when design documents are produced (before `in_progress`).
 - `acceptance_criteria` MUST be non-empty when transitioning from `draft` to `refined`.
 - `depends_on_pbi_ids` is used by the Scrum Master to avoid placing dependent PBIs in the same Sprint (FR-008).
@@ -122,9 +162,11 @@ draft -> refined -> in_progress -> review -> done
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"sprint-001"`) |
-| `goal` | string | Sprint Goal text |
-| `type` | enum | `"requirements"`, `"development"`, or `"integration"` |
-| `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"` |
+| `goal` | string \| null | Sprint Goal text |
+| `base_sha` | string \| null | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Set once by `freeze-sprint-base.sh`; never re-written. |
+| `base_sha_captured_at` | ISO 8601 string \| null | When `base_sha` was captured (set by `freeze-sprint-base.sh`). |
+| `type` | enum | `"development"` or `"integration"` |
+| `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"`, `"failed"` |
 | `pbi_ids` | string[] | IDs of PBIs in the Sprint Backlog |
 | `developer_count` | integer | Number of Developer teammates: min(refined PBIs, 6) |
 | `developers` | Developer[] | Active Developer teammate definitions |
@@ -136,13 +178,16 @@ draft -> refined -> in_progress -> review -> done
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Teammate identifier (e.g., `"dev-001-s3"`) |
-| `assigned_work` | object | PBI assignments split by responsibility |
-| `assigned_work.implement` | string[] | PBI IDs this Developer implements |
-| `assigned_work.review` | string[] | PBI IDs this Developer reviews (round-robin assigned) |
+| `assigned_work` | object | PBI assignments |
+| `assigned_work.implement` | string[] | PBI IDs this Developer implements (per-PBI review is handled inside `pbi-pipeline`; Sprint-end cross-review is owned by SM) |
 | `current_pbi` | string \| null | PBI ID currently being driven through `pbi-pipeline` (1 PBI at a time, sequential). Null between PBIs. |
-| `current_pbi_phase` | enum \| null | Mirror of the PBI's internal phase: `design`, `impl_ut`, `complete`, `escalated`. See `PbiPipelineState`. |
-| `status` | enum | `"active"`, `"idle"`, `"failed"` |
+| `status` | enum | `"active"` or `"failed"` (the dashboard renders `"unknown"` when no entry exists; not a writable value) |
 | `sub_agents` | string[] | Names of specialist sub-agents actually invoked via the Task tool (runtime-populated, not candidates) |
+
+> **Note**: The legacy `current_pbi_phase` field was removed in v2. The
+> Developer's current PBI status is derived from
+> `backlog.json.items[<current_pbi>].status` (12-value enum) — single
+> source of truth, no mirror field to drift.
 
 ---
 
@@ -218,7 +263,7 @@ survive across machine/clone boundaries.
 
 **File**: `docs/design/catalog-config.json`
 **Owner**: Scrum Master (read/write)
-**Readers**: Developer teammates (read-only), phase-gate.sh, scaffold-design-spec skill
+**Readers**: Developer teammates (read-only), status-gate.sh, scaffold-design-spec skill
 **Reference**: `docs/design/catalog.md` (read-only document type catalog)
 
 Controls which design spec types are active for the project. The full list
@@ -231,7 +276,7 @@ managed in claude-scrum-team). This config file is the only editable part.
 
 ### Rules
 - Only spec IDs that exist in `docs/design/catalog.md` may appear in `enabled`.
-- The phase-gate hook enforces that design spec files can only be created
+- The status-gate hook enforces that design spec files can only be created
   for IDs present in both `catalog.md` (exists) and `catalog-config.json`
   (enabled).
 - When a spec ID is added to `enabled`, the `scaffold-design-spec` skill
@@ -352,7 +397,7 @@ messages with sender, recipient, and timestamp.
 | `sender_id` | string | Agent ID of the sender (e.g., `"scrum-master"`, `"dev-001-s3"`) |
 | `sender_role` | string | Human-readable role (e.g., `"Scrum Master"`, `"Developer"`) |
 | `recipient_id` | string \| null | Agent ID of the recipient; null = broadcast to all |
-| `type` | enum | Message type: `"task_assignment"`, `"progress_update"`, `"review_request"`, `"review_result"`, `"phase_notification"`, `"change_request"`, `"file_change"`, `"agent_spawn"`, `"status_change"`, `"session_event"` |
+| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_change"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"status_change"`, `"report"`, `"review"`, `"escalation"`, `"info"`. |
 | `content` | string | Human-readable message summary |
 
 ### Rules
@@ -386,8 +431,8 @@ Stores timestamped agent activity events written by Claude Code hooks
 |-------|------|-------------|
 | `pbi_id` | string | PBI identifier |
 | `developer` | string | Developer ID currently driving the pipeline |
-| `phase` | enum | Mirror of `PbiPipelineState.phase`: `"design"`, `"impl_ut"`, `"complete"`, `"escalated"` |
-| `round` | integer | Current Round number (design or impl_ut depending on phase) |
+| `status` | enum | Mirror of `backlog.json.items[].status` (12-value enum) |
+| `round` | integer | Current Round number (design Round when status is `in_progress_design`; impl Round otherwise) |
 | `active_subagents` | string[] | Names of sub-agents currently spawned (set on `start`, cleared on `stop`) |
 | `last_event_at` | ISO 8601 string | Timestamp of the most recent dashboard-event update |
 
@@ -396,7 +441,7 @@ Stores timestamped agent activity events written by Claude Code hooks
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | ISO 8601 string | When the event occurred |
-| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"phase_transition"`, `"subagent_start"`, `"subagent_stop"` |
+| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"` |
 | `agent_id` | string \| null | Developer or agent ID that triggered the event |
 | `pbi_id` | string \| null | Related PBI ID, if applicable |
 | `file_path` | string \| null | Absolute or relative file path (populated when `type` is `"file_changed"`) |
@@ -502,23 +547,37 @@ context.
 | Field | Type | Description |
 |-------|------|-------------|
 | `pbi_id` | string | PBI identifier (matches `backlog.json.items[].id`) |
-| `phase` | enum | `"design"`, `"impl_ut"`, `"complete"`, `"escalated"` |
 | `design_round` | integer | Current/last design Round (1..5; 0 before first) |
 | `impl_round` | integer | Current/last impl+UT Round (1..5; 0 before first) |
 | `design_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
 | `impl_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
 | `ut_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
 | `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"` |
-| `escalation_reason` | enum \| null | Set when `phase == escalated`. See enum below. |
+| `escalation_reason` | enum \| null | Set when `backlog.json.items[].status == escalated`. See enum below. |
+| `branch` | string \| null | Worktree branch name (`pbi/<id>`) |
+| `worktree` | string \| null | Worktree path (`.scrum/worktrees/<pbi-id>/`) |
+| `base_sha` | string \| null | Sprint base SHA inherited at worktree creation |
+| `head_sha` | string \| null | Latest commit SHA on `pbi/<id>` |
+| `paths_touched` | string[] | Files modified by the PBI (used by `merge-pbi.sh` verification) |
+| `ready_at` | ISO 8601 string \| null | Timestamp the Developer signalled ready-for-merge |
+| `merged_sha` | string \| null | Merge commit SHA on main |
+| `merged_at` | ISO 8601 string \| null | Merge completion timestamp |
+| `merge_failure` | object \| null | `{kind, paths, pre_head_at_failure}` when most recent merge failed |
+| `merge_failure_count` | integer | Consecutive merge failures (resets on success; ≥3 → status `escalated`) |
 | `started_at` | ISO 8601 string | PBI pipeline start timestamp |
 | `updated_at` | ISO 8601 string | Last state mutation timestamp |
+
+> **Note**: The legacy `phase` field was removed in v2. Lifecycle is
+> driven by `backlog.json.items[].status` (12-value enum, see PBI
+> entity above).
 
 `escalation_reason` enum:
 
 ```text
 stagnation | divergence | max_rounds | budget_exhausted |
 requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
-catalog_lock_timeout
+catalog_lock_timeout |
+merge_conflict | merge_artifact_missing
 ```
 
 ### Companion artifacts (under `.scrum/pbi/<pbi-id>/`)
@@ -548,8 +607,8 @@ catalog_lock_timeout
 ### Rules
 
 - The conductor MUST update `state.json` atomically (temp file + rename).
-- `phase: complete` requires all four `*_status` fields to be `"pass"`.
-- `phase: escalated` requires `escalation_reason` to be non-null.
+- Backlog `status: in_progress_merge` requires all four `*_status` fields to be `"pass"`.
+- Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`).
 - `coverage_status: pending` is permanent when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate.
 
 ---
@@ -566,7 +625,6 @@ state.json
 backlog.json
   └── items[].sprint_id -> sprint.json.id
   └── items[].implementer_id -> sprint.json.developers[].id
-  └── items[].reviewer_id -> sprint.json.developers[].id
   └── items[].design_doc_paths[] -> docs/design/specs/{category}/{id}-{slug}.md
                                   | .scrum/pbi/<pbi-id>/design/design.md
   └── items[].review_doc_path -> reviews/<pbi-id>-review.md
@@ -578,7 +636,6 @@ sprint.json
   └── pbi_ids[] -> backlog.json.items[].id
   └── developers[].current_pbi -> backlog.json.items[].id
   └── developers[].assigned_work.implement[] -> backlog.json.items[].id
-  └── developers[].assigned_work.review[] -> backlog.json.items[].id
 
 .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
   └── pbi_id -> backlog.json.items[].id

@@ -7,15 +7,23 @@ parent, and tool sandbox. Distributed to `.claude/agents/` by
 
 ## Sprint-end Cross-Review (spawned by Scrum Master)
 
-| Agent | Role | Tools |
-|---|---|---|
-| `codex-code-reviewer` | Cross-model code review via OpenAI Codex CLI (primary) | Read, Grep, Glob, Bash |
-| `code-reviewer` | Claude-based code quality + design compliance (fallback when Codex CLI unavailable) | Read, Grep, Glob, Bash (read-only) |
-| `security-reviewer` | OWASP Top 10 / vulnerability scan (always parallel) | Read, Grep, Glob, Bash (read-only) |
+5 aspect-specialized reviewers spawned in parallel over the whole
+Sprint (no per-PBI fan-out). Findings tag PBIs via `paths_touched`
+reverse-lookup. Aspect 1/2/3 FAIL → revert PBI to `in_progress_impl`;
+aspect 4/5 FAIL → append follow-up PBI to backlog.
+
+| # | Aspect | Agent | Role | Tools |
+|---|---|---|---|---|
+| 1 | Requirement conformance | `requirement-conformance-reviewer` | Sprint-wide requirement coverage + scope drift vs. design specs | Read, Grep, Glob, Bash (read-only) |
+| 2 | Cross-PBI functional quality | `functional-quality-reviewer` | PBI-to-PBI seams: boundary values, error propagation, state transitions, data integrity | Read, Grep, Glob, Bash (read-only) |
+| 3 | Security | `security-reviewer` | OWASP Top 10 / vulnerability scan | Read, Grep, Glob, Bash (read-only) |
+| 4 | Maintainability | `maintainability-reviewer` | Abstraction, duplication, cohesion, god-class/function, dead code (static-analysis-grounded) | Read, Grep, Glob, Bash (read-only) |
+| 5 | Docs consistency | `docs-consistency-reviewer` | `docs/**` vs. implementation drift, stale wording, missing follow-up | Read, Grep, Glob, Bash (read-only) |
 
 Spawned by the `cross-review` skill. See FR-009 (requirements.md).
-When the `codex` CLI is unavailable, `cross-review` logs a warning and
-falls back to `code-reviewer` for the code-quality pass.
+The skill runs a static analysis pass (Python `ruff` / Shell
+`shellcheck`) before spawning the maintainability reviewer; results
+land at `.scrum/reviews/static-analysis-r{n}.json`.
 
 ## PBI Pipeline (spawned by Developer per Round)
 

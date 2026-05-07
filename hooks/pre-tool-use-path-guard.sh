@@ -10,6 +10,10 @@
 
 set -euo pipefail
 
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/validate.sh
+. "$HOOK_DIR/lib/validate.sh"
+
 CONFIG=".scrum/config.json"
 
 # Read entire payload from stdin into a variable
@@ -57,7 +61,7 @@ case "$agent" in
     case "$tool" in
       Read|Write|Edit)
         if matches_any_glob "$rel" "${impl_globs[@]}"; then
-          echo "[path-guard] BLOCKED: pbi-ut-author cannot $tool $rel (impl path)" >&2
+          stderr_log "path-guard" "BLOCKED" "pbi-ut-author cannot $tool $rel (impl path)"
           exit 2
         fi
         ;;
@@ -67,7 +71,7 @@ case "$agent" in
     case "$tool" in
       Write|Edit)
         if matches_any_glob "$rel" "${test_globs[@]}"; then
-          echo "[path-guard] BLOCKED: pbi-implementer cannot $tool $rel (test path)" >&2
+          stderr_log "path-guard" "BLOCKED" "pbi-implementer cannot $tool $rel (test path)"
           exit 2
         fi
         ;;

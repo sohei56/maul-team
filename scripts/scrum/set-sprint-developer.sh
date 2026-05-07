@@ -3,8 +3,9 @@
 # Usage: set-sprint-developer.sh <dev-id> <field> <value>
 #
 # Mutates one field on the developer with matching id, creating the entry if absent.
-# Supported fields: status, current_pbi, current_pbi_phase.
-# `null` value is accepted for current_pbi and current_pbi_phase (becomes JSON null).
+# Supported fields: status, current_pbi.
+# `null` value is accepted for current_pbi (becomes JSON null).
+# (Per-Developer phase tracking removed — PBI lifecycle status lives in backlog.json.)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -37,14 +38,7 @@ case "$FIELD" in
       *) fail E_INVALID_ARG "bad pbi-id: $VALUE (expected pbi-NNN or null)" ;;
     esac
     ;;
-  current_pbi_phase)
-    case "$VALUE" in
-      null) VALUE_JSON="null" ;;
-      design|impl_ut|complete|escalated) VALUE_JSON="\"$VALUE\"" ;;
-      *) fail E_INVALID_ARG "bad phase: $VALUE (expected design|impl_ut|complete|escalated|null)" ;;
-    esac
-    ;;
-  *) fail E_INVALID_ARG "unknown field: $FIELD (expected status|current_pbi|current_pbi_phase)" ;;
+  *) fail E_INVALID_ARG "unknown field: $FIELD (expected status|current_pbi)" ;;
 esac
 
 # Determine the seed status for a fresh entry: if the field being set IS status,

@@ -95,7 +95,9 @@ _acquire_lock() {
 }
 
 # _validate_against_schema <json_path> <schema_path>
-# Returns 0 on valid, non-zero on invalid. Prints validator error to stderr/stdout (caller captures).
+# Returns 0 on valid, non-zero on invalid. Validator stderr is left intact so
+# callers can capture it via `err="$(_validate_against_schema ... 2>&1)"`;
+# stdout is suppressed because successful validators chatter ("X valid").
 _validate_against_schema() {
   local json="$1" schema="$2"
   local runner
@@ -105,21 +107,25 @@ _validate_against_schema() {
       # --strict=false: tolerate unknown formats (e.g. "date-time") and unconstrained
       # tuples instead of erroring on schema load. We still get full pattern/enum/required
       # validation for the cases this codebase actually exercises.
-      npx --yes ajv-cli validate --strict=false -s "$schema" -d "$json" >/dev/null 2>&1
+      npx --yes ajv-cli validate --strict=false -s "$schema" -d "$json" >/dev/null
       ;;
     check-jsonschema)
-      check-jsonschema --schemafile "$schema" "$json" >/dev/null 2>&1
+      check-jsonschema --schemafile "$schema" "$json" >/dev/null
       ;;
     jsonschema-cli)
-      jsonschema --instance "$json" "$schema" >/dev/null 2>&1
+      jsonschema --instance "$json" "$schema" >/dev/null
       ;;
     python)
       python3 -c "
 import json, sys, jsonschema
 schema = json.load(open('$schema'))
 data = json.load(open('$json'))
-jsonschema.validate(data, schema)
-" 2>/dev/null
+try:
+    jsonschema.validate(data, schema)
+except jsonschema.ValidationError as exc:
+    print(f'validation error: {exc.message}', file=sys.stderr)
+    sys.exit(1)
+"
       ;;
     *)
       return 1

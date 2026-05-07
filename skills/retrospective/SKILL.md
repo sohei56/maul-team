@@ -23,12 +23,18 @@ disable-model-invocation: false
 
 ## Steps
 
-1. state.json → phase: "retrospective"
+1. state.json → phase: "retrospective":
+   ```bash
+   .scrum/scripts/update-state-phase.sh retrospective
+   ```
 2. Reflect on Sprint: what went well, what to improve (process, communication, tooling, code quality)
 3. Record ≥1 improvement→improvements.json entries[]: id, sprint_id, description, status: "active", created_at
 4. **Consolidation check**: Every 3 Sprints (compare last_consolidation_sprint)→archive stale entries (status: "archived", archived_at)→update last_consolidation_sprint
 5. Present retrospective report: went well, to improve, archived items
-6. sprint.json → status: "complete"
+6. sprint.json → status: "complete":
+   ```bash
+   .scrum/scripts/update-sprint-status.sh complete
+   ```
 
 Ref: FR-012
 

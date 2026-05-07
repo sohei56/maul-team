@@ -1,15 +1,15 @@
 #!/usr/bin/env bats
 
 setup() {
-  TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/phase-gate-pbi-test.XXXXXX")"
+  TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/status-gate-pbi-test.XXXXXX")"
   cd "$TEST_TMP" || exit 1
   mkdir -p .scrum docs/design hooks
   echo '{"phase":"pbi_pipeline_active"}' > .scrum/state.json
   echo '# catalog' > docs/design/catalog.md
   echo '{"enabled":[]}' > docs/design/catalog-config.json
   cp -r "${BATS_TEST_DIRNAME}/../../hooks/lib" hooks/lib
-  cp "${BATS_TEST_DIRNAME}/../../hooks/phase-gate.sh" hooks/phase-gate.sh
-  HOOK="$PWD/hooks/phase-gate.sh"
+  cp "${BATS_TEST_DIRNAME}/../../hooks/status-gate.sh" hooks/status-gate.sh
+  HOOK="$PWD/hooks/status-gate.sh"
 }
 
 teardown() {

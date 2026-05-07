@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/scrum/append-dashboard-event.sh — append one event to .scrum/dashboard.json.events.
 # Usage: append-dashboard-event.sh --type <type> [--agent <id>] [--pbi <pbi-id>] [--file <path>]
-#                                  [--change-type <ct>] [--detail <text>] [--phase-from <p>] [--phase-to <p>]
+#                                  [--change-type <ct>] [--detail <text>] [--status-from <s>] [--status-to <s>]
 #
 # The wrapper does NOT touch `pbi_pipelines[]` (managed by hooks/dashboard-event.sh).
 # atomic_write serialises concurrent writers via mkdir lock and re-validates the
@@ -14,7 +14,7 @@ source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
 
-TYPE=""; AGENT=""; PBI=""; FILE=""; CHANGE=""; DETAIL=""; PHASE_FROM=""; PHASE_TO=""
+TYPE=""; AGENT=""; PBI=""; FILE=""; CHANGE=""; DETAIL=""; STATUS_FROM=""; STATUS_TO=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -24,15 +24,15 @@ while [ "$#" -gt 0 ]; do
     --file)        FILE="$2"; shift 2 ;;
     --change-type) CHANGE="$2"; shift 2 ;;
     --detail)      DETAIL="$2"; shift 2 ;;
-    --phase-from)  PHASE_FROM="$2"; shift 2 ;;
-    --phase-to)    PHASE_TO="$2"; shift 2 ;;
+    --status-from) STATUS_FROM="$2"; shift 2 ;;
+    --status-to)   STATUS_TO="$2"; shift 2 ;;
     *) fail E_INVALID_ARG "unknown flag: $1" ;;
   esac
 done
 
 [ -n "$TYPE" ] || fail E_INVALID_ARG "--type required"
 case "$TYPE" in
-  file_changed|tool_use|phase_transition|subagent_start|subagent_stop|task_completed|teammate_idle|test_run|review_verdict) ;;
+  file_changed|tool_use|status_transition|subagent_start|subagent_stop|task_completed|teammate_idle|test_run|review_verdict) ;;
   *) fail E_INVALID_ARG "bad --type: $TYPE" ;;
 esac
 
@@ -54,8 +54,8 @@ EVT_JSON="$(
     --arg file "$FILE" \
     --arg change "$CHANGE" \
     --arg detail "$DETAIL" \
-    --arg pfrom "$PHASE_FROM" \
-    --arg pto "$PHASE_TO" \
+    --arg sfrom "$STATUS_FROM" \
+    --arg sto "$STATUS_TO" \
     '
     def or_null($s): if $s == "" or $s == "null" then null else $s end;
     {
@@ -66,8 +66,8 @@ EVT_JSON="$(
       file_path: or_null($file),
       change_type: or_null($change),
       detail: or_null($detail),
-      phase_from: or_null($pfrom),
-      phase_to: or_null($pto)
+      status_from: or_null($sfrom),
+      status_to: or_null($sto)
     }'
 )"
 

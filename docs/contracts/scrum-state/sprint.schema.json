@@ -31,14 +31,12 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "implement": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
-              "review": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}}
+              "implement": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}}
             }
           },
           "status": {"enum": ["active", "failed"]},
           "sub_agents": {"type": "array"},
-          "current_pbi": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"},
-          "current_pbi_phase": {"enum": [null, "design", "impl_ut", "complete", "escalated"]}
+          "current_pbi": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"}
         }
       }
     },

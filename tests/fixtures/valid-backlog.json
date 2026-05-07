@@ -10,7 +10,6 @@
       "priority": 1,
       "sprint_id": "sprint-001",
       "implementer_id": "dev-001-s1",
-      "reviewer_id": "dev-002-s1",
       "design_doc_paths": ["docs/design/specs/ui/S-030-login.md"],
       "review_doc_path": null,
       "depends_on_pbi_ids": [],

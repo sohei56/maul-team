@@ -21,7 +21,7 @@
             "enum": [
               "file_change",
               "tool_use",
-              "phase_transition",
+              "status_transition",
               "subagent_start",
               "subagent_stop",
               "task_completed",

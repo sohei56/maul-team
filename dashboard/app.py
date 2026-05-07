@@ -5,10 +5,13 @@ watchdog filesystem events. Designed to run in a tmux side pane alongside
 Claude Code.
 
 Panels:
-  (a) Sprint Overview — Sprint Goal, phase, PBI count, Developer assignments
-  (b) Unified PBI Board — single DataTable merging the legacy Progress Board
-      and PBI Pipelines panes; status is cross-checked against
-      pbi/<id>/state.json.phase to surface SSOT drift
+  (a) Sprint Overview — Sprint Goal, project phase, PBI count, Developer
+      assignments
+  (b) Unified PBI Board — single DataTable showing each PBI's 12-value
+      status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
+      counters and live agents come from `pbi/<id>/state.json` and
+      `dashboard.json.pbi_pipelines[]`, but the status displayed is
+      always the backlog SSOT — there is no separate phase column.
   (c) Communication Log — scrollable agent message log
   (d) Work Log — scrollable activity/work log
 """
@@ -73,47 +76,76 @@ _SCHEMA_FOR_FILE = {
     "dashboard.json": "dashboard.schema.json",
 }
 
-# Status colors for the unified PBI board
+# 12-value status SSOT — see docs/contracts/scrum-state/backlog.schema.json.
+# Actor-split coloring: SM-managed states use green family, Developer-managed
+# in_progress_* states use blue/cyan family. Terminal/escalated use red.
 STATUS_COLORS = {
+    # SM-managed (green family + neutrals)
     "draft": "dim",
-    "refined": "cyan",
-    "ready": "cyan",
-    "planned": "cyan",
-    "in_progress": "yellow",
-    "in-progress": "yellow",
-    "in progress": "yellow",
-    "review": "magenta",
-    "in_review": "magenta",
-    "done": "green",
-    "completed": "green",
-    "complete": "green",
+    "refined": "green",
     "blocked": "red",
+    "awaiting_cross_review": "bright_green",
+    "cross_review": "bright_green",
+    "escalated": "red",
+    "done": "green",
+    # Developer-managed (blue/cyan family)
+    "in_progress_design": "cyan",
+    "in_progress_impl": "blue",
+    "in_progress_pbi_review": "bright_blue",
+    "in_progress_ut_run": "bright_cyan",
+    "in_progress_merge": "magenta",
 }
 
-# Normalize status values to canonical forms
-STATUS_NORMALIZE = {
-    "ready": "refined",
-    "planned": "refined",
-    "in-progress": "in_progress",
-    "in progress": "in_progress",
-    "in_review": "review",
-    "completed": "done",
-    "complete": "done",
+# Compact display labels for the 12-value status enum. Keep short enough
+# for a status column in a DataTable.
+STATUS_LABELS = {
+    "draft": "draft",
+    "refined": "refined",
+    "blocked": "blocked",
+    "in_progress_design": "design",
+    "in_progress_impl": "impl",
+    "in_progress_pbi_review": "pbi-review",
+    "in_progress_ut_run": "ut-run",
+    "in_progress_merge": "merge",
+    "awaiting_cross_review": "await-x-rev",
+    "cross_review": "x-review",
+    "escalated": "escalated",
+    "done": "done",
 }
 
-# Mirror of scripts/scrum/lib/derive.sh — phase → backlog.status. Single
-# source of truth for the projection lives in shell; we duplicate it here
-# only because the dashboard cannot shell out per-row efficiently. Keep
-# the two in sync (covered by tests/unit/scrum-state/test_derive.bats).
-PHASE_TO_DERIVED_STATUS = {
-    "design": "in_progress",
-    "impl_ut": "in_progress",
-    "complete": "review",
-    "review_complete": "done",
-    "escalated": "blocked",
+# Optional unicode glyphs prefixed to the status cell for at-a-glance
+# actor identification: ◇ for SM-managed, ◆ for Developer-managed.
+STATUS_ICONS = {
+    "draft": "◇",
+    "refined": "◇",
+    "blocked": "◇",
+    "awaiting_cross_review": "◇",
+    "cross_review": "◇",
+    "escalated": "◇",
+    "done": "◇",
+    "in_progress_design": "◆",
+    "in_progress_impl": "◆",
+    "in_progress_pbi_review": "◆",
+    "in_progress_ut_run": "◆",
+    "in_progress_merge": "◆",
 }
 
-# Ordered phase flow for "you are here" display
+# Developer-managed status set — used to pick which round counter to
+# surface (design_round vs impl_round) for live PBIs.
+DEV_MANAGED_STATUSES = frozenset(
+    {
+        "in_progress_design",
+        "in_progress_impl",
+        "in_progress_pbi_review",
+        "in_progress_ut_run",
+        "in_progress_merge",
+    }
+)
+
+# Project-level phase flow rendered in Sprint Overview. This is the
+# **project-level** phase from `state.json.phase` — distinct from PBI
+# status. The PBI-level `phase` field was removed by the status/phase
+# unification.
 PHASE_FLOW = [
     ("new", "New"),
     ("requirements_sprint", "Requirements"),
@@ -131,11 +163,26 @@ PHASE_FLOW = [
 
 
 def format_phase(current_phase: str) -> str:
-    """Render the current phase as a compact highlighted label."""
+    """Render the project-level Scrum phase as a compact highlighted label.
+
+    `current_phase` is the value from `state.json.phase` (project-level
+    state machine), not a PBI status.
+    """
     for phase_key, phase_label in PHASE_FLOW:
         if phase_key == current_phase:
             return f"[bold]Phase:[/bold] [bold white on blue] {phase_label} [/]"
     return f"[bold]Phase:[/bold] [bold white on red] {current_phase} [/]"
+
+
+def format_status(status: str) -> str:
+    """Render a 12-value PBI status with icon + color + short label."""
+    icon = STATUS_ICONS.get(status, "")
+    label = STATUS_LABELS.get(status, status)
+    color = STATUS_COLORS.get(status, "")
+    body = f"{icon} {label}".strip()
+    if color:
+        return f"[{color}]{body}[/{color}]"
+    return body
 
 
 def get_backlog_items(backlog: dict | None) -> list:
@@ -192,7 +239,7 @@ def read_json_validated(path: Path) -> dict | None:
 
 
 class SprintOverview(Static):
-    """Panel (a): Sprint Goal, phase, PBI count, Developer assignments."""
+    """Panel (a): Sprint Goal, project phase, PBI count, Developer assignments."""
 
     DEFAULT_CSS = """
     SprintOverview {
@@ -262,16 +309,14 @@ class SprintOverview(Static):
 
 
 class UnifiedPbiBoard(DataTable):
-    """Single PBI board that merges the legacy Progress Board and the
-    PBI Pipelines pane.
+    """Single PBI board driven by the 12-value status SSOT.
 
-    Columns: ID, Title, Status, Phase, Round, Dev, Agents, Updated.
+    Columns: ID, Title, Status, Round, Dev, Agents, Updated.
 
-    Status comes from `backlog.json items[].status` but is cross-checked
-    against the value derived from `pbi/<id>/state.json.phase` (mirror
-    of `scripts/scrum/lib/derive.sh`). When the two disagree, the cell
-    is rendered with a warning style so the operator notices SSOT drift
-    immediately rather than discovering it later.
+    Status comes exclusively from ``backlog.json.items[].status`` — the
+    SSOT after the status/phase unification. Per-PBI round counters and
+    last_updated come from ``pbi/<id>/state.json`` (which no longer
+    carries a phase field), and live agents from ``dashboard.json``.
     """
 
     DEFAULT_CSS = """
@@ -282,7 +327,7 @@ class UnifiedPbiBoard(DataTable):
     """
 
     def on_mount(self) -> None:
-        self.add_columns("ID", "Title", "Status", "Phase", "Round", "Dev", "Agents", "Updated")
+        self.add_columns("ID", "Title", "Status", "Round", "Dev", "Agents", "Updated")
         self.cursor_type = "row"
         self.update_content()
 
@@ -316,48 +361,34 @@ class UnifiedPbiBoard(DataTable):
             pbi_key = pbi_id.lower()
             title = (item.get("title") or "Untitled")[:35]
 
-            raw_status = item.get("status", "?")
-            status = STATUS_NORMALIZE.get(raw_status, raw_status)
+            status = item.get("status", "?")
+            status_display = format_status(status)
 
-            # Per-PBI pipeline state — read directly from disk so we do
-            # not rely on dashboard.json being populated by the hook stream.
+            # Per-PBI pipeline state for round/last_updated. After the
+            # status/phase unification this file no longer carries a
+            # `phase` field; we only read round counters and updated_at.
             state = read_json(SCRUM_DIR / "pbi" / pbi_id / "state.json") or read_json(
                 SCRUM_DIR / "pbi" / pbi_key / "state.json"
             )
             if not isinstance(state, dict):
                 state = None
 
-            phase = state.get("phase") if state else None
-            round_no = (
-                state.get("impl_round")
-                if state and phase in ("impl_ut", "complete", "review_complete")
-                else (state.get("design_round") if state else None)
-            )
+            # Pick the round counter relevant to the current status:
+            # design uses design_round; everything else uses impl_round.
+            round_no = None
+            if state:
+                if status == "in_progress_design":
+                    round_no = state.get("design_round")
+                elif status in DEV_MANAGED_STATUSES:
+                    round_no = state.get("impl_round")
+                else:
+                    round_no = state.get("impl_round") or state.get("design_round")
 
             # Live agents come from dashboard.json (hook-maintained); fall
             # back to "-" when no events have arrived yet.
             pipe = pipelines_by_id.get(pbi_key) or {}
             agents = pipe.get("active_subagents") or []
             agents_cell = ", ".join(agents) if agents else "[dim]-[/dim]"
-
-            # Status cell: warn when backlog.status disagrees with the
-            # value derived from state.phase.
-            derived = PHASE_TO_DERIVED_STATUS.get(phase) if phase else None
-            mismatch = derived is not None and derived != status
-            color = STATUS_COLORS.get(status, "")
-            if mismatch:
-                status_display = f"[bold white on red]{status}≠{derived}[/]"
-            elif color:
-                status_display = f"[{color}]{status}[/{color}]"
-            else:
-                status_display = status
-
-            phase_color = PIPELINE_PHASE_COLORS.get(phase or "", "") if phase else ""
-            phase_cell = (
-                f"[{phase_color}]{phase}[/{phase_color}]"
-                if phase and phase_color
-                else (phase or "[dim]-[/dim]")
-            )
 
             round_cell = _format_round(round_no) if round_no is not None else "[dim]-[/dim]"
 
@@ -370,7 +401,6 @@ class UnifiedPbiBoard(DataTable):
                 pbi_id,
                 title,
                 status_display,
-                phase_cell,
                 round_cell,
                 dev,
                 agents_cell,
@@ -494,15 +524,6 @@ class CommunicationLog(RichLog):
             )
 
 
-PIPELINE_PHASE_COLORS = {
-    "design": "cyan",
-    "impl_ut": "yellow",
-    "complete": "magenta",
-    "review_complete": "green",
-    "escalated": "red",
-    "unknown": "dim",
-}
-
 # Round count above this is highlighted as a stagnation hint.
 PIPELINE_ROUND_WARN_THRESHOLD = 2
 
@@ -585,8 +606,13 @@ class WorkLog(RichLog):
                 self.write(f"[dim]{ts_short}[/dim] {change_str} {file_path} ({agent})")
             elif evt_type == "teammate_idle":
                 self.write(f"[dim]{ts_short}[/dim] [cyan]idle[/cyan] {detail} ({agent})")
-            elif evt_type == "session_event":
-                self.write(f"[dim]{ts_short}[/dim] [magenta]event[/magenta] {detail}")
+            elif evt_type == "status_transition":
+                status_from = evt.get("status_from") or ""
+                status_to = evt.get("status_to") or ""
+                arrow = (
+                    f"{status_from} → {status_to}" if status_from or status_to else (detail or "")
+                )
+                self.write(f"[dim]{ts_short}[/dim] [magenta]status[/magenta] {arrow} ({agent})")
             elif detail:
                 self.write(f"[dim]{ts_short}[/dim] {detail} ({agent})")
             else:
@@ -675,7 +701,7 @@ class ScrumDashboard(App):
         yield Vertical(
             TestResultsPanel(id="test-results"),
             Static(
-                "[bold]PBI Board[/bold] [dim](status • phase • round • dev • agents)[/dim]",
+                "[bold]PBI Board[/bold] [dim](status • round • dev • agents)[/dim]",
                 id="pbi-title",
             ),
             UnifiedPbiBoard(id="pbi-board"),

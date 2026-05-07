@@ -33,11 +33,10 @@ teardown() {
   [ "$output" = "pbi-007" ]
 }
 
-@test "set-sprint-developer: sets current_pbi_phase" {
+@test "set-sprint-developer: rejects current_pbi_phase (field removed)" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" dev-001-s1 current_pbi_phase impl_ut
-  [ "$status" -eq 0 ]
-  run jq -r '.developers[] | select(.id=="dev-001-s1").current_pbi_phase' "$TEST_TMP/.scrum/sprint.json"
-  [ "$output" = "impl_ut" ]
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"unknown field"* ]]
 }
 
 @test "set-sprint-developer: clears current_pbi via null" {

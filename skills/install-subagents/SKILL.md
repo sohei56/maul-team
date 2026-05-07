@@ -16,10 +16,12 @@ disable-model-invocation: false
 - Confirmation of available sub-agents
 - sprint.json → developers[].sub_agents (runtime: actually-used agents only)
 
-## Required Sub-Agents (PBI Pipeline)
+## Required Sub-Agents
 
-Verify these 6 sub-agents exist with valid YAML frontmatter at
+Verify these 10 sub-agents exist with valid YAML frontmatter at
 `.claude/agents/<name>.md`:
+
+**PBI Pipeline (Developer-spawned, per Round):**
 
 - `pbi-designer`
 - `pbi-implementer`
@@ -27,6 +29,14 @@ Verify these 6 sub-agents exist with valid YAML frontmatter at
 - `codex-design-reviewer`
 - `codex-impl-reviewer`
 - `codex-ut-reviewer`
+
+**Sprint-end Cross-Review (SM-spawned, 5-aspect parallel):**
+
+- `requirement-conformance-reviewer`
+- `functional-quality-reviewer`
+- `security-reviewer`
+- `maintainability-reviewer`
+- `docs-consistency-reviewer`
 
 Missing required → BLOCK (escalate to SM, do not proceed to PBI work).
 
@@ -36,12 +46,14 @@ Missing required → BLOCK (escalate to SM, do not proceed to PBI work).
 2. Verify ALL required sub-agents exist:
    ```bash
    for name in pbi-designer pbi-implementer pbi-ut-author \
-               codex-design-reviewer codex-impl-reviewer codex-ut-reviewer; do
+               codex-design-reviewer codex-impl-reviewer codex-ut-reviewer \
+               requirement-conformance-reviewer functional-quality-reviewer \
+               security-reviewer maintainability-reviewer docs-consistency-reviewer; do
      [ -f ".claude/agents/$name.md" ] || { echo "MISSING REQUIRED: $name"; exit 1; }
    done
    ```
 3. Verify YAML frontmatter on each (yq eval '.name' or equivalent).
-4. During pbi-pipeline execution→invoke via
+4. During pbi-pipeline / cross-review execution→invoke via
    `Agent(subagent_type="<name>")`. Record only actually-used agents in
    sprint.json.
 
@@ -54,5 +66,7 @@ Ref: FR-019
 
 ## Exit Criteria
 
-- Available sub-agents verified
-- Can proceed regardless of sub-agent availability
+- All 11 required sub-agents verified present (6 PBI Pipeline + 5
+  Cross-Review, per "Required Sub-Agents" list above) with valid YAML
+  frontmatter
+- BLOCKED if any required sub-agent is missing

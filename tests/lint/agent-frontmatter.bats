@@ -122,31 +122,79 @@ extract_frontmatter() {
 }
 
 # ---------------------------------------------------------------------------
-# code-reviewer.md
+# Cross-review aspect reviewers (5-aspect parallel, Sprint-end)
 # ---------------------------------------------------------------------------
 
-@test "code-reviewer.md has valid YAML frontmatter" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/code-reviewer.md' | yq '.' > /dev/null 2>&1"
+@test "requirement-conformance-reviewer.md has valid YAML frontmatter" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirement-conformance-reviewer.md' | yq '.' > /dev/null 2>&1"
   assert_success
 }
 
-@test "code-reviewer.md has required name field" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/code-reviewer.md' | yq -r '.name'"
+@test "requirement-conformance-reviewer.md has required name field" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirement-conformance-reviewer.md' | yq -r '.name'"
   assert_success
-  assert_output "code-reviewer"
+  assert_output "requirement-conformance-reviewer"
 }
 
-@test "code-reviewer.md has tools restricted to read-only" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/code-reviewer.md' | yq '.tools | length'"
+@test "requirement-conformance-reviewer.md has tools restricted to read-only" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirement-conformance-reviewer.md' | yq '.tools | length'"
   assert_success
   assert_output "4"
 }
 
-@test "code-reviewer.md has maxTurns field" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/code-reviewer.md' | yq -r '.maxTurns'"
+@test "functional-quality-reviewer.md has valid YAML frontmatter" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/functional-quality-reviewer.md' | yq '.' > /dev/null 2>&1"
   assert_success
-  assert_output "50"
 }
+
+@test "functional-quality-reviewer.md has required name field" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/functional-quality-reviewer.md' | yq -r '.name'"
+  assert_success
+  assert_output "functional-quality-reviewer"
+}
+
+@test "functional-quality-reviewer.md has tools restricted to read-only" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/functional-quality-reviewer.md' | yq '.tools | length'"
+  assert_success
+  assert_output "4"
+}
+
+@test "maintainability-reviewer.md has valid YAML frontmatter" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/maintainability-reviewer.md' | yq '.' > /dev/null 2>&1"
+  assert_success
+}
+
+@test "maintainability-reviewer.md has required name field" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/maintainability-reviewer.md' | yq -r '.name'"
+  assert_success
+  assert_output "maintainability-reviewer"
+}
+
+@test "maintainability-reviewer.md has tools restricted to read-only" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/maintainability-reviewer.md' | yq '.tools | length'"
+  assert_success
+  assert_output "4"
+}
+
+@test "docs-consistency-reviewer.md has valid YAML frontmatter" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/docs-consistency-reviewer.md' | yq '.' > /dev/null 2>&1"
+  assert_success
+}
+
+@test "docs-consistency-reviewer.md has required name field" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/docs-consistency-reviewer.md' | yq -r '.name'"
+  assert_success
+  assert_output "docs-consistency-reviewer"
+}
+
+@test "docs-consistency-reviewer.md has tools restricted to read-only" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/docs-consistency-reviewer.md' | yq '.tools | length'"
+  assert_success
+  assert_output "4"
+}
+
+# Old reviewer agents (code-reviewer, codex-code-reviewer) deleted in
+# 2026-05-07 cross-review multi-aspect refactor. Tests removed.
 
 # ---------------------------------------------------------------------------
 # security-reviewer.md

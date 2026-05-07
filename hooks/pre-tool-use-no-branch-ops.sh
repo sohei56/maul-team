@@ -4,6 +4,10 @@
 # Receives Claude Code tool invocation JSON on stdin.
 set -euo pipefail
 
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/validate.sh
+. "$HOOK_DIR/lib/validate.sh"
+
 INPUT="$(cat)"
 TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty')"
 [ "$TOOL" = "Bash" ] || exit 0  # non-Bash tools: not our concern
@@ -19,7 +23,7 @@ esac
 # Patterns: any of these in the command is a hard block.
 # We match on word-boundaries to avoid false positives ("git status" should pass).
 block() {
-  printf '[no-branch-ops] BLOCKED: %s. Use .scrum/scripts/* wrappers instead.\n' "$1" >&2
+  stderr_log "no-branch-ops" "BLOCKED" "$1. Use .scrum/scripts/* wrappers instead."
   exit 2
 }
 
@@ -29,8 +33,10 @@ fi
 if echo "$CMD" | grep -Eq '(^|[[:space:];|&])git[[:space:]]+switch[[:space:]]+-c\b'; then
   block "git switch -c"
 fi
-if echo "$CMD" | grep -Eq '(^|[[:space:];|&])git[[:space:]]+branch[[:space:]]+[A-Za-z0-9._/-]+($|[[:space:];|&])'; then
-  # `git branch <name>` (creates). Listing forms (`git branch`, `git branch -a`, `git branch --list`) pass.
+if echo "$CMD" | grep -Eq '(^|[[:space:];|&])git[[:space:]]+branch[[:space:]]+[A-Za-z0-9_][A-Za-z0-9._/-]*($|[[:space:];|&])'; then
+  # `git branch <name>` (creates). Listing/management flags (`git branch`,
+  # `git branch -a`, `git branch -d <name>`, `git branch --list`) start with
+  # `-` after the whitespace and pass through.
   block "git branch <new-name>"
 fi
 if echo "$CMD" | grep -Eq '(^|[[:space:];|&])git[[:space:]]+merge\b'; then

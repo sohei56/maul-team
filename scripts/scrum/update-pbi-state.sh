@@ -8,9 +8,6 @@
 # single typo fails the whole batch (intentional).
 #
 # Writable fields (see docs/contracts/scrum-state/pbi-state.schema.json):
-#   phase             design|impl_ut|complete|ready_to_merge|merged|
-#                     merge_conflict|merge_artifact_missing|merge_regression|
-#                     review_complete|escalated
 #   design_round      integer >= 0
 #   impl_round        integer >= 0
 #   design_status     pending|in_review|fail|pass
@@ -19,7 +16,8 @@
 #   coverage_status   pending|fail|pass
 #   escalation_reason null|stagnation|divergence|max_rounds|budget_exhausted|
 #                     requirements_unclear|coverage_tool_error|
-#                     coverage_tool_unavailable|catalog_lock_timeout
+#                     coverage_tool_unavailable|catalog_lock_timeout|
+#                     merge_conflict|merge_artifact_missing
 #   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
 #   worktree          .scrum/worktrees/pbi-NNN (validated)
 #   base_sha          hex sha, 7..40 chars
@@ -32,11 +30,7 @@
 # pbi_id, started_at, updated_at are NOT settable here.
 # updated_at is auto-stamped by atomic_write.
 # Complex fields (paths_touched, merge_failure) use dedicated wrappers.
-#
-# Side effect: when the batch sets `phase`, this script also projects the
-# derived backlog.json items[].status (see lib/derive.sh) so the two SSOTs
-# can never diverge. The projection is best-effort: missing backlog entry
-# is not an error (PBI may not yet be in any sprint).
+# Backlog status is written via update-backlog-status.sh (no projection here).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -44,8 +38,6 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
-# shellcheck source=lib/derive.sh
-source "$HERE/lib/derive.sh"
 
 [ "$#" -ge 3 ] || fail E_INVALID_ARG "usage: update-pbi-state.sh <pbi-id> <field> <value> [<field> <value> ...]"
 PBI="$1"; shift
@@ -66,18 +58,9 @@ fi
 # names and value literals below pass strict case-pattern whitelists, so direct
 # interpolation is safe (no shell or jq injection risk).
 EXPR="."
-NEW_PHASE=""  # remembered for backlog.json projection below
 while [ "$#" -ge 2 ]; do
   F="$1"; V="$2"; shift 2
   case "$F" in
-    phase)
-      case "$V" in
-        design|impl_ut|complete|ready_to_merge|merged|merge_conflict|merge_artifact_missing|merge_regression|review_complete|escalated) ;;
-        *) fail E_INVALID_ARG "bad phase: $V" ;;
-      esac
-      EXPR="$EXPR | .phase = \"$V\""
-      NEW_PHASE="$V"
-      ;;
     design_round|impl_round)
       case "$V" in
         ''|*[!0-9]*) fail E_INVALID_ARG "$F must be non-negative integer (got: $V)" ;;
@@ -101,7 +84,7 @@ while [ "$#" -ge 2 ]; do
     escalation_reason)
       case "$V" in
         null) EXPR="$EXPR | .escalation_reason = null" ;;
-        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout)
+        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|merge_conflict|merge_artifact_missing)
           EXPR="$EXPR | .escalation_reason = \"$V\""
           ;;
         *) fail E_INVALID_ARG "bad escalation_reason: $V" ;;
@@ -147,19 +130,3 @@ while [ "$#" -ge 2 ]; do
 done
 
 atomic_write "$PATHF" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
-
-# Project derived backlog.json items[].status when phase changed. The phase→
-# status map is the only SSOT bridge between pipeline state and backlog state.
-if [ -n "$NEW_PHASE" ]; then
-  DERIVED_STATUS="$(derive_backlog_status_from_phase "$NEW_PHASE")" \
-    || fail E_INVALID_ARG "derive failed for phase: $NEW_PHASE"
-  BACKLOG=".scrum/backlog.json"
-  BACKLOG_SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
-  if [ -f "$BACKLOG" ] \
-    && jq -e --arg id "$PBI" '.items | map(select(.id==$id)) | length > 0' "$BACKLOG" >/dev/null 2>&1
-  then
-    atomic_write "$BACKLOG" \
-      "(.items[] | select(.id == \"$PBI\")).status = \"$DERIVED_STATUS\"" \
-      "$BACKLOG_SCHEMA"
-  fi
-fi

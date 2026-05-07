@@ -233,14 +233,14 @@ execute.
   data dependencies and side effects explicit and testable.
   ```markdown
   ## Inputs (required state)
-  - `state.json` -> `phase` (must be `sprint_planning`)
+  - `state.json` -> `phase` (must be `sprint_planning`; project-level workflow)
   - `backlog.json` -> `items[]` (PBIs with `status: refined`)
   - `sprint.json` -> `id`, `goal`, `pbi_ids`
 
   ## Outputs (files/keys updated)
   - `sprint.json` -> `developers[]` (populated with spawned teammates)
-  - `state.json` -> `phase` (transitions to `design`)
-  - `backlog.json` -> `items[].implementer_id`, `items[].reviewer_id` (round-robin)
+  - `state.json` -> `phase` (transitions to `pbi_pipeline_active`)
+  - `backlog.json` -> `items[].implementer_id`, `items[].status` (assigned PBIs flip to `in_progress_design`)
   ```
 
 - Each Skill declares Inputs, Outputs, preconditions, steps, exit
@@ -250,9 +250,9 @@ execute.
 - **`spawn-teammates`**: Reproducible teammate creation during Sprint
   Planning. Developer count = min(refined PBIs, 6). Reads `sprint.json`
   + `backlog.json`, spawns teammates with consistent naming (`dev-001-s{N}`,
-  ...). Each Developer implements their assigned PBI; reviewers are
-  assigned round-robin (no self-review). In a single-PBI Sprint,
-  the Scrum Master performs the review.
+  ...). Each Developer implements their assigned PBI. There is no
+  reviewer assignment — Sprint-end cross-review is performed by the
+  Scrum Master via independent reviewer sub-agents (FR-009 Layer 2).
 
 - **`install-subagents`**: Verify PBI Pipeline sub-agents
   (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
@@ -292,15 +292,8 @@ prompt-only management:
 
 **Layer 1 — State File**:
 - `.scrum/state.json` contains the `phase` field; the canonical
-  enum and transitions live in `docs/data-model.md` § ProjectState.
-  Summary:
-  ```
-  new -> requirements_sprint -> backlog_created -> sprint_planning
-    -> pbi_pipeline_active -> review -> sprint_review
-    -> retrospective -> sprint_planning (next Sprint)
-    -> integration_sprint -> backlog_created (defect-fix loop)
-                          -> complete
-  ```
+  enum and transitions live in `docs/data-model.md` § ProjectState
+  (a single ASCII graph + per-phase glossary).
 - Phase transitions are performed by the Scrum Master via Skill execution
   (not arbitrary writes).
 
@@ -428,8 +421,8 @@ NOT by peer Developers reviewing each other's code.
   the Developer, and (c) Codex cross-model review adds a second opinion
   from a different AI model.
 - Sub-agents use the `tools` frontmatter field for tool sandboxing
-  (e.g., code-reviewer is read-only) and context isolation via the
-  Task tool.
+  (all cross-review reviewers are read-only) and context isolation via
+  the Task tool.
 
 ### Alternatives Considered
 - **External catalog (awesome-claude-code-subagents)**: Original R9-v1.
@@ -437,16 +430,19 @@ NOT by peer Developers reviewing each other's code.
 - **Developer peer review**: Original FR-009 model. Rejected — lacks
   cross-PBI context and design-doc awareness.
 - **Skills instead of agents**: Rejected — sub-agents need context
-  isolation, model routing (`codex-code-reviewer`), and tool sandboxing.
+  isolation, model routing, and tool sandboxing.
 
 ### Key Technical Details
 - **Sub-agent catalog**: full list, roles, and tool sandbox in
   `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
 - Cross-review flow: Scrum Master invokes the `cross-review` skill,
-  which spawns `codex-code-reviewer` (primary) + `security-reviewer`
-  via the Task tool. `code-reviewer` is the fallback when the `codex`
-  CLI is unavailable.
+  which runs a static analysis pass and then spawns 5 aspect
+  reviewers in parallel via the Task tool —
+  `requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer`. Each reviewer ingests the whole Sprint;
+  Findings carry PBI tags via `paths_touched` reverse-lookup.
 - PBI Pipeline: the Developer conductor spawns `pbi-*` workers and
   `codex-*-reviewer` critics per Round (see R10).
 - Runtime tracking: `sprint.json` → `developers[].sub_agents` records

@@ -29,12 +29,12 @@ teardown() {
   [ "$output" = "src/x.py" ]
 }
 
-@test "append-dashboard-event: phase_transition event with from/to" {
+@test "append-dashboard-event: status_transition event with from/to" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" \
-    --type phase_transition --phase-from design --phase-to implementation
+    --type status_transition --status-from refined --status-to in_progress_design
   [ "$status" -eq 0 ]
-  run jq -r '"\(.events[0].phase_from)→\(.events[0].phase_to)"' "$TEST_TMP/.scrum/dashboard.json"
-  [ "$output" = "design→implementation" ]
+  run jq -r '"\(.events[0].status_from)→\(.events[0].status_to)"' "$TEST_TMP/.scrum/dashboard.json"
+  [ "$output" = "refined→in_progress_design" ]
 }
 
 @test "append-dashboard-event: minimal event has nulls for unset optional fields" {
@@ -74,7 +74,7 @@ teardown() {
 }
 
 @test "append-dashboard-event: preserves pre-existing pbi_pipelines array" {
-  printf '{"max_events":100,"events":[],"pbi_pipelines":[{"pbi_id":"pbi-001","phase":"design"}]}\n' > "$TEST_TMP/.scrum/dashboard.json"
+  printf '{"max_events":100,"events":[],"pbi_pipelines":[{"pbi_id":"pbi-001","status":"in_progress_design"}]}\n' > "$TEST_TMP/.scrum/dashboard.json"
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-dashboard-event.sh" --type test_run
   [ "$status" -eq 0 ]
   run jq -r '.pbi_pipelines | length' "$TEST_TMP/.scrum/dashboard.json"

@@ -44,19 +44,20 @@ Used until automated sub-agent invocation is mockable.
    Expected: directory matching the PBI id appears with subdirs
    `design/ impl/ ut/ metrics/ feedback/`.
 
-3. **Verify design phase Round 1**
+3. **Verify design Round 1**
 
-   Wait until `cat .scrum/pbi/<pbi-id>/state.json | jq .phase` returns
-   `"design"` then `"impl_ut"`.
+   Wait until `cat .scrum/backlog.json | jq -r '.items[] | select(.id=="<pbi-id>") | .status'`
+   returns `"in_progress_design"` then `"in_progress_impl"`.
 
    Inspect:
    - `.scrum/pbi/<pbi-id>/design/design.md` — should contain all 6
      required sections, no implementation code.
    - `.scrum/pbi/<pbi-id>/design/review-r1.md` — verdict line present.
 
-4. **Verify impl+UT phase Round 1**
+4. **Verify impl + PBI review + UT run Round 1**
 
-   Wait for impl+UT phase. Inspect:
+   Wait for the status to advance through `in_progress_pbi_review` →
+   `in_progress_ut_run` → `in_progress_merge`. Inspect:
    - `src/calc.py` should contain `def add(a, b): return a + b`
    - `tests/test_calc.py` should contain pytest tests
    - `.scrum/pbi/<pbi-id>/metrics/coverage-r1.json` should show C0/C1
@@ -64,11 +65,13 @@ Used until automated sub-agent invocation is mockable.
    - `.scrum/pbi/<pbi-id>/impl/review-r1.md` and `ut/review-r1.md`
      should both have `**Verdict: PASS**`
 
-5. **Verify completion**
+5. **Verify cross_review and completion**
 
-   Wait until `state.json.phase == "complete"`. Verify:
+   After per-PBI merge, status becomes `awaiting_cross_review`. SM
+   runs the `cross-review` skill at Sprint end, advancing status to
+   `cross_review` and finally `done`. Verify:
    - `backlog.json` PBI status `done`
-   - `pipeline_summary` populated with round counts and coverage
+   - `.scrum/pbi/<pbi-id>/pipeline.log` records the round counts and final coverage
 
 6. **Path-guard violation check**
 
@@ -84,7 +87,7 @@ Used until automated sub-agent invocation is mockable.
    python3 dashboard/app.py
    ```
 
-   Confirm "PBI Pipeline" pane renders the active PBI with phase /
+   Confirm "PBI Pipeline" pane renders the active PBI with status /
    round / sub-agents.
 
 ## Failure Recovery
@@ -97,4 +100,4 @@ Used until automated sub-agent invocation is mockable.
 
 - All 7 procedure steps complete with expected outcomes
 - No path-guard violations
-- pipeline.log shows phase transitions: init → design → impl_ut → complete
+- pipeline.log shows status transitions: init → in_progress_design → in_progress_impl → in_progress_pbi_review → in_progress_ut_run → in_progress_merge → awaiting_cross_review → cross_review → done

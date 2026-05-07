@@ -10,21 +10,24 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 
 | Old (raw) | New (validated wrapper) |
 |---|---|
-| `jq '(.items[] | select(.id == "$PBI")).status = "in_progress"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress` |
-| Same pattern for `review`, `done`, `blocked`, etc. | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|in_progress\|review\|done\|blocked}` |
+| `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
+| Same pattern for any of the 12 v2 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done}` |
 | `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
-| `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `current_pbi_phase`) |
+| `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`; `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "design"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh design` |
 | `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | `.scrum/scripts/append-communication.sh --from <id> --to <id\|null> --kind <type> --content <text> [--role <role>] [--pbi <pbi-id>]` |
-| `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | `.scrum/scripts/append-dashboard-event.sh --type <type> [--agent <id>] [--pbi <pbi-id>] [--file <path>] [--change-type <ct>] [--detail <text>] [--phase-from <p>] [--phase-to <p>]` |
+| `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | `.scrum/scripts/append-dashboard-event.sh --type <type> [--agent <id>] [--pbi <pbi-id>] [--file <path>] [--change-type <ct>] [--detail <text>] [--status-from <s>] [--status-to <s>]` |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
-| `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <phase> <round> <event> <detail>` |
+| `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
+| `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`) |
 
-`update-pbi-state.sh` accepts variadic field/value pairs:
+`update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
+field was removed in v2; lifecycle moves through
+`update-backlog-status.sh` instead):
 
 ```
-.scrum/scripts/update-pbi-state.sh pbi-001 phase impl_ut design_status pass impl_round 1
+.scrum/scripts/update-pbi-state.sh pbi-001 design_status pass impl_round 1
 ```
 
 All pairs apply in a single atomic transaction (one schema validation, one `mv`).
@@ -74,17 +77,13 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 
 ## Known gaps (follow-ups)
 
-The current wrapper set covers the pbi-pipeline migration and the four migrated skill SKILL files. The following raw writes are **not yet** covered and will be blocked by the `PreToolUse` hook at runtime until the listed follow-ups land:
+The current wrapper set covers the pbi-pipeline migration, the four migrated skill SKILL files, and the sprint-planning per-PBI item-field updates. Remaining gaps:
 
-1. **`skills/sprint-planning/SKILL.md` step 11.2** writes `items[].catalog_targets` via raw `jq`. Required follow-up:
-   - Add `catalog_targets` (array of strings) to `docs/contracts/scrum-state/backlog.schema.json` under `items` (currently rejected by `additionalProperties: false`).
-   - Ship a wrapper, e.g. `.scrum/scripts/set-backlog-item-field.sh <pbi-id> catalog_targets <json-array>` (or per-field setters).
-2. **Sprint creation / init** (sprint-planning step 9) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).
-3. **Backlog item field updates** (sprint-planning step 10) — `items[].sprint_id`, `items[].implementer_id`, `items[].reviewer_id` have no wrapper. They need the same per-field setter as gap (1), or one setter per field.
-4. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks.
-5. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
+1. **Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).
+2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. The same exemption applies to `hooks/dashboard-event.sh::update_pbi_pipelines`, which raw-mutates the `pbi_pipelines` projection in `dashboard.json` from hook context (guard runs as PreToolUse and cannot intercept its own handler); a wrapper is desirable but not blocking.
+3. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 
-Each of these has a `TODO(scrum-state-tools)` comment in the relevant file pointing back to this document. Until they land, sprint-planning step 11.2 (and likely 9 and 10) **will fail at runtime** when the hook fires.
+Until gap #1 lands, sprint-planning step 8 (sprint.json creation) **will fail at runtime** when the hook fires. Steps 9 and 10.2 are now covered by `set-backlog-item-field.sh`.
 
 ## Worktree / merge governance wrappers (2026-05-04)
 
@@ -93,30 +92,48 @@ Each of these has a `TODO(scrum-state-tools)` comment in the relevant file point
 | `freeze-sprint-base.sh` | `sprint.base_sha`, `sprint.base_sha_captured_at` (once per Sprint) |
 | `create-pbi-worktree.sh` | `pbi/<id>/state.json` `branch`, `worktree`, `base_sha`; creates git worktree + `.scrum` symlink |
 | `commit-pbi.sh` | git commit on `pbi/<id>` branch + `pbi/<id>/state.json.head_sha` |
-| `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `phase=ready_to_merge`, `head_sha`, `paths_touched`, `ready_at`; backlog item `status=review` |
-| `mark-pbi-merged.sh` | `pbi/<id>/state.json` `phase=merged`, `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at` |
-| `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `phase ∈ merge_*`, `merge_failure`, `merge_failure_count++`; on 3rd consecutive failure: `phase=escalated`, `escalation_reason=stagnation`, backlog `status=blocked` |
+| `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `head_sha`, `paths_touched`, `ready_at`; backlog item `status=in_progress_merge` |
+| `mark-pbi-merged.sh` | `pbi/<id>/state.json` `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at`, `status=awaiting_cross_review` |
+| `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing}` and backlog `status=escalated` |
 | `cleanup-pbi-worktree.sh` | removes git worktree + `pbi/<id>` branch (post-merge) |
 | `merge-pbi.sh` | orchestrator (calls mark-pbi-merged or mark-pbi-merge-failure + cleanup) |
 
-### Backward compatibility (sprints in flight at upgrade time)
+### Backward compatibility (sprints in flight at the merge-governance upgrade)
 
-This change extends `cross-review` to require every Sprint PBI at
-`pbi/<id>/state.json.phase ∈ {merged, escalated}`. PBIs from sprints
-that completed under the old (pre-merge-governance) flow may sit at
-`phase=complete` or `phase=review_complete` with no `branch` /
-`worktree` / `base_sha` in `state.json`.
+When the worktree-merge wrappers landed, `cross-review` started to
+require every Sprint PBI to be merged first. PBIs from sprints that
+finished under the older flow may have been at `phase=complete` or
+`phase=review_complete` with no `branch` / `worktree` / `base_sha` in
+`state.json`. Two recovery options were documented at that time:
 
-If you upgrade a project with sprints in flight, choose one of:
+- (A) Let the in-flight sprint finish under the old flow, then advance
+  each PBI's `backlog.status` to `awaiting_cross_review` (formerly
+  `phase=merged`) before running `cross-review` and `sprint-review`.
+- (B) Drop the in-flight sprint and replan.
 
-- (A) Let the in-flight sprint finish under the old flow. Skip
-  `cross-review` precondition by manually advancing each PBI's
-  `state.phase` to `merged` via
-  `update-pbi-state.sh <pbi-id> phase merged`. Then run
-  `cross-review` and `sprint-review` as usual. Future sprints use the
-  new flow.
-- (B) Drop the in-flight sprint and replan. New sprints follow the
-  new flow from the start.
+This guidance is preserved for archive purposes; the v2 status
+migration below supersedes it for any project still on a v1 schema.
 
-For new projects: no migration needed. The new flow is in effect from
-Sprint 1.
+## v1 → v2 status migration (historical, 2026-05-06)
+
+The v1 schema split PBI lifecycle across two fields:
+`backlog.json.items[].status` (6 values) and
+`pbi-state.json.phase` (10 values, including merge sub-states). v2
+unifies these into a single 12-value `status` enum and removes the
+`phase` field entirely.
+
+The one-shot migration was performed via `scripts/migrate-status-v2.sh`
+(now removed; refer to git history if a deployed project still needs
+it). The mapping table, run procedure, and caveats are preserved
+under that commit's snapshot of this file.
+
+The dashboard event type `phase_transition` was renamed to
+`status_transition` in v2. New writes always use `status_transition`
+(the schema enum no longer accepts `phase_transition`). Old in-place
+entries with the legacy type are not migrated, but the dashboard
+reader (`dashboard/app.py`) does not schema-validate
+`.scrum/dashboard.json` on read, and the file's `max_events` cap
+naturally evicts pre-v2 entries within a few Sprints. The Sprint-end
+`cross-review` precondition is now `status ∈
+{awaiting_cross_review, escalated}` (formerly
+`phase ∈ {merged, escalated}`).

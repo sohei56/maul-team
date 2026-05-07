@@ -92,7 +92,6 @@ NEW_ITEM_JSON="$(
       priority: null,
       sprint_id: null,
       implementer_id: null,
-      reviewer_id: null,
       design_doc_paths: [],
       review_doc_path: null,
       depends_on_pbi_ids: [],

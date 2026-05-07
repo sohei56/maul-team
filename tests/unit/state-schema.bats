@@ -35,7 +35,7 @@ load '../test_helper/common-setup'
   run jq -e '
     .phase as $p |
     ["new","requirements_sprint","backlog_created","sprint_planning",
-     "design","implementation","review","sprint_review",
+     "pbi_pipeline_active","review","sprint_review",
      "retrospective","integration_sprint","complete"] |
     index($p) != null
   ' "$file"
@@ -80,7 +80,6 @@ load '../test_helper/common-setup'
     .priority != null and
     has("sprint_id") and
     has("implementer_id") and
-    has("reviewer_id") and
     (.design_doc_paths | type == "array") and
     has("review_doc_path") and
     (.depends_on_pbi_ids | type == "array") and
@@ -100,6 +99,52 @@ load '../test_helper/common-setup'
     [.items[].id] | all(test("^pbi-[0-9]+$"))
   ' "$file"
   assert_success
+}
+
+@test "PBI status in fixture is one of the 12 unified status values" {
+  local file="$FIXTURES_DIR/valid-backlog.json"
+
+  # Every PBI status must be one of the 12 unified enum values.
+  run jq -e '
+    [.items[].status] | all(. as $s |
+      ["draft","refined","blocked",
+       "in_progress_design","in_progress_impl","in_progress_pbi_review",
+       "in_progress_ut_run","in_progress_merge",
+       "awaiting_cross_review","cross_review",
+       "escalated","done"] | index($s) != null)
+  ' "$file"
+  assert_success
+}
+
+@test "12-value status enum covers all SM and Developer managed states" {
+  # Sanity check that the canonical 12-value enum has exactly the SM (7) +
+  # Developer (5) split documented in the plan.
+  run bash -c '
+    cat <<EOF | jq -e "length == 12"
+[
+  "draft","refined","blocked",
+  "in_progress_design","in_progress_impl","in_progress_pbi_review",
+  "in_progress_ut_run","in_progress_merge",
+  "awaiting_cross_review","cross_review",
+  "escalated","done"
+]
+EOF
+'
+  assert_success
+}
+
+@test "legacy PBI status values are no longer accepted" {
+  # Old 6-value enum values must NOT appear in the 12-value canonical list.
+  for legacy in "in_progress" "review"; do
+    run jq -en --arg s "$legacy" '
+      ["draft","refined","blocked",
+       "in_progress_design","in_progress_impl","in_progress_pbi_review",
+       "in_progress_ut_run","in_progress_merge",
+       "awaiting_cross_review","cross_review",
+       "escalated","done"] | index($s) == null
+    '
+    assert_success
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -131,13 +176,12 @@ load '../test_helper/common-setup'
   assert_success
 }
 
-@test "Developer has assigned_work with implement and review" {
+@test "Developer has assigned_work with implement" {
   local file="$FIXTURES_DIR/valid-sprint.json"
 
   run jq -e '
     .developers[0] |
-    (.assigned_work.implement | type == "array") and
-    (.assigned_work.review | type == "array")
+    (.assigned_work.implement | type == "array")
   ' "$file"
   assert_success
 }

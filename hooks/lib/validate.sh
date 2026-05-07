@@ -19,6 +19,14 @@ ensure_scrum_dir() {
   fi
 }
 
+# Print a structured log line to stderr.
+# Usage: stderr_log <hook_name> <level> <message>
+# Example: stderr_log "scrum-guard" "BLOCKED" "Edit .scrum/state.json"
+#   → "[scrum-guard] BLOCKED: Edit .scrum/state.json"
+stderr_log() {
+  printf '[%s] %s: %s\n' "$1" "$2" "$3" >&2
+}
+
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
 # Authoritative timestamp helper. scripts/scrum/lib/atomic.sh::_iso_utc_now
 # mirrors this format; keep both in sync if format changes.
@@ -35,6 +43,30 @@ ensure_json_file() {
   ensure_scrum_dir
   if [ ! -f "$filepath" ]; then
     jq -n "$@" "$init_expr" > "$filepath"
+  fi
+}
+
+# Read .items[] | select(.id==id) | .status from backlog.json. Returns the
+# status string, or `default` (default: "unknown") when the file is missing
+# or no matching item exists. Mirrors scripts/scrum/lib/queries.sh::
+# get_pbi_status; intentionally duplicated to keep hooks/lib/ standalone.
+# Usage: get_pbi_status_from_backlog <pbi_id> [backlog_path] [default]
+get_pbi_status_from_backlog() {
+  local pbi_id="$1"
+  local backlog="${2:-.scrum/backlog.json}"
+  local default="${3:-unknown}"
+  if [ ! -f "$backlog" ]; then
+    printf '%s' "$default"
+    return
+  fi
+  local out
+  out="$(jq -r --arg id "$pbi_id" --arg d "$default" \
+    '.items[]? | select(.id == $id) | .status // $d' \
+    "$backlog" 2>/dev/null)"
+  if [ -z "$out" ]; then
+    printf '%s' "$default"
+  else
+    printf '%s' "$out"
   fi
 }
 
@@ -112,12 +144,12 @@ validate_json_file() {
   shift
 
   if [ ! -f "$file" ]; then
-    echo "[validate] WARNING: $file does not exist." >&2
+    stderr_log "validate" "WARNING" "$file does not exist."
     return 1
   fi
 
   if ! jq empty "$file" 2>/dev/null; then
-    echo "[validate] WARNING: $file contains invalid JSON." >&2
+    stderr_log "validate" "WARNING" "$file contains invalid JSON."
     log_hook "validate" "ERROR" "$file contains invalid JSON"
     return 1
   fi
@@ -125,7 +157,7 @@ validate_json_file() {
   local field
   for field in "$@"; do
     if ! jq -e "has(\"$field\")" "$file" >/dev/null 2>&1; then
-      echo "[validate] WARNING: $file missing required field '$field'." >&2
+      stderr_log "validate" "WARNING" "$file missing required field '$field'."
       log_hook "validate" "WARN" "$file missing required field '$field'"
       return 1
     fi

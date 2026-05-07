@@ -1,6 +1,7 @@
-# Design Phase Reference
+# Design Stage Reference
 
-Per-Round flow for the design phase (max 5 Rounds).
+Per-Round flow for the design stage (max 5 Rounds). Backlog status
+during this stage is `in_progress_design`.
 
 ## Round n procedure
 
@@ -21,11 +22,13 @@ Per-Round flow for the design phase (max 5 Rounds).
 
 4. **Step 3: Termination gate** (see termination-gates.md)
    - **Success**: design-reviewer verdict == PASS
-     - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status pass phase impl_ut impl_round 0`
-     - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "success → impl_ut"`
-     - Return to caller (pipeline phase 2 begins)
+     - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status pass impl_round 0`
+     - `.scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl`
+     - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "success → in_progress_impl"`
+     - Return to caller (impl stage begins)
    - **Stagnation / Divergence / Hard cap**: escalate
-     - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" phase escalated escalation_reason "<reason>"`
+     - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"`
+     - `.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated`
      - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "escalate → <reason>"`
      - Notify SM (see `escalation-notify` snippet below)
    - **Other FAIL**: review-r{n}.md becomes input to Round n+1
@@ -46,7 +49,8 @@ notify_sm_escalation() {
 
 ## Notes
 
-- Design phase round counter is independent from impl+UT counter.
+- The design-stage round counter is independent from the impl-stage
+  counter (`impl_round`).
 - pbi-designer may request catalog scaffolding from SM by raising
   status=error with next_actions[]=["scaffold catalog spec X"]; pause
   PBI until SM completes.

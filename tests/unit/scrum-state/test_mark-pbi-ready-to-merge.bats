@@ -15,10 +15,10 @@ setup() {
 {"id":"sprint-001","status":"active","started_at":"2026-05-04T10:00:00Z","base_sha":"$SHA","base_sha_captured_at":"2026-05-04T10:00:00Z"}
 EOF
   cat > .scrum/pbi/pbi-001/state.json <<'EOF'
-{"pbi_id":"pbi-001","phase":"impl_ut","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z"}
+{"pbi_id":"pbi-001","started_at":"2026-05-04T10:00:00Z","updated_at":"2026-05-04T10:00:00Z"}
 EOF
   cat > .scrum/backlog.json <<'EOF'
-{"items":[{"id":"pbi-001","title":"x","status":"in_progress"}]}
+{"items":[{"id":"pbi-001","title":"x","status":"in_progress_ut_run"}]}
 EOF
   env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001
   echo "hello" > .scrum/worktrees/pbi-001/src.txt
@@ -26,11 +26,9 @@ EOF
 }
 teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP"; }
 
-@test "mark-ready-to-merge: sets phase, head_sha, paths_touched, ready_at" {
+@test "mark-ready-to-merge: sets head_sha, paths_touched, ready_at on state.json" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
   [ "$status" -eq 0 ]
-  run jq -r '.phase' .scrum/pbi/pbi-001/state.json
-  [ "$output" = "ready_to_merge" ]
   run jq -r '.paths_touched | length' .scrum/pbi/pbi-001/state.json
   [ "$output" = "1" ]
   run jq -r '.paths_touched[0]' .scrum/pbi/pbi-001/state.json
@@ -42,10 +40,10 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [[ "$output" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
 }
 
-@test "mark-ready-to-merge: backlog status projects to review" {
+@test "mark-ready-to-merge: backlog status flips to in_progress_merge" {
   env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
   run jq -r '.items[0].status' .scrum/backlog.json
-  [ "$output" = "review" ]
+  [ "$output" = "in_progress_merge" ]
 }
 
 @test "mark-ready-to-merge: refuses if no commits diverge from base" {

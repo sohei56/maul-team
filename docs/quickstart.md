@@ -55,8 +55,10 @@ For partial-C1 languages (Go, Rust, Bash), set `c1_threshold` in
 `.scrum/config.json`. Ad-hoc relaxation is forbidden — the threshold
 must be declared in config.
 
-See `docs/MIGRATION-pbi-pipeline.md` if you are upgrading from the
-legacy single-session design + implementation flow.
+See `docs/MIGRATION-pbi-pipeline.md` for a conceptual map between
+the legacy single-session design + implementation flow and today's
+pbi-pipeline conductor + sub-agents (the legacy skills are no
+longer shipped).
 
 If tmux is available, `scrum-start.sh` creates a split layout:
 - **Main pane**: `claude --agent scrum-master` (interactive session in
@@ -107,119 +109,40 @@ command -v shellcheck && echo "shellcheck: OK"
 
 ## Repository Layout
 
-```
-claude-scrum-team/
-├── scrum-start.sh           # Entry point — launches tmux + Claude Code + dashboard
-├── agents/
-│   ├── scrum-master.md      # Scrum Master agent definition (team lead)
-│   └── developer.md         # Developer teammate template
-├── skills/
-│   ├── sprint-planning/      # Sprint Planning ceremony
-│   ├── spawn-teammates/      # Reproducible teammate creation
-│   ├── install-subagents/    # Reproducible sub-agent selection from catalog
-│   ├── design/         # Design phase orchestration
-│   ├── implementation/ # Implementation phase orchestration
-│   ├── cross-review/         # Cross-review process
-│   ├── sprint-review/        # Sprint Review ceremony
-│   ├── retrospective/        # Retrospective ceremony
-│   ├── requirements-sprint/  # Requirements Sprint ceremony
-│   ├── integration-sprint/   # Integration Sprint ceremony
-│   ├── backlog-refinement/   # PBI refinement process
-│   ├── change-process/       # FR-016 Change Process
-│   ├── scaffold-design-spec/ # Template stub creation on catalog enable
-│   └── smoke-test/           # Automated test execution and HTTP smoke testing
-├── hooks/
-│   ├── phase-gate.sh        # PreToolUse: gates tools by phase
-│   ├── session-context.sh   # SessionStart: injects phase context
-│   ├── completion-gate.sh   # Stop: verifies exit criteria
-│   ├── quality-gate.sh      # TaskCompleted: enforces DoD
-│   └── dashboard-event.sh   # PostToolUse/TeammateIdle: feeds dashboard + comms
-├── dashboard/
-│   └── app.py               # Textual TUI dashboard (4-panel real-time view)
-├── scripts/
-│   ├── statusline.sh        # Status line (compact 3-line view)
-│   ├── setup-user.sh        # End user setup
-│   └── setup-dev.sh         # Contributor setup (installs dev deps)
-├── tests/                   # bats-core test suite
-│   ├── unit/
-│   ├── lint/
-│   ├── integration/
-│   ├── fixtures/
-│   └── test_helper/         # bats-support, bats-assert (submodules)
-├── docs/design/
-│   ├── catalog.md           # Design document governance
-│   └── specs/{category}/    # Design documents per catalog entries
-└── docs/                    # Project documentation (requirements, architecture, data model, contracts, quickstart)
-```
+See [CLAUDE.md § Project Structure](../CLAUDE.md) for the canonical
+tree. The repository is organized as: `agents/` (Scrum Master,
+Developer, and 6 PBI-pipeline + 5 cross-review sub-agent
+definitions), `skills/` (15 Skills covering all Scrum ceremonies),
+`.claude/skills/` (dev-only skills for this repo, e.g. cleanup-audit),
+`hooks/`, `dashboard/`, `scripts/`, `tests/`, `docs/`, and the runtime
+`.scrum/` directory.
 
-## Running Tests
+## Running Tests and Linting
 
-```bash
-# Run all fast tests (unit + lint)
-bats tests/unit/ tests/lint/
-
-# Run unit tests only
-bats tests/unit/
-
-# Run agent/skill definition linting
-bats tests/lint/
-
-# Run integration tests (script-to-script)
-bats tests/integration/script-compose.bats
-
-# Run agent smoke tests (requires API key, costs credits)
-ANTHROPIC_API_KEY=sk-... bats tests/integration/agent-smoke.bats
-```
-
-## Linting
-
-```bash
-# Lint all shell scripts
-shellcheck scrum-start.sh scripts/*.sh hooks/*.sh
-
-# Check agent definition YAML frontmatter
-bats tests/lint/agent-frontmatter.bats
-
-# Check skill definition YAML frontmatter
-bats tests/lint/skill-frontmatter.bats
-```
+This document targets end users running the framework. Contributors
+should refer to [CONTRIBUTING.md § Running Tests](../CONTRIBUTING.md#running-tests)
+for the full bats / shellcheck / ruff invocations and dev-tool
+prerequisites.
 
 ## Key Concepts
 
-### Agents
-- `agents/scrum-master.md` — Team lead in **Delegate mode** (coordination
-  only). Preloads all 14 ceremony Skills.
-- `agents/developer.md` — Teammate template, spawned per Sprint.
-- `agents/code-reviewer.md` — Independent code review (spawned by Scrum Master during cross-review).
-- `agents/security-reviewer.md` — Security vulnerability scanning (spawned by Scrum Master during cross-review).
-- `agents/codex-code-reviewer.md` — Cross-model review via OpenAI Codex CLI (optional, spawned by Scrum Master).
-- `agents/pbi-{designer,implementer,ut-author}.md` — PBI Pipeline workers (spawned per Round by Developer).
-- `agents/codex-{design,impl,ut}-reviewer.md` — PBI Pipeline critical reviewers (cross-model via Codex CLI).
+For deeper detail, follow these pointers:
 
-### Skills
-Markdown files in `.claude/skills/<name>/SKILL.md` encapsulating Scrum
-ceremonies. Each declares `## Inputs` and `## Outputs` for explicit
-data dependencies. Invoked explicitly (`disable-model-invocation: true`).
-
-### Hooks
-Enforce Sprint workflow rules via shell scripts:
-`phase-gate.sh` (tool gating), `session-context.sh` (phase injection),
-`completion-gate.sh` (exit criteria), `quality-gate.sh` (DoD).
-
-### State Files
-Runtime state in `.scrum/` (JSON, one file per concern).
-See `data-model.md` for schemas.
-
-### Dashboard
-- **Textual TUI** (`dashboard/app.py`): 4-panel real-time view in tmux.
-- **Status line** (`scripts/statusline.sh`): compact 3-line fallback.
-- **Hooks** feed events to `.scrum/dashboard.json` and `communications.json`.
-
-### Design Documents
-Governed by `docs/design/catalog.md` — no design document may be created
-unless its spec type is listed and enabled in the catalog. Files live at
-`docs/design/specs/{category}/{id}-{slug}.md`. Each includes `revision_history`
-in YAML frontmatter with `pbis` field.
+- **Agents and sub-agents**: top-level Scrum Master + Developer plus 9
+  specialist sub-agents — see [docs/contracts/sub-agents.md](contracts/sub-agents.md).
+- **Skills**: Markdown + YAML frontmatter under `.claude/skills/<name>/SKILL.md`,
+  each with `## Inputs` / `## Outputs`. Invocation, side effects, and
+  state writes are documented per skill.
+- **Hooks** (`status-gate`, `session-context`, `completion-gate`,
+  `quality-gate`, `pre-tool-use-*`): enforce Sprint workflow at the
+  Claude Code tool layer — see [docs/architecture.md](architecture.md) R7.
+- **State files** in `.scrum/` (one JSON file per concern): schemas in
+  [docs/data-model.md](data-model.md); writes go through
+  `.scrum/scripts/*.sh` wrappers.
+- **Dashboard**: Textual TUI (`dashboard/app.py`) with a 3-line
+  statusline fallback (`scripts/statusline.sh`).
+- **Design documents**: governed by `docs/design/catalog.md`; files
+  live at `docs/design/specs/{category}/{id}-{slug}.md`.
 
 ## Development Workflow
 
@@ -251,7 +174,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 # Interact with the Scrum team, then verify:
 # - .scrum/ directory exists with state files
 # - .claude/agents/ contains scrum-master.md and developer.md
-# - .claude/skills/ contains all 14 ceremony skills
+# - .claude/skills/ contains all installed Scrum ceremony skills
 # - Status line displays at bottom of terminal
 # - Textual dashboard appears in tmux side pane (if tmux available)
 # - Hooks are configured in .claude/settings.json

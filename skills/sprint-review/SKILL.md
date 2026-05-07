@@ -24,7 +24,11 @@ disable-model-invocation: false
 
 ## Steps
 
-1. state.json → phase: "sprint_review", sprint.json → status: "sprint_review"
+1. state.json → phase: "sprint_review", sprint.json → status: "sprint_review":
+   ```bash
+   .scrum/scripts/update-state-phase.sh sprint_review
+   .scrum/scripts/update-sprint-status.sh sprint_review
+   ```
 2. **Present change summary**: Sprint Goal, completed PBIs (status: done), incomplete PBIs (carry-over candidates)
 3. **Launch app (mandatory)**: Detect start command (package.json/Makefile/docker-compose etc)→start→confirm running→fail→fix+retry (never skip demo)→tell user access URL/port
 4. **Demo EVERY completed PBI (mandatory)**:
@@ -41,7 +45,7 @@ disable-model-invocation: false
    b. Each defect/change/feedback item → `add-backlog-item.sh` (status: draft). Track each new pbi-id.
    c. "Will be prioritized in next Sprint via Backlog Refinement→Sprint Planning"
    d. After user confirms "that's all"→proceed
-10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status != "done"` (in_progress / review / blocked / refined-but-not-started):
+10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status != "done"` (any `in_progress_*` / `awaiting_cross_review` / `cross_review` / `escalated` / `blocked` / refined-but-not-started):
     a. Create a new draft PBI capturing the remaining work via `add-backlog-item.sh` — embed origin in description (`Carry-over from <pbi-id>: <what is left>`).
     b. Original PBI keeps its current status (immutable historical record of this Sprint).
     c. Track each new pbi-id for the Leftover Summary.

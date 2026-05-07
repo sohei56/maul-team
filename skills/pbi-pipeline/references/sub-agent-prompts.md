@@ -1,8 +1,12 @@
 # Sub-Agent Prompt Templates
 
 Schema-first prompts the Developer (conductor) constructs when spawning
-each sub-agent via the `Agent` tool. All sub-agents must end output with
-the JSON envelope from spec 4.1.
+each sub-agent via the `Agent` tool. Each prompt provides only the
+runtime slot-fillers (PBI id, round number, paths, prior review).
+Constraints (path guards, output envelopes, severity levels, "Does
+NOT receive" boundaries) live in the corresponding agent definition
+under `agents/` and are not restated here. All sub-agents must end
+output with the JSON envelope from spec 4.1.
 
 ## Common envelope reminder (append to every prompt)
 
@@ -50,17 +54,7 @@ Inputs:
 Write the design to:
   .scrum/pbi/{pbi_id}/design/design.md
 
-Required sections (in this order):
-1. Scope
-2. Components
-3. Business Logic
-4. Interfaces
-5. Catalog Updates
-6. Test Strategy Hints
-
-Forbidden: implementation code examples (interface declarations OK).
-Catalog spec writes require flock on .scrum/locks/catalog-<spec_id>.lock
-(60s timeout); on timeout, exit with status=error, escalation_reason
+On catalog-lock timeout, exit with status=error, escalation_reason
 catalog_lock_timeout.
 
 {common envelope reminder}
@@ -80,9 +74,6 @@ Inputs:
 
 Output to: .scrum/pbi/{pbi_id}/design/review-r{n}.md
 
-Review against the criteria in your agent definition. Verdict PASS = no
-Critical/High findings; otherwise FAIL.
-
 {common envelope reminder}
 ```
 
@@ -99,7 +90,6 @@ Inputs:
   - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
 
 Write source code to project's normal implementation paths (e.g., src/).
-Do NOT write or edit test files (path-guard hook will block them).
 
 {common envelope reminder}
 ```
@@ -119,8 +109,6 @@ Inputs:
   - .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
 
 Write tests to project's normal test paths (e.g., tests/).
-Do NOT read or write implementation files (path-guard hook will block).
-Pragma exclusions require an inline-comment reason.
 
 {common envelope reminder}
 ```
@@ -137,8 +125,6 @@ Inputs:
   - <path1>
   - <path2>
 - requirements.md: <path>
-
-You do NOT receive test code.
 
 Output to: .scrum/pbi/{pbi_id}/impl/review-r{n}.md
 
@@ -159,11 +145,7 @@ Inputs:
 - Pragma audit: .scrum/pbi/{pbi_id}/metrics/pragma-audit-r{n}.json
 - requirements.md: <path>
 
-You do NOT receive implementation source.
-
 Output to: .scrum/pbi/{pbi_id}/ut/review-r{n}.md
-
-Reasons: any pragma exclusion with reason_source == "missing" → FAIL.
 
 {common envelope reminder}
 ```

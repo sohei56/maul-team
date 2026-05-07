@@ -2,14 +2,15 @@
 # scripts/scrum/update-backlog-status.sh — set a PBI's status in .scrum/backlog.json.
 # Usage: update-backlog-status.sh <pbi-id> <status>
 #
-# Status flow split:
-#   pre-pipeline:  draft, refined        — direct write allowed (refinement / planning)
-#   post-pipeline: in_progress, review,  — DERIVED from pbi/<id>/state.json.phase via
-#                  done, blocked           update-pbi-state.sh. Direct writes are blocked
-#                                          to keep the two SSOTs consistent.
+# Status is the sole SSOT for PBI lifecycle (12-value enum). All actors write
+# this directly through the wrapper; there is no derived projection from
+# pbi-state.json anymore.
 #
-# Escape hatch (rare, intended for migrations / repairs only):
-#   SCRUM_ALLOW_POST_PIPELINE_STATUS=1 update-backlog-status.sh <pbi-id> <status>
+# Status enum (matches docs/contracts/scrum-state/backlog.schema.json):
+#   SM-managed:   draft, refined, blocked, awaiting_cross_review,
+#                 cross_review, escalated, done
+#   Dev-managed:  in_progress_design, in_progress_impl, in_progress_pbi_review,
+#                 in_progress_ut_run, in_progress_merge
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -17,20 +18,17 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
-# shellcheck source=lib/derive.sh
-source "$HERE/lib/derive.sh"
 
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: update-backlog-status.sh <pbi-id> <status>"
 PBI="$1"; STATUS="$2"
 case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
 case "$STATUS" in
-  draft|refined|in_progress|review|done|blocked) ;;
+  draft|refined|blocked|\
+in_progress_design|in_progress_impl|in_progress_pbi_review|\
+in_progress_ut_run|in_progress_merge|\
+awaiting_cross_review|cross_review|escalated|done) ;;
   *) fail E_INVALID_ARG "bad status: $STATUS" ;;
 esac
-
-if is_post_pipeline_status "$STATUS" && [ "${SCRUM_ALLOW_POST_PIPELINE_STATUS:-0}" != "1" ]; then
-  fail E_INVALID_ARG "direct write of post-pipeline status '$STATUS' rejected — use 'update-pbi-state.sh $PBI phase <phase>' (alongside this wrapper) instead. Override (rare) with SCRUM_ALLOW_POST_PIPELINE_STATUS=1."
-fi
 
 PATHF=".scrum/backlog.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"

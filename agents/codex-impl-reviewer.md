@@ -48,13 +48,7 @@ naming, error_handling, missing_validation, unclear_intent, dead_code.
 
 ## Processing Flow
 
-Identical to codex-design-reviewer:
-1. Read all provided files.
-2. Build review instructions.
-3. Source `hooks/lib/codex-invoke.sh` and call
-   `codex_review_or_fallback`.
-4. On exit 1: same-criteria Claude review, prepend
-   `[Fallback: Claude review]` to Summary.
+Identical to codex-design-reviewer.
 
 ## Output Format
 

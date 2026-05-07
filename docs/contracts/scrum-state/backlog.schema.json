@@ -23,11 +23,18 @@
             "items": {"type": "string"},
             "uniqueItems": true
           },
-          "status": {"enum": ["draft", "refined", "in_progress", "review", "done", "blocked"]},
+          "status": {
+            "enum": [
+              "draft", "refined", "blocked",
+              "in_progress_design", "in_progress_impl", "in_progress_pbi_review",
+              "in_progress_ut_run", "in_progress_merge",
+              "awaiting_cross_review", "cross_review",
+              "escalated", "done"
+            ]
+          },
           "priority": {"type": ["integer", "null"], "minimum": 0},
           "sprint_id": {"type": ["string", "null"], "pattern": "^sprint-[0-9]+$"},
           "implementer_id": {"type": ["string", "null"], "pattern": "^dev-[0-9]+-s[0-9]+$"},
-          "reviewer_id": {"type": ["string", "null"], "pattern": "^dev-[0-9]+-s[0-9]+$"},
           "design_doc_paths": {"type": "array", "items": {"type": "string"}},
           "review_doc_path": {"type": ["string", "null"]},
           "depends_on_pbi_ids": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
@@ -37,19 +44,7 @@
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},
           "merged_sha": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
-          "merged_at": {"type": "string", "format": "date-time"},
-          "pipeline_summary": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "rounds_design": {"type": "integer", "minimum": 0},
-              "rounds_impl": {"type": "integer", "minimum": 0},
-              "final_coverage_c0": {"type": "number"},
-              "final_coverage_c1": {"type": ["number", "null"]},
-              "outcome": {"enum": ["complete", "escalated"]},
-              "escalation_reason": {"type": ["string", "null"]}
-            }
-          }
+          "merged_at": {"type": "string", "format": "date-time"}
         }
       }
     }
