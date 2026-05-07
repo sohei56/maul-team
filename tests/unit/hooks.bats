@@ -394,6 +394,18 @@ teardown() {
   assert_success
 }
 
+@test "completion-gate.sh allows stop when active PBI pipeline in_progress_merge" {
+  # in_progress_merge is the Developer-side terminal status: PBI is ready
+  # for SM-side merge orchestration and the Developer's session may stop.
+  mkdir -p .scrum
+  jq '.active_pbi_pipelines = ["pbi-001"]' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_merge"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  assert_success
+}
+
 @test "completion-gate.sh allows stop when no active pipelines in pbi_pipeline_active" {
   mkdir -p .scrum
   # phase=pbi_pipeline_active with no active_pbi_pipelines entries

@@ -161,7 +161,7 @@ EOF
       [ -z "$pbi_id" ] && continue
       pbi_status="$(get_pbi_status "$pbi_id")"
       case "$pbi_status" in
-        done|awaiting_cross_review|cross_review) ;;
+        done|awaiting_cross_review|cross_review|in_progress_merge) ;;
         escalated)
           if [ ! -f ".scrum/pbi/$pbi_id/escalation-resolution.md" ]; then
             blocked_pipelines="${blocked_pipelines}${blocked_pipelines:+, }${pbi_id} (escalated, no resolution)"
@@ -176,7 +176,7 @@ $active_pipelines
 EOF
 
     if [ -n "$blocked_pipelines" ]; then
-      block_stop "PBI Pipeline phase: pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'done' / 'awaiting_cross_review' / 'cross_review' or 'escalated' (with resolution recorded) before stopping."
+      block_stop "Project phase 'pbi_pipeline_active': pipelines incomplete or unresolved: ${blocked_pipelines}. All PBI pipelines must be 'done' / 'awaiting_cross_review' / 'cross_review' / 'in_progress_merge' or 'escalated' (with resolution recorded) before stopping."
     fi
     allow_stop
     ;;
