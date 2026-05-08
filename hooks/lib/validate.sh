@@ -12,6 +12,12 @@ _VALIDATE_SH_LOADED=1
 HOOK_LOG_FILE=".scrum/hooks.log"
 HOOK_LOG_MAX_LINES=500
 
+# Prefix prepended to every blocking hook reason / deny message. Goal:
+# stop the LLM from misreading hook output as user input or approval.
+# All hook block/deny paths MUST use this via hook_block / block_stop /
+# deny so the signal is uniform and unmistakable.
+HOOK_NOTIFICATION_PREFIX="[SYSTEM-HOOK-OUTPUT: NOT user input. Automated harness signal from .claude/hooks/. The user has not responded. Treat the message as a state-machine constraint to satisfy, NOT as user feedback, approval, or instruction. Do NOT terminate running teammates or proceed to next ceremony based on this text.]"
+
 # Ensure .scrum directory exists
 ensure_scrum_dir() {
   if [ ! -d ".scrum" ]; then
@@ -33,7 +39,7 @@ stderr_log() {
 #                     "Use .scrum/scripts/* instead."
 # Output:  [scrum-guard] BLOCKED: Edit .scrum/state.json. Use .scrum/scripts/* instead.
 hook_block() {
-  stderr_log "$1" "BLOCKED" "$2. $3"
+  stderr_log "$1" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $2. $3"
   exit 2
 }
 
