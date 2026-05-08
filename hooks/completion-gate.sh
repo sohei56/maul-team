@@ -230,7 +230,11 @@ EOF
     if [ "$in_flight_total" -gt 0 ] || [ -n "$escalated_unresolved" ]; then
       msg="PBI pipeline active"
       if [ "$in_flight_total" -gt 0 ]; then
-        msg="${msg}: ${in_flight_total} in-flight (${in_flight_summary})"
+        # Teammates run via Agent tool — SubagentStart/Stop hooks do NOT
+        # fire for them, so in_flight_hint() is a no-op here. Inline the
+        # guidance directly so SM does not misread the block as failure
+        # and re-spawn the same Teammate.
+        msg="${msg}: ${in_flight_total} in-flight (${in_flight_summary}). Teammates work in worktrees — do NOT re-spawn. Verify via TaskGet (same session) or SendMessage probe before assuming failure. Re-spawn only after confirming termination AND missing artifact."
       fi
       if [ -n "$escalated_unresolved" ]; then
         msg="${msg}; escalated without resolution: ${escalated_unresolved}"

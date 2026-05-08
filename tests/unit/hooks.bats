@@ -405,6 +405,11 @@ teardown() {
   # in_progress_merge (terminal Dev status) and done (terminal) are excluded
   [[ "$output" != *"merge"* ]]
   [[ "$output" != *"pbi-001"* ]]
+  # Teammate guidance must be inlined: SubagentStart hook does not fire
+  # for Agent-tool spawns, so in_flight_hint() is a no-op here.
+  [[ "$output" == *"do NOT re-spawn"* ]]
+  [[ "$output" == *"TaskGet"* ]]
+  [[ "$output" == *"SendMessage"* ]]
 }
 
 @test "completion-gate.sh lists escalated PBI ids when resolution missing" {
