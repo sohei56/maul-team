@@ -102,7 +102,7 @@ apply_migration_with_args() {
     return 0
   fi
 
-  local tmp="${path}.tmp.$$"
+  local tmp; tmp="$(_make_tmp_path "$path")"
   printf '%s\n' "$after" > "$tmp"
 
   local err

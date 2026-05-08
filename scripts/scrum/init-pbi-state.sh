@@ -38,7 +38,7 @@ if [ -f "$PATHF" ]; then
 fi
 
 NOW="$(_iso_utc_now)"
-TMP="$PATHF.tmp.$$.${RANDOM}"
+TMP="$(_make_tmp_path "$PATHF")"
 jq -n --arg id "$PBI" --arg now "$NOW" '{
   pbi_id: $id,
   design_round: 0,

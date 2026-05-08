@@ -26,21 +26,7 @@ atomic_write() {
   mkdir -p "$SCRUM_LOCK_DIR"
   local lock_dir
   lock_dir="$SCRUM_LOCK_DIR/$(basename "$path").lock.d"
-  # Insert pid+epoch *before* the extension so the tmp file keeps its .json suffix
-  # (some validators, e.g. ajv-cli, require .json or treat the path as a module).
-  local dir_part base_part name_part ext_part
-  dir_part="$(dirname "$path")"
-  base_part="$(basename "$path")"
-  name_part="${base_part%.*}"
-  ext_part="${base_part##*.}"
-  local tmp_uniq="$$.${RANDOM}"
-  local tmp
-  if [ "$name_part" = "$ext_part" ]; then
-    # No extension — append a uniquifier directly.
-    tmp="${path}.tmp.${tmp_uniq}"
-  else
-    tmp="${dir_part}/${name_part}.tmp.${tmp_uniq}.${ext_part}"
-  fi
+  local tmp; tmp="$(_make_tmp_path "$path")"
   local now; now="$(_iso_utc_now)"
 
   _acquire_lock "$lock_dir"
@@ -77,6 +63,25 @@ _iso_utc_now() {
   # Mirrors hooks/lib/validate.sh::get_timestamp (authoritative). Kept inline to
   # avoid a circular dep between scripts/scrum/lib and hooks/lib.
   date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+# _make_tmp_path <target_path>
+# Build a uniquified tmp path that preserves the target's extension. ajv-cli
+# treats path-without-.json as a module ref, so callers about to validate must
+# use this to avoid spurious "module not found" failures.
+_make_tmp_path() {
+  local path="$1"
+  local dir_part base_part name_part ext_part tmp_uniq
+  dir_part="$(dirname "$path")"
+  base_part="$(basename "$path")"
+  name_part="${base_part%.*}"
+  ext_part="${base_part##*.}"
+  tmp_uniq="$$.${RANDOM}"
+  if [ "$name_part" = "$ext_part" ]; then
+    printf '%s\n' "${path}.tmp.${tmp_uniq}"
+  else
+    printf '%s\n' "${dir_part}/${name_part}.tmp.${tmp_uniq}.${ext_part}"
+  fi
 }
 
 _acquire_lock() {
