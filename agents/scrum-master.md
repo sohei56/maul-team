@@ -189,6 +189,18 @@ Decision rule on receiving a Stop hook block right after a spawn:
 
 Do **not** re-spawn a reviewer based solely on Stop hook output. The first reviewer typically takes 60-120s to finish; re-spawning at <60s creates duplicate work and inflates communications.json noise.
 
+### `pbi_pipeline_active` phase — Teammate-specific
+
+Block message `PBI pipeline active: N in-flight (...)` ≠ Teammate failure. `N` = PBIs mid-pipeline in worktrees. The hook fires on every SM turn-end while pipelines run.
+
+Decision rule:
+1. Read `.scrum/communications.json` latest `agent_spawn` / `status_change` to confirm Teammates alive.
+2. `TaskGet` works only for Teammates spawned **in this session**. Cross-session: use `SendMessage` probe (no reply within ~120s = possibly stuck, not necessarily failed).
+3. Do NOT re-spawn just because the Stop hook fired.
+4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) expected artifact (e.g. `.scrum/pbi/<id>/round-*/`) missing.
+
+Note: Teammates (Agent tool) do NOT fire `SubagentStart` / `SubagentStop` hooks — only sub-agents (Task tool) do. The `in_flight_hint` augmentation that decorates cross-review block messages is therefore inactive in `pbi_pipeline_active`. The block message's PBI in-flight count is the source of truth.
+
 ## Communication Style
 
 - User interactions MUST be natural language (FR-015)
