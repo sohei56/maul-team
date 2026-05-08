@@ -9,6 +9,7 @@
 #   set-backlog-item-field.sh <pbi-id> implementer_id <dev-NNN-sN|null>
 #   set-backlog-item-field.sh <pbi-id> review_doc_path <path|null>
 #   set-backlog-item-field.sh <pbi-id> catalog_targets <json-array>
+#   set-backlog-item-field.sh <pbi-id> priority <non-negative-integer|null>
 #
 # `catalog_targets` takes a JSON string literal (e.g.
 # '["docs/design/specs/foo.md","docs/design/specs/bar.md"]'); the wrapper
@@ -59,10 +60,17 @@ case "$FIELD" in
       fail E_INVALID_ARG "catalog_targets: must be a JSON array of strings"
     fi
     ;;
+  priority)
+    case "$VALUE" in
+      null)              VALUE_JSON="null" ;;
+      ''|*[!0-9]*)       fail E_INVALID_ARG "bad priority: $VALUE (expected non-negative integer or null)" ;;
+      *)                 VALUE_JSON="$VALUE" ;;
+    esac
+    ;;
   status)
     fail E_INVALID_ARG "use update-backlog-status.sh to write status (12-value enum has its own wrapper)"
     ;;
-  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets)" ;;
+  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority)" ;;
 esac
 
 PATHF=".scrum/backlog.json"

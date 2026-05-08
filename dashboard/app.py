@@ -217,22 +217,37 @@ def read_json_validated(path: Path) -> dict | None:
     When ``jsonschema`` is unavailable (import failed at module load), this
     delegates unconditionally to ``read_json``.
     """
+    data, _ = read_json_with_validation_status(path)
+    return data
+
+
+def read_json_with_validation_status(path: Path) -> tuple[dict | None, str | None]:
+    """Variant of read_json_validated that also surfaces a validation error
+    string so panels can render a visible banner instead of degrading to an
+    empty view (which makes schema regressions hard to diagnose).
+
+    Returns ``(data, None)`` on success and ``(None, message)`` when the file
+    exists but fails JSON parsing or schema validation. ``(None, None)`` when
+    the file is simply missing or schema validation is disabled.
+    """
     schema_name = _SCHEMA_FOR_FILE.get(path.name)
     if schema_name is None or not _SCHEMA_VALIDATION:
         result = read_json(path)
-        return result if isinstance(result, dict) else None
+        return (result if isinstance(result, dict) else None, None)
     try:
         if not path.exists():
-            return None
+            return (None, None)
         data = json.loads(path.read_text(encoding="utf-8"))
         schema = json.loads((SCRUM_STATE_DIR / schema_name).read_text(encoding="utf-8"))
         _jsonschema_validate(data, schema)
-        return data if isinstance(data, dict) else None
+        return (data if isinstance(data, dict) else None, None)
     except ValidationError as exc:
         logger.warning("Schema validation failed for %s: %s", path.name, exc.message)
-        return None
-    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-        return None
+        return (None, f"schema: {exc.message}")
+    except json.JSONDecodeError as exc:
+        return (None, f"invalid JSON: {exc.msg}")
+    except (OSError, UnicodeDecodeError) as exc:
+        return (None, f"read error: {exc}")
 
 
 class SprintOverview(Static):
@@ -329,9 +344,24 @@ class UnifiedPbiBoard(DataTable):
         self.update_content()
 
     def update_content(self) -> None:
-        backlog = read_json_validated(SCRUM_DIR / "backlog.json")
+        backlog, backlog_error = read_json_with_validation_status(SCRUM_DIR / "backlog.json")
         sprint = read_json_validated(SCRUM_DIR / "sprint.json")
         self.clear()
+
+        # Surface schema violations so an "empty board" never silently masks a
+        # malformed backlog.json (e.g. wrong type for a single field).
+        if backlog_error:
+            truncated = backlog_error if len(backlog_error) <= 80 else backlog_error[:77] + "..."
+            self.add_row(
+                "[red]⚠[/red]",
+                f"[red]backlog.json invalid — {truncated}[/red]",
+                "[red]see .scrum/dashboard.log[/red]",
+                "-",
+                "-",
+                "-",
+                key="__backlog_invalid__",
+            )
+            return
 
         # PBI → developer (lowercase keys for case-insensitive lookup)
         pbi_impl_map: dict[str, str] = {}

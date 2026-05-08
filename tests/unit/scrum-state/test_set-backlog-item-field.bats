@@ -95,6 +95,30 @@ field_value() {
   [[ "$output" == *"update-backlog-status.sh"* ]]
 }
 
+@test "set-backlog-item-field: sets priority integer" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 priority 3
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 priority)" = "3" ]
+}
+
+@test "set-backlog-item-field: clears priority via null" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 priority null
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 priority)" = "null" ]
+}
+
+@test "set-backlog-item-field: rejects priority non-integer string" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 priority high
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad priority"* ]]
+}
+
+@test "set-backlog-item-field: rejects priority negative" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 priority -1
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad priority"* ]]
+}
+
 @test "set-backlog-item-field: rejects unknown field" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 wibble x
   [ "$status" -eq 64 ]
