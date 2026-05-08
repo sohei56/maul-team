@@ -24,7 +24,7 @@ TEST_RESULTS_FILE=".scrum/test-results.json"
 block_stop() {
   local reason="$1"
   log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-  jq -n --arg r "$reason" '{"reason": $r}' >&2
+  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}" '{"reason": $r}' >&2
   exit 2
 }
 

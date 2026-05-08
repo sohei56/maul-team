@@ -34,7 +34,7 @@ allow() {
 deny() {
   local reason="$1"
   log_hook "status-gate" "WARN" "Denied: $reason"
-  jq -n --arg r "$reason" '{"decision": "deny", "reason": $r}'
+  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} ${reason}" '{"decision": "deny", "reason": $r}'
   exit 0
 }
 

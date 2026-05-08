@@ -61,8 +61,7 @@ case "$agent" in
     case "$tool" in
       Read|Write|Edit)
         if matches_any_glob "$rel" "${impl_globs[@]}"; then
-          stderr_log "path-guard" "BLOCKED" "pbi-ut-author cannot $tool $rel (impl path)"
-          exit 2
+          hook_block "path-guard" "pbi-ut-author cannot $tool $rel (impl path)" "UT must remain black-box; do not access impl files."
         fi
         ;;
     esac
@@ -71,8 +70,7 @@ case "$agent" in
     case "$tool" in
       Write|Edit)
         if matches_any_glob "$rel" "${test_globs[@]}"; then
-          stderr_log "path-guard" "BLOCKED" "pbi-implementer cannot $tool $rel (test path)"
-          exit 2
+          hook_block "path-guard" "pbi-implementer cannot $tool $rel (test path)" "Implementer cannot modify tests; UT author owns test paths."
         fi
         ;;
     esac
