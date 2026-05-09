@@ -34,6 +34,21 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
+@test "blocks: git -C merge" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git -C .scrum/worktrees/pbi-001 merge main\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+@test "blocks: git --git-dir rebase" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git --git-dir=.git --work-tree=. rebase main\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+@test "blocks: git -c branch create" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git -c color.ui=always branch feature-x\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
 @test "allows: git status" {
   run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git status\"}}' | $HOOK"
   [ "$status" -eq 0 ]

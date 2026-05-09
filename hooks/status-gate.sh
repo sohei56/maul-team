@@ -93,14 +93,14 @@ is_enabled_in_config() {
 }
 
 # Extract target file path from tool_input JSON.
-# For Write/Edit tools, the path is in "file_path".
+# For Write/Edit/MultiEdit tools, the path is in "file_path".
 # For Bash tool, we cannot reliably parse — return empty.
 get_target_path() {
   local tool_name="$1"
   local tool_input="$2"
 
   case "$tool_name" in
-    Write|Edit)
+    Write|Edit|MultiEdit)
       echo "$tool_input" | jq -r '.file_path // empty' 2>/dev/null
       ;;
     *)
@@ -118,10 +118,10 @@ hook_event="$(cat)"
 
 tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
 
-# Fast path: only Write/Edit tools are gated. All others→allow immediately.
+# Fast path: only mutating file tools are gated. All others→allow immediately.
 # This avoids reading state.json, catalog.md, catalog-config.json on every
 # Read/Grep/Glob/Bash call — the biggest hook overhead source.
-if [ "$tool_name" != "Write" ] && [ "$tool_name" != "Edit" ]; then
+if [ "$tool_name" != "Write" ] && [ "$tool_name" != "Edit" ] && [ "$tool_name" != "MultiEdit" ]; then
   allow
 fi
 
@@ -152,7 +152,7 @@ fi
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# From here: only Write/Edit tools reach this code (fast path above).
+# From here: only Write/Edit/MultiEdit tools reach this code (fast path above).
 # ---------------------------------------------------------------------------
 
 # No target path determinable (e.g. Bash tool) — allow

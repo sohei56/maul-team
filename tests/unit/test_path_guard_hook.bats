@@ -37,6 +37,11 @@ payload() {
   [ "$status" -eq 2 ]
 }
 
+@test "blocks pbi-ut-author from multi-editing impl path" {
+  run bash -c "echo '$(payload pbi-ut-author MultiEdit src/auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+}
+
 @test "allows pbi-ut-author to read test path" {
   run bash -c "echo '$(payload pbi-ut-author Read tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 0 ]
@@ -49,6 +54,11 @@ payload() {
 
 @test "blocks pbi-implementer from writing test path" {
   run bash -c "echo '$(payload pbi-implementer Write tests/test_auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+}
+
+@test "blocks pbi-implementer from multi-editing test path" {
+  run bash -c "echo '$(payload pbi-implementer MultiEdit tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 2 ]
 }
 
@@ -65,6 +75,16 @@ payload() {
 @test "passes through unknown agent" {
   run bash -c "echo '$(payload other-agent Read src/auth.py)' | $HOOK"
   [ "$status" -eq 0 ]
+}
+
+@test "blocks Bash for pbi-ut-author" {
+  run bash -c "echo '{\"agent_name\":\"pbi-ut-author\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cat src/auth.py\"}}' | $HOOK"
+  [ "$status" -eq 2 ]
+}
+
+@test "blocks Bash for pbi-implementer" {
+  run bash -c "echo '{\"agent_name\":\"pbi-implementer\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"tee tests/test_auth.py\"}}' | $HOOK"
+  [ "$status" -eq 2 ]
 }
 
 @test "passes through when .scrum/config.json missing" {

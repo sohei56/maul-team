@@ -20,35 +20,64 @@ case "${CMD#"${CMD%%[![:space:]]*}"}" in
   .scrum/scripts/*) exit 0 ;;
 esac
 
+strip_git_global_options() {
+  local rest="$1"
+  while :; do
+    case "$rest" in
+      git[[:space:]]-C[[:space:]]*)
+        rest="${rest#git }"
+        rest="${rest#-C }"
+        rest="${rest#* }"
+        rest="git ${rest#"${rest%%[![:space:]]*}"}"
+        ;;
+      git[[:space:]]--git-dir=* )
+        rest="git ${rest#git --git-dir=* }"
+        ;;
+      git[[:space:]]--work-tree=* )
+        rest="git ${rest#git --work-tree=* }"
+        ;;
+      git[[:space:]]--namespace=* )
+        rest="git ${rest#git --namespace=* }"
+        ;;
+      git[[:space:]]-c[[:space:]]*)
+        rest="${rest#git }"
+        rest="${rest#-c }"
+        rest="${rest#* }"
+        rest="git ${rest#"${rest%%[![:space:]]*}"}"
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+  printf '%s' "$rest"
+}
+
+CANON_CMD="$(strip_git_global_options "${CMD#"${CMD%%[![:space:]]*}"}")"
+
 # Patterns: any of these in the command is a hard block.
 # We match on word-boundaries to avoid false positives ("git status" should pass).
 block() { hook_block "no-branch-ops" "$1" "Use .scrum/scripts/* wrappers instead."; }
 
-# Pre-verb global options that retarget which repo/worktree git operates on.
-# Without consuming these, `git -C <path> merge` (and --git-dir / --work-tree
-# variants) silently bypass the verb regex. Each block rule prepends this
-# optional segment so the bypass closes for every verb at once.
-GIT_PRE_OPT='([[:space:]]+(-C[[:space:]]+[^[:space:]]+|--git-dir[= ][^[:space:]]+|--work-tree[= ][^[:space:]]+))*'
-
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+checkout[[:space:]]+-b\b"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+checkout[[:space:]]+-b\b'; then
   block "git checkout -b"
 fi
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+switch[[:space:]]+-c\b"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+switch[[:space:]]+-c\b'; then
   block "git switch -c"
 fi
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+branch[[:space:]]+[A-Za-z0-9_][A-Za-z0-9._/-]*($|[[:space:];|&])"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+branch[[:space:]]+[A-Za-z0-9_][A-Za-z0-9._/-]*($|[[:space:];|&])'; then
   # `git branch <name>` (creates). Listing/management flags (`git branch`,
   # `git branch -a`, `git branch -d <name>`, `git branch --list`) start with
   # `-` after the whitespace and pass through.
   block "git branch <new-name>"
 fi
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+merge\b"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+merge\b'; then
   block "git merge"
 fi
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+push\b"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+push\b'; then
   block "git push"
 fi
-if echo "$CMD" | grep -Eq "(^|[[:space:];|&])git${GIT_PRE_OPT}[[:space:]]+rebase\b"; then
+if echo "$CANON_CMD" | grep -Eq '^git[[:space:]]+rebase\b'; then
   block "git rebase"
 fi
 

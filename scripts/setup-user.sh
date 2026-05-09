@@ -238,7 +238,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -247,7 +247,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Read|Write|Edit",
+        "matcher": "Read|Write|Edit|MultiEdit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -258,7 +258,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|Bash|Agent",
+        "matcher": "Write|Edit|MultiEdit|Agent",
         "hooks": [
           {
             "type": "command",

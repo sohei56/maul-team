@@ -224,6 +224,21 @@ teardown() {
   [ "$decision" = "deny" ]
 }
 
+@test "status-gate.sh denies source MultiEdit during sprint_planning" {
+  mkdir -p .scrum
+  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
+
+  local event_json
+  event_json='{"tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
+
+  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
+  assert_success
+
+  local decision
+  decision="$(echo "$output" | jq -r '.decision')"
+  [ "$decision" = "deny" ]
+}
+
 @test "status-gate.sh denies source Edit during retrospective" {
   mkdir -p .scrum
   jq -n '{"phase": "retrospective", "current_sprint_id": "sprint-001"}' > .scrum/state.json
@@ -351,6 +366,16 @@ teardown() {
   local decision
   decision="$(echo "$output" | jq -r '.decision')"
   [ "$decision" = "allow" ]
+}
+
+@test "setup-user.sh settings.json template includes MultiEdit in status-gate matcher" {
+  run grep -q '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_success
+}
+
+@test "setup-user.sh settings.json template excludes Bash from dashboard-event matcher" {
+  run grep -q '"matcher": "Write|Edit|MultiEdit|Agent"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_success
 }
 
 # ---------------------------------------------------------------------------
@@ -612,12 +637,12 @@ teardown() {
   assert_output "Write|Edit"
 }
 
-@test "setup-user.sh settings.json template includes Write|Edit matcher for PreToolUse" {
+@test "setup-user.sh settings.json template includes Write|Edit|MultiEdit matcher for PreToolUse" {
   # Validate the heredoc template source directly — no prereqs required
   run grep -A1 '"PreToolUse"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
   # The matcher line must appear somewhere after PreToolUse in the file
-  run grep '"matcher": "Write|Edit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 
