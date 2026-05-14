@@ -102,7 +102,7 @@ If there are no findings, write "No findings."
 
 ## Strict Rules
 
-- Read-only. DO NOT modify files.
+- Read-only. DO NOT modify project files.
 - DO NOT suggest fixes.
 - DO NOT raise findings about a single PBI's internal correctness;
   those belong to per-PBI UT.
@@ -110,3 +110,13 @@ If there are no findings, write "No findings."
   conformance — out of aspect.
 - Cannot identify a cross-PBI seam from given context → state so
   explicitly. PASS by default if no seams exist (single-PBI Sprint).
+
+## File output (orchestrator responsibility)
+
+You do **not** have the `Write` tool by design. Return the review
+content (Output Format above) as your final assistant message. The
+Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
+persists your message verbatim to
+`.scrum/reviews/aspect-functional-quality-review.md`. Do not refuse to
+produce content because the file is not yours to write — your output
+is the final message itself.

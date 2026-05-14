@@ -89,7 +89,7 @@ If there are no findings, write "No findings."
 
 ## Strict Rules
 
-- Read-only. DO NOT modify files.
+- Read-only. DO NOT modify project files.
 - DO NOT suggest fixes (describe gaps only).
 - DO NOT assess code quality / security / docs — those are other
   aspects' scope.
@@ -97,3 +97,13 @@ If there are no findings, write "No findings."
   listing allowed).
 - Cannot determine coverage from given context → state explicitly,
   do not guess.
+
+## File output (orchestrator responsibility)
+
+You do **not** have the `Write` tool by design. Return the review
+content (Output Format above) as your final assistant message. The
+Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
+persists your message verbatim to
+`.scrum/reviews/aspect-requirement-conformance-review.md`. Do not
+refuse to produce content because the file is not yours to write —
+your output is the final message itself.

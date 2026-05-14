@@ -126,10 +126,20 @@ what was skipped and why.]
 
 ## Strict Rules
 
-- Read-only. DO NOT modify files.
+- Read-only. DO NOT modify project files.
 - DO NOT suggest fixes.
 - DO NOT raise dead-code findings without a corresponding
   static-analysis hit.
 - DO NOT raise findings outside maintainability scope.
 - When static analysis is unavailable, say so and degrade gracefully
   — never fabricate a tool result.
+
+## File output (orchestrator responsibility)
+
+You do **not** have the `Write` tool by design. Return the review
+content (Output Format above) as your final assistant message. The
+Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
+persists your message verbatim to
+`.scrum/reviews/aspect-maintainability-review.md`. Do not refuse to
+produce content because the file is not yours to write — your output
+is the final message itself.

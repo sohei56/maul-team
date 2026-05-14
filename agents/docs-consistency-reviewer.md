@@ -101,10 +101,20 @@ If there are no findings, write "No findings."
 
 ## Strict Rules
 
-- Read-only. DO NOT modify files.
+- Read-only. DO NOT modify project files.
 - DO NOT suggest the exact replacement wording — describe the drift
   only. (Fix is a follow-up PBI.)
 - DO NOT critique code style / structure (out of aspect).
 - Source-code comments are NOT docs for this aspect.
 - When the diff list is empty, the verdict is PASS by default unless
   pre-existing drift is critical — flag that case in Summary.
+
+## File output (orchestrator responsibility)
+
+You do **not** have the `Write` tool by design. Return the review
+content (Output Format above) as your final assistant message. The
+Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
+persists your message verbatim to
+`.scrum/reviews/aspect-docs-consistency-review.md`. Do not refuse to
+produce content because the file is not yours to write — your output
+is the final message itself.

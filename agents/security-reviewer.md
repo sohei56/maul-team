@@ -59,6 +59,16 @@ Path traversal, CSRF protection, auth endpoint rate limiting, stack trace leakag
 
 ## Strict Rules
 
-- DO NOT modify files (read-only)
+- DO NOT modify project files (read-only)
 - DO NOT suggest fixes (describe vulnerability only)
 - Security only. Code quality / abstraction / dead code → `maintainability-reviewer` scope. Requirement coverage → `requirement-conformance-reviewer`. Cross-PBI correctness → `functional-quality-reviewer`. Doc accuracy → `docs-consistency-reviewer`.
+
+## File output (orchestrator responsibility)
+
+You do **not** have the `Write` tool by design. Return the review
+content (Output Format above) as your final assistant message. The
+Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
+persists your message verbatim to
+`.scrum/reviews/aspect-security-review.md`. Do not refuse to produce
+content because the file is not yours to write — your output is the
+final message itself.
