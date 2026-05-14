@@ -89,6 +89,10 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
 - `pbi-implementer` ‖ `pbi-ut-author` — Impl Round Step 1 (parallel pair)
 - `codex-impl-reviewer` ‖ `codex-ut-reviewer` — PBI Review Stage (parallel pair)
 
+All three `codex-*-reviewer` spawns share the stall fallback protocol
+in `references/reviewer-stall-fallback.md` (2-min stall detect →
+single Explore-agent retry → escalate as `reviewer_unavailable`).
+
 ## State management
 
 PBI internal state: `.scrum/pbi/<pbi-id>/state.json` (round counters,

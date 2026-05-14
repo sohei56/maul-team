@@ -50,6 +50,11 @@ Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md>)
 Agent(subagent_type="codex-ut-reviewer", prompt=<from sub-agent-prompts.md>)
 ```
 
+Apply `reviewer-stall-fallback.md` per reviewer (2-min stall detect
+→ single Explore-agent retry → escalate as `reviewer_unavailable` if
+both fail). The two reviewers are independent — fall back on either
+without affecting the other.
+
 Read review-r{n}.md from each, parse verdicts and findings.
 
 ```bash

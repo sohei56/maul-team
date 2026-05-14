@@ -17,7 +17,9 @@ during this stage is `in_progress_design`.
 
 3. **Step 2: Spawn codex-design-reviewer** (single Agent call)
    - Build prompt from `sub-agent-prompts.md` § codex-design-reviewer
-   - Wait for completion
+   - Apply `reviewer-stall-fallback.md` (2-min stall detect →
+     single Explore-agent retry → escalate as `reviewer_unavailable`
+     if both fail)
    - Read .scrum/pbi/<pbi-id>/design/review-r{n}.md → parse Verdict.
 
 4. **Step 3: Termination gate** (see termination-gates.md)
