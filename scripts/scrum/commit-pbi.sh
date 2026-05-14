@@ -22,7 +22,13 @@ assert_pbi_worktree_branch "$PBI_WT" "$PBI_BRANCH"
 # main repo SSOT. Without this, `add -A` would stage it (gitignore's `.scrum/`
 # pattern matches directories only, not symlinks of git type 120000) and the
 # symlink would propagate to main on merge.
-git -C "$PBI_WT" add -A -- ':!.scrum'
+#
+# Use two-step (add-all then unstage `.scrum`) instead of `':!.scrum'`. The
+# pathspec form returns rc=1 under git 2.36+ when `.scrum` is already gitignored,
+# which aborts the script under `set -euo pipefail` even though nothing is
+# wrong. Two-step is robust whether `.scrum` is tracked, ignored, or absent.
+git -C "$PBI_WT" add -A
+git -C "$PBI_WT" reset --quiet HEAD -- .scrum 2>/dev/null || true
 if git -C "$PBI_WT" diff --cached --quiet; then
   printf '[commit-pbi] nothing to commit\n'
   exit 0
