@@ -69,6 +69,34 @@ PATTERN="$(jq -r '.pragma_pattern' "$CFG")"
 # text. Build pragma-audit-r{n}.json per spec 6.6.
 ```
 
+(f) **AC coverage map (written by pbi-ut-author, not the conductor)**
+
+`.scrum/pbi/$PBI_ID/ut/ac-coverage-r{n}.json` is emitted by
+`pbi-ut-author` at the end of each impl+UT Round (see
+`agents/pbi-ut-author.md` § "AC coverage map" for full schema and
+rules). Shape (summary):
+
+```json
+{
+  "pbi_id": "pbi-NNN",
+  "round": 1,
+  "criteria": [
+    {
+      "index": 1,
+      "text": "<verbatim AC text>",
+      "tests": ["<file>::<test-name>"]
+    }
+  ]
+}
+```
+
+This file is the input to the AC coverage gate that the conductor
+evaluates in Step 4 of `impl-ut-stage.md` § "Aggregate Pass criteria"
+(every `criteria[].tests` non-empty AND no listed test id appears in
+`test-results-r{n}.json` `failures[]`). It is also an input to
+`codex-ut-reviewer` (Review Criterion #2) and to the Sprint-end
+`requirement-conformance-reviewer`.
+
 ## Pass criteria evaluation
 
 ```bash

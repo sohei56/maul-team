@@ -51,6 +51,7 @@ disable-model-invocation: false
 | `catalog_lock_timeout` | Check `.scrum/locks/` for stale lock holders. If holder Developer is dead, force-release and retry (status → `in_progress_design`). Else human-escalate. |
 | `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). For structural conflicts, human-escalate. |
 | `merge_artifact_missing` | Confirm whether files were intentionally removed. If unintentional, ask Developer to re-add. If intentional, human-escalate to update `paths_touched`. |
+| `merge_regression` | Read `.scrum/pbi/<pbi-id>/merge-regression.log` to identify the failing test(s). If the failure is in the PBI's own scope, present user with options [split / redesign / hold]. If it crosses PBI boundaries (regression in unrelated code), human-escalate — likely needs PO decision on park vs. revert. |
 
 ## Steps
 

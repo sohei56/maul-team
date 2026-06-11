@@ -19,6 +19,7 @@
             "enum": [
               "missing_requirement", "scope_creep", "unclear_interface",
               "inconsistent_with_catalog", "inconsistent_internal", "missing_error_handling",
+              "missing_ac_mapping",
               "incorrect_behavior", "naming", "error_handling",
               "missing_validation", "unclear_intent", "dead_code",
               "missing_test_for_acceptance", "missing_branch_coverage", "redundant_test",

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # scripts/scrum/merge-pbi.sh — SM-side merge orchestrator.
-# Phases: pre-check → no-ff merge → artifact verify → record → cleanup.
-# Failure modes call mark-pbi-merge-failure.sh and roll back main.
-# Quality verification (lint/test) is performed Sprint-end by cross-review,
-# not per-PBI merge.
+# Phases: pre-check → no-ff merge → artifact verify → regression gate →
+# record → cleanup. Failure modes call mark-pbi-merge-failure.sh and roll
+# back main. The regression gate runs the command at
+# `.scrum/config.json.merge_regression.command` (absent → gate skipped
+# with WARN); the full Sprint-end lint/quality review still lives in
+# cross-review.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # Merge takes longer than atomic_write (git ops + artifact verify); raise the
@@ -87,6 +89,26 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   git reset --hard "$PRE_HEAD" >/dev/null \
     || fail E_INVALID_ARG "CRITICAL: rollback failed after artifact_missing — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD)"
   fail E_INVALID_ARG "artifact_missing: $CSV"
+fi
+
+# Regression gate: run a project-configured command from the main repo
+# root after the merge commit lands. Absent/empty/null → skip with WARN.
+REG_LOG=".scrum/pbi/$PBI/merge-regression.log"
+REG_CMD=""
+if [ -f .scrum/config.json ]; then
+  REG_CMD="$(jq -r '.merge_regression.command // ""' .scrum/config.json)"
+fi
+if [ -z "$REG_CMD" ] || [ "$REG_CMD" = "null" ]; then
+  printf '[merge-pbi] WARN: no merge regression command configured — skipping regression gate\n'
+else
+  if ! bash -c "$REG_CMD" >"$REG_LOG" 2>&1; then
+    # Record the failure BEFORE rolling back so state stays consistent
+    # even if the reset fails (mirrors artifact_missing ordering).
+    "$HERE/mark-pbi-merge-failure.sh" "$PBI" regression "$PRE_HEAD" "$REG_LOG"
+    git reset --hard "$PRE_HEAD" >/dev/null \
+      || fail E_INVALID_ARG "CRITICAL: rollback failed after regression — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD)"
+    fail E_INVALID_ARG "regression: tests failed after merge — see $REG_LOG"
+  fi
 fi
 
 MERGED_SHA="$(git rev-parse HEAD)"

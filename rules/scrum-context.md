@@ -136,6 +136,50 @@ Specific applications:
   or raw `jq` writes — the hooks will block you and the failure
   message is the diagnostic.
 
+### What counts as "must escalate" vs "guess ok"
+
+Not every unknown warrants stopping the Round. Apply this filter:
+
+| Must escalate (stop, raise, wait for PO answer) | Guess ok (proceed; note in `findings` only if risky) |
+|---|---|
+| Function/method/API signature, parameter semantics | Local variable names, internal helper decomposition |
+| Business rules: conditions, thresholds, ordering, state transitions | Error message wording (user-facing copy details) |
+| I/O contract: return type/shape, error conditions, exceptions raised | Log levels (info vs debug, when not specified) |
+| Persistence schema (column names, types, constraints) | Test names, fixture data values, AAA arrangement style |
+| Authentication/authorization boundaries | Code comments |
+| Acceptance-criterion → interface mapping (which signature satisfies which AC) | Inline formatting (whitespace, import order) |
+
+**Rule of thumb**: if guessing wrong would change observable behavior,
+break a downstream contract, or require a code rewrite to fix later,
+**escalate**. If wrong guesses are reversible by trivial edits, proceed.
+
+When in doubt, escalate — the cost of a PO clarification round is
+lower than the cost of a wrong-but-confident artifact landing in
+cross-review.
+
+### Escalation route (do not invent new ones)
+
+```
+pbi-designer / pbi-implementer / pbi-ut-author
+        │  raises "spec unclear: <question>"
+        ▼
+   Developer (conductor)
+        │  if Developer cannot answer from design doc + requirements,
+        │  forwards via SendMessage with prefix [<pbi-id>] SPEC_QUESTION
+        ▼
+   Scrum Master
+        │  consults PO (the user) via main session
+        ▼
+   PO answers → SM relays back → Developer relays to sub-agent →
+   sub-agent resumes the current Round
+```
+
+This is a synchronous path: the spawning sub-agent should end its
+turn with the question in `findings[]` and a `next_actions` entry
+naming the unresolved spec point, rather than emitting a guessed
+artifact. The Round is not "complete" until the question is
+answered or the PBI is reassigned.
+
 In reports, **separate fact from interpretation**: "tests fail with
 `AssertionError at line 42`" is a fact; "the impl is probably wrong"
 is interpretation. Both are useful — labeled differently.

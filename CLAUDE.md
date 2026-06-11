@@ -121,9 +121,10 @@ gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
 `merge_failure`, `merge_failure_count`); the legacy `phase` field
 was removed in v2, with all PBI lifecycle now driven by the 12-value
 `backlog.json.items[].status` enum. Merge-failure detail is preserved
-via `pbi-state.json.merge_failure.kind ∈ {conflict, artifact_missing}`
-plus `escalation_reason ∈ {merge_conflict, merge_artifact_missing}`
-when 3 consecutive failures flip status to `escalated`. The sprint
+via `pbi-state.json.merge_failure.kind ∈ {conflict, artifact_missing,
+regression}` plus `escalation_reason ∈ {merge_conflict,
+merge_artifact_missing, merge_regression}` when 3 consecutive failures
+flip status to `escalated`. The sprint
 schema gained `base_sha` and `base_sha_captured_at`.
 
 ## Git workflow
@@ -142,11 +143,12 @@ and notify SM `[<pbi-id>] PBI_READY_TO_MERGE`.
 
 SM merges per-PBI immediately by running the `pbi-merge` skill
 (see [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md) for
-the full protocol: `--no-ff` merge, `paths_touched` verification,
-SendMessage matrix for `conflict` / `artifact_missing`, and
-3-strike escalation to `pbi-escalation-handler`). Quality
-verification (lint/test) is performed Sprint-end by `cross-review`,
-not per-PBI merge.
+the full protocol: `--no-ff` merge, `paths_touched` verification, a
+per-merge regression gate that runs
+`.scrum/config.json.merge_regression.command` (skipped with WARN when
+unset), SendMessage matrix for `conflict` / `artifact_missing` /
+`regression`, and 3-strike escalation to `pbi-escalation-handler`).
+The full Sprint-end lint/quality review still runs in `cross-review`.
 
 In **deployed target projects** (registered via `setup-user.sh`), the
 hook `pre-tool-use-no-branch-ops.sh` blocks raw `git checkout -b`,

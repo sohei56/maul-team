@@ -2,6 +2,7 @@
 # scripts/scrum/mark-pbi-merge-failure.sh — record a merge failure attempt.
 # Args: <pbi-id> <kind> <pre_head_sha> <detail>
 #   kind=conflict|artifact_missing → detail is comma-separated paths
+#   kind=regression               → detail is the regression log path
 # Increments merge_failure_count; on count=3 escalates (status=escalated +
 # escalation_reason mapped from kind). Below 3, leaves backlog status
 # untouched (typically already in_progress_merge from mark-pbi-ready-to-merge).
@@ -18,7 +19,7 @@ source "$HERE/lib/queries.sh"
 [ "$#" -eq 4 ] || fail E_INVALID_ARG "usage: mark-pbi-merge-failure.sh <pbi-id> <kind> <pre-head-sha> <detail>"
 PBI="$1"; KIND="$2"; PRE="$3"; DETAIL="$4"
 case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
-case "$KIND" in conflict|artifact_missing) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
+case "$KIND" in conflict|artifact_missing|regression) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
 assert_hex_sha pre-head-sha "$PRE"
 
 STATE=".scrum/pbi/$PBI/state.json"
@@ -35,6 +36,8 @@ MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
 case "$KIND" in
   conflict)          ESC_REASON="merge_conflict" ;;
   artifact_missing)  ESC_REASON="merge_artifact_missing" ;;
+  regression)        ESC_REASON="merge_regression" ;;
+  *)                 fail E_INVALID_ARG "bad kind: $KIND" ;;
 esac
 
 if [ "$NEW_COUNT" -ge 3 ]; then

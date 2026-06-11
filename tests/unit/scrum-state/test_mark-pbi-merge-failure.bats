@@ -29,10 +29,22 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = "in_progress_merge" ]
 }
 
-@test "mark-failure: rejects regression kind (removed in dead-path cleanup)" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 regression abcdef0 "anything"
+@test "mark-failure: rejects unknown kind" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 bogus abcdef0 "anything"
   [ "$status" -ne 0 ]
   [[ "$output" == *"bad kind"* ]]
+}
+
+@test "mark-failure: 3rd consecutive regression → reason=merge_regression" {
+  jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 regression abcdef0 ".scrum/pbi/pbi-001/merge-regression.log"
+  [ "$status" -eq 0 ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "merge_regression" ]
+  run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "regression" ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
 }
 
 @test "mark-failure: 3rd consecutive conflict escalates with reason=merge_conflict" {

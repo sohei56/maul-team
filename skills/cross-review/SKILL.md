@@ -46,6 +46,8 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
   - `.scrum/pbi/<pbi-id>/impl/review-r{last}.md`
   - `.scrum/pbi/<pbi-id>/ut/review-r{last}.md`
   - `.scrum/pbi/<pbi-id>/metrics/coverage-r{last}.json`
+  - `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{last}.json` (AC → test
+    map; consumed by `requirement-conformance-reviewer`)
 - Reviewer agent definitions:
   - `agents/requirement-conformance-reviewer.md`
   - `agents/functional-quality-reviewer.md`
@@ -190,7 +192,10 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
    - `requirement-conformance-reviewer` → `requirements.md`,
      `docs/design/specs/**` (touched), Sprint PBI summary (id, title,
      `acceptance_criteria`, `paths_touched`), Sprint-wide source path
-     list. SM persists final message to
+     list, per-PBI `.scrum/pbi/<pbi-id>/design/design.md` (for the
+     AC Mapping section) and
+     `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{last}.json` (the AC →
+     test evidence). SM persists final message to
      `.scrum/reviews/aspect-requirement-conformance-review.md`.
    - `functional-quality-reviewer` → same Sprint summary + source
      list, with explicit reminder that scope is **cross-PBI seams

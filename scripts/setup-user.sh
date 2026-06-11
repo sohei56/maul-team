@@ -221,7 +221,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-context.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-context.sh"
           }
         ]
       }
@@ -232,7 +232,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-tool-use-scrum-state-guard.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-scrum-state-guard.sh"
           }
         ]
       },
@@ -241,7 +241,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-tool-use-no-branch-ops.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-no-branch-ops.sh"
           }
         ]
       },
@@ -250,7 +250,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/status-gate.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/status-gate.sh"
           }
         ]
       },
@@ -259,7 +259,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-tool-use-path-guard.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-path-guard.sh"
           }
         ]
       }
@@ -270,7 +270,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -280,11 +280,11 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/completion-gate.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/completion-gate.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -294,11 +294,11 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/quality-gate.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/quality-gate.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -308,7 +308,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -318,7 +318,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -328,7 +328,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -338,7 +338,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-context.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-context.sh"
           }
         ]
       }
@@ -348,11 +348,11 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/stop-failure.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-failure.sh"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -362,7 +362,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }

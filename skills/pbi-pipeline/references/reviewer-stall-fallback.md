@@ -32,12 +32,16 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
    - `TaskStop` the stalled `codex-<stage>-reviewer` task.
    - Re-spawn the same review with the generic `Explore` agent (or
      `general-purpose` if `Explore` is unavailable), passing the
-     **identical prompt** from `sub-agent-prompts.md` but with the
-     subagent_type swapped:
+     **identical prompt** from `sub-agent-prompts.md` (same pin
+     slots: `{review_sha}`, `{design_hash}`, `{worktree_path}` where
+     applicable) but with the subagent_type swapped:
      ```text
      Agent(subagent_type="Explore",
            prompt=<same codex-<stage>-reviewer prompt verbatim>)
      ```
+   - The Explore-agent obeys the same FIRST-action pin verification
+     described in the codex agent definitions and emits the same
+     `stale_snapshot:` error envelope on mismatch.
    - The generic agent runs the same instructions under a Claude
      backend and reliably produces the review file. Output target is
      unchanged (`review-r{n}.md`).
@@ -49,7 +53,12 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
 
 5. **Verdict parsing.** Identical to the codex path — read
    `review-r{n}.md`, parse the Verdict. Termination gates (PASS /
-   FAIL / escalate) apply unchanged.
+   FAIL / escalate) apply unchanged. The conductor applies the same
+   post-hoc header verification (`Reviewed-Head:` /
+   `Reviewed-Design-Hash:`) to fallback output as it does to native
+   codex output; mismatch / `stale_snapshot:` envelope follows the
+   single-respawn-then-escalate-`stale_review_snapshot` protocol in
+   `design-stage.md` / `impl-ut-stage.md`.
 
 ## Notes
 

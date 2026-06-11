@@ -93,6 +93,46 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$(git rev-parse HEAD)" = "$PRE_HEAD" ]
 }
 
+@test "merge-pbi: no regression command configured → success with WARN" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "no merge regression command configured"
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "awaiting_cross_review" ]
+}
+
+@test "merge-pbi: regression command passing → merge succeeds, no failure recorded" {
+  cat > .scrum/config.json <<'EOF'
+{"merge_regression":{"command":"true"}}
+EOF
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "awaiting_cross_review" ]
+  run jq -r '.merge_failure // "absent"' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "absent" ]
+}
+
+@test "merge-pbi: regression command failing → records regression failure, rolls back main" {
+  PRE_MAIN_HEAD="$(git rev-parse HEAD)"
+  cat > .scrum/config.json <<'EOF'
+{"merge_regression":{"command":"echo boom >&2; exit 1"}}
+EOF
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -ne 0 ]
+  run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "regression" ]
+  # main HEAD restored to pre-merge HEAD
+  run git rev-parse HEAD
+  [ "$output" = "$PRE_MAIN_HEAD" ]
+  # log captured
+  [ -f .scrum/pbi/pbi-001/merge-regression.log ]
+  grep -q boom .scrum/pbi/pbi-001/merge-regression.log
+  # backlog status still in_progress_merge (single failure < 3)
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+}
+
 @test "merge-pbi: refuses when .scrum/ is tracked in git" {
   git add -f .scrum/sprint.json
   git commit -q -m "track sprint.json"

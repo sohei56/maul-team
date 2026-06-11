@@ -93,7 +93,7 @@ The current wrapper set covers the pbi-pipeline migration, the four migrated ski
 | `commit-pbi.sh` | git commit on `pbi/<id>` branch + `pbi/<id>/state.json.head_sha` |
 | `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `head_sha`, `paths_touched`, `ready_at`; backlog item `status=in_progress_merge` |
 | `mark-pbi-merged.sh` | `pbi/<id>/state.json` `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at`, `status=awaiting_cross_review` |
-| `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing}` and backlog `status=escalated` |
+| `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing, regression}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing, merge_regression}` and backlog `status=escalated` |
 | `cleanup-pbi-worktree.sh` | removes git worktree + `pbi/<id>` branch (post-merge) |
 | `merge-pbi.sh` | orchestrator (calls mark-pbi-merged or mark-pbi-merge-failure + cleanup) |
 

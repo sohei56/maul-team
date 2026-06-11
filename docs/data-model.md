@@ -568,7 +568,7 @@ context.
 stagnation | divergence | max_rounds | budget_exhausted |
 requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
 catalog_lock_timeout |
-merge_conflict | merge_artifact_missing
+merge_conflict | merge_artifact_missing | merge_regression
 ```
 
 ### Companion artifacts (under `.scrum/pbi/<pbi-id>/`)
@@ -599,7 +599,7 @@ merge_conflict | merge_artifact_missing
 
 - The conductor MUST update `state.json` atomically (temp file + rename).
 - Backlog `status: in_progress_merge` requires all four `*_status` fields to be `"pass"`.
-- Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`).
+- Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing`, `regression` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`, `merge_regression`).
 - `coverage_status: pending` is permanent when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate.
 
 ---
