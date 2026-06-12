@@ -639,6 +639,11 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `autonomous.permission_mode` | enum (`"dontAsk"` \| `"bypassPermissions"`) | Passed to `claude -p --permission-mode` (default `"dontAsk"`). |
 | `autonomous.notify_command` | string \| `null` | Shell command run on watchdog exit with `WATCHDOG_EXIT` in env. Failures are swallowed. |
 | `autonomous.fallback_model` | string \| `null` | Passed to `claude -p --fallback-model` when non-null. |
+| `stall_watchdog` | object \| absent | Settings for the external teammate-stall monitor `scripts/stall-watchdog.sh` (non-autonomous mode only). |
+| `stall_watchdog.enabled` | boolean | When `false`, the daemon exits without nudging. Default `true`. |
+| `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Idle window (no `.scrum/dashboard.json` mtime AND no `.scrum/pbi/*/` mtime change) after which a nudge is sent. Default 15. |
+| `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
+| `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
 `po_mode`, `po`, and `autonomous` are constrained by
 `docs/contracts/scrum-state/config.schema.json`. Other keys are
@@ -770,6 +775,87 @@ human or autonomous). Schema:
 
 ---
 
+## Entity: StopGateLedger
+
+**File**: `.scrum/stop-gate.json` (created on first human-mode block;
+  absent until then; absent entirely in autonomous mode)
+**Owner**: `hooks/lib/stop-gate-state.sh` (sourced by
+  `hooks/completion-gate.sh`) — atomic tmp + mv writes
+**Readers**: `hooks/completion-gate.sh` only
+
+Human-mode dedup ledger for the Stop hook. Records the most recent
+`<phase, fingerprint>` pair plus a counter so repeated identical
+Stop blocks collapse to a single notification per situation: the
+first block emits the verbose reason and exits 2; subsequent
+blocks for the same `<phase, fingerprint>` are logged-only and
+allow exit. Phase change or fingerprint change resets
+`block_count` to 1.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phase` | string | The `state.json.phase` at the recorded block. |
+| `fingerprint` | string | Stable identifier of the block-triggering situation within the phase (e.g. `review_incomplete\|pbi-001,pbi-003`, `sprint_history_missing\|sprint-002`). Caller-defined; any change resets `block_count`. |
+| `block_count` | integer ≥ 1 | Number of consecutive Stop blocks observed for the current `<phase, fingerprint>`. |
+| `first_block_at` | ISO 8601 string | When the first block of this situation was recorded. |
+| `last_block_at` | ISO 8601 string | When the most recent block was recorded; refreshed on every REPEAT. |
+
+### Rules
+
+- **Human mode only.** In autonomous mode the Stop hook bypasses
+  the ledger entirely so the Ralph-Loop watchdog's "block on every
+  Stop while condition holds" contract is preserved.
+- **No wrapper script.** Like `autonomy.json`, writes go through
+  a hook-side library (`stop_gate_check_and_bump` in
+  `hooks/lib/stop-gate-state.sh`) — there is no
+  `.scrum/scripts/*.sh` for `stop-gate.json`. The hook runs
+  outside the agent's Bash/Write/Edit tool surface, so
+  `pre-tool-use-scrum-state-guard.sh` (which only intercepts
+  those tools) does not apply; agent direct edits via Write/Edit
+  are still rejected by that guard.
+- **Fail-open toward block.** Any I/O / JSON failure path emits
+  `FIRST` (verbose block) rather than `REPEAT` so the gate is
+  never silently muted by a corrupted ledger.
+- **In `pbi_pipeline_active` (human mode)** the gate only blocks
+  on unresolved `escalated` PBIs. In-flight `in_progress_*` PBIs
+  do not trigger a block at all — teammate liveness is monitored
+  by `scripts/stall-watchdog.sh` instead.
+- Schema: `docs/contracts/scrum-state/stop-gate.schema.json`.
+
+---
+
+## Entity: Runtime
+
+**File**: `.scrum/runtime.json` (created by `scrum-start.sh` when
+  tmux is available; absent in the no-tmux fallback)
+**Owner**: `scrum-start.sh` — writes the initial record at session
+  launch and then patches `stall_watchdog_pid` after the daemon
+  forks. Atomic tmp + mv via `jq`. No wrapper script.
+**Readers**: `scripts/stall-watchdog.sh` (resolves `tmux_session`
+  and `sm_pane_id` on each iteration; exits when the session no
+  longer exists)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tmux_session` | string | tmux session name (`scrum-team-<sanitized-basename>-<pwd-hash>`). |
+| `sm_pane_id` | string | tmux pane id (`%N`) of the Scrum Master pane, captured before any split-window. Used as the target for `tmux send-keys` nudges. |
+| `started_at` | ISO 8601 string | When the tmux session was created. |
+| `stall_watchdog_pid` | integer \| `null` | PID of the detached `scripts/stall-watchdog.sh` daemon. `null` in autonomous mode (the Ralph-Loop watchdog owns liveness, no stall daemon is launched). |
+
+### Rules
+
+- **No wrapper.** Outside the `.scrum/scripts/*.sh` SSOT writer
+  set — see CLAUDE.md § State management. Agent direct
+  Write/Edit/raw-Bash edits to `.scrum/runtime.json` are still
+  rejected by `pre-tool-use-scrum-state-guard.sh` (it matches all
+  `.scrum/*.json` paths); only `scrum-start.sh` writes the file.
+- **Absent → degraded mode.** When `runtime.json` is missing or
+  unreadable, the stall watchdog logs a warning and skips its
+  iteration without crashing.
+- **No schema today.** Format is ad-hoc; readers tolerate missing
+  or invalid fields by falling through.
+
+---
+
 ## File Relationships
 
 ```
@@ -830,4 +916,12 @@ po/decisions.json
   └── decisions[].evidence[] -> .scrum/po/acceptance/<sprint-id>/<pbi-id>.md (demo)
                               | .scrum/po/uat-<sprint-id>.md#<anchor>      (uat)
                               | .scrum/test-results.json                   (release_decision=go)
+
+stop-gate.json
+  └── phase -> state.json.phase (reset on phase change)
+  (human-mode only; absent in autonomous mode)
+
+runtime.json
+  └── tmux_session, sm_pane_id, stall_watchdog_pid
+        -> consumed by scripts/stall-watchdog.sh (non-autonomous mode)
 ```

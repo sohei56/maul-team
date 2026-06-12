@@ -2,8 +2,21 @@
 # completion-gate.sh — Stop hook
 # Verifies exit criteria before allowing a session to complete.
 # Reads .scrum/state.json and relevant state files for the current phase.
-# Outputs exit code 0 (allow stop) or exit code 2 with reason JSON to stderr
-# if exit criteria are not met.
+# Returns exit 2 with a JSON reason on stderr to block stop, or exit 0 to
+# allow.
+#
+# Block-noise policy:
+#   * Autonomous-PO mode (autonomy_enabled) — block on every Stop while the
+#     condition holds, with the original verbose reason. The watchdog
+#     contract depends on this; see autonomous_intercept_or_allow().
+#   * Human mode — collapse repeated identical blocks via
+#     hooks/lib/stop-gate-state.sh (".scrum/stop-gate.json"): first block of
+#     a <phase, signature> tuple emits the verbose reason and exits 2;
+#     subsequent blocks of the same tuple are logged-only and allow stop.
+#     Phase change or signature change resets the ledger.
+#   * pbi_pipeline_active in human mode no longer blocks merely on
+#     in_flight > 0 — external watchdogs handle teammate liveness. Only
+#     `escalated` PBIs without a recorded resolution still block.
 set -euo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,6 +24,8 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$HOOK_DIR/lib/validate.sh"
 # shellcheck source=lib/autonomy.sh
 . "$HOOK_DIR/lib/autonomy.sh"
+# shellcheck source=lib/stop-gate-state.sh
+. "$HOOK_DIR/lib/stop-gate-state.sh"
 
 STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
@@ -44,12 +59,55 @@ fi
 # ---------------------------------------------------------------------------
 
 block_stop() {
+  # Usage: block_stop <reason> <block_kind> <signature>
+  #   <reason>     human-readable text for the LLM (long-form OK).
+  #   <block_kind> short tag (e.g. review_incomplete, sprint_history_missing,
+  #               escalated_unresolved, tests_failed). Combined with the
+  #               signature to form the dedup fingerprint.
+  #   <signature>  state snapshot that identifies the situation — e.g. the
+  #               sorted list of incomplete PBI IDs, the current sprint_id.
+  #               Empty string is allowed.
+  #
+  # In autonomous mode, dedup is intentionally bypassed: the watchdog
+  # contract relies on every Stop block firing while the condition holds.
+  # In human mode, the dedup ledger collapses repeats to logged-only
+  # allow_stop.
   local reason="$1"
+  local block_kind="${2:-unknown}"
+  local signature="${3:-}"
   local hint
   hint="$(in_flight_hint)"
-  log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-  exit 2
+
+  if autonomy_enabled; then
+    log_hook "completion-gate" "WARN" "Blocked stop: $reason"
+    jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
+    exit 2
+  fi
+
+  # Human mode: consult the dedup ledger.
+  local fingerprint verdict
+  fingerprint="${block_kind}|${signature}"
+  verdict="$(stop_gate_check_and_bump "$fingerprint" "${phase:-unknown}" 2>/dev/null || echo "FIRST")"
+
+  case "$verdict" in
+    FIRST)
+      log_hook "completion-gate" "WARN" "Blocked stop: $reason"
+      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
+      exit 2
+      ;;
+    REPEAT:*)
+      local count
+      count="${verdict#REPEAT:}"
+      log_hook "completion-gate" "INFO" "suppressed repeat block (${fingerprint}, count=${count})"
+      exit 0
+      ;;
+    *)
+      # Unknown verdict — fail-open toward block (safer than mute).
+      log_hook "completion-gate" "WARN" "Blocked stop: $reason"
+      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
+      exit 2
+      ;;
+  esac
 }
 
 # Count in-flight subagents from dashboard.json: agent_ids with a
@@ -256,7 +314,10 @@ $(get_sprint_pbi_ids)
 EOF
 
     if [ -n "$incomplete_pbis" ]; then
-      block_stop "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' before stopping."
+      block_stop \
+        "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' before stopping." \
+        "review_incomplete" \
+        "$incomplete_pbis"
     fi
 
     allow_stop
@@ -265,17 +326,26 @@ EOF
   sprint_review)
     # sprint-history.json must have entry for current sprint
     if [ "$current_sprint_id" = "none" ] || [ "$current_sprint_id" = "null" ]; then
-      block_stop "Sprint review phase: no current Sprint ID in state.json."
+      block_stop \
+        "Sprint review phase: no current Sprint ID in state.json." \
+        "no_sprint_id" \
+        "$current_sprint_id"
     fi
 
     if [ ! -f "$HISTORY_FILE" ]; then
-      block_stop "Sprint review phase: sprint-history.json does not exist. A Sprint summary must be recorded before stopping."
+      block_stop \
+        "Sprint review phase: sprint-history.json does not exist. A Sprint summary must be recorded before stopping." \
+        "sprint_history_missing" \
+        "$current_sprint_id"
     fi
 
     has_entry="$(jq --arg sid "$current_sprint_id" '[.sprints[]? | select(.id == $sid)] | length' "$HISTORY_FILE" 2>/dev/null || echo "0")"
 
     if [ "$has_entry" = "0" ]; then
-      block_stop "Sprint review phase: no entry found for Sprint '${current_sprint_id}' in sprint-history.json. Record the Sprint summary before stopping."
+      block_stop \
+        "Sprint review phase: no entry found for Sprint '${current_sprint_id}' in sprint-history.json. Record the Sprint summary before stopping." \
+        "sprint_history_missing" \
+        "$current_sprint_id"
     fi
 
     allow_stop
@@ -284,17 +354,26 @@ EOF
   retrospective)
     # improvements.json must have entry for current sprint
     if [ "$current_sprint_id" = "none" ] || [ "$current_sprint_id" = "null" ]; then
-      block_stop "Retrospective phase: no current Sprint ID in state.json."
+      block_stop \
+        "Retrospective phase: no current Sprint ID in state.json." \
+        "no_sprint_id" \
+        "$current_sprint_id"
     fi
 
     if [ ! -f "$IMPROVEMENTS_FILE" ]; then
-      block_stop "Retrospective phase: improvements.json does not exist. Record improvement items before stopping."
+      block_stop \
+        "Retrospective phase: improvements.json does not exist. Record improvement items before stopping." \
+        "improvements_missing" \
+        "$current_sprint_id"
     fi
 
     has_entry="$(jq --arg sid "$current_sprint_id" '[.entries[]? | select(.sprint_id == $sid)] | length' "$IMPROVEMENTS_FILE" 2>/dev/null || echo "0")"
 
     if [ "$has_entry" = "0" ]; then
-      block_stop "Retrospective phase: no improvement entries found for Sprint '${current_sprint_id}' in improvements.json. Record at least one improvement before stopping."
+      block_stop \
+        "Retrospective phase: no improvement entries found for Sprint '${current_sprint_id}' in improvements.json. Record at least one improvement before stopping." \
+        "improvements_missing" \
+        "$current_sprint_id"
     fi
 
     allow_stop
@@ -303,7 +382,10 @@ EOF
   integration_sprint)
     # test-results.json must exist with overall_status: "passed" or "passed_with_skips"
     if [ ! -f "$TEST_RESULTS_FILE" ]; then
-      block_stop "Integration Sprint: .scrum/test-results.json does not exist. Run the smoke-test skill before stopping."
+      block_stop \
+        "Integration Sprint: .scrum/test-results.json does not exist. Run the smoke-test skill before stopping." \
+        "tests_missing" \
+        ""
     fi
 
     overall_status="$(jq -r '.overall_status // "unknown"' "$TEST_RESULTS_FILE" 2>/dev/null || echo "unknown")"
@@ -315,13 +397,22 @@ EOF
       failed)
         # Show which categories failed
         failed_cats="$(jq -r '[.categories[]? | select(.status == "failed") | .name] | join(", ")' "$TEST_RESULTS_FILE" 2>/dev/null || echo "unknown")"
-        block_stop "Integration Sprint: automated tests failed. Failed categories: ${failed_cats}. Fix failures and re-run smoke-test before stopping."
+        block_stop \
+          "Integration Sprint: automated tests failed. Failed categories: ${failed_cats}. Fix failures and re-run smoke-test before stopping." \
+          "tests_failed" \
+          "$failed_cats"
         ;;
       pending|running)
-        block_stop "Integration Sprint: automated tests are still ${overall_status}. Wait for smoke-test to complete before stopping."
+        block_stop \
+          "Integration Sprint: automated tests are still ${overall_status}. Wait for smoke-test to complete before stopping." \
+          "tests_${overall_status}" \
+          ""
         ;;
       *)
-        block_stop "Integration Sprint: test-results.json has unexpected overall_status '${overall_status}'. Expected 'passed' or 'passed_with_skips'."
+        block_stop \
+          "Integration Sprint: test-results.json has unexpected overall_status '${overall_status}'. Expected 'passed' or 'passed_with_skips'." \
+          "tests_${overall_status}" \
+          ""
         ;;
     esac
     ;;
@@ -334,6 +425,18 @@ EOF
     # `awaiting_cross_review` / `cross_review` / `done` are not
     # `in_progress_` prefixed and pass through. `escalated` requires a
     # recorded resolution.
+    #
+    # Block policy diverges by mode:
+    #   * autonomy_enabled (autonomous-PO mode): preserve historical
+    #     behaviour — block on `in_flight_total > 0` so the watchdog's
+    #     inner loop keeps the SM driving teammates, and `escalated`
+    #     without resolution. autonomous_next_action() depends on the
+    #     allow path meaning "all PBIs settled".
+    #   * human mode: do NOT block merely on `in_flight_total > 0`.
+    #     Teammate liveness is handled by an external watchdog
+    #     (scripts/stall-watchdog.sh). Only block on `escalated`
+    #     without resolution — that is the one situation the SM must
+    #     explicitly act on before stopping.
     #
     # Block message is compressed to a status-grouped count (e.g. "5
     # in-flight (2 design, 1 impl, ...)") rather than per-PBI listing,
@@ -370,19 +473,32 @@ EOF
       fi
     done < <(jq -r '.items[]? | select(.status == "escalated") | .id' "$BACKLOG_FILE" 2>/dev/null)
 
-    if [ "$in_flight_total" -gt 0 ] || [ -n "$escalated_unresolved" ]; then
-      msg="PBI pipeline active"
-      if [ "$in_flight_total" -gt 0 ]; then
-        # Teammates run via Agent tool — SubagentStart/Stop hooks do NOT
-        # fire for them, so in_flight_hint() is a no-op here. Inline the
-        # guidance directly so SM does not misread the block as failure
-        # and re-spawn the same Teammate.
-        msg="${msg}: ${in_flight_total} in-flight (${in_flight_summary}). Teammates work in worktrees — do NOT re-spawn. Verify via TaskGet (same session) or SendMessage probe before assuming failure. Re-spawn only after confirming termination AND missing artifact."
+    if autonomy_enabled; then
+      # Autonomous path — historical behaviour, do not change.
+      if [ "$in_flight_total" -gt 0 ] || [ -n "$escalated_unresolved" ]; then
+        msg="PBI pipeline active"
+        if [ "$in_flight_total" -gt 0 ]; then
+          msg="${msg}: ${in_flight_total} in-flight (${in_flight_summary}). Teammates work in worktrees — do NOT re-spawn. Verify via TaskGet (same session) or SendMessage probe before assuming failure. Re-spawn only after confirming termination AND missing artifact."
+        fi
+        if [ -n "$escalated_unresolved" ]; then
+          msg="${msg}; escalated without resolution: ${escalated_unresolved}"
+        fi
+        # in_flight_total > 0 with no escalations is also a "still
+        # running" signal under autonomy; emit a generic block_kind for
+        # the dedup ledger even though autonomy ignores it.
+        if [ -n "$escalated_unresolved" ]; then
+          block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"
+        else
+          block_stop "$msg" "pipeline_in_flight" "$in_flight_total"
+        fi
       fi
+    else
+      # Human path — only escalated_unresolved blocks. in-flight PBIs are
+      # allowed to coexist with Stop; external watchdog monitors liveness.
       if [ -n "$escalated_unresolved" ]; then
-        msg="${msg}; escalated without resolution: ${escalated_unresolved}"
+        msg="PBI pipeline active; escalated without resolution: ${escalated_unresolved}"
+        block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"
       fi
-      block_stop "$msg"
     fi
     allow_stop
     ;;

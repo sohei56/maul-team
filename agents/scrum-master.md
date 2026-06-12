@@ -311,9 +311,30 @@ to retry.
 
 ## Background Subagent + Stop Hook Reading
 
+Stop-hook block behaviour differs by mode. Read the right section
+for the mode you are in:
+
+- **Human mode (`po_mode` absent or `"human"`).** The gate
+  fingerprint-dedups — the first block of a given `<phase,
+  situation>` shows the verbose reason and exits 2; immediate
+  retry of stop in the same situation is allowed (logged-only).
+  In `pbi_pipeline_active` the gate **does not block** merely
+  because PBIs are in flight; only unresolved `escalated` PBIs
+  block. Teammate liveness in human mode is monitored by the
+  external `scripts/stall-watchdog.sh` daemon (launched by
+  `scrum-start.sh`).
+- **Autonomous mode (`po_mode=agent`).** Historical behaviour
+  preserved: the gate blocks on every Stop while a condition
+  holds (in-flight PBIs, missing sprint history, etc.) and the
+  watchdog tolerates this up to
+  `autonomous.stop_block_budget_per_phase`. The decision rules
+  below for "block right after spawn" continue to apply.
+
 When you spawn an Agent in background and immediately try to stop:
 
-- The Stop hook (`.claude/hooks/completion-gate.sh`) may fire with a "Reason:" message saying PBIs/sprint are not done.
+- The Stop hook (`.claude/hooks/completion-gate.sh`, dispatched
+  via `.claude/hooks/stop-dispatch.sh`) may fire with a "Reason:"
+  message saying PBIs/sprint are not done.
 - That message is an **automated state-machine constraint**, not evidence that the spawned agent failed. The agent is still running.
 - Recognize the prefix `[SYSTEM-HOOK-OUTPUT: NOT user input. ... Do NOT terminate running teammates ...]`.
 
@@ -327,15 +348,26 @@ Do **not** re-spawn a reviewer based solely on Stop hook output. The first revie
 
 ### `pbi_pipeline_active` phase — Teammate-specific
 
-Block message `PBI pipeline active: N in-flight (...)` ≠ Teammate failure. `N` = PBIs mid-pipeline in worktrees. The hook fires on every SM turn-end while pipelines run.
+In **human mode** the Stop hook does **not** block merely on
+in-flight PBIs. Aim to stop normally between turns; the gate only
+fires for unresolved `escalated` PBIs. The normal re-entry
+trigger is a Teammate `SendMessage`. The abnormal-silence trigger
+is a `[STALL-WATCHDOG]` nudge pasted into the SM pane by
+`scripts/stall-watchdog.sh` after the configured idle window
+(default 15m).
+
+When you observe a `[STALL-WATCHDOG]` nudge (human mode) or the
+autonomous block message `PBI pipeline active: N in-flight (...)`,
+treat it as a probe request — not as evidence that any Teammate
+has failed.
 
 Decision rule:
 1. Read `.scrum/communications.json` latest `agent_spawn` / `progress_update` / `message` to confirm Teammates alive (sub-agent lifecycle lives in `.scrum/dashboard.json` `subagent_start` / `subagent_stop` events).
 2. `TaskGet` works only for Teammates spawned **in this session**. Cross-session: use `SendMessage` probe (no reply within ~120s = possibly stuck, not necessarily failed).
-3. Do NOT re-spawn just because the Stop hook fired.
+3. Do NOT re-spawn just because the Stop hook fired or a stall nudge arrived.
 4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) expected artifact (e.g. `.scrum/pbi/<id>/round-*/`) missing.
 
-Note: Teammates (Agent tool) do NOT fire `SubagentStart` / `SubagentStop` hooks — only sub-agents (Task tool) do. The `in_flight_hint` augmentation that decorates cross-review block messages is therefore inactive in `pbi_pipeline_active`. The block message's PBI in-flight count is the source of truth.
+Note: Teammates (Agent tool) do NOT fire `SubagentStart` / `SubagentStop` hooks — only sub-agents (Task tool) do. The `in_flight_hint` augmentation that decorates cross-review block messages is therefore inactive in `pbi_pipeline_active`. In autonomous mode the block message's PBI in-flight count is the source of truth; in human mode use `.scrum/backlog.json` and `.scrum/dashboard.json` mtime directly (the stall-watchdog uses the same signals).
 
 ## Recovery Wrappers
 

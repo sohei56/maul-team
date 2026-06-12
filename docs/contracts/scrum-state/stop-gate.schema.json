@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stop-hook dedup ledger",
+  "description": "Schema for .scrum/stop-gate.json. Records the most recent <phase, fingerprint> pair seen by the Stop hook (hooks/completion-gate.sh, via hooks/lib/stop-gate-state.sh) plus a counter of how many times the same situation has re-blocked. Used in human (non-autonomous) mode to suppress repeated identical Stop blocks: the first block is emitted verbosely; subsequent blocks of the same <phase, fingerprint> are logged-only and allowed. Resets to count=1 on phase change or fingerprint change. Writers: stop_gate_check_and_bump only.",
+  "type": "object",
+  "required": ["phase", "fingerprint", "block_count", "first_block_at", "last_block_at"],
+  "additionalProperties": false,
+  "properties": {
+    "phase": {
+      "description": "The state.json phase at the time of the recorded block (e.g. 'review', 'sprint_review', 'pbi_pipeline_active').",
+      "type": "string",
+      "minLength": 1
+    },
+    "fingerprint": {
+      "description": "Stable identifier of the block-triggering situation within the phase (e.g. 'review_incomplete:pbi-001,pbi-003', 'sprint_history_missing:sprint-002'). Caller-defined; any change resets block_count to 1.",
+      "type": "string",
+      "minLength": 1
+    },
+    "block_count": {
+      "description": "Number of consecutive Stop blocks observed for the current <phase, fingerprint>. Starts at 1.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "first_block_at": {
+      "description": "ISO-8601 UTC timestamp of the first block recorded for the current <phase, fingerprint>.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_block_at": {
+      "description": "ISO-8601 UTC timestamp of the most recent block recorded for the current <phase, fingerprint>. Refreshed on every REPEAT.",
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

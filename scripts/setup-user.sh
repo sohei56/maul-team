@@ -281,11 +281,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/completion-gate.sh"
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-dispatch.sh"
           }
         ]
       }

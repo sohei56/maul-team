@@ -133,9 +133,13 @@ For deeper detail, follow these pointers:
 - **Skills**: Markdown + YAML frontmatter under `.claude/skills/<name>/SKILL.md`,
   each with `## Inputs` / `## Outputs`. Invocation, side effects, and
   state writes are documented per skill.
-- **Hooks** (`status-gate`, `session-context`, `completion-gate`,
-  `quality-gate`, `pre-tool-use-*`): enforce Sprint workflow at the
-  Claude Code tool layer — see [docs/architecture.md](architecture.md) R7.
+- **Hooks** (`status-gate`, `session-context`, `stop-dispatch`
+  → `dashboard-event` + `completion-gate`, `quality-gate`,
+  `pre-tool-use-*`): enforce Sprint workflow at the Claude Code
+  tool layer — see [docs/architecture.md](architecture.md) R7. The
+  Stop event is registered once via `stop-dispatch.sh`, which
+  forwards to `dashboard-event.sh` (best-effort) and then
+  `completion-gate.sh` (gate verdict).
 - **State files** in `.scrum/` (one JSON file per concern): schemas in
   [docs/data-model.md](data-model.md); writes go through
   `.scrum/scripts/*.sh` wrappers.

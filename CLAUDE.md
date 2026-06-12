@@ -29,8 +29,10 @@ skills/                  # 16 Skills (15 Scrum ceremonies + 1 PO acceptance) —
   sprint-review/         # Sprint review ceremony
 .claude/skills/          # Dev-only skills for THIS repo (not deployed to target projects)
   cleanup-audit/         # 8-axis multi-agent repo hygiene audit (read-only)
-hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, completion + quality + stop-failure gates, dashboard events, session context, autonomy lib)
-  lib/                   # Shared hook helpers (validate, dashboard, autonomy)
+hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, stop-dispatch single-entry → dashboard + completion-gate, quality + stop-failure gates, session context, autonomy lib)
+  stop-dispatch.sh       # Single Stop entry: forwards payload to dashboard-event then completion-gate (replaces the 2-hook Stop registration)
+  completion-gate.sh     # Stop gate; human mode dedups repeated blocks via .scrum/stop-gate.json + only blocks unresolved `escalated` in pbi_pipeline_active
+  lib/                   # Shared hook helpers (validate, dashboard, autonomy, stop-gate-state)
 rules/                   # Cross-cutting context auto-loaded by every Scrum agent (deployed by setup-user.sh to .claude/rules/)
   scrum-context.md       # Team map, SSOT locations, communication protocol, PO seat resolution, uncertainty handling
 dashboard/               # Textual TUI dashboard (Python)
@@ -40,6 +42,7 @@ scripts/                 # Setup and utility scripts
   setup-user.sh          # Copies agents/skills/hooks/rules to target project
   setup-dev.sh           # Installs dev dependencies (bats, shellcheck, etc.)
   statusline.sh          # Claude Code status line script
+  stall-watchdog.sh      # External teammate-stall monitor (non-autonomous mode); launched by scrum-start.sh, nudges SM via tmux when no activity for `stall_watchdog.idle_threshold_minutes`
   scrum/                 # SSOT state wrappers (deployed to .scrum/scripts/ by setup-user.sh)
   autonomous/            # Autonomous-PO watchdog (Ralph Loop): watchdog.sh + lib/report.sh
 tests/                   # Test suites
@@ -51,7 +54,7 @@ docs/                    # Project documentation (requirements, architecture, da
 docs/design/             # Design document governance
   catalog.md             # Immutable document type reference (read-only)
   catalog-config.json    # Editable list of enabled spec IDs
-.scrum/                  # Runtime state (JSON, gitignored). Autonomous-mode adds autonomy.json + po/{decisions.json,acceptance/,attention.md} + reports/.
+.scrum/                  # Runtime state (JSON, gitignored). Core: state.json, sprint.json, backlog.json, dashboard.json, communications.json, pbi/, plus runtime.json (tmux session + sm_pane_id + stall_watchdog_pid) and stop-gate.json (Stop-block dedup ledger, human mode). Autonomous mode also adds autonomy.json + po/{decisions.json,acceptance/,attention.md} + reports/.
 ```
 
 ## Technologies
@@ -129,6 +132,23 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   `.scrum/reports/autonomous-run-<run_id>.md`. PO decisions are
   audit-logged to `.scrum/po/decisions.json` (append-only) via
   `append-po-decision.sh`. Full operator guide: `docs/autonomous-mode.md`.
+- **Stop-hook block policy diverges by mode.** The Stop hook is
+  registered as a single entry (`hooks/stop-dispatch.sh`) that
+  forwards the payload to `dashboard-event.sh` (best-effort) and
+  then to `completion-gate.sh`. In **autonomous mode** the gate's
+  historical block-every-turn-end behaviour is preserved (the
+  Ralph-Loop watchdog contract depends on it; `.scrum/stop-gate.json`
+  is neither read nor written). In **human mode** the gate
+  fingerprint-dedups: the first block of a `<phase, situation>`
+  tuple emits the verbose reason + exit 2; subsequent identical
+  blocks are logged-only and allow exit. `pbi_pipeline_active` in
+  human mode no longer blocks merely because PBIs are in flight —
+  only unresolved `escalated` PBIs still block. Teammate liveness
+  in human mode is monitored by the external
+  `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`;
+  it sends a `[STALL-WATCHDOG]` nudge to the SM tmux pane when no
+  filesystem activity is observed within
+  `stall_watchdog.idle_threshold_minutes` (default 15).
 
 ## State management
 
@@ -138,7 +158,18 @@ Direct edits are blocked by `hooks/pre-tool-use-scrum-state-guard.sh`
 (registered as `PreToolUse`). Schemas under
 `docs/contracts/scrum-state/` are the SSOT. See
 `docs/MIGRATION-scrum-state-tools.md` for the wrapper map, the
-v1→v2 status migration history, and known gaps. The PBI state schema
+v1→v2 status migration history, and known gaps. Two runtime files
+are written **without** a `.scrum/scripts/*.sh` wrapper because
+they are hot-path bookkeeping rather than agent state:
+`.scrum/stop-gate.json` is the Stop-hook dedup ledger written by
+`hooks/lib/stop-gate-state.sh` (human mode only; schema
+`stop-gate.schema.json`), and `.scrum/runtime.json` records the
+tmux session, the SM pane id, and the stall-watchdog PID written
+by `scrum-start.sh` (consumed by `scripts/stall-watchdog.sh`).
+Both still match the guard's `.scrum/**/*.json` pattern, but their
+writers run outside agent tool calls (hook process / launcher
+script), so the guard never intercepts them; agents editing these
+files via Bash are blocked as usual. The PBI state schema
 gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
 `head_sha`, `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
 `merge_failure`, `merge_failure_count`); the legacy `phase` field

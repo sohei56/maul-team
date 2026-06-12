@@ -410,7 +410,8 @@ Line 3: Agents: SM:active Dev1:impl(PBI-7) Dev2:review(PBI-5)
 **File**: `hooks/dashboard-event.sh`
 
 **Triggered by**: Claude Code hooks (`PostToolUse`, `TaskCompleted`,
-`TeammateIdle`, `SubagentStart`, `SubagentStop`)
+`TeammateIdle`, `SubagentStart`, `SubagentStop`); also invoked
+indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 
 **Inputs**:
 - Hook event JSON on stdin (from Claude Code)
@@ -471,11 +472,32 @@ Line 3: Agents: SM:active Dev1:impl(PBI-7) Dev2:review(PBI-5)
   - During `requirements_sprint` workflow phase: deny source file creation
 
 ### Stop Hook
-- **Script**: `hooks/completion-gate.sh`
-- **Reads**: `.scrum/state.json`, relevant state files
+- **Registered entry**: `hooks/stop-dispatch.sh` — a single
+  command that consumes the Stop payload once, forwards it to
+  `hooks/dashboard-event.sh` (best-effort; failures swallowed),
+  and then to `hooks/completion-gate.sh` (exit code propagated
+  verbatim). Two-entry Stop registrations would surface as
+  `"Ran 2 stop hooks"` in the session UI; the dispatcher folds
+  them.
+- **Gate script**: `hooks/completion-gate.sh`
+- **Reads**: `.scrum/state.json`, relevant state files; in human
+  mode also reads/writes `.scrum/stop-gate.json` (dedup ledger)
+  via `hooks/lib/stop-gate-state.sh`.
 - **Output**: exit code 2 + `reason` if exit criteria not met
 - **Logging**: Logs all blocked stop attempts to `.scrum/hooks.log`
 - **Purpose**: Prevent premature phase completion
+- **Mode-dependent policy**:
+  - *Autonomous mode* (`autonomy_enabled`): block on every Stop
+    while the condition holds; the Ralph-Loop watchdog drives
+    iteration counts and the `stop_block_budget_per_phase`
+    circuit breaker.
+  - *Human mode*: fingerprint-dedup. First block of a
+    `<phase, situation>` exits 2 with the verbose reason;
+    immediate repeats are logged-only and allow exit. In
+    `pbi_pipeline_active` the gate only blocks on unresolved
+    `escalated` PBIs — Teammate liveness is monitored by the
+    external `scripts/stall-watchdog.sh` daemon launched by
+    `scrum-start.sh`.
 - **Graceful degradation**: Allows stop (with warning) if state files are missing
 
 ### TaskCompleted Hook

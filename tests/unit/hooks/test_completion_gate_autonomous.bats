@@ -103,13 +103,18 @@ stdin_session() {
   [ "$status" -eq 0 ]
 }
 
-@test "human mode: pbi_pipeline_active with in-flight blocks (existing behaviour)" {
+@test "human mode: pbi_pipeline_active with in-flight allows stop (block-noise reduction)" {
+  # Behaviour change (block-noise reduction): under human mode, in-flight
+  # PBIs alone no longer block Stop. Teammate liveness is handled by an
+  # external watchdog (scripts/stall-watchdog.sh). Only escalated PBIs
+  # without a recorded resolution still block — covered in a separate
+  # test below.
   write_config_human
   write_state_phase pbi_pipeline_active
   cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress_design"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
   run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK"
-  [ "$status" -eq 2 ]
+  [ "$status" -eq 0 ]
 }
 
 # ------------------------------------------------------------------
@@ -249,4 +254,79 @@ stdin_session() {
   run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
   [ "$status" -eq 2 ]
   [[ "$output" == *"review"* ]]
+}
+
+# ------------------------------------------------------------------
+# Human-mode block-reduction surface (gated by hooks/lib/stop-gate-state.sh)
+# ------------------------------------------------------------------
+# The following tests verify that human mode:
+#   * No longer blocks merely on in-flight PBIs during pbi_pipeline_active
+#     (external watchdog handles teammate liveness now).
+#   * Still blocks for escalated PBIs without resolution, but the second
+#     identical block in a row is suppressed (logged-only allow).
+#   * Block messages emit Reason text on the FIRST block of a tuple, and
+#     no Reason on REPEATs — confirming the dedup ledger is consulted.
+
+@test "human mode + pbi_pipeline_active: in-flight PBIs alone allow stop (no Reason in stderr)" {
+  write_config_human
+  write_state_phase pbi_pipeline_active sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_impl"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+  # No "Reason:" text from block_stop should appear.
+  [[ "$output" != *"Reason:"* ]]
+  # And the dedup ledger should NOT be created (no block fired).
+  [ ! -f .scrum/stop-gate.json ]
+}
+
+@test "human mode + escalated unresolved: first block exits 2, second identical block exits 0" {
+  write_config_human
+  write_state_phase pbi_pipeline_active sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "escalated" | .items[0].id = "pbi-009"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  # No escalation-resolution.md yet → block.
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"escalated without resolution"* ]]
+  [[ "$output" == *"pbi-009"* ]]
+  # Ledger should now exist with count=1.
+  run jq -r '.block_count' .scrum/stop-gate.json
+  [ "$output" = "1" ]
+  # Second identical block — suppressed.
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+  # Ledger bumped to 2.
+  run jq -r '.block_count' .scrum/stop-gate.json
+  [ "$output" = "2" ]
+}
+
+@test "human mode + sprint_review missing entry: first block exit 2, repeat exit 0, sprint_id change re-blocks" {
+  write_config_human
+  write_state_phase sprint_review sprint-001
+  # No sprint-history.json file at all → block on sprint_history_missing.
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"sprint-history.json does not exist"* ]]
+  # Same situation → suppressed.
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+  # Sprint ID changes → signature changes → block fires again.
+  write_state_phase sprint_review sprint-002
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+}
+
+@test "autonomy enabled: pbi_pipeline_active with in-flight blocks but does NOT touch stop-gate.json" {
+  write_config_agent
+  write_autonomy sess-lead pbi_pipeline_active 0
+  cp "$FIXTURES/valid-state.json" .scrum/state.json
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_design"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  [ ! -f .scrum/stop-gate.json ]
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  # Dedup ledger must NOT exist — autonomy path bypasses it so the
+  # watchdog contract keeps firing on every Stop.
+  [ ! -f .scrum/stop-gate.json ]
 }

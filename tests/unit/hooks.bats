@@ -497,20 +497,26 @@ EOF
   assert_success
 }
 
-@test "completion-gate.sh blocks stop when active PBI pipeline non-terminal" {
+@test "completion-gate.sh allows stop when active PBI pipeline non-terminal (human mode, in-flight only)" {
+  # Block-noise reduction: in human mode (no .scrum/config.json or
+  # po_mode != "agent"), in-flight PBIs alone no longer block Stop.
+  # External watchdog (scripts/stall-watchdog.sh) handles teammate
+  # liveness. Only escalated PBIs without resolution still block —
+  # covered by the "lists escalated PBI ids" test below.
   mkdir -p .scrum
-  # Active pipelines are derived from backlog.json: any in_progress_* status.
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=pbi_pipeline_active
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress_design"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
   run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
-  [ "$status" -eq 2 ]
+  assert_success
 }
 
-@test "completion-gate.sh emits compressed status-grouped count for pbi_pipeline_active" {
-  # Verify the block message is a status-grouped count (not per-PBI listing)
-  # to keep context noise low when the hook fires on every SM turn-end.
+@test "completion-gate.sh emits compressed status-grouped count for pbi_pipeline_active under autonomy" {
+  # Behaviour preserved under autonomy mode: the inner-loop watchdog
+  # contract still relies on the verbose block while teammates are
+  # in-flight. Human mode dropped this gate to reduce context noise
+  # (covered in the human-mode test above).
   mkdir -p .scrum
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
@@ -521,8 +527,22 @@ EOF
     {"id":"pbi-004","status":"in_progress_merge","priority":4,"name":"d","description":"x","sized":true},
     {"id":"pbi-005","status":"done","priority":5,"name":"e","description":"x","sized":true}
   ]' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+  # Enable autonomy so the historical block fires.
+  echo '{"po_mode": "agent"}' > .scrum/config.json
+  cat > .scrum/autonomy.json <<'EOF'
+{
+  "run_id": "run-1",
+  "started_at": "2026-06-12T00:00:00Z",
+  "lead_session_id": "sess-lead",
+  "iteration": 0,
+  "total_cost_usd": 0,
+  "stop_blocks": {"phase": "idle", "count": 0},
+  "circuit_breaker_tripped": null,
+  "last_failure": null
+}
+EOF
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash -c "printf '%s' '{\"session_id\":\"sess-lead\",\"hook_event_name\":\"Stop\"}' | bash $PROJECT_ROOT/hooks/completion-gate.sh"
   [ "$status" -eq 2 ]
   [[ "$output" == *"3 in-flight"* ]]
   [[ "$output" == *"2 design"* ]]

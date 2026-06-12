@@ -147,7 +147,7 @@ the existing file.
 | `autonomous.max_wall_clock_hours` | `8` | Hard wall-clock budget for the whole run. Exceeded → exit 2. |
 | `autonomous.max_sprints` | `5` | Watchdog stops once `sprint-history.json.sprints` reaches this length. Exit 2. |
 | `autonomous.max_consecutive_failures` | `3` | Number of consecutive zero-progress iterations (or non-zero Claude exit codes, or tripped circuit breakers) before the watchdog gives up. Exit 1. |
-| `autonomous.stop_block_budget_per_phase` | `8` | Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. |
+| `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. In **human mode** the gate ignores this key and instead fingerprint-dedups blocks via `.scrum/stop-gate.json` (first identical block exits 2, repeats allow exit); teammate liveness is monitored by the external `scripts/stall-watchdog.sh` daemon. |
 | `autonomous.max_budget_usd_per_iteration` | `10` | Passed to `claude -p --max-budget-usd`. The CLI enforces this per session. |
 | `autonomous.max_total_budget_usd` | `50` | Watchdog sums `total_cost_usd` from each iteration's JSON output. Exceeded → exit 2 (`max_total_budget_reached`). |
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
@@ -234,12 +234,16 @@ The watchdog enforces five global bounds and one per-phase one:
 Two more guard the inner loop:
 
 - `max_budget_usd_per_iteration` — per-session CLI limit.
-- `stop_block_budget_per_phase` — `completion-gate.sh` increments
-  a counter every time it blocks exit in the same phase. On the
-  N+1-th block in the same phase it records
-  `.circuit_breaker_tripped = {phase, at}` in `autonomy.json` and
-  allows exit. The watchdog reads the breaker and treats the
-  iteration as a no-progress failure.
+- `stop_block_budget_per_phase` — **autonomous mode only.**
+  `completion-gate.sh` increments a counter every time it blocks
+  exit in the same phase. On the N+1-th block in the same phase it
+  records `.circuit_breaker_tripped = {phase, at}` in
+  `autonomy.json` and allows exit. The watchdog reads the breaker
+  and treats the iteration as a no-progress failure. In human
+  mode this counter is not maintained: `completion-gate.sh`
+  fingerprint-dedups identical blocks via `.scrum/stop-gate.json`
+  and an external `scripts/stall-watchdog.sh` daemon handles
+  teammate liveness.
 
 Rate-limit signals from `.scrum/dashboard.json` (events of type
 `stop_failure` whose `detail`/`reason` matches

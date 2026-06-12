@@ -319,6 +319,29 @@ if command -v tmux >/dev/null 2>&1; then
 
   tmux new-session -d -s "$session_name" -c "$PWD" -x "$term_cols" -y "$term_lines"
 
+  # Resolve the SM pane id (first pane of the freshly-created window). This
+  # is captured BEFORE any split so a later split-window for the dashboard
+  # does not move the SM pane id underfoot. We also persist tmux_session and
+  # started_at so external observers (the stall-watchdog daemon below, the
+  # dashboard) can find them. stall_watchdog_pid is filled in after launch
+  # for the non-autonomous branch; null when autonomous mode owns liveness.
+  SM_PANE_ID="$(tmux display-message -p -t "${session_name}:0.0" '#{pane_id}' 2>/dev/null || echo "")"
+
+  mkdir -p .scrum
+  RUNTIME_NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
+  jq -n \
+    --arg session "$session_name" \
+    --arg pane "$SM_PANE_ID" \
+    --arg started "$RUNTIME_NOW" \
+    '{
+      tmux_session: $session,
+      sm_pane_id: $pane,
+      started_at: $started,
+      stall_watchdog_pid: null
+    }' > "$RUNTIME_TMP"
+  mv "$RUNTIME_TMP" .scrum/runtime.json
+
   if [ "$AUTONOMOUS" = "1" ]; then
     # Autonomous mode: main pane runs the watchdog. We deliberately keep the
     # pane alive after the watchdog exits (read -r) so the user can attach in
@@ -335,6 +358,25 @@ if command -v tmux >/dev/null 2>&1; then
     # automatically.
     tmux send-keys -t "$session_name" \
       "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}" C-m
+
+    # External stall watchdog (non-autonomous mode only). Replaces the
+    # legacy SM-side Stop-hook block-loop. Detached so it survives this
+    # shell. Autonomous mode skips this because the Ralph Loop watchdog
+    # already owns liveness/safety.
+    STALL_WATCHDOG_SCRIPT="$SCRIPT_DIR/scripts/stall-watchdog.sh"
+    if [ -x "$STALL_WATCHDOG_SCRIPT" ]; then
+      nohup "$STALL_WATCHDOG_SCRIPT" "$PWD" >/dev/null 2>&1 &
+      STALL_WATCHDOG_PID=$!
+      # Update runtime.json with the pid (best-effort; failure not fatal).
+      RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
+      if jq --argjson pid "$STALL_WATCHDOG_PID" \
+           '.stall_watchdog_pid = $pid' \
+           .scrum/runtime.json > "$RUNTIME_TMP" 2>/dev/null; then
+        mv "$RUNTIME_TMP" .scrum/runtime.json
+      else
+        rm -f "$RUNTIME_TMP"
+      fi
+    fi
   fi
 
   if [ "$term_cols" -ge "$min_split_cols" ]; then
