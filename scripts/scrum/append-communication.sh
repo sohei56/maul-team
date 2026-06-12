@@ -33,7 +33,7 @@ done
 [ -n "$CONTENT" ] || fail E_INVALID_ARG "--content required"
 
 case "$KIND" in
-  file_change|tool_use|status_transition|subagent_start|subagent_stop|task_completed|teammate_idle|agent_spawn|progress_update|status_change|message|report|review|escalation|info) ;;
+  file_changed|tool_use|status_transition|subagent_start|subagent_stop|task_completed|teammate_idle|agent_spawn|progress_update|status_change|message|report|review|escalation|info) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND" ;;
 esac
 
@@ -74,6 +74,13 @@ MSG_JSON="$(
     + (if $pbi == "" or $pbi == "null" then {pbi_id: null} else {pbi_id: $pbi} end)'
 )"
 
-EXPR=".messages += [$MSG_JSON]"
+# Mirror the hook-side cap-on-append semantics from hooks/lib/validate.sh::
+# append_to_json_array. Default cap (200) matches hooks/dashboard-event.sh's
+# MAX_MESSAGES so wrapper vs hook entry paths converge on the same retention.
+EXPR=".messages = ((.messages // []) + [$MSG_JSON])
+      | (.max_messages // 200) as \$cap
+      | if (.messages | length) > \$cap
+        then .messages = .messages[(.messages | length) - \$cap:]
+        else . end"
 
 atomic_write ".scrum/communications.json" "$EXPR" "$ROOT/docs/contracts/scrum-state/communications.schema.json"
