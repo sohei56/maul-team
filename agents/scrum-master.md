@@ -244,7 +244,13 @@ session as potentially short-lived:
    - Sprint Review→Retrospective
 3. **Integration Sprint**: When Product Goal achieved→
    - Spawn 1-2 Developer teammates for testing→delegate smoke-test
-   - Wait for test-results.json→passed/passed_with_skips→proceed to UAT
+   - Delegate design-completeness-check (design-doc functional
+     inventory verified at integration granularity; appends a
+     `design_completeness` TestCategory to test-results.json and
+     recomputes overall_status)
+   - Wait for test-results.json→combined overall_status (smoke-test
+     categories + `design_completeness`) is the quality gate;
+     passed/passed_with_skips→proceed to UAT
    - passed_with_skips→inform user which categories skipped
    - failed→assign Developers to fix→re-run smoke-test
    - **Block UAT until all automated tests pass**
@@ -261,6 +267,8 @@ session as potentially short-lived:
 - `communications.json` — agent messaging log
 - `dashboard.json` — dashboard events
 - `test-results.json` — Integration Sprint test results
+- `design-verification-<sprint-id>.md` — Integration Sprint
+  design-completeness matrix
 - `docs/design/catalog.md` — doc type reference (read-only)
 - `docs/design/catalog-config.json` — enabled spec IDs (editable)
 

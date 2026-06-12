@@ -477,8 +477,11 @@ Levels: `INFO`, `WARN`, `ERROR`.
 **Readers**: Scrum Master (quality gate), completion-gate.sh, Textual dashboard app
 
 Tracks automated test execution results during the Integration Sprint.
-Written by Developer teammates running the `smoke-test` skill.
-The Scrum Master blocks UAT until `overall_status` is `"passed"` or `"passed_with_skips"`.
+Written by Developer teammates running the `smoke-test` skill and then
+the `design-completeness-check` skill (which appends a
+`design_completeness` TestCategory and recomputes `overall_status`).
+The Scrum Master blocks UAT until the combined `overall_status` is
+`"passed"` or `"passed_with_skips"`.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -491,7 +494,7 @@ The Scrum Master blocks UAT until `overall_status` is `"passed"` or `"passed_wit
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"` |
+| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"design_completeness"` |
 | `status` | enum | `"pending"`, `"running"`, `"passed"`, `"failed"`, `"skipped"` |
 | `total` | integer | Total number of tests |
 | `passed` | integer | Tests that passed |
@@ -509,9 +512,13 @@ The Scrum Master blocks UAT until `overall_status` is `"passed"` or `"passed_wit
 | `message` | string | Error message or failure reason |
 
 ### Rules
-- Created by Developer teammates during the Integration Sprint via `smoke-test` skill.
+- Created by Developer teammates during the Integration Sprint via the
+  `smoke-test` skill, then extended by the `design-completeness-check`
+  skill which appends a `design_completeness` TestCategory and
+  recomputes `overall_status` in place.
 - The `completion-gate.sh` hook blocks session stop during `integration_sprint` phase unless `overall_status` is `"passed"` or `"passed_with_skips"`.
-- The Scrum Master reads this file to decide whether to proceed to UAT.
+- The Scrum Master reads this file and gates UAT on the combined
+  `overall_status` (smoke-test categories + `design_completeness`).
 - Categories with `status: "skipped"` do not block the overall status.
 
 ---
@@ -750,6 +757,7 @@ human or autonomous). Schema:
 | `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` | Per-PBI demo-mode `po-acceptance` transcript; referenced as `evidence` on the matching `demo_acceptance` decision. |
 | `.scrum/po/acceptance/<sprint-id>/<pbi-id>-r<n>.md` | Re-entry transcript when `po-acceptance` is re-run for a defect-fix loop. |
 | `.scrum/po/uat-<sprint-id>.md` | Single UAT-mode transcript per Sprint; section anchors are referenced as `evidence` on `uat_item` decisions. |
+| `.scrum/po/uat-stories-<sprint-id>.md` | UAT user-story inventory derived from `docs/requirements.md` with FR⇄US traceability appendix; each story (`US-NNN`) carries a verdict (`pass \| fail \| waive` + feedback) recorded during the walkthrough. One file per Sprint. |
 | `.scrum/po/attention.md` | Human-only queue: numbered entries the PO appended for issues only a human can resolve (credentials, billing, legal, prod deploy). Entries tagged `release-blocking: yes` block `release_decision=go`. |
 
 ### Rules
@@ -914,7 +922,7 @@ po/decisions.json
   └── decisions[].sprint_id -> sprint.json.id | sprint-history.json.sprints[].id
   └── decisions[].pbi_id    -> backlog.json.items[].id
   └── decisions[].evidence[] -> .scrum/po/acceptance/<sprint-id>/<pbi-id>.md (demo)
-                              | .scrum/po/uat-<sprint-id>.md#<anchor>      (uat)
+                              | .scrum/po/uat-<sprint-id>.md#us-nnn        (uat)
                               | .scrum/test-results.json                   (release_decision=go)
 
 stop-gate.json

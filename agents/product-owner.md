@@ -101,8 +101,12 @@ all of the following hold:
   `passed_with_skips` and every skipped category has a logged waiver
   in `decisions.json` (kind=uat_item or kind=defect_triage with an
   explicit rationale).
-- Every UAT item from `po-acceptance` (mode=uat) is either `pass` or
-  `waive` with rationale. Any `fail` is a hard `no_go`.
+- Every user story in `.scrum/po/uat-stories-<sprint-id>.md` has a
+  `uat_item` decision recorded in `decisions.json` and the verdict
+  is `pass` or `waive` with rationale. Any `fail` is a hard
+  `no_go`. A non-empty uncovered-FR list in the inventory's FR⇄US
+  traceability appendix (without explicit per-FR waivers) is also
+  a hard `no_go`.
 - `.scrum/po/attention.md` contains no entry tagged
   `release-blocking: yes`.
 
@@ -200,6 +204,9 @@ backlog_approval | scope_change
   transcript at:
   - `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` (demo mode)
   - `.scrum/po/uat-<sprint-id>.md` (UAT mode, single file per sprint)
+  - `.scrum/po/uat-stories-<sprint-id>.md` (UAT user-story inventory
+    with FR⇄US traceability appendix, one per sprint; derived from
+    `docs/requirements.md` before the walkthrough)
 
   These transcripts are referenced as the `evidence` of the
   matching `demo_acceptance` / `uat_item` decision.

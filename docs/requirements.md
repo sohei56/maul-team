@@ -436,10 +436,20 @@ Observe implementation and verify Developers use support sub-agents.
   the user indicates the Product Goal is achieved, covering
   integration testing, end-to-end testing, regression testing,
   documentation consistency checks, and user acceptance testing.
-  For user acceptance testing, the team MUST prepare the product
-  for hands-on use (e.g. launch locally, share URL or start
-  command), provide a guided testing flow covering key user
-  workflows, and collect the user's feedback at each step.
+  Before user acceptance testing, the team MUST verify
+  design-document functional completeness at integration-test
+  granularity — every function described in the enabled design
+  specs is verified against the running system, and unimplemented
+  spec'd functions are treated as release-blocking defects. For
+  user acceptance testing, the team MUST prepare the product for
+  hands-on use (e.g. launch locally, share URL or start command),
+  and MUST drive verification from a user-story inventory
+  exhaustively derived from the requirements document — every
+  release-relevant Functional Requirement traced to ≥1 user story,
+  every story traced to ≥1 FR. Each story MUST be confirmed with
+  the Product Owner **one at a time**, recording a verdict and
+  feedback per story; multiple stories MUST NOT be batched in a
+  single confirmation.
 
 - **FR-014**: The system MUST provide a TUI dashboard that runs
   alongside the conversation and displays the following panels:
