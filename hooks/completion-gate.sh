@@ -261,13 +261,23 @@ autonomous_next_action() {
   esac
 }
 
-# Get PBI IDs for the current Sprint
+# Get PBI IDs for the current Sprint.
+#
+# OD-4 (2026-06): the deprecated `sprint.json.pbi_ids` field is no longer
+# seeded by `init-sprint.sh`. Derive Sprint membership from
+# `backlog.json.items[]` where `sprint_id` matches the supplied Sprint id.
+# Pre-existing files that still carry `pbi_ids` revalidate fine
+# (`sprint.schema.json` is `additionalProperties: true`) but this gate never
+# reads them again.
 get_sprint_pbi_ids() {
-  if [ ! -f "$SPRINT_FILE" ]; then
+  local sprint_id="$1"
+  if [ -z "$sprint_id" ] || [ "$sprint_id" = "none" ] || [ ! -f "$BACKLOG_FILE" ]; then
     echo ""
     return
   fi
-  jq -r '.pbi_ids[]? // empty' "$SPRINT_FILE" 2>/dev/null
+  jq -r --arg sid "$sprint_id" \
+    '.items[]? | select(.sprint_id == $sid) | .id // empty' \
+    "$BACKLOG_FILE" 2>/dev/null
 }
 
 # Get the status of a PBI by its ID from the backlog (thin wrapper around
@@ -310,7 +320,7 @@ case "$phase" in
         incomplete_pbis="${incomplete_pbis}${incomplete_pbis:+, }${pbi_id} (status: ${status})"
       fi
     done <<EOF
-$(get_sprint_pbi_ids)
+$(get_sprint_pbi_ids "$current_sprint_id")
 EOF
 
     if [ -n "$incomplete_pbis" ]; then

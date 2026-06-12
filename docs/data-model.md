@@ -168,9 +168,7 @@ State descriptions:
 | `base_sha_captured_at` | ISO 8601 string \| null | When `base_sha` was captured (set by `freeze-sprint-base.sh`). |
 | `type` | enum | `"development"` or `"integration"` |
 | `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"`, `"failed"` |
-| `pbi_ids` | string[] | IDs of PBIs in the Sprint Backlog |
-| `developer_count` | integer | Number of Developer teammates: min(refined PBIs, 6) |
-| `developers` | Developer[] | Active Developer teammate definitions |
+| `developers` | Developer[] | Active Developer teammate definitions. Sprint PBI membership is derived from `backlog.items[]` where `sprint_id == sprint.id`; the developer count is `developers \| length`. (The legacy `pbi_ids` / `developer_count` fields were removed in the OD-4 single-source pass; pre-existing files retaining them keep validating because `sprint.schema.json.additionalProperties` is `true`, but no reader consults them.) |
 | `started_at` | ISO 8601 string | Sprint start timestamp |
 | `completed_at` | ISO 8601 string \| null | Sprint completion timestamp |
 
@@ -886,9 +884,9 @@ backlog.json
   └── items[].depends_on_pbi_ids[] -> items[].id (cross-reference)
 
 sprint.json
-  └── pbi_ids[] -> backlog.json.items[].id
   └── developers[].current_pbi -> backlog.json.items[].id
   └── developers[].assigned_work.implement[] -> backlog.json.items[].id
+  └── (Sprint PBI set is derived: backlog.json.items[] where sprint_id == sprint.id)
 
 .scrum/pbi/<pbi-id>/state.json (PbiPipelineState)
   └── pbi_id -> backlog.json.items[].id

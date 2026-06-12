@@ -3,8 +3,6 @@
   "goal": "Implement user management",
   "type": "development",
   "status": "active",
-  "pbi_ids": ["pbi-001"],
-  "developer_count": 1,
   "developers": [
     {
       "id": "dev-001-s1",

@@ -166,11 +166,14 @@ EOF
   run jq -e '.status' "$file"
   assert_success
 
-  run jq -e '.pbi_ids | type == "array"' "$file"
-  assert_success
+  # OD-4 (2026-06): pbi_ids / developer_count removed — Sprint PBI membership
+  # is derived from backlog.items[].sprint_id; developer count is
+  # `developers | length`.
+  run jq -e '.pbi_ids' "$file"
+  assert_failure  # field must NOT be present in the canonical fixture
 
-  run jq -e '.developer_count | type == "number"' "$file"
-  assert_success
+  run jq -e '.developer_count' "$file"
+  assert_failure
 
   run jq -e '.developers | type == "array"' "$file"
   assert_success

@@ -11,8 +11,8 @@ disable-model-invocation: false
 
 ## Outputs
 
-- `sprint.json`: id, goal, type: development, status: planning, pbi_ids, developer_count
-- `backlog.json` → items[].sprint_id, implementer_id assigned (review handled SM-side at Sprint end via `cross-review`)
+- `sprint.json`: id, goal, type: development, status: planning
+- `backlog.json` → items[].sprint_id, implementer_id assigned (review handled SM-side at Sprint end via `cross-review`). **Sprint PBI membership is derived from these `sprint_id` assignments** — `sprint.json` no longer carries a `pbi_ids` array (OD-4 single-source).
 - Oversized PBIs split into children (parent_pbi_id set)
 - `state.json` → phase: sprint_planning
 
@@ -54,7 +54,7 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 3. Propose Sprint Goal→user approval before proceeding
 4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008)
 5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
-6. developer_count = min(selected PBI count, 6). **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest
+6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
 7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — Sprint-end cross-review is performed by the Scrum Master via independent reviewer sub-agents (FR-009 Layer 2)
 8. **Create sprint.json + update state.current_sprint_id (atomic
    pair).** `init-sprint.sh` creates `.scrum/sprint.json` at

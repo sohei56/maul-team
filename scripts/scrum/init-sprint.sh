@@ -2,9 +2,11 @@
 # scripts/scrum/init-sprint.sh — initialise a fresh Sprint at planning start.
 # Usage: init-sprint.sh <sprint-id> [--goal <goal>] [--type development|integration]
 #
-# Creates `.scrum/sprint.json` (status=planning, started_at=now, pbi_ids=[],
-# developer_count=0, developers=[]) AND updates `.scrum/state.json.current_sprint_id`
-# in the same call. Atomicity within a single Sprint init is the whole point —
+# Creates `.scrum/sprint.json` (status=planning, started_at=now,
+# developers=[]) AND updates `.scrum/state.json.current_sprint_id` in the
+# same call. Sprint PBI membership is derived from `backlog.json.items[]`
+# where `sprint_id == sprint.json.id`; the legacy `pbi_ids` /
+# `developer_count` fields were removed (OD-4 single-source). Atomicity within a single Sprint init is the whole point —
 # leaving these in sync prevents the recurring class of bug where
 # `state.current_sprint_id` lags behind `sprint.id` (caught by completion-gate
 # on Stop, see IMP-003/IMP-009/imp-s28-02 in target-project retrospectives).
@@ -55,17 +57,24 @@ NOW="$(_iso_utc_now)"
 TMP="$(_make_tmp_path "$SPRINT")"
 
 # Build sprint.json. `goal` is null when --goal not supplied; the schema permits
-# null/string. Developer count starts at 0 (set later by spawn-teammates).
+# null/string.
+#
+# `pbi_ids` and `developer_count` were removed in the OD-4 single-source pass.
+# Sprint PBI membership is now derived from
+# `backlog.json.items[] | select(.sprint_id == sprint.id) | .id`, and developer
+# count from `sprint.json.developers | length`. The schema's
+# `additionalProperties: true` means pre-existing files retaining the old
+# fields keep validating; we just stop seeding them.
 if [ -n "$GOAL" ]; then
   jq -n --arg id "$SPRINT_ID" --arg goal "$GOAL" --arg type "$TYPE" --arg now "$NOW" '{
     id: $id, goal: $goal, type: $type, status: "planning",
-    pbi_ids: [], developer_count: 0, developers: [],
+    developers: [],
     started_at: $now, completed_at: null
   }' > "$TMP"
 else
   jq -n --arg id "$SPRINT_ID" --arg type "$TYPE" --arg now "$NOW" '{
     id: $id, goal: null, type: $type, status: "planning",
-    pbi_ids: [], developer_count: 0, developers: [],
+    developers: [],
     started_at: $now, completed_at: null
   }' > "$TMP"
 fi

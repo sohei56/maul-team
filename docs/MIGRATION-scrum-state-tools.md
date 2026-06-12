@@ -35,6 +35,25 @@ field was removed in v2; lifecycle moves through
 
 All pairs apply in a single atomic transaction (one schema validation, one `mv`).
 
+### Removed: `sprint.json.pbi_ids` and `sprint.json.developer_count` (OD-4, 2026-06)
+
+These two fields were derivable from other state, so they violated the
+single-source rule that drove the v2 status unification:
+
+- **Sprint PBI membership** is now derived from `backlog.json.items[]`
+  where `sprint_id == sprint.json.id`. The Scrum Master writes the
+  assignment via `set-backlog-item-field.sh "$PBI_ID" sprint_id <sprint-id>`
+  during Sprint Planning; no `pbi_ids` array is maintained on the sprint side.
+- **Developer count** is `sprint.json.developers | length` — `developer_count`
+  was a redundant cache that could drift if the developers array was edited
+  out of band.
+
+`init-sprint.sh` no longer seeds either field. Readers (`completion-gate.sh`,
+`statusline.sh`, the dashboard, `sprint-planning` / `spawn-teammates` skills)
+all derive. `sprint.schema.json.additionalProperties: true` means
+pre-existing files retaining the old fields continue to validate; nothing
+reads them.
+
 ### `impl_round` advancement (`begin-impl-round.sh`)
 
 Even though `update-pbi-state.sh` accepts `impl_round` as a settable

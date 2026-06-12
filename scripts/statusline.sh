@@ -21,18 +21,16 @@ if [ -f "$SPRINT_FILE" ] && [ -n "$sprint_id" ] && [ "$sprint_id" != "null" ]; t
   sprint_num="${sprint_id#sprint-}"
   sprint_goal="$(jq -r '.goal // "No goal"' "$SPRINT_FILE" | cut -c1-40)"
 
-  # Count completed PBIs
+  # Count completed PBIs. OD-4 single-source: derive Sprint membership from
+  # `backlog.items where sprint_id == current_sprint`; `sprint.pbi_ids` is
+  # gone.
   if [ -f "$BACKLOG_FILE" ]; then
-    pbi_ids="$(jq -r '.pbi_ids // [] | .[]' "$SPRINT_FILE" 2>/dev/null)"
-    if [ -n "$pbi_ids" ]; then
-      total="$(jq -r '.pbi_ids | length' "$SPRINT_FILE")"
-      done_count="$(jq -r --argjson ids "$(jq '.pbi_ids' "$SPRINT_FILE")" \
-        '[.items[] | select(.id as $id | $ids | index($id)) | select(.status == "done")] | length' \
-        "$BACKLOG_FILE" 2>/dev/null || echo "0")"
-    else
-      total=0
-      done_count=0
-    fi
+    total="$(jq -r --arg sid "$sprint_id" \
+      '[.items[] | select(.sprint_id == $sid)] | length' \
+      "$BACKLOG_FILE" 2>/dev/null || echo "0")"
+    done_count="$(jq -r --arg sid "$sprint_id" \
+      '[.items[] | select(.sprint_id == $sid and .status == "done")] | length' \
+      "$BACKLOG_FILE" 2>/dev/null || echo "0")"
   else
     total=0
     done_count=0

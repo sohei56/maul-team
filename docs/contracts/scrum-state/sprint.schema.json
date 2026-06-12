@@ -13,12 +13,6 @@
     "status": {
       "enum": ["planning", "active", "cross_review", "sprint_review", "complete", "failed"]
     },
-    "pbi_ids": {
-      "type": "array",
-      "items": {"type": "string", "pattern": "^pbi-[0-9]+$"},
-      "uniqueItems": true
-    },
-    "developer_count": {"type": "integer", "minimum": 0},
     "developers": {
       "type": "array",
       "items": {

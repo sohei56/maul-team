@@ -237,7 +237,7 @@ execute.
   ## Inputs (required state)
   - `state.json` -> `phase` (must be `sprint_planning`; project-level workflow)
   - `backlog.json` -> `items[]` (PBIs with `status: refined`)
-  - `sprint.json` -> `id`, `goal`, `pbi_ids`
+  - `sprint.json` -> `id`, `goal` (Sprint PBI membership derived from `backlog.items[]` where `sprint_id == sprint.id`)
 
   ## Outputs (files/keys updated)
   - `sprint.json` -> `developers[]` (populated with spawned teammates)
