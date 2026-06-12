@@ -98,28 +98,15 @@ is_duplicate_comms() {
 
 # Determine the change type for a file operation
 determine_change_type() {
-  local tool_name="$1"
-  local file_path="$2"
-
-  case "$tool_name" in
-    Write)
-      if [ -f "$file_path" ]; then
-        echo "modified"
-      else
-        echo "created"
-      fi
-      ;;
-    Edit)
-      echo "modified"
-      ;;
-    Bash)
-      # Cannot reliably determine — default to modified
-      echo "modified"
-      ;;
-    *)
-      echo "modified"
-      ;;
-  esac
+  # Always returns "modified".
+  #
+  # Cleanup-audit T1-9 (2026-06): the prior implementation distinguished
+  # Write→"created" from Write→"modified" by `[ -f $file_path ]`. But this
+  # is a PostToolUse hook — by the time it runs, the tool has already
+  # completed, so the file always exists and the "created" branch is
+  # unreachable. Edit / Bash / * already returned "modified" verbatim.
+  # Collapsed to one literal to make the contract explicit.
+  echo "modified"
 }
 
 # ---------------------------------------------------------------------------
