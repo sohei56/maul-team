@@ -57,7 +57,7 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 
 - **15 ceremony skills** covering the full Scrum lifecycle: requirements elicitation, backlog refinement, sprint planning, design, implementation, per-PBI merge, cross-review, sprint review, retrospective, and integration testing
 - **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint
-- **Real-time TUI dashboard** — Textual-based four-panel display (Sprint Overview, PBI Progress Board, Communication Log, Work Log) with watchdog filesystem monitoring
+- **Real-time TUI dashboard** — Textual-based three-panel display (Sprint Overview, PBI Progress Board, unified Team Log of agent messages + work events) with watchdog filesystem monitoring
 - **Design document governance** — immutable catalog (`catalog.md`) with editable enablement config (`catalog-config.json`), enforced by status-gate hooks
 - **Quality enforcement hooks** — phase gates (source code restrictions), completion gates (exit criteria), quality gates (Definition of Done), dashboard events, and session context restoration
 - **State persistence** — all state in `.scrum/` JSON files for full session resume capability

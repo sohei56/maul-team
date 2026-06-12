@@ -33,7 +33,7 @@ done
 [ -n "$CONTENT" ] || fail E_INVALID_ARG "--content required"
 
 case "$KIND" in
-  file_change|tool_use|status_transition|subagent_start|subagent_stop|task_completed|teammate_idle|agent_spawn|progress_update|status_change|report|review|escalation|info) ;;
+  file_change|tool_use|status_transition|subagent_start|subagent_stop|task_completed|teammate_idle|agent_spawn|progress_update|status_change|message|report|review|escalation|info) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND" ;;
 esac
 

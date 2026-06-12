@@ -1,6 +1,6 @@
 """Textual TUI Dashboard for AI-Powered Scrum Team.
 
-Four-panel real-time dashboard that monitors .scrum/ JSON files via
+Three-panel real-time dashboard that monitors .scrum/ JSON files via
 watchdog filesystem events. Designed to run in a tmux side pane alongside
 Claude Code.
 
@@ -11,21 +11,25 @@ Panels:
       status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
       counters come from `pbi/<id>/state.json`, but the status displayed
       is always the backlog SSOT — there is no separate phase column.
-  (c) Communication Log — scrollable agent message log
-  (d) Work Log — scrollable activity/work log
+  (c) Team Log — merged chronological log of agent messages
+      (communications.json) and work events (dashboard.json); `f` cycles
+      the filter all → messages → work
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import zlib
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock, Timer
 
+from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Vertical
 from textual.widgets import DataTable, Footer, Header, RichLog, Static
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -491,43 +495,169 @@ class TestResultsPanel(Static):
         self.update("\n".join(lines))
 
 
-class CommunicationLog(RichLog):
-    """Panel (c): Scrollable agent message log."""
+# Stable per-agent colors so each agent's lines are visually traceable.
+# Red is excluded — it is reserved for deletions/escalations/errors.
+_AGENT_PALETTE = (
+    "cyan",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "bright_cyan",
+    "bright_green",
+    "bright_blue",
+)
+
+
+def _agent_color(name: str) -> str:
+    if not name or name == "?":
+        return "white"
+    return _AGENT_PALETTE[zlib.crc32(name.encode("utf-8")) % len(_AGENT_PALETTE)]
+
+
+def _format_comm_line(msg: dict) -> str:
+    """Render one communications.json message as a Rich markup line."""
+    ts_short = _format_ts_short(msg.get("timestamp", "?"))
+    sender = str(msg.get("sender_id") or "?")
+    role = msg.get("sender_role") or ""
+    recipient = msg.get("recipient_id")
+    mtype = msg.get("type", "")
+    content = escape(str(msg.get("content") or ""))
+    color = _agent_color(sender)
+
+    parts = [f"[dim]{ts_short}[/dim]", f"[bold {color}]{escape(sender)}[/bold {color}]"]
+    if role:
+        parts.append(f"[dim]({escape(str(role))})[/dim]")
+    if recipient and recipient != "all":
+        parts.append(f"→ [bold]{escape(str(recipient))}[/bold]")
+    if mtype == "message":
+        parts.append("✉")
+    elif mtype == "escalation":
+        content = f"[red]{content}[/red]"
+    parts.append(content)
+    return " ".join(parts)
+
+
+def _format_event_line(evt: dict) -> str:
+    """Render one dashboard.json work event as a Rich markup line."""
+    ts_short = _format_ts_short(evt.get("timestamp", "?"))
+    evt_type = evt.get("type", "?")
+    agent = str(evt.get("agent_id") or "?")
+    color = _agent_color(agent)
+    agent_str = f"([{color}]{escape(agent)}[/{color}])"
+    file_path = evt.get("file_path") or ""
+    change = evt.get("change_type") or ""
+    detail = escape(str(evt.get("detail") or ""))
+
+    if evt_type == "file_changed" and file_path:
+        ccolor = {"created": "green", "modified": "yellow", "deleted": "red"}.get(change, "")
+        change_str = f"[{ccolor}]{change}[/{ccolor}]" if ccolor else change
+        return f"[dim]{ts_short}[/dim] {change_str} {escape(str(file_path))} {agent_str}"
+    if evt_type == "teammate_idle":
+        return f"[dim]{ts_short}[/dim] [cyan]idle[/cyan] {detail} {agent_str}"
+    if evt_type == "status_transition":
+        status_from = evt.get("status_from") or ""
+        status_to = evt.get("status_to") or ""
+        arrow = f"{status_from} → {status_to}" if status_from or status_to else detail
+        return f"[dim]{ts_short}[/dim] [magenta]status[/magenta] {arrow} {agent_str}"
+    if detail:
+        return f"[dim]{ts_short}[/dim] {detail} {agent_str}"
+    return f"[dim]{ts_short}[/dim] {evt_type} {agent_str}"
+
+
+class UnifiedLog(RichLog):
+    """Panel (c): merged chronological log of agent messages and work events.
+
+    Reads communications.json (messages) and dashboard.json (work events),
+    normalizes new entries to ``(timestamp, category, line)`` and appends
+    them in timestamp order. New-entry detection is cursor-based — last
+    seen timestamp plus the count of entries sharing it — so the log keeps
+    flowing after the SSOT arrays hit their max_messages/max_events caps
+    and get head-trimmed (a length-delta cursor freezes at the cap).
+    """
 
     DEFAULT_CSS = """
-    CommunicationLog {
+    UnifiedLog {
         height: 1fr;
         border: solid $accent;
     }
     """
 
+    MAX_ENTRIES = 300
+    FILTER_MODES = ("all", "messages", "work")
+
     def __init__(self, **kwargs) -> None:
         super().__init__(highlight=True, markup=True, wrap=True, **kwargs)
-        self._last_count = 0
+        self._cursors: dict[str, tuple[str, int]] = {}
+        self._entries: deque[tuple[str, str, str]] = deque(maxlen=self.MAX_ENTRIES)
+        self._filter = "all"
+
+    @property
+    def filter_mode(self) -> str:
+        return self._filter
+
+    def cycle_filter(self) -> str:
+        """Advance the filter (all → messages → work) and re-render."""
+        modes = self.FILTER_MODES
+        self._filter = modes[(modes.index(self._filter) + 1) % len(modes)]
+        self.clear()
+        for _ts, category, line in self._entries:
+            if self._matches_filter(category):
+                self.write(line)
+        return self._filter
+
+    def _matches_filter(self, category: str) -> bool:
+        if self._filter == "all":
+            return True
+        return (self._filter == "messages") == (category == "message")
 
     def update_content(self) -> None:
+        batch: list[tuple[str, str, str]] = []
+
         comms = read_json_validated(SCRUM_DIR / "communications.json")
-        if not comms:
+        if comms:
+            for msg in self._fresh(comms.get("messages", []), "comms"):
+                batch.append((str(msg.get("timestamp") or ""), "message", _format_comm_line(msg)))
+
+        dashboard = read_json_validated(SCRUM_DIR / "dashboard.json")
+        if dashboard:
+            for evt in self._fresh(dashboard.get("events", []), "events"):
+                batch.append((str(evt.get("timestamp") or ""), "work", _format_event_line(evt)))
+
+        if not batch:
             return
 
-        messages = comms.get("messages", [])
-        new_messages = messages[self._last_count :]
-        self._last_count = len(messages)
+        # Stable sort: equal timestamps keep their within-source file order.
+        batch.sort(key=lambda entry: entry[0])
+        for entry in batch:
+            self._entries.append(entry)
+            if self._matches_filter(entry[1]):
+                self.write(entry[2])
 
-        for msg in new_messages:
-            ts = msg.get("timestamp", "?")
-            sender = msg.get("sender_id", "?")
-            role = msg.get("sender_role", "")
-            recipient = msg.get("recipient_id") or "all"
-            content = msg.get("content", "")
-
-            ts_short = _format_ts_short(ts)
-
-            role_str = f" ({role})" if role else ""
-            recipient_str = f" → {recipient}" if recipient != "all" else ""
-            self.write(
-                f"[dim]{ts_short}[/dim] [bold]{sender}[/bold]{role_str}{recipient_str} {content}"
+    def _fresh(self, items: list, source: str) -> list[dict]:
+        """Return entries not yet rendered, advancing the source cursor."""
+        last_ts, seen_at_ts = self._cursors.get(source, ("", 0))
+        skipped = 0
+        fresh: list[dict] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            ts = str(item.get("timestamp") or "")
+            if ts < last_ts:
+                continue
+            if ts == last_ts and skipped < seen_at_ts:
+                skipped += 1
+                continue
+            fresh.append(item)
+        if fresh:
+            max_ts = str(fresh[-1].get("timestamp") or "")
+            at_max = sum(
+                1
+                for item in items
+                if isinstance(item, dict) and str(item.get("timestamp") or "") == max_ts
             )
+            self._cursors[source] = (max_ts, at_max)
+        return fresh
 
 
 # Round count above this is highlighted as a stagnation hint.
@@ -581,58 +711,6 @@ def _format_round(round_no) -> str:
     if round_no > PIPELINE_ROUND_WARN_THRESHOLD:
         return f"[red]{round_no}[/red]"
     return str(round_no)
-
-
-class WorkLog(RichLog):
-    """Panel (d): Scrollable activity/work log."""
-
-    DEFAULT_CSS = """
-    WorkLog {
-        height: 1fr;
-        border: solid $accent;
-    }
-    """
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(highlight=True, markup=True, wrap=True, **kwargs)
-        self._last_count = 0
-
-    def update_content(self) -> None:
-        dashboard = read_json_validated(SCRUM_DIR / "dashboard.json")
-        if not dashboard:
-            return
-
-        events = dashboard.get("events", [])
-        new_events = events[self._last_count :]
-        self._last_count = len(events)
-
-        for evt in new_events:
-            ts = evt.get("timestamp", "?")
-            evt_type = evt.get("type", "?")
-            agent = evt.get("agent_id") or "?"
-            file_path = evt.get("file_path") or ""
-            change = evt.get("change_type") or ""
-            detail = evt.get("detail", "")
-
-            ts_short = _format_ts_short(ts)
-
-            if evt_type == "file_changed" and file_path:
-                color = {"created": "green", "modified": "yellow", "deleted": "red"}.get(change, "")
-                change_str = f"[{color}]{change}[/{color}]" if color else change
-                self.write(f"[dim]{ts_short}[/dim] {change_str} {file_path} ({agent})")
-            elif evt_type == "teammate_idle":
-                self.write(f"[dim]{ts_short}[/dim] [cyan]idle[/cyan] {detail} ({agent})")
-            elif evt_type == "status_transition":
-                status_from = evt.get("status_from") or ""
-                status_to = evt.get("status_to") or ""
-                arrow = (
-                    f"{status_from} → {status_to}" if status_from or status_to else (detail or "")
-                )
-                self.write(f"[dim]{ts_short}[/dim] [magenta]status[/magenta] {arrow} ({agent})")
-            elif detail:
-                self.write(f"[dim]{ts_short}[/dim] {detail} ({agent})")
-            else:
-                self.write(f"[dim]{ts_short}[/dim] {evt_type} ({agent})")
 
 
 class ScrumFileHandler(FileSystemEventHandler):
@@ -693,11 +771,7 @@ class ScrumDashboard(App):
         grid-size: 1 3;
         grid-rows: auto 1fr 1fr;
     }
-    #logs-row {
-        layout: grid;
-        grid-size: 2 1;
-    }
-    #comm-title, #work-title {
+    #log-title {
         height: 1;
         text-style: bold;
         color: $text;
@@ -708,6 +782,7 @@ class ScrumDashboard(App):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
+        Binding("f", "cycle_log_filter", "Log Filter"),
         Binding("tab", "focus_next", "Next Panel"),
     ]
 
@@ -722,15 +797,10 @@ class ScrumDashboard(App):
             ),
             UnifiedPbiBoard(id="pbi-board"),
         )
-        with Horizontal(id="logs-row"):
-            yield Vertical(
-                Static("[bold]Communication Log[/bold]", id="comm-title"),
-                CommunicationLog(id="comm-log"),
-            )
-            yield Vertical(
-                Static("[bold]Work Log[/bold]", id="work-title"),
-                WorkLog(id="work-log"),
-            )
+        yield Vertical(
+            Static("[bold]Team Log[/bold] [dim](all)[/dim]", id="log-title"),
+            UnifiedLog(id="team-log"),
+        )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -767,14 +837,15 @@ class ScrumDashboard(App):
         test_results = self.query_one("#test-results", TestResultsPanel)
         test_results.update_content()
 
-        comm_log = self.query_one("#comm-log", CommunicationLog)
-        comm_log.update_content()
-
-        work_log = self.query_one("#work-log", WorkLog)
-        work_log.update_content()
+        team_log = self.query_one("#team-log", UnifiedLog)
+        team_log.update_content()
 
     def action_refresh(self) -> None:
         self.refresh_panels()
+
+    def action_cycle_log_filter(self) -> None:
+        mode = self.query_one("#team-log", UnifiedLog).cycle_filter()
+        self.query_one("#log-title", Static).update(f"[bold]Team Log[/bold] [dim]({mode})[/dim]")
 
     def on_unmount(self) -> None:
         if hasattr(self, "_observer"):

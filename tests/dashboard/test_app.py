@@ -29,7 +29,11 @@ from textual.app import App, ComposeResult
 from dashboard.app import (
     SCRUM_STATE_DIR,
     SprintOverview,
+    UnifiedLog,
     UnifiedPbiBoard,
+    _agent_color,
+    _format_comm_line,
+    _format_event_line,
     _format_round,
     _humanize_age,
     format_phase,
@@ -341,3 +345,194 @@ class TestUnifiedPbiBoard:
         assert _format_round(2) == "2"
         assert _format_round(3) == "[red]3[/red]"
         assert _format_round(None) == "[dim]-[/dim]"
+
+
+# ---------------------------------------------------------------------------
+# UnifiedLog (merged Team Log panel)
+# ---------------------------------------------------------------------------
+
+
+def _comm(ts: str, sender: str, content: str, mtype: str = "message", to: str | None = None):
+    return {
+        "timestamp": ts,
+        "sender_id": sender,
+        "recipient_id": to,
+        "type": mtype,
+        "content": content,
+    }
+
+
+def _evt(ts: str, agent: str, detail: str = "x", etype: str = "file_changed", **extra):
+    return {"timestamp": ts, "type": etype, "agent_id": agent, "detail": detail, **extra}
+
+
+def _write_logs(scrum: Path, messages=None, events=None) -> None:
+    scrum.mkdir(parents=True, exist_ok=True)
+    if messages is not None:
+        (scrum / "communications.json").write_text(
+            json.dumps({"messages": messages}), encoding="utf-8"
+        )
+    if events is not None:
+        (scrum / "dashboard.json").write_text(json.dumps({"events": events}), encoding="utf-8")
+
+
+class _UnifiedLogHarness(App):
+    def compose(self) -> ComposeResult:
+        yield UnifiedLog(id="log")
+
+
+class TestFormatters:
+    def test_comm_line_message_shows_sender_recipient_envelope(self) -> None:
+        line = _format_comm_line(
+            _comm("2026-06-12T10:00:00Z", "dev-001-s1", "PBI ready", to="scrum-master")
+        )
+        assert "10:00:00" in line
+        assert "dev-001-s1" in line
+        assert "→ [bold]scrum-master[/bold]" in line
+        assert "✉" in line
+        assert "PBI ready" in line
+
+    def test_comm_line_escapes_markup_in_content(self) -> None:
+        line = _format_comm_line(
+            _comm("2026-06-12T10:00:00Z", "dev-001-s1", "[pbi-003] PBI_READY_TO_MERGE")
+        )
+        assert "\\[pbi-003]" in line
+
+    def test_comm_line_escalation_rendered_red(self) -> None:
+        line = _format_comm_line(
+            _comm("2026-06-12T10:00:00Z", "dev-001-s1", "merge failed", mtype="escalation")
+        )
+        assert "[red]merge failed[/red]" in line
+
+    def test_event_line_file_changed_keeps_change_colors(self) -> None:
+        line = _format_event_line(
+            _evt(
+                "2026-06-12T10:00:00Z",
+                "dev-001-s1",
+                file_path="src/app.py",
+                change_type="created",
+            )
+        )
+        assert "[green]created[/green]" in line
+        assert "src/app.py" in line
+        assert "dev-001-s1" in line
+
+    def test_event_line_status_transition(self) -> None:
+        line = _format_event_line(
+            _evt(
+                "2026-06-12T10:00:00Z",
+                "scrum-master",
+                etype="status_transition",
+                status_from="refined",
+                status_to="in_progress_design",
+            )
+        )
+        assert "[magenta]status[/magenta]" in line
+        assert "refined → in_progress_design" in line
+
+    def test_agent_color_is_stable_and_in_palette(self) -> None:
+        from dashboard.app import _AGENT_PALETTE
+
+        assert _agent_color("dev-001-s1") == _agent_color("dev-001-s1")
+        assert _agent_color("dev-001-s1") in _AGENT_PALETTE
+        assert _agent_color("?") == "white"
+
+
+class TestUnifiedLog:
+    def _run_updates(self, monkeypatch, tmp_path, steps):
+        """Apply (messages, events) steps, calling update_content after each."""
+
+        async def runner():
+            import dashboard.app as dash
+
+            scrum = tmp_path / ".scrum"
+            monkeypatch.setattr(dash, "SCRUM_DIR", scrum)
+
+            app = _UnifiedLogHarness()
+            async with app.run_test():
+                log = app.query_one("#log", UnifiedLog)
+                for messages, events in steps:
+                    _write_logs(scrum, messages=messages, events=events)
+                    log.update_content()
+                return list(log._entries), log
+
+        return _run_async(runner())
+
+    def test_merges_both_sources_chronologically(self, monkeypatch, tmp_path) -> None:
+        messages = [
+            _comm("2026-06-12T10:00:00Z", "dev-001-s1", "starting", to="scrum-master"),
+            _comm("2026-06-12T10:00:02Z", "dev-001-s1", "done", to="scrum-master"),
+        ]
+        events = [
+            _evt(
+                "2026-06-12T10:00:01Z",
+                "dev-001-s1",
+                file_path="src/app.py",
+                change_type="modified",
+            )
+        ]
+        entries, _ = self._run_updates(monkeypatch, tmp_path, [(messages, events)])
+
+        timestamps = [e[0] for e in entries]
+        assert timestamps == sorted(timestamps)
+        assert [e[1] for e in entries] == ["message", "work", "message"]
+
+    def test_new_entries_still_render_after_cap_trim(self, monkeypatch, tmp_path) -> None:
+        """Head-trimmed arrays (length unchanged) must not freeze the log."""
+        step1 = [
+            _comm("2026-06-12T10:00:00Z", "a", "m1"),
+            _comm("2026-06-12T10:00:01Z", "a", "m2"),
+            _comm("2026-06-12T10:00:02Z", "a", "m3"),
+        ]
+        # Simulate max_messages=3 trim: m1 dropped, m4 appended — same length.
+        step2 = step1[1:] + [_comm("2026-06-12T10:00:03Z", "a", "m4")]
+        entries, _ = self._run_updates(monkeypatch, tmp_path, [(step1, None), (step2, None)])
+
+        contents = [e[2] for e in entries]
+        assert len(entries) == 4
+        assert sum("m4" in c for c in contents) == 1
+        assert sum("m2" in c for c in contents) == 1  # not re-rendered
+
+    def test_same_timestamp_entries_not_duplicated(self, monkeypatch, tmp_path) -> None:
+        ts = "2026-06-12T10:00:00Z"
+        step1 = [_comm(ts, "a", "m1"), _comm(ts, "a", "m2")]
+        step2 = step1 + [_comm(ts, "a", "m3")]
+        entries, _ = self._run_updates(monkeypatch, tmp_path, [(step1, None), (step2, None)])
+
+        contents = [e[2] for e in entries]
+        assert len(entries) == 3
+        assert sum("m3" in c for c in contents) == 1
+
+    def test_filter_cycles_and_rerenders(self, monkeypatch, tmp_path) -> None:
+        messages = [
+            _comm("2026-06-12T10:00:00Z", "a", "m1"),
+            _comm("2026-06-12T10:00:02Z", "a", "m2"),
+        ]
+        events = [_evt("2026-06-12T10:00:01Z", "a", etype="task_completed", detail="done")]
+
+        async def runner():
+            import dashboard.app as dash
+
+            scrum = tmp_path / ".scrum"
+            monkeypatch.setattr(dash, "SCRUM_DIR", scrum)
+
+            app = _UnifiedLogHarness()
+            async with app.run_test():
+                log = app.query_one("#log", UnifiedLog)
+                _write_logs(scrum, messages=messages, events=events)
+                log.update_content()
+                counts = {"all": len(log.lines)}
+                mode = log.cycle_filter()  # messages
+                counts[mode] = len(log.lines)
+                mode = log.cycle_filter()  # work
+                counts[mode] = len(log.lines)
+                back_to = log.cycle_filter()
+                counts["all_again"] = len(log.lines)
+                return counts, back_to
+
+        counts, back_to = _run_async(runner())
+        assert counts["all"] == 3
+        assert counts["messages"] == 2
+        assert counts["work"] == 1
+        assert back_to == "all"
+        assert counts["all_again"] == 3

@@ -29,6 +29,7 @@
               "agent_spawn",
               "progress_update",
               "status_change",
+              "message",
               "report",
               "review",
               "escalation",

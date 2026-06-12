@@ -2,8 +2,11 @@
 # dashboard-event.sh — PostToolUse/TeammateIdle/Stop/TaskCompleted/SubagentStart/SubagentStop hook
 # Feeds the dashboard events log and communications log.
 # Reads hook event JSON from stdin (Claude Code hook payload).
-# Appends file change events to .scrum/dashboard.json and agent
-# communication messages to .scrum/communications.json.
+# Each happening is appended to exactly one file: work events
+# (file changes, lifecycle, task completion) to .scrum/dashboard.json,
+# agent messages (SendMessage, spawns, idle progress) to
+# .scrum/communications.json. The dashboard's Team Log panel merges
+# both chronologically.
 set -euo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -145,8 +148,6 @@ case "$hook_type" in
         file_path="$(echo "$tool_input" | jq -r '.file_path // empty')"
         if [ -n "$file_path" ]; then
           change_type="$(determine_change_type "$tool_name" "$file_path")"
-          # Use basename for concise display
-          short_path="$(basename "$file_path")"
           detail="${tool_name} on ${file_path}"
 
           event_json="$(jq -n \
@@ -166,26 +167,6 @@ case "$hook_type" in
             }')"
 
           append_dashboard_event "$event_json"
-
-          # Also emit a communication message for file changes
-          comms_content="${change_type} ${short_path}"
-          if ! is_duplicate_comms "$agent_id" "$comms_content"; then
-            message_json="$(jq -n \
-              --arg ts "$timestamp" \
-              --arg sid "$agent_id" \
-              --arg role "developer" \
-              --arg type "file_change" \
-              --arg content "$comms_content" \
-              '{
-                "timestamp": $ts,
-                "sender_id": $sid,
-                "sender_role": $role,
-                "recipient_id": null,
-                "type": $type,
-                "content": $content
-              }')"
-            append_comms_message "$message_json"
-          fi
         fi
         ;;
       Bash)
@@ -227,6 +208,33 @@ case "$hook_type" in
               "sender_role": $role,
               "recipient_id": null,
               "type": $type,
+              "content": $content
+            }')"
+          append_comms_message "$message_json"
+        fi
+        ;;
+      SendMessage)
+        # Inter-agent message (e.g. developer → scrum-master / PO).
+        recipient="$(echo "$tool_input" | jq -r '.to // empty')"
+        content="$(echo "$tool_input" | jq -r '
+          (.summary // "") as $s
+          | (.message // "") as $m
+          | if $s != "" then $s
+            elif ($m | type) == "string" then $m
+            elif ($m | type) == "object" then ($m.type // "")
+            else "" end
+        ' | head -c 300)"
+        if [ -n "$recipient" ] && [ -n "$content" ]; then
+          message_json="$(jq -n \
+            --arg ts "$timestamp" \
+            --arg sid "$agent_id" \
+            --arg rid "$recipient" \
+            --arg content "$content" \
+            '{
+              "timestamp": $ts,
+              "sender_id": $sid,
+              "recipient_id": $rid,
+              "type": "message",
               "content": $content
             }')"
           append_comms_message "$message_json"
@@ -277,22 +285,6 @@ case "$hook_type" in
 
       append_comms_message "$message_json"
     fi
-
-    # Also add a dashboard event for teammate idle
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$sender_id" \
-      --arg detail "Teammate idle: ${content}" \
-      '{
-        "timestamp": $ts,
-        "type": "teammate_idle",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
     ;;
 
   Stop|stop)
@@ -361,24 +353,10 @@ case "$hook_type" in
         "pbi_id": (if $pbi == "" then null else $pbi end)
       }')"
 
+    # The comms "finished work" mirror was removed when the dashboard
+    # merged its log panes; completion-gate.sh counts in-flight subagents
+    # from these dashboard subagent_start/stop events, so they must stay.
     append_dashboard_event "$event_json"
-
-    # Also emit a communication message
-    message_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg sid "$agent_id" \
-      --arg role "teammate" \
-      --arg type "status_change" \
-      --arg content "finished work" \
-      '{
-        "timestamp": $ts,
-        "sender_id": $sid,
-        "sender_role": $role,
-        "recipient_id": null,
-        "type": $type,
-        "content": $content
-      }')"
-    append_comms_message "$message_json"
     ;;
 
   TaskCompleted|task_completed)
@@ -410,7 +388,6 @@ case "$hook_type" in
     change_type="$(echo "$hook_event" | jq -r '.change_type // "modified"')"
     [ -n "$file_path" ] || exit 0
 
-    short_path="$(basename "$file_path")"
     detail="External ${change_type} on ${file_path}"
 
     event_json="$(jq -n \
@@ -429,25 +406,6 @@ case "$hook_type" in
       }')"
 
     append_dashboard_event "$event_json"
-
-    comms_content="external ${change_type} ${short_path}"
-    if ! is_duplicate_comms "$agent_id" "$comms_content"; then
-      message_json="$(jq -n \
-        --arg ts "$timestamp" \
-        --arg sid "$agent_id" \
-        --arg role "external" \
-        --arg type "file_change" \
-        --arg content "$comms_content" \
-        '{
-          "timestamp": $ts,
-          "sender_id": $sid,
-          "sender_role": $role,
-          "recipient_id": null,
-          "type": $type,
-          "content": $content
-        }')"
-      append_comms_message "$message_json"
-    fi
     ;;
 esac
 
