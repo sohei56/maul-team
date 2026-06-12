@@ -11,7 +11,7 @@ Panels:
       status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
       counters come from `pbi/<id>/state.json`, but the status displayed
       is always the backlog SSOT — there is no separate phase column.
-  (c) Team Log — merged chronological log of agent messages
+  (c) Work Log — merged chronological log of agent messages
       (communications.json) and work events (dashboard.json); `f` cycles
       the filter all → messages → work
 """
@@ -378,10 +378,22 @@ class UnifiedPbiBoard(DataTable):
         items = get_backlog_items(backlog)
         now = datetime.now(timezone.utc)
 
+        # Truncate titles dynamically so the board fits the container width
+        # (no horizontal scroll). Non-title chrome (ID/Status/Round/Dev/Updated
+        # widths + per-cell padding + border) is ~55 chars in the worst case.
+        non_title_chrome = 55
+        container_w = self.size.width or 80
+        title_budget = max(10, container_w - non_title_chrome)
+
         for item in items:
             pbi_id = item.get("id") or "?"
             pbi_key = pbi_id.lower()
-            title = (item.get("title") or "Untitled")[:35]
+            raw_title = item.get("title") or "Untitled"
+            title = (
+                raw_title
+                if len(raw_title) <= title_budget
+                else raw_title[: max(1, title_budget - 1)] + "…"
+            )
 
             status = item.get("status", "?")
             status_display = format_status(status)
@@ -541,7 +553,7 @@ def _format_comm_line(msg: dict) -> str:
 def _format_event_line(evt: dict) -> str:
     """Render one dashboard.json work event as a Rich markup line.
 
-    Leads with the agent name (same as comms lines) so the merged Team Log
+    Leads with the agent name (same as comms lines) so the merged Work Log
     consistently reads "who did what".
     """
     ts_short = _format_ts_short(evt.get("timestamp", "?"))
@@ -802,7 +814,7 @@ class ScrumDashboard(App):
             UnifiedPbiBoard(id="pbi-board"),
         )
         yield Vertical(
-            Static("[bold]Team Log[/bold] [dim](all)[/dim]", id="log-title"),
+            Static("[bold]Work Log[/bold] [dim](all)[/dim]", id="log-title"),
             UnifiedLog(id="team-log"),
         )
         yield Footer()
@@ -849,7 +861,7 @@ class ScrumDashboard(App):
 
     def action_cycle_log_filter(self) -> None:
         mode = self.query_one("#team-log", UnifiedLog).cycle_filter()
-        self.query_one("#log-title", Static).update(f"[bold]Team Log[/bold] [dim]({mode})[/dim]")
+        self.query_one("#log-title", Static).update(f"[bold]Work Log[/bold] [dim]({mode})[/dim]")
 
     def on_unmount(self) -> None:
         if hasattr(self, "_observer"):
