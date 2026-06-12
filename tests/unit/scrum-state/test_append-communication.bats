@@ -86,3 +86,34 @@ teardown() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"unknown flag"* ]]
 }
+
+@test "append-communication: caps at max_messages (mirrors hook-side trim)" {
+  # Seed with max_messages=3 so cap behaviour is observable without writing 200+ messages.
+  printf '{"max_messages":3,"messages":[]}\n' > .scrum/communications.json
+  for i in 1 2 3 4 5; do
+    env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-communication.sh" \
+      --from "agent-$i" --kind info --content "m$i" >/dev/null
+  done
+  run jq -r '.messages | length' "$TEST_TMP/.scrum/communications.json"
+  [ "$output" = "3" ]
+  # Oldest messages are trimmed; newest 3 remain.
+  run jq -r '.messages[0].sender_id' "$TEST_TMP/.scrum/communications.json"
+  [ "$output" = "agent-3" ]
+  run jq -r '.messages[2].sender_id' "$TEST_TMP/.scrum/communications.json"
+  [ "$output" = "agent-5" ]
+}
+
+@test "append-communication: accepts file_changed (post OD-3 unification)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-communication.sh" \
+    --from hook-dashboard-event --kind file_changed --content "Write on src/x.ts"
+  [ "$status" -eq 0 ]
+  run jq -r '.messages[0].type' "$TEST_TMP/.scrum/communications.json"
+  [ "$output" = "file_changed" ]
+}
+
+@test "append-communication: rejects legacy file_change (pre-OD-3 spelling)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-communication.sh" \
+    --from a --kind file_change --content "x"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --kind"* ]]
+}

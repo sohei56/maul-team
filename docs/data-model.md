@@ -400,7 +400,7 @@ with the work events from `.scrum/dashboard.json`.
 | `sender_id` | string | Agent ID of the sender (e.g., `"scrum-master"`, `"dev-001-s3"`) |
 | `sender_role` | string | Human-readable role (e.g., `"Scrum Master"`, `"Developer"`) |
 | `recipient_id` | string \| null | Agent ID of the recipient; null = broadcast to all |
-| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_change"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"status_change"`, `"message"`, `"report"`, `"review"`, `"escalation"`, `"info"`. Hooks emit `message` (SendMessage), `agent_spawn`, and `progress_update`; the remaining kinds are available to manual `append-communication.sh` callers. |
+| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"status_change"`, `"message"`, `"report"`, `"review"`, `"escalation"`, `"info"`. The enum mirrors `dashboard.events[].type` (past-tense convention). Hooks emit `message` (SendMessage), `agent_spawn`, and `progress_update`; the remaining kinds are available to manual `append-communication.sh` callers. |
 | `content` | string | Human-readable message summary |
 
 ### Rules

@@ -19,7 +19,7 @@
           "recipient_id": {"type": ["string", "null"]},
           "type": {
             "enum": [
-              "file_change",
+              "file_changed",
               "tool_use",
               "status_transition",
               "subagent_start",
