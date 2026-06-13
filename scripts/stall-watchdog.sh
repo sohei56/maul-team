@@ -198,7 +198,7 @@ read_cfg_or() {
 last_nudge_epoch() {
   if [ -f "$STATE_FILE" ]; then
     local v
-    v="$(cat "$STATE_FILE" 2>/dev/null | head -n1 | tr -d ' \t\r\n')"
+    v="$(head -n1 "$STATE_FILE" 2>/dev/null | tr -d ' \t\r\n')"
     case "$v" in
       ''|*[!0-9]*) printf '0\n' ;;
       *)           printf '%s\n' "$v" ;;
