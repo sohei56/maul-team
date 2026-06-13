@@ -3,9 +3,8 @@
 Per-PBI reviewer agents (`codex-design-reviewer`, `codex-impl-reviewer`,
 `codex-ut-reviewer`) occasionally stall — the underlying `codex` CLI
 hangs and no `.scrum/pbi/<pbi-id>/<stage>/review-r{n}.md` file is
-produced even after several minutes. cars_auction_scraping_proto
-retrospectives logged this exact pattern across **3 Sprints in a row**
-(sprint-4 imp-014, sprint-5 imp-014, sprint-6 imp-015) before a
+produced even after several minutes. Target-project retrospectives
+logged this exact pattern across **3 Sprints in a row** before a
 fallback protocol was made explicit. Without a documented fallback,
 the Developer waits indefinitely, the SM cannot tell stall from slow
 review, and `completion-gate.sh` keeps blocking session exit.

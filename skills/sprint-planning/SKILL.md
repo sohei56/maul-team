@@ -109,20 +109,20 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 
     - **Epic + leaf overlap.** An "Epic" PBI that touches many files
       across modules, scheduled alongside individual leaf PBIs in the
-      same module. kaiten_bot Sprint 30 (`imp-s30-02`): 11-file
-      conflict across 5 PBIs because the Epic and leaves were
-      parallel. **Rule:** if a PBI's predicted footprint exceeds
-      ~5 source files OR explicitly says "all strategies" / "全
-      strategies" / "cross-module", schedule it as a single-PBI
+      same module. Observed in a target project: an 11-file conflict
+      across 5 PBIs in a single Sprint because the Epic and leaves
+      ran in parallel. **Rule:** if a PBI's predicted footprint
+      exceeds ~5 source files OR explicitly says "all strategies" /
+      "全 strategies" / "cross-module", schedule it as a single-PBI
       Sprint (or merge it last after all leaves).
-    - **Rename / module-shuffle PBIs in parallel.** kaiten_bot Sprint
-      24 (`imp-023`): two rename PBIs hit 11 overlapping files.
-      **Rule:** rename / file-move / module-restructure PBIs are
-      serial — at most one per Sprint, or chained on a single
-      developer with `depends_on_pbi_ids` set.
-    - **Shared design-spec edits beyond catalog_targets.** kaiten_bot
-      Sprint 19 (`imp-006`): three PBIs all touched the same spec
-      section. The `catalog_targets` check in step 10 covers spec
+    - **Rename / module-shuffle PBIs in parallel.** Observed in a
+      target project: two rename PBIs in the same Sprint hit 11
+      overlapping files. **Rule:** rename / file-move /
+      module-restructure PBIs are serial — at most one per Sprint, or
+      chained on a single developer with `depends_on_pbi_ids` set.
+    - **Shared design-spec edits beyond catalog_targets.** Observed
+      in a target project: three PBIs in the same Sprint all touched
+      the same spec section. The `catalog_targets` check in step 10 covers spec
       *files*, not section-level overlap. **Rule:** if 3+ PBIs in the
       Sprint touch the same `docs/design/specs/<file>.md`, carve out
       a separate "spec consolidation" PBI to be merged first and
@@ -145,10 +145,9 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     is far more expensive to recover from once it fires.
 
     **Opus override for the path overlap analysis (mandatory).** The
-    same failure mode has recurred across 4 sprints in 2 projects
-    (kaiten_bot Sprint 19 `imp-006`, Sprint 24 `imp-023`, Sprint 30
-    `imp-s30-02`; stock_bo_monitoring sprint-010 `IMP-S010-003`) even
-    after the three rules above were pinned into this SKILL. The SM
+    same failure mode has recurred across 4 Sprints in 2 target
+    projects even after the three rules above were pinned into this
+    SKILL. The SM
     main loop runs on Sonnet (see `agents/scrum-master.md`); pinned
     text alone has not been sufficient. Delegate the overlap analysis
     to an Opus-backed sub-agent via the `Agent` tool — do NOT compute

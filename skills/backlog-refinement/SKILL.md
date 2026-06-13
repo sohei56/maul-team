@@ -46,8 +46,7 @@ disable-model-invocation: false
 
       **Opus override for AC verifiability + scenario coverage
       (mandatory).** AC quality failures recurred 5 times across 3
-      projects (kaiten_bot `IMP-007`, `IMP-018`, `IMP-019`;
-      stock_bo_monitoring `IMP-S010-004`; cars_auction_ui `imp-010`). Each failure traces to AC that pass the surface
+      target projects. Each failure traces to AC that pass the surface
       check above (Given/When/Then or measurable assertion) but miss
       one of: (i) scenario coverage (normal / failure / edge), (ii)
       mandatory grep-zero on deleted config variables, (iii) parity
@@ -86,10 +85,9 @@ disable-model-invocation: false
              - SCHEMA_VERSION bump PBI -> "requirements.md and the
                schema doc reflect the new version" must appear
              - order-engine PBI -> "price parity with backtest
-               reference implementation" must appear (kaiten_bot
-               IMP-019)
+               reference implementation" must appear
              - audit-follow-up PBI -> UT scenarios named explicitly
-               per AC (stock_bo_monitoring IMP-S010-004)
+               per AC
           4. AC ordering: normal-path first, failure / edge after.
 
           Output: JSON

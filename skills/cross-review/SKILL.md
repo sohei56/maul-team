@@ -160,9 +160,8 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 7. **Announce expected duration to the user (mandatory).** Before
    spawning, output a single short notice so the user does not
    interpret silence or `completion-gate.sh` Stop-blocks as failure
-   and try to `/clear` the session mid-review. cars_auction_scraping_proto
-   retrospectives showed this UX failure 5 Sprints in a row
-   (imp-005 / imp-008 / imp-010 / imp-014 / imp-016) before the
+   and try to `/clear` the session mid-review. Target-project
+   retrospectives showed this UX failure 5 Sprints in a row before the
    announcement convention was made explicit. Use this exact wording
    so the user learns to recognise it:
 
@@ -182,7 +181,7 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
    **as their final assistant message**. The Scrum Master persists
    that message to `.scrum/reviews/aspect-*.md` in Step 9 of this
    skill. Do NOT prompt reviewers to write the file themselves — that
-   creates the failure mode logged in kaiten_bot imp-s27 / imp-s29-04
+   creates the failure mode logged in target-project retrospectives
    where reviewers either refuse (Strict Rule "DO NOT modify files")
    or silently do nothing. Tell each reviewer explicitly: "Return the
    review content as your final message; the orchestrator will
@@ -271,7 +270,7 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
      PBI named in any Critical/High Finding under those aspects,
      append a follow-up PBI. **The `--ac` flag is mandatory** — past
      follow-up PBIs created without AC required inline rework at
-     Sprint Planning (cars_auction_ui `imp-008`).
+     Sprint Planning in a target project.
 
      **Opus override for follow-up AC drafting (mandatory).** Same
      reasoning as `skills/backlog-refinement/SKILL.md` § Step 3b
