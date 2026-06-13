@@ -67,7 +67,7 @@ Overrides in agent mode:
    .scrum/scripts/update-state-phase.sh retrospective
    ```
 2. Reflect on Sprint: what went well, what to improve (process, communication, tooling, code quality)
-3. Record ≥1 improvement→improvements.json entries[]: id, sprint_id, description, status: "active", created_at
+3. Record ≥1 improvement → call `.scrum/scripts/append-improvement.sh --sprint <sprint-id> --description "<what to improve>"` for each item. The wrapper auto-assigns `id` (`imp-NNNN`), stamps `created_at`, sets `status: "active"`, and validates against `improvements.schema.json`. In `po_mode=agent`, when the entry derives from a `PO_DECISION_REQUEST` round-trip, pass `--dec-id dec-NNNN` to link the entry to the decision record. Direct edits to `.scrum/improvements.json` are blocked by `pre-tool-use-scrum-state-guard.sh`.
 4. **Consolidation check**: Every 3 Sprints (compare last_consolidation_sprint)→archive stale entries (status: "archived", archived_at)→update last_consolidation_sprint
 5. Present retrospective report: went well, to improve, archived items
 6. sprint.json → status: "complete":
