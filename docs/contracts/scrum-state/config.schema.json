@@ -34,8 +34,6 @@
         "max_sprints": {"type": "integer", "minimum": 1},
         "max_consecutive_failures": {"type": "integer", "minimum": 1},
         "stop_block_budget_per_phase": {"type": "integer", "minimum": 1},
-        "max_budget_usd_per_iteration": {"type": "number", "minimum": 0},
-        "max_total_budget_usd": {"type": "number", "minimum": 0},
         "permission_mode": {"enum": ["dontAsk", "bypassPermissions"]},
         "notify_command": {"type": ["string", "null"]},
         "fallback_model": {"type": ["string", "null"]}

@@ -176,8 +176,6 @@ if [ "$AUTONOMOUS" = "1" ]; then
             max_sprints:               (.autonomous.max_sprints               // 5),
             max_consecutive_failures:  (.autonomous.max_consecutive_failures  // 3),
             stop_block_budget_per_phase: (.autonomous.stop_block_budget_per_phase // 8),
-            max_budget_usd_per_iteration: (.autonomous.max_budget_usd_per_iteration // 10),
-            max_total_budget_usd:      (.autonomous.max_total_budget_usd      // 50),
             permission_mode:           $perm,
             notify_command:            (.autonomous.notify_command            // null),
             fallback_model:            (.autonomous.fallback_model            // null)

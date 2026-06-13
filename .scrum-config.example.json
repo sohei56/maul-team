@@ -28,8 +28,6 @@
     "max_sprints": 5,
     "max_consecutive_failures": 3,
     "stop_block_budget_per_phase": 8,
-    "max_budget_usd_per_iteration": 10,
-    "max_total_budget_usd": 50,
     "permission_mode": "dontAsk",
     "notify_command": null,
     "fallback_model": null

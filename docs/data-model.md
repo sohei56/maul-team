@@ -639,8 +639,6 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `autonomous.max_sprints` | integer ≥ 1 | Watchdog stops once `sprint-history.sprints.length` reaches this (default 5). |
 | `autonomous.max_consecutive_failures` | integer ≥ 1 | Consecutive zero-progress iterations before the watchdog gives up (default 3). |
 | `autonomous.stop_block_budget_per_phase` | integer ≥ 1 | Per workflow phase, how many times `completion-gate.sh` may block exit before tripping the circuit breaker (default 8). |
-| `autonomous.max_budget_usd_per_iteration` | number ≥ 0 | Passed to `claude -p --max-budget-usd` (default 10). |
-| `autonomous.max_total_budget_usd` | number ≥ 0 | Cumulative spend ceiling across iterations (default 50). |
 | `autonomous.permission_mode` | enum (`"dontAsk"` \| `"bypassPermissions"`) | Passed to `claude -p --permission-mode` (default `"dontAsk"`). |
 | `autonomous.notify_command` | string \| `null` | Shell command run on watchdog exit with `WATCHDOG_EXIT` in env. Failures are swallowed. |
 | `autonomous.fallback_model` | string \| `null` | Passed to `claude -p --fallback-model` when non-null. |

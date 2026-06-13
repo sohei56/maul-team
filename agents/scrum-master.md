@@ -5,7 +5,7 @@ description: >
   Coordinates Sprint ceremonies, manages the Product Backlog,
   spawns Developer teammates, and orchestrates the full Scrum
   workflow. Cannot write code, run tests, or perform implementation.
-model: sonnet
+model: opus
 effort: high
 maxTurns: 300
 # Intentionally uses `disallowedTools:` (denylist), not `tools:`

@@ -127,9 +127,14 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   end-to-end without human input. The outer loop
   (`scripts/autonomous/watchdog.sh`) re-launches `claude -p`
   iterations, enforces safety valves (iterations / wall clock /
-  Sprints / consecutive failures / per-iteration + total budget /
-  per-phase Stop-block budget), backs off on rate-limit signals,
-  and writes a morning report to
+  Sprints / consecutive failures / per-phase Stop-block budget),
+  and on API rate-limit / usage-limit / overload errors **sleeps
+  until the limit resets and resumes automatically** (advertised
+  reset time when parseable, else 1h default; rate-limited
+  iterations do not advance the iteration counter). Cost is
+  recorded in `autonomy.json` for observability but not enforced
+  — spend ceilings live in the operator's Claude subscription
+  plan. The watchdog writes a morning report to
   `.scrum/reports/autonomous-run-<run_id>.md`. PO decisions are
   audit-logged to `.scrum/po/decisions.json` (append-only) via
   `append-po-decision.sh`. Full operator guide: `docs/autonomous-mode.md`.

@@ -129,8 +129,6 @@ the existing file.
     "max_sprints":                   5,
     "max_consecutive_failures":      3,
     "stop_block_budget_per_phase":   8,
-    "max_budget_usd_per_iteration": 10,
-    "max_total_budget_usd":         50,
     "permission_mode":      "dontAsk",
     "notify_command":                null,
     "fallback_model":                null
@@ -148,8 +146,6 @@ the existing file.
 | `autonomous.max_sprints` | `5` | Watchdog stops once `sprint-history.json.sprints` reaches this length. Exit 2. |
 | `autonomous.max_consecutive_failures` | `3` | Number of consecutive zero-progress iterations (or non-zero Claude exit codes, or tripped circuit breakers) before the watchdog gives up. Exit 1. |
 | `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. In **human mode** the gate ignores this key and instead fingerprint-dedups blocks via `.scrum/stop-gate.json` (first identical block exits 2, repeats allow exit); teammate liveness is monitored by the external `scripts/stall-watchdog.sh` daemon. |
-| `autonomous.max_budget_usd_per_iteration` | `10` | Passed to `claude -p --max-budget-usd`. The CLI enforces this per session. |
-| `autonomous.max_total_budget_usd` | `50` | Watchdog sums `total_cost_usd` from each iteration's JSON output. Exceeded → exit 2 (`max_total_budget_reached`). |
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
 | `autonomous.notify_command` | `null` | Shell command run at the end of the run with `WATCHDOG_EXIT=<exit-code>` in env. Useful for desktop notification / Slack ping. Failures are swallowed. |
 | `autonomous.fallback_model` | `null` | Passed to `claude -p --fallback-model` when set. The CLI falls back to this model when the primary model is unavailable. |
@@ -220,20 +216,23 @@ queue before the next run.
 
 ## Safety valves and circuit breakers
 
-The watchdog enforces five global bounds and one per-phase one:
+The watchdog enforces four global bounds and one per-phase one:
 
 1. `max_iterations` — hard cap on outer-loop turns.
 2. `max_wall_clock_hours` — hard cap from `started_at`.
 3. `max_sprints` — count of `sprint-history.json.sprints`.
-4. `max_total_budget_usd` — sum of per-iteration costs reported
-   by `claude -p --output-format json`.
-5. `max_consecutive_failures` — three consecutive zero-progress
+4. `max_consecutive_failures` — three consecutive zero-progress
    iterations (no change in `phase | sprint_id | <pbi-id>:<status>`
    set) trips a give-up.
 
-Two more guard the inner loop:
+There is **no USD spend cap**: the watchdog records
+`total_cost_usd` in `autonomy.json` and the morning report for
+observability only. Spend ceilings are expected to live in the
+operator's Claude subscription plan (and the API limit itself
+becomes the wait-and-resume trigger described below).
 
-- `max_budget_usd_per_iteration` — per-session CLI limit.
+One more guard for the inner loop:
+
 - `stop_block_budget_per_phase` — **autonomous mode only.**
   `completion-gate.sh` increments a counter every time it blocks
   exit in the same phase. On the N+1-th block in the same phase it
@@ -245,20 +244,37 @@ Two more guard the inner loop:
   and an external `scripts/stall-watchdog.sh` daemon handles
   teammate liveness.
 
-Rate-limit signals from `.scrum/dashboard.json` (events of type
-`stop_failure` whose `detail`/`reason` matches
-`rate.?limit|overload|too.?many`) trigger exponential backoff
-inside the watchdog (60s → 120s → 240s → ... capped at 3600s).
-After 6 consecutive rate-limit streaks the watchdog gives up with
-exit code 1.
+### Rate-limit / usage-limit handling
+
+When the inner Claude session ends because of a rate-limit, usage-
+limit, or overload error, the watchdog **waits and resumes** rather
+than counting it as a failure. Detection sources:
+
+- The captured `iter-<N>.json` result envelope, when `is_error =
+  true` and the `subtype` or `errors[]` payload matches
+  `rate.?limit|usage.?limit|overload|429|too.?many` (case-insensitive).
+- `.scrum/dashboard.json` `stop_failure` events newer than the
+  current iteration's start, with the same pattern.
+
+The watchdog tries to extract a reset time from the error payload —
+ISO 8601 timestamps, `reset(s)? in N (hour|minute|second)s?` phrases,
+or 10-digit unix epochs. If one is found, it sleeps until that time
+plus 60s jitter (capped at 6 hours). Otherwise it sleeps for
+`DEFAULT_RATE_LIMIT_WAIT_SECS` (1 hour). The iteration counter is
+**not** advanced for a wait, so a long rate-limit window does not
+burn through `max_iterations`; `max_wall_clock_hours` remains the
+runaway protection.
+
+There is no rate-limit streak ceiling — the watchdog waits as long
+as it takes.
 
 ### Watchdog exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | `state.json.phase == complete` was observed at the top of an iteration. Workflow finished. |
-| `1` | Either `max_consecutive_failures` was reached, or a rate-limit streak exceeded 6. The run is parked — investigate via the morning report. |
-| `2` | A safety valve tripped (`max_iterations`, `max_wall_clock_hours`, `max_sprints`, `max_total_budget_usd`). The run is parked. |
+| `1` | `max_consecutive_failures` was reached. The run is parked — investigate via the morning report. |
+| `2` | A safety valve tripped (`max_iterations`, `max_wall_clock_hours`, `max_sprints`). The run is parked. |
 | `3` | Configuration error (most commonly `.scrum/autonomy.json` is missing — run `scrum-start.sh --autonomous` first). |
 
 ## Permission model
@@ -296,8 +312,8 @@ that `claude -p` + Agent Teams + the Stop gate actually behave as
 this guide claims on your machine. The pieces under test are:
 
 - Headless `claude -p` accepts `--agent scrum-master`,
-  `--session-id`, `--permission-mode`, `--max-budget-usd`,
-  `--fallback-model`, and `--output-format json`.
+  `--session-id`, `--permission-mode`, `--fallback-model`, and
+  `--output-format json`.
 - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is honoured in a
   headless session (the SM can `SendMessage` and spawn the PO
   teammate).
@@ -362,9 +378,8 @@ next section before trying again on the real project.
 |---|---|---|
 | `watchdog: .scrum/autonomy.json missing — run scrum-start.sh --autonomous first.` (exit 3) | Watchdog ran without `scrum-start.sh --autonomous` bootstrap. | Run `scrum-start.sh --autonomous` once to set `po_mode=agent`, default `autonomous.*` keys, and initialize `.scrum/autonomy.json`. |
 | `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief. | Provide `--brief docs/product/brief.md` (or any path). |
-| `watchdog: rate-limit detected; sleeping <N>s (streak=K)` | API rate-limited; backoff active. | Wait. Watchdog retries with exponential backoff up to 1 hour. After 6 streaks it exits 1; restart later. |
-| `watchdog: K consecutive failures — giving up.` (exit 1) | Three consecutive iterations made no progress (no phase/PBI status change), or the inner Claude session kept failing, or the circuit breaker tripped K times. | Inspect `.scrum/autonomous/iter-<N>.json`, `iter-<N>.err`, and `.scrum/autonomy.json.last_failure`. Common causes: model rate limit, missing PO context (no `docs/product/brief.md`), or a deadlocked Stop hook (check `completion-gate.sh` logs in `.scrum/hooks.log`). |
-| `watchdog: max_total_budget_usd (X) reached (cost=Y).` (exit 2) | Cumulative spend hit the cap. | Raise `autonomous.max_total_budget_usd` in `.scrum/config.json` or accept the parking. |
+| `watchdog: rate-limit detected; sleeping <N>s until reset` / `... no reset time parsed — sleeping <N>s` | Inner session hit the API rate limit / usage limit / overload error. Watchdog is waiting until the limit resets (advertised reset time + 60s jitter, capped at 6h) or `DEFAULT_RATE_LIMIT_WAIT_SECS` (1h) when no reset time was parseable. | Wait. The iteration counter is not advanced; `max_wall_clock_hours` is the only runaway protection. To resume sooner, kill the watchdog and rerun `scrum-start.sh --autonomous` once your subscription quota refills. |
+| `watchdog: K consecutive failures — giving up.` (exit 1) | Three consecutive iterations made no progress (no phase/PBI status change), or the inner Claude session kept failing, or the circuit breaker tripped K times. | Inspect `.scrum/autonomous/iter-<N>.json`, `iter-<N>.err`, and `.scrum/autonomy.json.last_failure`. Common causes: missing PO context (no `docs/product/brief.md`), a deadlocked Stop hook (check `completion-gate.sh` logs in `.scrum/hooks.log`), or persistent CLI errors that aren't rate-limits (those would have triggered the wait branch instead). |
 | `watchdog: max_sprints (N) reached` (exit 2) | The watchdog finished `N` Sprints. | This is "successful park", not a failure — review the morning report and either declare the product done manually or raise the cap. |
 | PO teammate keeps appending to `.scrum/po/attention.md` and the run halts. | The PO is correctly deferring human-only items (credentials, legal, billing). | Resolve the items, drain `attention.md`, then resume with `scrum-start.sh --autonomous`. |
 | `release_decision=go requires .scrum/test-results.json` from `append-po-decision.sh`. | PO tried to call `release_decision=go` without a green smoke-test run. | Run the `smoke-test` skill (Integration Sprint), confirm `overall_status ∈ {passed, passed_with_skips}`, then retry. |
