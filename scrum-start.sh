@@ -7,6 +7,7 @@
 # Usage (autonomous-PO mode — Ralph Loop, no human at the keyboard):
 #   sh scrum-start.sh --autonomous [--brief docs/product/brief.md] \
 #                     [--max-sprints N] [--max-hours H] \
+#                     [--po-model <name>] \
 #                     [--bypass-permissions] [--no-attach]
 #
 # Flags:
@@ -20,10 +21,30 @@
 #                           docs/product/brief.md as the seed input.
 #   --max-sprints N         Overrides `.scrum/config.json.autonomous.max_sprints`.
 #   --max-hours H           Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`.
+#   --po-model <name>       Autonomous-only. Sets the model used by the
+#                           product-owner teammate. Accepts CLI aliases
+#                           (`opus`, `sonnet`, `haiku`) or a specific model
+#                           ID. Default `opus`. The deployed
+#                           `.claude/agents/product-owner.md` frontmatter
+#                           `model:` is the single source of truth — this
+#                           flag patches that line in place. The deployed
+#                           value is captured before `setup-user.sh`
+#                           overwrites the file, so a prior `--po-model`
+#                           choice persists across re-runs. Rejected
+#                           outside autonomous mode (exit 2).
 #   --bypass-permissions    Sets autonomous.permission_mode = bypassPermissions
 #                           (default: dontAsk).
 #   --no-attach             Skip `tmux attach-session` after launching; useful
 #                           when starting overnight runs.
+#
+# Interactive wizard:
+#   When stdin is a TTY (no pipe/redirect) and --autonomous is given, any
+#   setting NOT supplied via CLI flag is prompted at startup with the prior
+#   value as the default (press Enter to accept). Defaults come from
+#   `.scrum/config.json.autonomous.*` and the deployed PO agent file, so
+#   re-runs remember your last choices. The wizard is skipped on non-TTY
+#   stdin and under SCRUM_START_DRY_RUN=1 — existing CLI flags + persisted
+#   config + deployed agent file remain authoritative in those cases.
 #
 # Prerequisites:
 #   - Claude Code CLI on PATH
@@ -54,7 +75,11 @@ AUTONOMOUS=0
 BRIEF_FILE=""
 OPT_MAX_SPRINTS=""
 OPT_MAX_HOURS=""
+OPT_PO_MODEL=""
 BYPASS_PERMS=0
+# Distinguish "flag not given" from "flag explicitly set to 0". The interactive
+# wizard reads BYPASS_PERMS_GIVEN to decide whether to prompt.
+BYPASS_PERMS_GIVEN=0
 NO_ATTACH=0
 
 while [ "$#" -gt 0 ]; do
@@ -69,10 +94,13 @@ while [ "$#" -gt 0 ]; do
     --max-hours)
       [ "$#" -ge 2 ] || { echo "Error: --max-hours requires a value." >&2; exit 2; }
       OPT_MAX_HOURS="$2"; shift 2 ;;
-    --bypass-permissions) BYPASS_PERMS=1; shift ;;
+    --po-model)
+      [ "$#" -ge 2 ] || { echo "Error: --po-model requires a value." >&2; exit 2; }
+      OPT_PO_MODEL="$2"; shift 2 ;;
+    --bypass-permissions) BYPASS_PERMS=1; BYPASS_PERMS_GIVEN=1; shift ;;
     --no-attach)          NO_ATTACH=1; shift ;;
     -h|--help)
-      sed -n '1,40p' "$0"
+      sed -n '1,68p' "$0"
       exit 0 ;;
     *)
       echo "Error: unknown argument: $1" >&2
@@ -81,12 +109,88 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+# --po-model is only meaningful in autonomous mode (it patches the deployed
+# product-owner agent frontmatter, which only autonomous mode bothers to do).
+# Reject the combination explicitly rather than silently ignoring the flag.
+if [ -n "$OPT_PO_MODEL" ] && [ "$AUTONOMOUS" = "0" ]; then
+  echo "Error: --po-model requires --autonomous." >&2
+  echo "  In non-autonomous (human) mode the product-owner teammate is not used;" >&2
+  echo "  the PO seat is the human at the keyboard." >&2
+  exit 2
+fi
+
+# --- Capture prior deployed PO model BEFORE setup-user.sh overwrites it -----
+# Single source of truth for the PO model is the deployed
+# .claude/agents/product-owner.md `model:` line (Claude Code reads it at
+# teammate spawn). Capturing the value here lets a prior --po-model choice
+# persist across re-runs without storing a shadow key in .scrum/config.json.
+# Defaults to "opus" when the deployed file does not exist yet (first run)
+# or when the model: line is missing.
+PRIOR_PO_MODEL="opus"
+if [ "$AUTONOMOUS" = "1" ] && [ -f ".claude/agents/product-owner.md" ]; then
+  _cap="$(awk '
+    BEGIN { depth = 0 }
+    /^---$/ { depth++; if (depth > 1) exit; next }
+    depth == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }
+  ' .claude/agents/product-owner.md 2>/dev/null || true)"
+  if [ -n "$_cap" ]; then
+    PRIOR_PO_MODEL="$_cap"
+  fi
+fi
+
 # --- Validate prerequisites ---
 
 # shellcheck source=scripts/lib/check-python.sh
 . "$SCRIPT_DIR/scripts/lib/check-python.sh"
 check_claude_cli
 check_python_prereqs
+
+# --- Wizard helpers --------------------------------------------------------
+# Skip prompts (return the default) when stdin is not a TTY or when
+# SCRUM_START_DRY_RUN is set. This preserves headless launches (cron,
+# bats integration tests, piped input) without forcing every caller to
+# pass every CLI flag.
+prompt_value() {
+  # prompt_value <label> <default>
+  # Echoes the user's input or the default.
+  local label="$1" default="$2" answer
+  if [ ! -t 0 ] || [ "${SCRUM_START_DRY_RUN:-0}" = "1" ]; then
+    printf '%s' "$default"
+    return 0
+  fi
+  printf '  %s [%s]: ' "$label" "$default" >&2
+  IFS= read -r answer || answer=""
+  if [ -z "$answer" ]; then
+    answer="$default"
+  fi
+  printf '%s' "$answer"
+}
+
+prompt_yes_no() {
+  # prompt_yes_no <label> <default>   (default: y or n)
+  # Echoes "y" or "n".
+  local label="$1" default="$2" answer indicator
+  if [ ! -t 0 ] || [ "${SCRUM_START_DRY_RUN:-0}" = "1" ]; then
+    printf '%s' "$default"
+    return 0
+  fi
+  case "$default" in
+    y) indicator="Y/n" ;;
+    *) indicator="y/N" ;;
+  esac
+  while :; do
+    printf '  %s [%s]: ' "$label" "$indicator" >&2
+    IFS= read -r answer || answer=""
+    if [ -z "$answer" ]; then
+      answer="$default"
+    fi
+    case "$answer" in
+      y|Y|yes|YES) printf 'y'; return 0 ;;
+      n|N|no|NO)   printf 'n'; return 0 ;;
+      *) echo "    Please answer y or n." >&2 ;;
+    esac
+  done
+}
 
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 sh "$SCRIPT_DIR/scripts/setup-user.sh"
@@ -124,10 +228,78 @@ fi
 # and .scrum/autonomy.json in place. Non-autonomous runs hit none of this.
 
 if [ "$AUTONOMOUS" = "1" ]; then
-  # New-project bootstrap requires a brief. Use the detection variable
-  # captured above — init-state.sh has already created .scrum/state.json
-  # in the new-project branch, so re-testing file existence here would
-  # silently let an unbriefed autonomous run through.
+  # Compute prior values for the wizard defaults BEFORE the defaults-merge
+  # runs. For settings that live in .scrum/config.json, the prior value is
+  # the current key (or the baked-in default when absent). For PO model,
+  # the prior value was captured before setup-user.sh into $PRIOR_PO_MODEL.
+  mkdir -p .scrum
+  CONFIG_FILE=".scrum/config.json"
+  if [ ! -f "$CONFIG_FILE" ]; then
+    printf '{}\n' > "$CONFIG_FILE"
+  fi
+  _cur_max_sprints="$(jq -r '.autonomous.max_sprints // 5' \
+    "$CONFIG_FILE" 2>/dev/null || echo 5)"
+  _cur_max_hours="$(jq -r '.autonomous.max_wall_clock_hours // 8' \
+    "$CONFIG_FILE" 2>/dev/null || echo 8)"
+  _cur_perm_mode="$(jq -r '.autonomous.permission_mode // "dontAsk"' \
+    "$CONFIG_FILE" 2>/dev/null || echo dontAsk)"
+  _cur_bypass="n"
+  if [ "$_cur_perm_mode" = "bypassPermissions" ]; then
+    _cur_bypass="y"
+  fi
+
+  # --- Interactive wizard --------------------------------------------------
+  # Only print the banner when at least one prompt will actually fire AND
+  # stdin is a TTY (so the user sees it). Helpers themselves return defaults
+  # silently on non-TTY / DRY_RUN, so existing scripted runs keep working.
+  if [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+    _wizard_needed=0
+    if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ]; then _wizard_needed=1; fi
+    if [ -z "$OPT_MAX_SPRINTS" ];   then _wizard_needed=1; fi
+    if [ -z "$OPT_MAX_HOURS" ];     then _wizard_needed=1; fi
+    if [ -z "$OPT_PO_MODEL" ];      then _wizard_needed=1; fi
+    if [ "$BYPASS_PERMS_GIVEN" = "0" ]; then _wizard_needed=1; fi
+    if [ "$_wizard_needed" = "1" ]; then
+      echo "" >&2
+      echo "Autonomous mode configuration (press Enter to accept defaults):" >&2
+    fi
+  fi
+
+  # Brief is the only prompt with no safe non-interactive default: on a new
+  # project with no --brief, the run must fail with "requires --brief" so the
+  # operator knows to provide one. Only prompt for it when stdin is a TTY
+  # (and not under DRY_RUN); the non-TTY path falls through to the existing
+  # exit-2 validation below.
+  if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ] \
+     && [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+    BRIEF_FILE="$(prompt_value 'Product brief file' 'docs/product/brief.md')"
+  fi
+  if [ -z "$OPT_MAX_SPRINTS" ]; then
+    OPT_MAX_SPRINTS="$(prompt_value 'Maximum number of sprints' "$_cur_max_sprints")"
+  fi
+  if [ -z "$OPT_MAX_HOURS" ]; then
+    OPT_MAX_HOURS="$(prompt_value 'Maximum wall-clock hours' "$_cur_max_hours")"
+  fi
+  if [ -z "$OPT_PO_MODEL" ]; then
+    OPT_PO_MODEL="$(prompt_value 'Product Owner model' "$PRIOR_PO_MODEL")"
+  fi
+  if [ "$BYPASS_PERMS_GIVEN" = "0" ]; then
+    _ans="$(prompt_yes_no \
+      'Bypass ALL Claude permission prompts (destructive — throwaway worktree only)' \
+      "$_cur_bypass")"
+    if [ "$_ans" = "y" ]; then
+      BYPASS_PERMS=1
+    else
+      BYPASS_PERMS=0
+    fi
+  fi
+
+  # --- Brief validation ----------------------------------------------------
+  # New-project bootstrap requires a brief. After the wizard the value may
+  # be set; on non-TTY runs the wizard returns the default ("docs/product/
+  # brief.md") which only counts if it exists. Re-test against an actual
+  # readable file (the wizard's silent default doesn't satisfy this) so a
+  # non-interactive new-project run still errors out cleanly.
   if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ]; then
     echo "Error: --autonomous on a new project requires --brief <file>." >&2
     echo "  Provide a product brief that the autonomous PO can use to drive" >&2
@@ -150,14 +322,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
     fi
   fi
 
-  # Merge autonomous config into .scrum/config.json.
-  mkdir -p .scrum
-  CONFIG_FILE=".scrum/config.json"
-  if [ ! -f "$CONFIG_FILE" ]; then
-    printf '{}\n' > "$CONFIG_FILE"
-  fi
-
-  # Resolve permission_mode.
+  # Resolve permission_mode (after the wizard may have toggled BYPASS_PERMS).
   if [ "$BYPASS_PERMS" = "1" ]; then
     PERM_MODE="bypassPermissions"
   else
@@ -165,6 +330,8 @@ if [ "$AUTONOMOUS" = "1" ]; then
   fi
 
   # Defaults match .scrum-config.example.json. Overrides applied last.
+  # PO model is intentionally absent — its SSOT is the deployed
+  # .claude/agents/product-owner.md frontmatter, patched below.
   TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
   jq --arg perm "$PERM_MODE" '
     .po_mode = "agent"
@@ -184,7 +351,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
   ' "$CONFIG_FILE" > "$TMP_CFG"
   mv "$TMP_CFG" "$CONFIG_FILE"
 
-  # Apply --max-sprints / --max-hours overrides.
+  # Apply --max-sprints / --max-hours overrides (CLI value or wizard input).
   if [ -n "$OPT_MAX_SPRINTS" ]; then
     TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
     jq --argjson v "$OPT_MAX_SPRINTS" '.autonomous.max_sprints = $v' \
@@ -196,6 +363,29 @@ if [ "$AUTONOMOUS" = "1" ]; then
     jq --argjson v "$OPT_MAX_HOURS" '.autonomous.max_wall_clock_hours = $v' \
       "$CONFIG_FILE" > "$TMP_CFG"
     mv "$TMP_CFG" "$CONFIG_FILE"
+  fi
+
+  # --- Apply PO model to deployed agent file (the SSOT) --------------------
+  # setup-user.sh above overwrote .claude/agents/product-owner.md with the
+  # source default. Patch the `model:` line to the resolved value
+  # (CLI flag > wizard input > captured prior value > "opus"). $OPT_PO_MODEL
+  # holds the resolved value at this point: wizard helpers fill empty
+  # OPT_PO_MODEL with $PRIOR_PO_MODEL on TTY, and silently echo
+  # $PRIOR_PO_MODEL on non-TTY. There is no shadow key in .scrum/config.json.
+  if [ -z "$OPT_PO_MODEL" ]; then
+    OPT_PO_MODEL="$PRIOR_PO_MODEL"
+  fi
+  PO_AGENT_FILE=".claude/agents/product-owner.md"
+  if [ -f "$PO_AGENT_FILE" ]; then
+    TMP_AGENT="${PO_AGENT_FILE}.tmp.$$.${RANDOM}"
+    # Replace only the FIRST `^model:` line (always inside the YAML
+    # frontmatter — the body uses fenced code blocks where any `model:`
+    # would not start at column 0).
+    awk -v m="$OPT_PO_MODEL" '
+      !done && /^model:/ { print "model: " m; done=1; next }
+      { print }
+    ' "$PO_AGENT_FILE" > "$TMP_AGENT" && mv "$TMP_AGENT" "$PO_AGENT_FILE"
+    echo "  PO teammate model: $OPT_PO_MODEL"
   fi
 
   # Initialise .scrum/autonomy.json. Bash 3.2-compatible UUID generation.

@@ -217,10 +217,13 @@ extract_frontmatter() {
   refute_output ""
 }
 
-@test "product-owner.md has model field set to claude-fable-5" {
+@test "product-owner.md has model field set to opus" {
+  # The source default. scrum-start.sh --autonomous patches the deployed copy
+  # at .claude/agents/product-owner.md to .scrum/config.json.autonomous.po_model
+  # (defaults to opus, overridable by --po-model).
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/product-owner.md' | yq -r '.model'"
   assert_success
-  assert_output "claude-fable-5"
+  assert_output "opus"
 }
 
 @test "product-owner.md has effort field set to xhigh" {

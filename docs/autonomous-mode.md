@@ -103,6 +103,7 @@ Flags accepted by `scrum-start.sh`:
 | `--brief <file>` | **Required on a new project.** Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. |
 | `--max-sprints N` | Overrides `.scrum/config.json.autonomous.max_sprints`. |
 | `--max-hours H` | Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`. |
+| `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
 | `--bypass-permissions` | Sets `autonomous.permission_mode = bypassPermissions` (default `dontAsk`). See [Permission model](#permission-model) — this is a destructive switch. |
 | `--no-attach` | Skips `tmux attach-session` after launching. The session runs in the background; attach later with `tmux attach-session -t scrum-team-<basename>-<hash>`. |
 
@@ -110,6 +111,36 @@ On a new project, `--brief` is mandatory; the script exits with
 code 2 otherwise. The brief is copied **only when**
 `docs/product/brief.md` does not already exist — re-runs preserve
 the existing file.
+
+### Interactive wizard
+
+When stdin is a TTY (no pipe/redirect) and `--autonomous` is given,
+any setting **not** supplied via CLI flag is prompted at startup:
+
+```text
+Autonomous mode configuration (press Enter to accept defaults):
+  Product brief file [docs/product/brief.md]:
+  Maximum number of sprints [5]:
+  Maximum wall-clock hours [8]:
+  Product Owner model [opus]:
+  Bypass permissions [y/N]:
+```
+
+Each default in `[…]` is the **prior value** for that setting:
+
+- `--max-sprints`, `--max-hours`, `--bypass-permissions` defaults
+  come from `.scrum/config.json.autonomous.*` (or the built-in
+  default when the key is absent).
+- `--po-model` default comes from `.claude/agents/product-owner.md`
+  `model:` (captured before `setup-user.sh` overwrites it), or
+  `opus` if the deployed file does not exist yet.
+
+This means a re-run remembers your last choices and you can press
+Enter through every prompt for a no-touch resume. The wizard is
+automatically skipped when stdin is not a TTY (cron / pipe / bats
+integration tests) — the CLI flags + prior values in
+`.scrum/config.json` / the deployed agent file remain authoritative
+in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
 
 ## Config reference
 
@@ -149,6 +180,15 @@ the existing file.
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
 | `autonomous.notify_command` | `null` | Shell command run at the end of the run with `WATCHDOG_EXIT=<exit-code>` in env. Useful for desktop notification / Slack ping. Failures are swallowed. |
 | `autonomous.fallback_model` | `null` | Passed to `claude -p --fallback-model` when set. The CLI falls back to this model when the primary model is unavailable. |
+
+The PO teammate's model is **not** stored in `.scrum/config.json`. Its
+single source of truth is the `model:` field in
+`.claude/agents/product-owner.md` (the deployed copy that the Claude
+Code agent parser reads at teammate spawn). The `--po-model` flag on
+`scrum-start.sh --autonomous` (or the interactive wizard, see below)
+patches that line in place. The deployed file value is captured before
+each `setup-user.sh` overwrite so a prior `--po-model` choice persists
+across re-runs without a shadow key in config.
 
 ## Observing a run
 
