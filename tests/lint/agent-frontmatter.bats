@@ -97,10 +97,22 @@ extract_frontmatter() {
   assert_output "200"
 }
 
-@test "developer.md has disallowedTools including WebFetch and WebSearch" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.disallowedTools | length'"
+@test "developer.md has tools allowlist with 9 entries" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.tools | length'"
   assert_success
-  assert_output "2"
+  assert_output "9"
+}
+
+@test "developer.md tools allowlist includes Agent" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.tools | contains([\"Agent\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "developer.md has no disallowedTools key" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.disallowedTools'"
+  assert_success
+  assert_output "null"
 }
 
 @test "developer.md has memory field set to project" {
