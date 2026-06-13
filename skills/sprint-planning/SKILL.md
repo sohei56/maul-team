@@ -144,6 +144,64 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     worktree + `merge-pbi.sh` 3-strike escalation) still applies, but
     is far more expensive to recover from once it fires.
 
+    **Opus override for the path overlap analysis (mandatory).** The
+    same failure mode has recurred across 4 sprints in 2 projects
+    (kaiten_bot Sprint 19 `imp-006`, Sprint 24 `imp-023`, Sprint 30
+    `imp-s30-02`; stock_bo_monitoring sprint-010 `IMP-S010-003`) even
+    after the three rules above were pinned into this SKILL. The SM
+    main loop runs on Sonnet (see `agents/scrum-master.md`); pinned
+    text alone has not been sufficient. Delegate the overlap analysis
+    to an Opus-backed sub-agent via the `Agent` tool — do NOT compute
+    the matrix in the SM main loop:
+
+    ```
+    Agent({
+      subagent_type: "general-purpose",
+      model: "opus",
+      description: "Sprint path-overlap pre-flight",
+      prompt: <<<EOF
+        Analyse merge-conflict risk for this Sprint's PBI selection.
+
+        Inputs (paste verbatim from .scrum/backlog.json + history):
+        - Sprint PBIs: id, title, description, acceptance_criteria
+        - For each PBI, similar prior PBIs' paths_touched if available
+          (jq from completed PBIs in backlog.json + .scrum/pbi/<id>/state.json)
+        - Catalog spec targets per PBI (items[].catalog_targets)
+
+        Steps:
+        1. Sketch predicted source paths for each PBI (file-level, not directory).
+        2. Build a path-overlap matrix; flag any pair with >=1 predicted
+           path overlap AND different implementer_id.
+        3. Match each flagged pair against the three rules:
+           (a) Epic + leaf: PBI predicted footprint >5 files OR
+               description mentions "all strategies" / "全 strategies" /
+               "cross-module"
+           (b) Rename / module-shuffle: rename / file-move / module-restructure
+           (c) Shared design-spec: >=3 PBIs touch the same
+               docs/design/specs/<file>.md section
+        4. For each match, recommend: serialize-on-one-dev / split into pre+post /
+           defer lower-priority. Cite the rule.
+
+        Output: JSON
+          {
+            "predicted_paths": { "<pbi-id>": ["path1", ...], ... },
+            "overlap_pairs": [
+              { "a": "<pbi>", "b": "<pbi>", "shared": ["..."],
+                "rule": "epic|rename|shared-spec",
+                "recommendation": "...", "reason": "..." }
+            ],
+            "safe": ["<pbi>", ...]
+          }
+      EOF
+    })
+    ```
+
+    SM main loop reads the JSON and applies the recommendations
+    (re-assignment / split / defer) via the wrappers in Step 5/6/7.
+    The Opus sub-agent does NOT call wrappers itself — it is read-only
+    analysis. Record the decision visibly in the Sprint summary so the
+    PO (po_mode=agent) or user can override at Step 12.
+
 12. **Present Sprint summary + options**:
     - 1. Start Sprint
     - 2. Adjust Sprint Goal

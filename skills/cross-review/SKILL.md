@@ -269,7 +269,54 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
      returns to `awaiting_cross_review`.
    - **Aspects 4/5 (maintainability / docs-consistency):** for each
      PBI named in any Critical/High Finding under those aspects,
-     append a follow-up PBI:
+     append a follow-up PBI. **The `--ac` flag is mandatory** — past
+     follow-up PBIs created without AC required inline rework at
+     Sprint Planning (cars_auction_ui `imp-008`).
+
+     **Opus override for follow-up AC drafting (mandatory).** Same
+     reasoning as `skills/backlog-refinement/SKILL.md` § Step 3b
+     Opus override: the SM main loop running on Sonnet has produced
+     AC-empty or coverage-thin follow-up PBIs that re-fail cross-review
+     in the next Sprint. Delegate follow-up AC drafting to an
+     Opus-backed sub-agent via the `Agent` tool before invoking
+     `add-backlog-item.sh`:
+
+     ```
+     Agent({
+       subagent_type: "general-purpose",
+       model: "opus",
+       description: "Follow-up PBI AC drafting",
+       prompt: <<<EOF
+         Draft acceptance_criteria for a cross-review follow-up PBI.
+
+         Inputs:
+         - Parent PBI id, title, paths_touched
+         - Aspect: maintainability | docs-consistency
+         - Findings (Critical/High only) from the per-PBI digest
+         - Per-PBI digest path: .scrum/reviews/<pbi-id>-review.md
+
+         Constraints:
+         - Each AC is independently verifiable (Given/When/Then or
+           measurable assertion).
+         - Cover normal-path + at least one failure / regression-prevention
+           check.
+         - docs-consistency follow-up: AC must include a grep-style
+           check ("grep <symbol> returns zero across the spec" or
+           "spec file contains <new-value> in every occurrence").
+         - maintainability follow-up: AC must reference the specific
+           static-analysis rule (ruff/shellcheck code) or the named
+           Finding from the digest.
+
+         Output: JSON
+           {
+             "title_summary": "<short summary for the follow-up>",
+             "ac": ["<criterion 1>", "<criterion 2>", ...]
+           }
+       EOF
+     })
+     ```
+
+     Then invoke the wrapper with `--ac` flags built from the JSON:
      ```bash
      # dedup guard — skip if a matching follow-up already exists
      TITLE_PREFIX="[cross-review-followup:${PBI_ID}:${ASPECT}]"
@@ -277,10 +324,17 @@ already satisfied (see `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
        '[.items[] | select(.title | startswith($p))] | length' \
        .scrum/backlog.json)
      if [ "$EXISTS" = "0" ]; then
+       # build --ac arguments from the Opus JSON output above
+       AC_ARGS=()
+       while IFS= read -r line; do AC_ARGS+=(--ac "$line"); done < <(
+         jq -r '.ac[]' <<<"$OPUS_JSON"
+       )
+       SUMMARY=$(jq -r '.title_summary' <<<"$OPUS_JSON")
        .scrum/scripts/add-backlog-item.sh \
-         --title "${TITLE_PREFIX} <short summary>" \
+         --title "${TITLE_PREFIX} ${SUMMARY}" \
          --description "<aspect> follow-up for ${PBI_ID}. See .scrum/reviews/${PBI_ID}-review.md for findings." \
-         --parent "${PBI_ID}"
+         --parent "${PBI_ID}" \
+         "${AC_ARGS[@]}"
      else
        echo "skip dedup ${TITLE_PREFIX}"
      fi
