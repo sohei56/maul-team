@@ -61,14 +61,30 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
 
 ## Bounded waiting only
 
-All waiting on a codex review MUST stay bounded by
-`codex-invoke.sh`'s `CODEX_TIMEOUT_SECS` budget (the helper fail-fasts
-a hung codex into the Claude fallback). Agents must NOT improvise an
-unbounded busy-wait loop such as `until [ -f review-r{n}.md ]; do :;
-done` (no `sleep`): a tight spin pegs a CPU core and, because nothing
-ever times it out, hangs the session forever. This is the documented
-mitigation for a real stall incident — rely on the helper's timeout
-and the single-retry protocol above, never a hand-rolled spin loop.
+All waiting on a codex review MUST stay bounded. There are **two
+independent** timeout layers — do not conflate them:
+
+- **Conductor stall trigger (2 min, this document).** The conductor
+  declares the reviewer stalled at 2 minutes with no output file and
+  switches to the Explore-agent retry (step 3–4 above). This is the
+  primary bound and normally fires FIRST.
+- **Helper hard timeout (`CODEX_TIMEOUT_SECS`, default 300 s, inside
+  `codex-invoke.sh`).** The reviewer sub-agent runs codex through the
+  helper, which fail-fasts a hung `codex exec` into its own Claude
+  fallback at 300 s. This is a deeper backstop for the case where the
+  sub-agent itself keeps waiting; the conductor's 2-min trigger
+  usually preempts it (and a `TaskStop` discards the in-flight codex).
+
+Because the conductor trigger (2 min) is shorter than the helper
+timeout (300 s), the helper timeout is rarely reached — it exists as a
+last-resort backstop, not the primary bound. Agents must NOT improvise
+an unbounded busy-wait loop such as `until [ -f review-r{n}.md ]; do
+:; done` (no `sleep`): a tight spin pegs a CPU core and, because
+neither layer can interrupt a spin inside the conductor itself, hangs
+the session forever. This is the documented mitigation for a real
+stall incident — rely on the 2-min stall trigger + single-retry
+protocol above (with the 300 s helper timeout as backstop), never a
+hand-rolled spin loop.
 
 ## Notes
 

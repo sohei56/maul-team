@@ -99,7 +99,9 @@ KIND="$(jq -r --arg id "$PBI_ID" '
 
 ```text
 [Init] create .scrum/pbi/<pbi-id>/ + state.json
-       # Skip in_progress_design entirely; mark design/UT/coverage as skipped.
+       # Skip in_progress_design entirely; mark design/coverage as skipped.
+       # ut_status starts pending (begin-impl-round.sh resets it to
+       # pending each impl round — the UT *work* is skipped, not the status).
        update-pbi-state.sh "$PBI_ID" \
          design_status skipped ut_status pending coverage_status skipped
        update-backlog-status.sh "$PBI_ID" in_progress_impl

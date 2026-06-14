@@ -15,6 +15,11 @@ _SCRUM_QUERIES_SH_LOADED=1
 # Read .items[] | select(.id==id) | .status from backlog.json. Prints the
 # status, or `default` (empty by default) when the file is missing or no
 # matching item exists.
+#
+# Mirrors hooks/lib/validate.sh::get_pbi_status_from_backlog (identical
+# jq body; only the default arg differs). The two libs live in separate
+# trees (scripts/scrum/lib vs hooks/lib) and are not cross-sourced to
+# avoid a circular dep — keep the jq filter in sync if either changes.
 get_pbi_status() {
   local pbi_id="$1"
   local backlog="${2:-.scrum/backlog.json}"

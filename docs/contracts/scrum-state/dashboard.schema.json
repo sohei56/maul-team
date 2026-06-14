@@ -17,14 +17,11 @@
           "type": {
             "enum": [
               "file_changed",
-              "tool_use",
               "status_transition",
               "subagent_start",
               "subagent_stop",
               "task_completed",
-              "teammate_idle",
-              "test_run",
-              "review_verdict"
+              "teammate_idle"
             ]
           },
           "agent_id": {"type": ["string", "null"]},

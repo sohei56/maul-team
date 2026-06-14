@@ -107,7 +107,7 @@ SM owns these `backlog.json.items[].status` values:
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
 - cross-review PASS → `done`; FAIL → `in_progress_impl` (Developer fixes on top of merged code)
 - Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`)
-- Per-PBI merge result is set by `merge-pbi.sh`: success → `awaiting_cross_review`, failure → `escalated` + `merge_failure.kind`
+- Per-PBI merge result is set by `merge-pbi.sh`: success → `awaiting_cross_review`. A failure records `merge_failure.kind` + increments `merge_failure_count` but **leaves status `in_progress_merge`** for the Developer to fix & retry; only the **3rd consecutive** failure flips status to `escalated` (with `escalation_reason` mapped from `merge_failure.kind`). See `skills/pbi-merge/SKILL.md` Outputs.
 
 All status writes go through `.scrum/scripts/update-backlog-status.sh "$PBI" <status>`. No `phase` field exists on per-PBI state.
 
@@ -231,6 +231,36 @@ decision.
   `.scrum/po/attention.md` entry tagged `release-blocking: yes`
   are surfaced — but you continue running the team unless the
   blocking item gates the current step.
+
+### End-of-Sprint continuation (Retrospective → next Sprint)
+
+A Retrospective that finishes with `state.json.phase` still at
+`retrospective` is a dead end in autonomous mode: nothing advances
+the phase, and the watchdog reads the unchanged phase as
+`no_progress` and eventually trips the failure circuit breaker.
+**The PO — not the SM, not the watchdog — decides whether another
+Sprint runs**, because the call depends on Product-Goal completion.
+
+So the last act of every Retrospective (`retrospective` skill,
+Step 8) is a `sprint_continuation` handshake:
+
+1. Send the PO `PO_DECISION_REQUEST kind=sprint_continuation
+   options=[next_sprint,integration_sprint,complete]` with the
+   closed Sprint id, remaining `refined` PBI count, and the Sprint
+   counter vs `max_sprints`.
+2. Advance the phase to match the `PO_DECISION`:
+   `choice:next_sprint → backlog_created`,
+   `choice:integration_sprint → integration_sprint`,
+   `choice:complete → complete`.
+3. End the turn. A rollover `backlog_created` (sprint-history
+   non-empty) is a recycle checkpoint — the watchdog spawns a fresh
+   session that begins the next Sprint's planning.
+
+If the Sprint cap (`max_sprints`) is already reached, follow
+*Sprint cap and human attention* above instead: do not request
+`next_sprint`; the PO should reply `choice:complete` (or the SM
+advances to `complete`) after appending the run summary to
+`.scrum/po/attention.md`.
 
 ### Cross-session lifecycle
 

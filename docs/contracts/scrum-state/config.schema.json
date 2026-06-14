@@ -1,10 +1,53 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Scrum framework configuration",
-  "description": "Schema for .scrum/config.json. Existing keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression) are tolerated via additionalProperties: true so this schema can be introduced without forcing a migration. New keys added for autonomous-PO mode (po_mode, po, autonomous) are constrained.",
+  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "test_runner": {
+      "description": "Per-language test command templates ({pbi_id}, {round} substituted). Read by the pbi-pipeline skill / quality-gate.sh.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "coverage_tool": {
+      "description": "Per-language coverage tool. null disables the coverage gate project-wide.",
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "pragma_pattern": {
+      "description": "Pragma marker for the coverage pragma-audit step. A plain string (single global marker, as in .scrum-config.example.json) or an object keyed per language.",
+      "type": ["string", "object"],
+      "additionalProperties": true
+    },
+    "path_guard": {
+      "description": "impl_globs[] and test_globs[] consumed by pre-tool-use-path-guard.sh for pbi-implementer / pbi-ut-author.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "impl_globs": {"type": "array", "items": {"type": "string"}},
+        "test_globs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "merge_regression": {
+      "description": "command run by merge-pbi.sh after each per-PBI merge; skipped with WARN when absent.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "command": {"type": ["string", "null"]}
+      }
+    },
+    "stall_watchdog": {
+      "description": "Settings for the external teammate-stall monitor scripts/stall-watchdog.sh (non-autonomous mode only).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "idle_threshold_minutes": {"type": "integer", "minimum": 1},
+        "cooldown_minutes": {"type": "integer", "minimum": 1},
+        "poll_interval_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
     "po_mode": {
       "description": "Who plays the Product Owner role. 'human' = wait for user input at PO decision points (default when key absent). 'agent' = a Claude teammate (product-owner) decides automatically.",
       "enum": ["human", "agent"]

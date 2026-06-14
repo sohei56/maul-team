@@ -30,21 +30,35 @@ if [ ! -t 0 ]; then
   payload="$(cat 2>/dev/null || true)"
 fi
 
+# run_child <path> — pipe the replayed payload to a child hook. When the
+# file exists but lost its executable bit (e.g. a deploy that copied
+# without `chmod +x`), fall back to invoking it through `bash` rather than
+# silently skipping it. The completion gate is load-bearing: skipping it
+# on a missing +x bit would silently disable the Stop block.
+run_child() {
+  local hook="$1"
+  if [ -x "$hook" ]; then
+    printf '%s' "$payload" | "$hook"
+  else
+    printf '%s' "$payload" | bash "$hook"
+  fi
+}
+
 # 1) Dashboard append (best-effort). The gate decision must never be
 # starved by dashboard append failures (corrupted JSON, disk full, etc.),
 # so we discard the child's exit status. Run dashboard FIRST so the
 # Stop event is recorded even if the gate decides to exit 2 below — the
 # gate path raises exit 2 via `exit`, which would prevent any "after"
 # script from running.
-if [ -x "$DASHBOARD_HOOK" ]; then
-  printf '%s' "$payload" | "$DASHBOARD_HOOK" >/dev/null 2>&1 || true
+if [ -f "$DASHBOARD_HOOK" ]; then
+  run_child "$DASHBOARD_HOOK" >/dev/null 2>&1 || true
 fi
 
 # 2) Completion gate — propagate its exit code verbatim. `set -e` is
 # intentionally OFF (we use `set -uo pipefail` above) because we want to
 # capture the gate's non-zero exit without aborting the dispatcher first.
-if [ -x "$COMPLETION_HOOK" ]; then
-  printf '%s' "$payload" | "$COMPLETION_HOOK"
+if [ -f "$COMPLETION_HOOK" ]; then
+  run_child "$COMPLETION_HOOK"
   exit $?
 fi
 

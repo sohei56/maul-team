@@ -14,7 +14,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Same pattern for any of the 12 v2 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done}` |
 | `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
-| `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`; `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
+| `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
 | `mkdir -p .scrum && jq -n '{phase:"new",...}' > .scrum/state.json` (initial bootstrap of a fresh project) | `.scrum/scripts/init-state.sh` (idempotent; no-op if `.scrum/state.json` already exists) |
 | `jq -n '{items:[],next_pbi_id:1,product_goal:"..."}' > .scrum/backlog.json` (Requirements Sprint step 6 seed) | `.scrum/scripts/init-backlog.sh [--product-goal <text>]` (idempotent; no-op if `.scrum/backlog.json` already exists) |
@@ -22,7 +22,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | **Removed**: `.scrum/dashboard.json` is hook-only telemetry written by `hooks/dashboard-event.sh` via `hooks/lib/dashboard.sh::append_dashboard_event`. No agent-callable wrapper. Agents instead emit dashboard signals indirectly via the tools they use (PostToolUse / SendMessage / SubagentStop). |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
 | `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
-| `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`) |
+| `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`) |
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the lag bug surfaced by IMP-003/IMP-009/imp-s28-02) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
 
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
@@ -148,6 +148,8 @@ The current wrapper set covers the pbi-pipeline migration, the four migrated ski
 | `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing, regression}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing, merge_regression}` and backlog `status=escalated` |
 | `cleanup-pbi-worktree.sh` | removes git worktree + `pbi/<id>` branch (post-merge) |
 | `merge-pbi.sh` | orchestrator (calls mark-pbi-merged or mark-pbi-merge-failure + cleanup) |
+| `merge-main-into-pbi.sh` | no state writes — merges main HEAD into the PBI worktree (SM conflict-recovery step after a `conflict` merge failure; see `skills/pbi-merge/SKILL.md`) |
+| `safe-switch-to-main.sh` | no state writes — guarded `git checkout main` recovery wrapper (see `agents/scrum-master.md`) |
 
 ### Backward compatibility (sprints in flight at the merge-governance upgrade)
 

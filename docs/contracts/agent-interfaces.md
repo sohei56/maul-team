@@ -487,10 +487,13 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 - **Logging**: Logs all blocked stop attempts to `.scrum/hooks.log`
 - **Purpose**: Prevent premature phase completion
 - **Mode-dependent policy**:
-  - *Autonomous mode* (`autonomy_enabled`): block on every Stop
-    while the condition holds; the Ralph-Loop watchdog drives
-    iteration counts and the `stop_block_budget_per_phase`
-    circuit breaker.
+  - *Autonomy loop active* (`autonomy_loop_active` = autonomous mode
+    **and** a live watchdog, verified via `kill -0 watchdog_pid`):
+    block on every Stop while the condition holds; the Ralph-Loop
+    watchdog drives iteration counts and the
+    `stop_block_budget_per_phase` circuit breaker. With no live
+    watchdog the gate degrades to the human-mode fallback below
+    (no point storming a session nothing will re-launch).
   - *Human mode*: fingerprint-dedup. First block of a
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In

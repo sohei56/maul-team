@@ -6,9 +6,13 @@
 # allow.
 #
 # Block-noise policy:
-#   * Autonomous-PO mode (autonomy_enabled) — block on every Stop while the
-#     condition holds, with the original verbose reason. The watchdog
-#     contract depends on this; see autonomous_intercept_or_allow().
+#   * Autonomous-PO mode WITH a live watchdog (autonomy_loop_active) — block
+#     on every Stop while the condition holds, with the original verbose
+#     reason. The watchdog contract depends on this; see
+#     autonomous_intercept_or_allow(). If autonomous mode is configured but
+#     NO live watchdog is driving the loop (autonomy.json.watchdog_pid is
+#     absent/null or its process is dead), the gate degrades to human-mode
+#     behaviour so it never storms a session nothing will re-launch.
 #   * Human mode — collapse repeated identical blocks via
 #     hooks/lib/stop-gate-state.sh (".scrum/stop-gate.json"): first block of
 #     a <phase, signature> tuple emits the verbose reason and exits 2;
@@ -68,9 +72,11 @@ block_stop() {
   #               sorted list of incomplete PBI IDs, the current sprint_id.
   #               Empty string is allowed.
   #
-  # In autonomous mode, dedup is intentionally bypassed: the watchdog
-  # contract relies on every Stop block firing while the condition holds.
-  # In human mode, the dedup ledger collapses repeats to logged-only
+  # When the autonomy loop is active (autonomous mode + a live watchdog,
+  # i.e. `autonomy_loop_active`), dedup is intentionally bypassed: the
+  # watchdog contract relies on every Stop block firing while the
+  # condition holds. In human mode — and in autonomous mode with no live
+  # watchdog — the dedup ledger collapses repeats to logged-only
   # allow_stop.
   local reason="$1"
   local block_kind="${2:-unknown}"
@@ -78,13 +84,14 @@ block_stop() {
   local hint
   hint="$(in_flight_hint)"
 
-  if autonomy_enabled; then
+  if autonomy_loop_active; then
     log_hook "completion-gate" "WARN" "Blocked stop: $reason"
     jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
     exit 2
   fi
 
-  # Human mode: consult the dedup ledger.
+  # Human mode (or autonomous mode with no live watchdog): consult the dedup
+  # ledger so a session that nothing will re-launch is not blocked forever.
   local fingerprint verdict
   fingerprint="${block_kind}|${signature}"
   verdict="$(stop_gate_check_and_bump "$fingerprint" "${phase:-unknown}" 2>/dev/null || echo "FIRST")"
@@ -175,13 +182,19 @@ allow_stop() {
 #   complete                          → allow (watchdog observes terminal)
 #   retrospective (criteria passed)   → allow (recycle session for next sprint)
 #   integration_sprint (passed)       → allow (recycle session for next loop)
+#   backlog_created (Sprint rollover: → allow (recycle session before next
+#     sprint-history non-empty)              Sprint Planning)
+#   backlog_created (initial backlog) → block + "run sprint-planning"
 #   anything else reached via allow_stop → block + "do X next" instruction
 #
 # Teammate sessions (session_id != lead_session_id) always allow — blocking
 # them would just spin idle Agent-tool callers and burn tokens.
 autonomous_intercept_or_allow() {
   # Fail-open: any error path here simply allows the original allow_stop.
-  if ! autonomy_enabled; then
+  # autonomy_loop_active (not autonomy_enabled) gates this: with no live
+  # watchdog there is no outer loop to hand control to, so we must allow the
+  # stop rather than keep the session pinned with "do X next" blocks.
+  if ! autonomy_loop_active; then
     return 0
   fi
   if [ -z "$SESSION_ID" ]; then
@@ -200,6 +213,25 @@ autonomous_intercept_or_allow() {
       # Checkpoint phases — exit criteria has been met; let the watchdog
       # take over the next phase (or terminate on `complete`).
       return 0
+      ;;
+    backlog_created)
+      # A `backlog_created` phase that FOLLOWS at least one completed
+      # Sprint is a Sprint rollover produced by the Retrospective's
+      # sprint-continuation handshake (retrospective → next_sprint). It
+      # is a clean recycle checkpoint: allow the stop so the watchdog
+      # spawns a fresh session for the next Sprint's planning. The
+      # INITIAL backlog (post-requirements, no Sprint history yet) is NOT
+      # a checkpoint — fall through so the SM is blocked to proceed
+      # directly into the first Sprint Planning.
+      # A single jq read doubles as the validity probe: a missing or
+      # malformed file makes jq fail, and `|| echo 0` defaults the count
+      # to 0, which falls through to block (the conservative direction).
+      local _sprints
+      _sprints="$(jq -r '(.sprints // []) | length' \
+        ".scrum/sprint-history.json" 2>/dev/null || echo 0)"
+      if [ "${_sprints:-0}" -ge 1 ]; then
+        return 0
+      fi
       ;;
   esac
 
@@ -437,12 +469,13 @@ EOF
     # recorded resolution.
     #
     # Block policy diverges by mode:
-    #   * autonomy_enabled (autonomous-PO mode): preserve historical
-    #     behaviour — block on `in_flight_total > 0` so the watchdog's
-    #     inner loop keeps the SM driving teammates, and `escalated`
-    #     without resolution. autonomous_next_action() depends on the
-    #     allow path meaning "all PBIs settled".
-    #   * human mode: do NOT block merely on `in_flight_total > 0`.
+    #   * autonomy_loop_active (autonomous-PO mode + live watchdog):
+    #     preserve historical behaviour — block on `in_flight_total > 0`
+    #     so the watchdog's inner loop keeps the SM driving teammates, and
+    #     `escalated` without resolution. autonomous_next_action() depends
+    #     on the allow path meaning "all PBIs settled".
+    #   * human mode (or autonomous mode with no live watchdog): do NOT
+    #     block merely on `in_flight_total > 0`.
     #     Teammate liveness is handled by an external watchdog
     #     (scripts/stall-watchdog.sh). Only block on `escalated`
     #     without resolution — that is the one situation the SM must
@@ -483,8 +516,8 @@ EOF
       fi
     done < <(jq -r '.items[]? | select(.status == "escalated") | .id' "$BACKLOG_FILE" 2>/dev/null)
 
-    if autonomy_enabled; then
-      # Autonomous path — historical behaviour, do not change.
+    if autonomy_loop_active; then
+      # Autonomous path (live watchdog) — historical behaviour, do not change.
       if [ "$in_flight_total" -gt 0 ] || [ -n "$escalated_unresolved" ]; then
         msg="PBI pipeline active"
         if [ "$in_flight_total" -gt 0 ]; then
@@ -496,11 +529,10 @@ EOF
         # in_flight_total > 0 with no escalations is also a "still
         # running" signal under autonomy. We pass a block_kind
         # argument to block_stop for shape parity with the human
-        # path; in autonomous mode the early short-circuit at the
-        # top of this function (see lines around the `is_autonomous`
-        # guard) means we never reach the dedup ledger — neither
-        # `stop-gate.json` nor any block_kind tag is read or
-        # persisted here under autonomy.
+        # path; when `autonomy_loop_active` holds, block_stop's
+        # `if autonomy_loop_active` branch bypasses the dedup ledger
+        # — neither `stop-gate.json` nor any block_kind tag is read
+        # or persisted here under the active autonomy loop.
         if [ -n "$escalated_unresolved" ]; then
           block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"
         else
@@ -508,8 +540,9 @@ EOF
         fi
       fi
     else
-      # Human path — only escalated_unresolved blocks. in-flight PBIs are
-      # allowed to coexist with Stop; external watchdog monitors liveness.
+      # Human path (or autonomous mode with no live watchdog) — only
+      # escalated_unresolved blocks. in-flight PBIs are allowed to coexist
+      # with Stop; external watchdog monitors liveness.
       if [ -n "$escalated_unresolved" ]; then
         msg="PBI pipeline active; escalated without resolution: ${escalated_unresolved}"
         block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"

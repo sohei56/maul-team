@@ -97,6 +97,13 @@ Rules:
   `tests/unit/test_foo.py::test_returns_error_on_empty_input`).
 - Add `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json` to the envelope
   `artifacts` array.
+- **Final self-check (do not skip).** This map is a load-bearing
+  artifact: the conductor gates the Round on it and re-spawns you if
+  it is missing or has any empty `tests` array (Step-1b guard in
+  `skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
+  run `jq -e '.criteria | length > 0 and all(.tests | length > 0)'`
+  against the file and fix it if the check fails. Do not return with
+  the tests written but this map absent.
 
 ## Output Envelope
 

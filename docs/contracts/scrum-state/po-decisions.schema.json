@@ -41,7 +41,8 @@
               "release_decision",
               "git_dirty",
               "backlog_approval",
-              "scope_change"
+              "scope_change",
+              "sprint_continuation"
             ]
           },
           "request": {

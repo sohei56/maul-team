@@ -347,7 +347,7 @@ build_prompt() {
       tail='Run Sprint Review with the product-owner teammate, then drive Retrospective. After retrospective is recorded, transition either to `sprint_planning` (next Sprint) or, when the Product Goal is satisfied, to `integration_sprint`.'
       ;;
     retrospective)
-      tail='Capture the retrospective output, persist sprint-history, then transition the workflow.'
+      tail='Finish the Retrospective if not already recorded (improvements + sprint-history). Then run the sprint-continuation handshake: send the product-owner teammate a PO_DECISION_REQUEST kind=sprint_continuation options=[next_sprint,integration_sprint,complete] and advance the phase per the reply — next_sprint → backlog_created, integration_sprint → integration_sprint, complete → complete. Do NOT end the turn with phase still `retrospective`.'
       ;;
     integration_sprint)
       tail='Drive the Integration Sprint. Run product-wide QA / smoke tests. On defects, transition back to `backlog_created` (defect-fix loop). On pass, transition to `complete`.'
@@ -363,20 +363,9 @@ build_prompt() {
   printf '%s\n\n%s\n' "$preamble" "$tail"
 }
 
-# _jq_safe is also exposed by report.sh — keep a local copy to avoid
-# coupling watchdog flow to report.sh load order.
-_jq_safe() {
-  local f="$1" expr="$2" fb="$3" out
-  if [ ! -f "$f" ]; then
-    printf '%s\n' "$fb"
-    return 0
-  fi
-  if ! out="$(jq -r "$expr" "$f" 2>/dev/null)" || [ -z "$out" ] || [ "$out" = "null" ]; then
-    printf '%s\n' "$fb"
-    return 0
-  fi
-  printf '%s\n' "$out"
-}
+# _jq_safe is provided by lib/report.sh, sourced unconditionally near the
+# top of this script (the `. "$SCRIPT_DIR/lib/report.sh"` line), so it is
+# already in scope for every call site here. No local copy needed.
 
 # print_startup_banner
 # One-shot ASCII banner that announces autonomous mode and steers the
@@ -414,6 +403,12 @@ EOF
 # Always invoked on watchdog exit (success or failure).
 finalize() {
   local code="$1" reason="$2"
+  # Clear our pid so a later session (e.g. an interactive `claude` opened in
+  # this repo after the run) sees no live watchdog and the Stop gate behaves
+  # in human mode rather than block-every-Stop. Best-effort: a crash that
+  # skips finalize leaves a stale pid, but `kill -0` on the dead pid still
+  # reports "not alive", so the gate degrades correctly either way.
+  autonomy_atomic_write "(.watchdog_pid = null) | (.updated_at = \"$(iso_utc_now)\")" || true
   local report_path
   report_path="$(generate_morning_report "$reason" || true)"
   if [ -n "$report_path" ]; then
@@ -457,6 +452,15 @@ print_startup_banner
 
 printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failures=%s)\n' \
   "$MAX_ITERATIONS" "$MAX_WALL_HOURS" "$MAX_SPRINTS" "$MAX_CONSECUTIVE_FAILURES" >&2
+
+# Record our PID so the Stop gate can verify a live outer loop is driving this
+# run (hooks/lib/autonomy.sh::autonomy_watchdog_alive). Without it the gate
+# would block every Stop with no watchdog to re-launch the session — the
+# "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
+WATCHDOG_PID="$$"
+if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID}) | (.updated_at = \"$(iso_utc_now)\")"; then
+  printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
+fi
 
 # Loop-local accumulators
 ITER=0

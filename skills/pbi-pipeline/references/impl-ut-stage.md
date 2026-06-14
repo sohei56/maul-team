@@ -85,12 +85,56 @@ already reset to `pending` by `begin-impl-round.sh` above.
 **kind=docs:** spawn `pbi-implementer` ONLY. Do **not** spawn
 `pbi-ut-author`. There are no unit tests for a docs PBI; the
 docs-mode implementer prompt in `sub-agent-prompts.md` already
-forbids creating test files. Keep `ut_status` at the `skipped` value
-set at Init (do not touch it here). Single-Agent spawn:
+forbids creating test files. `ut_status` stays `pending` here (the UT
+author/run is skipped, not the status value — `begin-impl-round.sh`
+resets `ut_status` to `pending` each round regardless of `kind`; only
+`design_status`/`coverage_status` carry the `skipped` value).
+Single-Agent spawn:
 
 ```text
 Agent(subagent_type="pbi-implementer", prompt=<from sub-agent-prompts.md § pbi-implementer (kind=docs)>)
 ```
+
+### Step 1b: AC coverage map presence guard (kind=code only)
+
+`pbi-ut-author` MUST emit `.scrum/pbi/$PBI_ID/ut/ac-coverage-r$n.json`
+at the end of the Round. Empirically the author sometimes returns
+without writing it (an LLM omission of the secondary artifact). Left
+unhandled, the omission surfaces only at the Step-4 AC coverage gate
+as `ac_coverage_missing` and burns the **entire Round** on a retry —
+which under the stagnation/divergence gates can push an otherwise
+healthy PBI toward escalation. To make the omission self-healing, the
+conductor deterministically verifies the artifact immediately after
+Step 1 returns and, if it is absent or malformed, re-spawns the author
+ONCE with a focused "emit only the AC coverage map" instruction
+**before** the Step-2 commit:
+
+```bash
+AC_MAP=".scrum/pbi/$PBI_ID/ut/ac-coverage-r$n.json"
+ac_map_ok() {
+  [[ -f "$AC_MAP" ]] && \
+    jq -e '.criteria | length > 0 and all(.tests | length > 0)' \
+      "$AC_MAP" >/dev/null 2>&1
+}
+if ! ac_map_ok; then
+  .scrum/scripts/append-pbi-log.sh "$PBI_ID" ut_run "$n" warn ac_map_respawn
+  # Targeted re-spawn — asks ONLY for the AC coverage map over the tests
+  # already written this Round (does NOT re-author tests). See
+  # sub-agent-prompts.md § pbi-ut-author (AC-coverage-map re-spawn).
+  # Agent(subagent_type="pbi-ut-author",
+  #       prompt=<sub-agent-prompts.md § pbi-ut-author (AC-coverage-map re-spawn)>)
+  : # then re-check ac_map_ok
+fi
+```
+
+The targeted re-spawn happens **at most once per Round**. If the map
+is still missing/malformed afterward, fall through: the Step-4 AC
+coverage gate fails deterministically (`ac_coverage_missing` /
+`ac_coverage_empty_tests`) and routes to the normal UT Run FAIL retry.
+The guard converts the common single-artifact omission into a cheap
+in-Round fix instead of a lost Round, without weakening the Step-4
+gate. **kind=docs PBIs skip this step entirely** (no UT author, no AC
+map — see the kind=docs branch above).
 
 ### Step 2: Move to PBI Review
 
@@ -197,8 +241,9 @@ notify_sm_escalation "$PBI_ID" stale_review_snapshot
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review ut_status in_review
 ```
 
-**kind=docs:** there is no ut_status to set (it stays `skipped` from
-Init). Set only `impl_status`:
+**kind=docs:** do not set `ut_status` here (it stays `pending` from
+Init/`begin-impl-round.sh` — there is no UT work to move to `in_review`).
+Set only `impl_status`:
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review

@@ -46,7 +46,7 @@ stop_payload() {
   [ -f .scrum/dashboard.json ]
   run jq -e '.events[-1].type == "status_transition"' .scrum/dashboard.json
   [ "$status" -eq 0 ]
-  run jq -e '.events[-1].detail | test("Session stopped")' .scrum/dashboard.json
+  run jq -e '.events[-1].detail | test("session stopped")' .scrum/dashboard.json
   [ "$status" -eq 0 ]
 }
 

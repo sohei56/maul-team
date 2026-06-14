@@ -74,3 +74,32 @@ teardown() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" dev-001-s1 status
   [ "$status" -eq 64 ]
 }
+
+# --- assigned_work (regression for the all(.; ...) jq-1.6 validation bug) ---
+
+@test "set-sprint-developer: accepts valid assigned_work object (non-empty implement)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" \
+    dev-001-s1 assigned_work '{"implement":["pbi-001","pbi-002"]}'
+  [ "$status" -eq 0 ]
+  run jq -c '.developers[] | select(.id=="dev-001-s1").assigned_work.implement' "$TEST_TMP/.scrum/sprint.json"
+  [ "$output" = '["pbi-001","pbi-002"]' ]
+}
+
+@test "set-sprint-developer: accepts assigned_work with empty implement array" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" \
+    dev-001-s1 assigned_work '{"implement":[]}'
+  [ "$status" -eq 0 ]
+}
+
+@test "set-sprint-developer: rejects assigned_work with non-pbi element" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" \
+    dev-001-s1 assigned_work '{"implement":["pbi-001","nope"]}'
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"implement"* ]]
+}
+
+@test "set-sprint-developer: rejects assigned_work that is not an object" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-sprint-developer.sh" \
+    dev-001-s1 assigned_work '["pbi-001"]'
+  [ "$status" -eq 64 ]
+}

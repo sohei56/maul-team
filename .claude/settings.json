@@ -43,7 +43,6 @@
       "WebFetch",
       "Bash",
       "Bash(codex *)",
-      "mcp__github__get_file_contents",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs"
     ],
@@ -63,8 +62,7 @@
       "Edit(.claude/hooks/*)",
       "Write(.claude/hooks/*)",
       "Read(*.secrets/*)",
-      "Bash(*.secrets/*)",
-      "mcp__github__merge_pull_request"
+      "Bash(*.secrets/*)"
     ]
   },
   "hooks": {

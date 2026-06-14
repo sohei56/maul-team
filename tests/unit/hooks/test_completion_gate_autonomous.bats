@@ -12,6 +12,10 @@
 #   * agent mode + lead session_id:
 #       - phase = complete | retrospective(records ok) | integration_sprint(passed)
 #         → allow stop (exit 0)
+#       - phase = backlog_created AND sprint-history non-empty (Sprint
+#         rollover from the Retrospective handshake) → allow stop (exit 0)
+#       - phase = backlog_created with empty/absent sprint-history (initial
+#         backlog) → block (exit 2) with sprint-planning instruction
 #       - any other phase that the existing logic allowed
 #         → block (exit 2) with a phase-specific "do not stop" reason
 #       - exceeding stop_block_budget_per_phase
@@ -55,6 +59,10 @@ write_autonomy() {
   local lead="${1:-sess-lead}"
   local phase="${2:-idle}"
   local count="${3:-0}"
+  # 4th arg: watchdog_pid. Default to this (live) test process so the gate
+  # treats the watchdog as alive and autonomous interception stays in force.
+  # Pass a dead pid (see dead_pid) to exercise the no-live-watchdog fallback.
+  local pid="${4:-$$}"
   cat > .scrum/autonomy.json <<EOF
 {
   "run_id": "run-test",
@@ -64,9 +72,21 @@ write_autonomy() {
   "total_cost_usd": 0,
   "stop_blocks": {"phase": "$phase", "count": $count},
   "circuit_breaker_tripped": null,
-  "last_failure": null
+  "last_failure": null,
+  "watchdog_pid": $pid
 }
 EOF
+}
+
+# dead_pid — echo a PID that is guaranteed not to be running (spawn a trivial
+# process, wait for it to exit, return its now-dead pid). Used to simulate an
+# autonomous run whose watchdog has died / is absent.
+dead_pid() {
+  local p
+  sh -c 'exit 0' &
+  p=$!
+  wait "$p" 2>/dev/null || true
+  printf '%s' "$p"
 }
 
 write_state_phase() {
@@ -134,6 +154,21 @@ stdin_session() {
   [ "$output" = "1" ]
   run jq -r '.stop_blocks.phase' .scrum/autonomy.json
   [ "$output" = "backlog_created" ]
+}
+
+@test "agent mode lead session: backlog_created ROLLOVER (sprint-history non-empty) allows stop (recycle checkpoint)" {
+  # After a Retrospective advances phase to backlog_created for the next
+  # Sprint, the stop is a clean recycle point — the watchdog spawns a fresh
+  # session for the next Sprint's planning.
+  write_config_agent
+  write_autonomy sess-lead backlog_created 0
+  write_state_phase backlog_created sprint-001
+  jq -n '{sprints: [{id: "sprint-001", goal: "g"}]}' > .scrum/sprint-history.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
+  [ "$status" -eq 0 ]
+  # Recycle checkpoint must NOT bump the stop-block counter.
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "0" ]
 }
 
 @test "agent mode lead session: sprint_review (after entry recorded) blocks with retrospective instruction" {
@@ -329,4 +364,47 @@ stdin_session() {
   # Dedup ledger must NOT exist — autonomy path bypasses it so the
   # watchdog contract keeps firing on every Stop.
   [ ! -f .scrum/stop-gate.json ]
+}
+
+# ------------------------------------------------------------------
+# (i) No live watchdog (BUG-3): autonomous config but watchdog_pid is
+#     dead/absent → the gate must NOT block-every-Stop (which would storm a
+#     session nothing will re-launch). It degrades to human-mode behaviour.
+# ------------------------------------------------------------------
+
+@test "agent mode, DEAD watchdog_pid: backlog_created allows stop (no storm)" {
+  # Same situation that blocks under a LIVE watchdog (initial backlog), but
+  # with a dead pid the autonomous interception must not fire.
+  write_config_agent
+  write_autonomy sess-lead backlog_created 0 "$(dead_pid)"
+  write_state_phase backlog_created
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
+  [ "$status" -eq 0 ]
+  # Counter must NOT have advanced — interception did not run.
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "0" ]
+}
+
+@test "agent mode, ABSENT watchdog_pid: backlog_created allows stop (legacy autonomy.json)" {
+  # An autonomy.json written before watchdog_pid existed (field absent) must
+  # be treated as "no live watchdog" → human-mode fallback.
+  write_config_agent
+  write_autonomy sess-lead backlog_created 0
+  jq 'del(.watchdog_pid)' .scrum/autonomy.json > .scrum/autonomy.json.tmp \
+    && mv .scrum/autonomy.json.tmp .scrum/autonomy.json
+  write_state_phase backlog_created
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "agent mode, DEAD watchdog_pid: pbi_pipeline_active in-flight uses human ledger (allows, no storm)" {
+  # Under a live watchdog this blocks on in-flight; with a dead watchdog it
+  # must follow the human path (in-flight alone does NOT block).
+  write_config_agent
+  write_autonomy sess-lead pbi_pipeline_active 0 "$(dead_pid)"
+  write_state_phase pbi_pipeline_active sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_impl"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
 }

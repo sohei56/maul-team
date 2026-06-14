@@ -10,7 +10,7 @@ agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-ma
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
   # Sprint-end cross-review (5-aspect parallel): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
-skills/                  # 17 Skills (16 Scrum ceremonies + 1 PO acceptance) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
+skills/                  # 17 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
   change-process/        # Manage changes to frozen design docs
   cross-review/          # Sprint-end cross-cutting quality gate
@@ -108,7 +108,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
   - Full graph (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
-- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
+- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode); in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint.
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
@@ -130,7 +130,10 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   3-axis OR rule) and machine-enforced at ready-to-merge via
   `paths_touched ⊆ *.md`. Violation → `escalated(kind_mismatch)`.
   Stages skipped by a kind=docs PBI carry the status value `skipped`
-  on `pbi-state.json {design_status, ut_status, coverage_status}`.
+  on `pbi-state.json {design_status, coverage_status}`; `ut_status`
+  stays `pending` (the UT author/run/coverage gate are skipped, not
+  the status value — `begin-impl-round.sh` resets `ut_status` to
+  `pending` every impl round regardless of `kind`).
   Full flow: `skills/pbi-pipeline/SKILL.md` § Stages; rationale +
   detailed branches: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user
@@ -157,10 +160,14 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
 - **Stop-hook block policy diverges by mode.** The Stop hook is
   registered as a single entry (`hooks/stop-dispatch.sh`) that
   forwards the payload to `dashboard-event.sh` (best-effort) and
-  then to `completion-gate.sh`. In **autonomous mode** the gate's
-  historical block-every-turn-end behaviour is preserved (the
-  Ralph-Loop watchdog contract depends on it; `.scrum/stop-gate.json`
-  is neither read nor written). In **human mode** the gate
+  then to `completion-gate.sh`. In **autonomous mode with a live
+  watchdog** (`autonomy_loop_active` = `autonomy_enabled` AND
+  `kill -0 watchdog_pid`) the gate's historical block-every-turn-end
+  behaviour is preserved (the Ralph-Loop watchdog contract depends on
+  it; `.scrum/stop-gate.json` is neither read nor written). With no
+  live watchdog the gate degrades to the human-mode behaviour below
+  (storming a session nothing will re-launch is pointless). In
+  **human mode** the gate
   fingerprint-dedups: the first block of a `<phase, situation>`
   tuple emits the verbose reason + exit 2; subsequent identical
   blocks are logged-only and allow exit. `pbi_pipeline_active` in
