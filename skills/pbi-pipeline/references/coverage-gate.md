@@ -139,3 +139,22 @@ When `coverage_tool == null` in `.scrum/config.json`:
 - Skip coverage_status check in Pass criteria
 - Design doc preamble MUST record skip reason
 - codex-design-reviewer FAILs if reason missing
+
+## Coverage skip (per-PBI: kind=docs)
+
+When `backlog.json items[].kind == "docs"`, the entire UT Run stage
+is skipped (see `impl-ut-stage.md` § Step 3 kind=docs branch). That
+includes this whole reference:
+
+- No coverage tool invocation, no `coverage-r{n}.json` produced
+- No `test_runner` invocation, no `test-results-r{n}.json` produced
+- No pragma audit, no `pragma-audit-r{n}.json` produced
+- No AC coverage gate (`ac-coverage-r{n}.json` is not authored by
+  any sub-agent for docs PBIs — there is no UT author)
+- `coverage_status` stays at `skipped` throughout the PBI's life
+
+The Pass criteria reduce to `impl-reviewer.verdict == PASS`. The
+docs-mode impl-reviewer (see `sub-agent-prompts.md` §
+codex-impl-reviewer (kind=docs)) judges semantic conformance of the
+.md change to the parent PBI's findings; that single PASS hands the
+PBI directly to `mark-pbi-ready-to-merge.sh`.

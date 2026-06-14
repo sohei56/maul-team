@@ -15,6 +15,27 @@ A round starts in `in_progress_impl`, advances to
 review or at coverage measurement falls back to `in_progress_impl` for
 the next round (or escalates via the termination gate).
 
+## kind=docs branches
+
+When `backlog.json items[].kind == "docs"`, three modifications apply
+throughout this reference. Read kind at pipeline entry and stash it
+in a shell variable used by Steps 1 / 2 / 3:
+
+```bash
+KIND="$(jq -r --arg id "$PBI_ID" '
+  (.items[] | select(.id == $id) | .kind) // "code"
+' .scrum/backlog.json)"
+```
+
+| Step | kind=code | kind=docs |
+|---|---|---|
+| 1 (spawn) | pbi-implementer ‖ pbi-ut-author | pbi-implementer ONLY |
+| 2 (review spawn) | codex-impl-reviewer ‖ codex-ut-reviewer | codex-impl-reviewer ONLY |
+| 3 (UT Run + coverage) | run | **skipped** — go straight to ready-to-merge |
+| Pass criteria | full Step 4 matrix | impl-reviewer.verdict == PASS only |
+
+The detailed sub-steps below call out kind branches inline.
+
 ## Pipeline entry — obtaining `n`
 
 The Round counter is owned by `.scrum/scripts/begin-impl-round.sh`.
@@ -61,6 +82,16 @@ Status remains `in_progress_impl` while sources/tests are being
 written; both per-stage statuses (`impl_status`, `ut_status`) were
 already reset to `pending` by `begin-impl-round.sh` above.
 
+**kind=docs:** spawn `pbi-implementer` ONLY. Do **not** spawn
+`pbi-ut-author`. There are no unit tests for a docs PBI; the
+docs-mode implementer prompt in `sub-agent-prompts.md` already
+forbids creating test files. Keep `ut_status` at the `skipped` value
+set at Init (do not touch it here). Single-Agent spawn:
+
+```text
+Agent(subagent_type="pbi-implementer", prompt=<from sub-agent-prompts.md § pbi-implementer (kind=docs)>)
+```
+
 ### Step 2: Move to PBI Review
 
 Once both sub-agents have produced source + tests for Round n, the
@@ -96,7 +127,7 @@ source scripts/lib/codex-invoke.sh
 codex_is_available && SPAWN_MODEL="" || SPAWN_MODEL="opus"
 ```
 
-Codex present → spawn both with no `model` override:
+**kind=code** — Codex present → spawn both with no `model` override:
 
 ```text
 Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md>)
@@ -110,10 +141,24 @@ Agent(subagent_type="codex-impl-reviewer", model="opus", prompt=<from sub-agent-
 Agent(subagent_type="codex-ut-reviewer", model="opus", prompt=<from sub-agent-prompts.md>)
 ```
 
+**kind=docs** — spawn `codex-impl-reviewer` ONLY (single Agent call).
+Pass the kind=docs variant of the prompt (see `sub-agent-prompts.md`
+§ codex-impl-reviewer (kind=docs)), which uses parent PBI's review
+findings + the diff as input, and omits `DESIGN_HASH` (there is no
+design.md). The conductor passes `DESIGN_HASH=""` so the reviewer
+header section emits `Reviewed-Design-Hash: -` and the conductor's
+pin verification skips that line for docs PBIs:
+
+```text
+Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md § codex-impl-reviewer (kind=docs)>)
+# When Codex is absent, add: model="opus"
+```
+
 Apply `reviewer-stall-fallback.md` per reviewer (2-min stall detect
 → single Explore-agent retry → escalate as `reviewer_unavailable` if
-both fail). The two reviewers are independent — fall back on either
-without affecting the other.
+both fail). For kind=code the two reviewers are independent — fall
+back on either without affecting the other. For kind=docs there is
+only one reviewer.
 
 Read review-r{n}.md from each, parse verdicts and findings.
 
@@ -126,6 +171,12 @@ file begins with the pin headers:
 Reviewed-Head: <REVIEW_SHA>
 Reviewed-Design-Hash: <DESIGN_HASH>
 ```
+
+**kind=docs:** the second line is `Reviewed-Design-Hash: -`. Verify
+only `Reviewed-Head` matches `REVIEW_SHA`; treat the design-hash line
+as present-but-irrelevant. (The conductor passed `DESIGN_HASH=""`
+above; the reviewer prompt template renders `-` when the hash is
+empty so the file shape stays uniform across kinds.)
 
 If a header is missing or mismatched, OR if the reviewer's JSON
 envelope returns `status=error` with `summary` starting
@@ -146,6 +197,13 @@ notify_sm_escalation "$PBI_ID" stale_review_snapshot
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review ut_status in_review
 ```
 
+**kind=docs:** there is no ut_status to set (it stays `skipped` from
+Init). Set only `impl_status`:
+
+```bash
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review
+```
+
 #### PBI Review FAIL branch
 
 If either reviewer verdict is FAIL (and the termination gate does NOT
@@ -159,9 +217,20 @@ fire), build feedback for the next impl round and revert status:
 # See "Build feedback for next round" below.
 ```
 
+**kind=docs FAIL routing**: identical to above but feedback contains
+only the impl-reviewer's findings (no ut-reviewer). The next impl
+round re-runs pbi-implementer ONLY.
+
 ### Step 3: UT Run (test execution + coverage measurement)
 
-When both reviewers PASS, advance to UT Run:
+**kind=docs: this step is skipped entirely.** When the single
+impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` and
+`coverage_status` at `skipped`, and jump straight to "Success branch
+(hand off to SM)" below. Do NOT call `update-backlog-status.sh
+in_progress_ut_run`. Continue reading the kind=code branch only if
+your PBI is kind=code.
+
+When both reviewers PASS (kind=code), advance to UT Run:
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status pass ut_status pass
@@ -183,7 +252,20 @@ Tool not installed → escalate (`coverage_tool_unavailable`).
 
 ### Step 4: Aggregate Pass criteria
 
-Pass evaluation logic (see `coverage-gate.md` § Pass criteria):
+**kind=docs**: Pass criteria reduce to a single condition:
+
+```text
+impl-reviewer.verdict == PASS
+```
+
+This is already true by the time control reaches Step 4 (the FAIL
+branch in Step 2 would have looped back to in_progress_impl
+otherwise). So for kind=docs, advance directly to the Success branch
+below — no coverage gate, no AC coverage gate, no pragma audit, no
+test runner invocation.
+
+For kind=code, the full evaluation logic applies (see
+`coverage-gate.md` § Pass criteria):
 
 ```text
 ALL of:
@@ -252,6 +334,8 @@ A failed AC gate routes like a UT Run FAIL (existing branch below).
 
 #### Success branch (hand off to SM)
 
+**kind=code:**
+
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status pass
 write_summary "$PBI_DIR/impl/summary.md"
@@ -260,6 +344,22 @@ write_summary "$PBI_DIR/ut/summary.md"
 # mark-pbi-ready-to-merge.sh sets head_sha / paths_touched / ready_at
 # and sets backlog.json items[].status = "in_progress_merge".
 .scrum/scripts/append-pbi-log.sh "$PBI_ID" ut_run "$n" gate "success → in_progress_merge"
+# Then: notify SM (PBI_READY_TO_MERGE).
+```
+
+**kind=docs:** no `ut/summary.md`, no `coverage_status pass`. Set
+`impl_status pass` (the only stage that ran) and hand off:
+
+```bash
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status pass
+write_summary "$PBI_DIR/impl/summary.md"
+.scrum/scripts/mark-pbi-ready-to-merge.sh "$PBI_ID"
+# Same wrapper as kind=code, but with the added boundary check:
+# paths_touched MUST be ⊆ **/*.md (PR-1's enforce). Violation →
+# escalated with escalation_reason=kind_mismatch. If the wrapper exits
+# non-zero, the SM has been notified through the status change; the
+# conductor should still notify via SendMessage so the SM does not wait.
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "success → in_progress_merge (docs)"
 # Then: notify SM (PBI_READY_TO_MERGE).
 ```
 

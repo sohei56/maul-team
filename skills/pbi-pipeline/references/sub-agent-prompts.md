@@ -127,7 +127,7 @@ line 1 `Reviewed-Design-Hash: <hash>`.
 {common envelope reminder}
 ```
 
-## pbi-implementer prompt
+## pbi-implementer prompt (kind=code)
 
 ```text
 You are pbi-implementer for {pbi_id} Round {n}. Implement source code
@@ -140,6 +140,45 @@ Inputs:
   - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
 
 Write source code to project's normal implementation paths (e.g., src/).
+
+{common envelope reminder}
+```
+
+## pbi-implementer prompt (kind=docs)
+
+Use this variant when `backlog.json items[].kind == "docs"`. There is
+no design doc and no UT author — the implementer reads the parent
+PBI's review directly and applies the requested doc-shaped change.
+
+```text
+You are pbi-implementer for {pbi_id} Round {n}. This is a doc-only
+PBI. There is no design doc; you read the parent PBI's review and
+apply the doc-shaped change directly. Touch only `*.md` files —
+mark-pbi-ready-to-merge.sh will escalate any non-.md path as
+kind_mismatch and the SM will reject the PBI.
+
+Inputs:
+- PBI acceptance_criteria (from backlog.json):
+  - <verbatim list, one per line>
+- Parent PBI id: {parent_pbi_id}
+  - Parent PBI cross-review digest (read for context):
+    .scrum/reviews/{parent_pbi_id}-review.md
+- Files to edit (from PBI catalog_targets):
+  - <path1>.md
+  - <path2>.md
+{if Round n>=2:}
+- Feedback from prior round (address every item):
+  - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
+
+Strict rules:
+- Touch only files matching `*.md` (the wrapper enforces this; a
+  non-.md change forces the PBI into escalated/kind_mismatch).
+- Do NOT create test files. There is no UT stage for this PBI.
+- Do NOT create design.md under .scrum/pbi/{pbi_id}/design/. The
+  Design stage was skipped at Init.
+- Express claims semantically. AC that only verify by `grep`-pattern
+  hit counts are an anti-pattern (refinement should have rejected
+  them) — implement the underlying meaning, not the surface pattern.
 
 {common envelope reminder}
 ```
@@ -173,7 +212,7 @@ this Round). List the file in the envelope `artifacts`.
 {common envelope reminder}
 ```
 
-## codex-impl-reviewer prompt
+## codex-impl-reviewer prompt (kind=code)
 
 ```text
 You are codex-impl-reviewer for {pbi_id} Round {n}. Independent review
@@ -202,6 +241,67 @@ resolved under {worktree_path} — never read the main repo checkout.
 Otherwise the review file MUST begin with two header lines:
   Reviewed-Head: <review_sha>
   Reviewed-Design-Hash: <design_hash>
+
+{common envelope reminder}
+```
+
+## codex-impl-reviewer prompt (kind=docs)
+
+For kind=docs PBIs the input is the parent PBI's review findings
+plus the diff between {base_sha} and {review_sha}. There is no
+design doc to pin, so the design-hash slot renders as `-` and pin
+verification only checks `Reviewed-Head`. The review evaluates
+semantic conformance (does the change actually solve the parent's
+finding?), cross-reference correctness, and frontmatter / revision
+history hygiene — NOT grep-pattern hit counts.
+
+```text
+You are codex-impl-reviewer for {pbi_id} Round {n}. This is a
+doc-only PBI: review whether the .md changes semantically resolve
+the parent PBI's findings and keep the docs internally consistent.
+There is no design doc.
+
+Inputs:
+- Worktree root: {worktree_path}
+- Review target SHA: {review_sha}
+- Base SHA (for diff): {base_sha}
+- Parent PBI id: {parent_pbi_id}
+- Parent PBI cross-review digest:
+  .scrum/reviews/{parent_pbi_id}-review.md
+- PBI acceptance_criteria (verbatim from backlog.json):
+  - <criterion 1>
+  - <criterion 2>
+- Changed files (paths relative to the worktree root):
+  - <path1>.md
+  - <path2>.md
+
+Output to: .scrum/pbi/{pbi_id}/impl/review-r{n}.md
+
+FIRST action: verify pin. The only required match is:
+- `git -C {worktree_path} rev-parse HEAD` == {review_sha}
+On mismatch, end immediately with the JSON envelope status=error,
+verdict=null, summary "stale_snapshot: head expected=... actual=...",
+and do NOT write a review file. The review file MUST begin with:
+  Reviewed-Head: <review_sha>
+  Reviewed-Design-Hash: -
+
+Review criteria (in priority order):
+1. Each AC is semantically satisfied by the .md change — verified
+   by reading the modified passage, not by grep-pattern hit counts.
+   If an AC reduces to "grep returns N lines", note this as a
+   refinement-quality finding (severity Medium) and judge by the
+   underlying intent the AC was trying to express.
+2. Parent PBI findings (read parent digest): every finding listed
+   under requirement-conformance and docs-consistency aspects is
+   addressed by this PBI's diff.
+3. Cross-references are correct: any `S-NNN` / `pbi-NNN` / file
+   path mentioned in the diff resolves to an existing target.
+4. Frontmatter / revision_history hygiene: if the file has YAML
+   frontmatter, it parses and any `related_pbis` / `revision_history`
+   updates name {pbi_id} or {parent_pbi_id}.
+5. Strict rule: the diff contains ZERO non-.md path. (The wrapper
+   enforces this at ready-to-merge; report any violation as Critical
+   so the SM sees it before the wrapper does.)
 
 {common envelope reminder}
 ```
