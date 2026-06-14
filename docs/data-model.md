@@ -80,6 +80,7 @@ Valid phases:
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
 | `ux_change` | boolean | Whether this PBI involves UX changes (determines live demo in FR-010) |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
+| `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). `kind=docs` means `paths_touched` MUST be ⊆ `**/*.md` (machine-enforced at `mark-pbi-ready-to-merge.sh`; violation → `escalated(kind_mismatch)`). `kind=docs` PBIs skip the Design stage and the entire UT pipeline (UT author, UT reviewer, UT Run, coverage, AC coverage gate) — only `pbi-implementer` + `codex-impl-reviewer` run. Set during `backlog-refinement` by an Opus 3-axis OR rule (description markers / AC content shape / `catalog_targets ⊆ *.md`). See `skills/pbi-pipeline/SKILL.md` § Stages. |
 | `created_at` | ISO 8601 string | Creation timestamp |
 | `updated_at` | ISO 8601 string | Last update timestamp |
 | `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
@@ -126,6 +127,33 @@ ASCII transition graph:
   [SM] escalated → [SM] blocked              (SM hold / human-escalate)
   [SM] blocked   → [Dev] in_progress_design  (external blocker resolved)
 ```
+
+**kind=docs override:** when `items[].kind == "docs"`, the pipeline
+skips `in_progress_design` and `in_progress_ut_run` entirely:
+
+```
+[SM]  refined
+        ↓ (Sprint Planning assigns Developer)
+[Dev] in_progress_impl  ←──────────┐
+        ↓                           │ FAIL
+[Dev] in_progress_pbi_review ───────┘   (codex-impl-reviewer only)
+        ↓ PASS
+[Dev] in_progress_merge             (mark-pbi-ready-to-merge enforces
+                                      paths_touched ⊆ **/*.md; violation
+                                      → escalated(kind_mismatch))
+        ↓ (per-PBI merge)
+[SM]  awaiting_cross_review → cross_review → done
+```
+
+The two retry paths (`escalated → in_progress_design` retry, `blocked
+→ in_progress_design` resume) for kind=docs PBIs go to
+`in_progress_impl` instead, since design is never the failed stage.
+
+`pbi-state.json` `*_status` carries the value **`skipped`** on the
+stages a kind=docs PBI does not run: `design_status`, `ut_status`,
+`coverage_status`. `impl_status` retains the kind=code enum
+(pending/in_review/fail/pass) since impl is the one stage that
+always runs.
 
 State descriptions:
 

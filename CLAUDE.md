@@ -117,6 +117,22 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   (success/stagnation/divergence/hard cap). Coverage measured by real
   tooling (C0/C1 100% by default; partial-C1 languages declare relaxed
   threshold in `.scrum/config.json`).
+- `backlog.json items[].kind ∈ {code, docs}` (default `code`) splits
+  the pipeline into two paths. **kind=code** runs the full pipeline
+  above. **kind=docs** (paths_touched ⊆ `**/*.md`) skips the Design
+  stage and the entire UT pipeline (UT author, UT reviewer, UT Run,
+  coverage gate, AC coverage gate) — only `pbi-implementer` +
+  `codex-impl-reviewer` run. Sprint-end cross-review evaluates docs
+  PBIs against aspect 1 (req-conformance, semantic AC check — not
+  grep hit counts) and aspect 5 (docs-consistency) only; aspects
+  2/3/4 reviewers are not spawned when the Sprint contains no
+  kind=code PBI. `kind` is determined by `backlog-refinement` (Opus
+  3-axis OR rule) and machine-enforced at ready-to-merge via
+  `paths_touched ⊆ *.md`. Violation → `escalated(kind_mismatch)`.
+  Stages skipped by a kind=docs PBI carry the status value `skipped`
+  on `pbi-state.json {design_status, ut_status, coverage_status}`.
+  Full flow: `skills/pbi-pipeline/SKILL.md` § Stages; rationale +
+  detailed branches: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user
   (default; current behaviour unchanged). `"agent"` → the
   `product-owner` teammate (FR-023). Skills do not branch on mode;

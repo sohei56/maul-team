@@ -194,3 +194,65 @@ naturally evicts pre-v2 entries within a few Sprints. The Sprint-end
 `cross-review` precondition is now `status ∈
 {awaiting_cross_review, escalated}` (formerly
 `phase ∈ {merged, escalated}`).
+
+## v2 → v3: `kind` field on PBI items (2026-06-14)
+
+The doc-only PBI flow (planning: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`)
+adds a `kind` field to `backlog.json.items[]` and adds the `skipped`
+enum value to `pbi-state.json.{design_status, ut_status,
+coverage_status}` plus `kind_mismatch` to `escalation_reason`. PBIs
+whose `paths_touched ⊆ **/*.md` (`kind="docs"`) skip the Design
+stage and the entire UT pipeline (UT author, UT reviewer, UT Run,
+coverage gate, AC coverage gate); only `pbi-implementer` +
+`codex-impl-reviewer` run.
+
+### Backward compatibility
+
+- `backlog.schema.json` declares `kind` with `default: "code"`.
+  Items that lack the field validate fine; readers that need the
+  value substitute `"code"` via `(.kind // "code")`. The boundary
+  enforce at `mark-pbi-ready-to-merge.sh` reads `kind` the same way.
+- Existing `pbi-state.json` files validate against the new enum
+  because `skipped` is an addition, not a removal.
+- No legacy field is removed.
+
+### One-shot migration
+
+For consistency in dashboards and refinement audit logging,
+backfill an explicit `kind: "code"` on every existing item:
+
+```bash
+.scrum/scripts/migrate-add-kind-field.sh
+```
+
+The wrapper is idempotent (second run prints `no-op`). It refuses
+to write items that already have any `kind` value (so a
+hand-tagged `kind: "docs"` survives untouched). The framework
+repository's own `.scrum/backlog.json` (used by integration tests)
+is also a valid target — running the migration there before
+shipping the changes keeps fixtures honest.
+
+### Operator checklist
+
+1. Pull the framework repo to a revision that includes PR-1 .. PR-5.
+2. Re-run `setup-user.sh <target>` so the target project picks up
+   the updated `scripts/scrum/*.sh` (including
+   `migrate-add-kind-field.sh`) and the schema files.
+3. In the target project, run
+   `.scrum/scripts/migrate-add-kind-field.sh`.
+4. Optionally hand-promote already-doc-shaped PBIs to
+   `kind="docs"` via
+   `.scrum/scripts/set-backlog-item-field.sh <pbi-id> kind docs`.
+   This is purely cosmetic until those PBIs re-enter the pipeline;
+   the next time they do, the pipeline reads `kind` and routes
+   accordingly.
+
+### No reverse migration
+
+`kind="docs"` is a forward-only tag. There is no automated
+demotion to `code` — the only way to undo a `kind="docs"`
+classification on a PBI mid-pipeline is to manually call
+`set-backlog-item-field.sh kind code` AND restart the pipeline
+(the wrapper does not reset `*_status` skipped values). In
+practice this never matters: kind is determined per-PBI by
+refinement, and refinement happens once.
