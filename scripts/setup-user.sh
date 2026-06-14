@@ -213,6 +213,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
       "WebFetch",
       "WebSearch",
       "Bash(codex *)",
+      "mcp__context7",
       "mcp__playwright"
     ]
   },
@@ -369,34 +370,42 @@ cat > "$settings_file" << 'SETTINGS_EOF'
 SETTINGS_EOF
 echo "  Written settings.json with hook configuration."
 
-# --- Configure Playwright MCP for browser E2E testing ---
-# Always configure Playwright MCP if npx is available. The smoke-test skill
-# gracefully skips browser E2E when Playwright MCP is not in .mcp.json,
-# so adding it unconditionally is safe — it only activates during
-# Integration Sprint when a running app is detected.
+# --- Configure standard MCP servers (context7 + Playwright) ---
+# These are the Claude Scrum Team standard MCP servers. Both are added
+# unconditionally if npx is available:
+#   - context7: fetches up-to-date library/framework docs (needs no
+#     credentials; useful across every ceremony).
+#   - playwright: browser E2E in Integration Sprint. The smoke-test and
+#     po-acceptance skills gracefully skip browser flows when it is absent,
+#     so adding it is safe — it only activates when a running app is detected.
+# Existing entries are preserved (//=); only missing servers are added.
 
 if command -v npx >/dev/null 2>&1; then
   echo ""
-  echo "Configuring Playwright MCP for browser E2E testing..."
+  echo "Configuring standard MCP servers (context7, Playwright)..."
   mcp_file="$TARGET_DIR/.mcp.json"
 
   if [ -f "$mcp_file" ]; then
-    # Merge playwright entry into existing .mcp.json if not already present
-    if ! grep -q "playwright" "$mcp_file" 2>/dev/null; then
-      tmp_mcp="$(mktemp)"
-      if jq '.mcpServers.playwright = {"type": "stdio", "command": "npx", "args": ["@anthropic-ai/mcp-playwright"]}' "$mcp_file" > "$tmp_mcp" 2>/dev/null; then
-        mv "$tmp_mcp" "$mcp_file"
-      else
-        rm -f "$tmp_mcp"
-      fi
-      echo "  Added Playwright MCP to existing .mcp.json"
+    tmp_mcp="$(mktemp)"
+    if jq '
+      .mcpServers.context7 //= {"type": "stdio", "command": "npx", "args": ["-y", "@upstash/context7-mcp"]}
+      | .mcpServers.playwright //= {"type": "stdio", "command": "npx", "args": ["@anthropic-ai/mcp-playwright"]}
+    ' "$mcp_file" > "$tmp_mcp" 2>/dev/null; then
+      mv "$tmp_mcp" "$mcp_file"
+      echo "  Ensured context7 + Playwright MCP in existing .mcp.json"
     else
-      echo "  Playwright MCP already configured in .mcp.json"
+      rm -f "$tmp_mcp"
+      echo "  WARN: could not update existing .mcp.json (jq missing or invalid JSON)"
     fi
   else
     cat > "$mcp_file" << 'MCP_EOF'
 {
   "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
     "playwright": {
       "type": "stdio",
       "command": "npx",
@@ -405,12 +414,12 @@ if command -v npx >/dev/null 2>&1; then
   }
 }
 MCP_EOF
-    echo "  Created .mcp.json with Playwright MCP"
+    echo "  Created .mcp.json with context7 + Playwright MCP"
   fi
 else
   echo ""
-  echo "Note: npx not found — skipping Playwright MCP configuration."
-  echo "  Install Node.js to enable browser E2E testing in Integration Sprint."
+  echo "Note: npx not found — skipping MCP configuration."
+  echo "  Install Node.js to enable context7 docs + browser E2E testing."
 fi
 
 # --- Check Codex CLI for cross-model code review ---
