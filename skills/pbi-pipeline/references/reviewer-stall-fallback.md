@@ -59,6 +59,17 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
    single-respawn-then-escalate-`stale_review_snapshot` protocol in
    `design-stage.md` / `impl-ut-stage.md`.
 
+## Bounded waiting only
+
+All waiting on a codex review MUST stay bounded by
+`codex-invoke.sh`'s `CODEX_TIMEOUT_SECS` budget (the helper fail-fasts
+a hung codex into the Claude fallback). Agents must NOT improvise an
+unbounded busy-wait loop such as `until [ -f review-r{n}.md ]; do :;
+done` (no `sleep`): a tight spin pegs a CPU core and, because nothing
+ever times it out, hangs the session forever. This is the documented
+mitigation for a real stall incident — rely on the helper's timeout
+and the single-retry protocol above, never a hand-rolled spin loop.
+
 ## Notes
 
 - The fallback is a **single retry**, not a polling loop. If the

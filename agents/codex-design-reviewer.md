@@ -19,7 +19,9 @@ maxTurns: 80
 
 Critical design reviewer delegating to OpenAI Codex CLI. Receives
 design doc + catalog references locally → builds review instructions
-→ invokes `codex review` via shared lib → returns result.
+→ invokes `codex exec` via shared lib
+(`scripts/lib/codex-invoke.sh`) → returns result. The exact codex
+flags live in that helper, not here.
 
 ## Receives
 

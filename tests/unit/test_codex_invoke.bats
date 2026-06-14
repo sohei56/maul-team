@@ -21,24 +21,17 @@ teardown() {
   [ "$status" -eq 1 ]
 }
 
-@test "codex_review_or_fallback returns 0 when CODEX_CMD_OVERRIDE points to a working stub" {
+@test "codex_review_or_fallback returns 0 and switches to 'exec' subcommand" {
   # shellcheck disable=SC1090
   source "$HOOK_LIB"
+  # Stub emulating `codex exec`: it ignores its flags, records the
+  # first positional arg to a side file (so the test can prove the
+  # subcommand switched from `review` to `exec`), then echoes a stub
+  # verdict to STDOUT — the function captures stdout via `> "$output"`.
   cat > fake-codex.sh <<'EOF'
 #!/usr/bin/env bash
-# Stub mimicking codex review: locate the path passed after -o (any arg order)
-# and write a stub verdict to it.
-output=""
-prev=""
-for arg in "$@"; do
-  if [ "$prev" = "-o" ]; then
-    output="$arg"
-    break
-  fi
-  prev="$arg"
-done
-[ -n "$output" ] || { echo "stub: missing -o" >&2; exit 1; }
-echo "## Review: stub" > "$output"
+echo "$1" > "$PWD/subcommand.txt"
+echo "## Review: stub"
 exit 0
 EOF
   chmod +x fake-codex.sh
@@ -48,4 +41,46 @@ EOF
   unset CODEX_CMD_OVERRIDE
   [ "$status" -eq 0 ]
   [ -s out.md ]
+  [ "$(cat subcommand.txt)" = "exec" ]
+}
+
+@test "codex_review_or_fallback returns 1 when codex times out" {
+  if ! command -v timeout >/dev/null 2>&1 && ! command -v gtimeout >/dev/null 2>&1; then
+    skip "no timeout/gtimeout binary available"
+  fi
+  # shellcheck disable=SC1090
+  source "$HOOK_LIB"
+  cat > fake-codex.sh <<'EOF'
+#!/usr/bin/env bash
+sleep 10
+echo "## Review: too late"
+exit 0
+EOF
+  chmod +x fake-codex.sh
+  export CODEX_CMD_OVERRIDE="$PWD/fake-codex.sh"
+  export CODEX_TIMEOUT_SECS=1
+  echo "instructions" > instr.md
+  local start end
+  start=$(date +%s)
+  run codex_review_or_fallback instr.md out.md
+  end=$(date +%s)
+  unset CODEX_CMD_OVERRIDE CODEX_TIMEOUT_SECS
+  [ "$status" -eq 1 ]
+  # Must fail-fast well under the stub's 10s sleep.
+  [ "$((end - start))" -lt 5 ]
+}
+
+@test "codex_review_or_fallback returns 1 when codex produces empty output" {
+  # shellcheck disable=SC1090
+  source "$HOOK_LIB"
+  cat > fake-codex.sh <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x fake-codex.sh
+  export CODEX_CMD_OVERRIDE="$PWD/fake-codex.sh"
+  echo "instructions" > instr.md
+  run codex_review_or_fallback instr.md out.md
+  unset CODEX_CMD_OVERRIDE
+  [ "$status" -eq 1 ]
 }

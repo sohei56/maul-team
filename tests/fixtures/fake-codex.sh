@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-# fake-codex.sh — test stub mimicking `codex review` for integration tests.
-# Usage:
-#   fake-codex.sh review --uncommitted --ephemeral \
-#     --instructions <file> -o <output_file>
-# Behavior: writes a deterministic PASS verdict to the output file.
+# fake-codex.sh — test stub mimicking `codex exec` for integration tests.
+# Usage (matches scripts/lib/codex-invoke.sh):
+#   fake-codex.sh exec --sandbox read-only --skip-git-repo-check - \
+#     < <instructions_file> > <output_file>
+# Behavior: ignores flags, reads instructions from stdin (discarded),
+# and writes a deterministic PASS verdict to STDOUT. The caller
+# (codex_review_or_fallback) redirects STDOUT into the review file.
 # Override behavior via FAKE_CODEX_VERDICT (PASS or FAIL) and
 # FAKE_CODEX_FINDINGS (newline-separated "signature|severity|criterion|description").
 set -euo pipefail
 
-# Find the -o flag value
-output=""
-prev=""
-for arg in "$@"; do
-  if [ "$prev" = "-o" ]; then
-    output="$arg"
-    break
-  fi
-  prev="$arg"
-done
-[ -n "$output" ] || { echo "fake-codex: missing -o" >&2; exit 1; }
+# Assert the subcommand switched to `exec` (was `review` in the old
+# broken invocation).
+[ "${1:-}" = "exec" ] || { echo "fake-codex: expected 'exec' subcommand, got '${1:-}'" >&2; exit 1; }
+
+# Drain stdin (the instructions) so codex's stdin contract is honored.
+cat >/dev/null || true
 
 verdict="${FAKE_CODEX_VERDICT:-PASS}"
 
@@ -63,6 +60,6 @@ verdict="${FAKE_CODEX_VERDICT:-PASS}"
     artifacts: []
   }'
   echo '```'
-} > "$output"
+}
 
 exit 0
