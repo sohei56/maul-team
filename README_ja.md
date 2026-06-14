@@ -155,9 +155,24 @@ sh /path/to/claude-scrum-team/scrum-start.sh \
 
 ### 前提条件
 
-- **Claude Code CLI** がインストール済みで PATH 上にあること
+- **Claude Code CLI** がインストール済みで PATH 上にあること — **2.1.172 以上を推奨** ([Claude Code のバージョンについて](#claude-code-のバージョンについて) 参照)
 - **Python 3.9+** と `textual`・`watchdog`
 - **tmux** (推奨) — ダッシュボードを横に並べるため
+
+#### Claude Code のバージョンについて
+
+`scrum-start.sh` は Claude Code が **2.1.172** より前のバージョンの場合に警告を表示します。PBI パイプライン (`pbi-pipeline` Skill) は Developer サブエージェントがさらに専門サブエージェント (`pbi-designer` / `pbi-implementer` / `pbi-ut-author` / `codex-{design,impl,ut}-reviewer`) を spawn することに依存しています。**サブエージェントがさらにサブエージェントを spawn する機能は Claude Code 2.1.172 で解禁されました** ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))。これより古いバージョンでは Developer の tool 一覧に `Agent` / `Task` が存在せず、PBI パイプラインは Design 段階で停止します。
+
+アップグレード手順:
+
+- **Homebrew** — 標準の `claude-code` cask は 2.1.153 で停止しているため、rolling release 版 cask へ切り替えます:
+  ```bash
+  brew uninstall --cask claude-code
+  brew install --cask claude-code@latest
+  ```
+- **Native installer** — `curl -fsSL https://claude.ai/install.sh | bash`
+
+`~/.claude/` 配下のセッション・メモリ・設定はどちらのアップグレード経路でも保持されます。
 
 ### Product Owner としてのあなたの役割
 
