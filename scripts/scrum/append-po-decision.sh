@@ -72,7 +72,7 @@ done
 [ -n "$RATIONALE" ] || fail E_INVALID_ARG "--rationale required"
 
 case "$KIND" in
-  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change) ;;
+  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change|sprint_continuation) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND" ;;
 esac
 

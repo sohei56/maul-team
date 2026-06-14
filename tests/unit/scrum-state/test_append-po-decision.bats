@@ -96,6 +96,18 @@ teardown() {
   [[ "$output" == *"bad --kind"* ]]
 }
 
+@test "append-po-decision: accepts sprint_continuation kind" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind sprint_continuation --decision "choice:next_sprint" \
+    --sprint sprint-1 \
+    --rationale "Product Goal not met; 5 refined PBIs remain"
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1].kind' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "sprint_continuation" ]
+  run jq -r '.decisions[-1].decision' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "choice:next_sprint" ]
+}
+
 @test "append-po-decision: rejects bad --pbi format" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
     --kind scope_change --decision x --rationale y --pbi WIBBLE

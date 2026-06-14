@@ -396,11 +396,29 @@ next section before trying again on the real project.
   human in the tmux pane to navigate split panes. The interactive
   entry point still passes it.
 - **Stop-hook checkpoint coverage.** Today the hook allows exit at
-  `retrospective`, `integration_sprint`, and `complete` (plus when
-  the circuit breaker trips). If a future change adds a phase that
-  should also recycle the session, update `completion-gate.sh`'s
-  `autonomous_intercept_or_allow` case table; otherwise iterations
-  stall on `stop_block_budget_per_phase` until the breaker fires.
+  `retrospective`, `integration_sprint`, `complete`, and a
+  **rollover `backlog_created`** (one that follows a completed Sprint,
+  i.e. `sprint-history.json` is non-empty — the recycle point created
+  by the Retrospective's sprint-continuation handshake), plus when
+  the circuit breaker trips. The *initial* `backlog_created`
+  (post-Requirements, empty Sprint history) still blocks so the SM
+  proceeds straight into the first Sprint Planning. If a future
+  change adds a phase that should also recycle the session, update
+  `completion-gate.sh`'s `autonomous_intercept_or_allow` case table;
+  otherwise iterations stall on `stop_block_budget_per_phase` until
+  the breaker fires.
+- **End-of-Sprint continuation is a PO decision.** A Retrospective
+  must not leave `state.json.phase` at `retrospective`: that phase
+  never advances on its own, so the watchdog's `progress_hash` stays
+  constant and the run is (wrongly) judged `no_progress` until the
+  consecutive-failure breaker kills it. The fix: the Retrospective's
+  final step (`retrospective` skill Step 8) asks the PO a
+  `kind=sprint_continuation` decision
+  (`next_sprint` / `integration_sprint` / `complete`) and advances
+  the phase accordingly (`backlog_created` / `integration_sprint` /
+  `complete`). The PO owns this call because it hinges on
+  Product-Goal completion. See `agents/product-owner.md`
+  § Sprint continuation.
 - **Fallback when headless Agent Teams misbehaves.** If a CLI
   release breaks the headless Agent Teams path (e.g., teammates
   cannot be spawned from `-p` sessions), the operational fallback

@@ -12,6 +12,10 @@
 #   * agent mode + lead session_id:
 #       - phase = complete | retrospective(records ok) | integration_sprint(passed)
 #         → allow stop (exit 0)
+#       - phase = backlog_created AND sprint-history non-empty (Sprint
+#         rollover from the Retrospective handshake) → allow stop (exit 0)
+#       - phase = backlog_created with empty/absent sprint-history (initial
+#         backlog) → block (exit 2) with sprint-planning instruction
 #       - any other phase that the existing logic allowed
 #         → block (exit 2) with a phase-specific "do not stop" reason
 #       - exceeding stop_block_budget_per_phase
@@ -134,6 +138,21 @@ stdin_session() {
   [ "$output" = "1" ]
   run jq -r '.stop_blocks.phase' .scrum/autonomy.json
   [ "$output" = "backlog_created" ]
+}
+
+@test "agent mode lead session: backlog_created ROLLOVER (sprint-history non-empty) allows stop (recycle checkpoint)" {
+  # After a Retrospective advances phase to backlog_created for the next
+  # Sprint, the stop is a clean recycle point — the watchdog spawns a fresh
+  # session for the next Sprint's planning.
+  write_config_agent
+  write_autonomy sess-lead backlog_created 0
+  write_state_phase backlog_created sprint-001
+  jq -n '{sprints: [{id: "sprint-001", goal: "g"}]}' > .scrum/sprint-history.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
+  [ "$status" -eq 0 ]
+  # Recycle checkpoint must NOT bump the stop-block counter.
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "0" ]
 }
 
 @test "agent mode lead session: sprint_review (after entry recorded) blocks with retrospective instruction" {

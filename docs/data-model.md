@@ -764,7 +764,7 @@ human or autonomous). Schema:
 |-------|------|-------------|
 | `id` | string | Auto-assigned `dec-NNNN` (zero-padded). The wrapper echoes this on stdout; the PO must include it in the `PO_DECISION` reply so SM can back-link. |
 | `timestamp` | ISO 8601 string | When the decision was recorded. |
-| `kind` | enum (12 values) | `sprint_goal_approval` \| `pbi_split` \| `escalation_choice` \| `spec_clarification` \| `change_request` \| `demo_acceptance` \| `uat_item` \| `defect_triage` \| `release_decision` \| `git_dirty` \| `backlog_approval` \| `scope_change`. |
+| `kind` | enum (13 values) | `sprint_goal_approval` \| `pbi_split` \| `escalation_choice` \| `spec_clarification` \| `change_request` \| `demo_acceptance` \| `uat_item` \| `defect_triage` \| `release_decision` \| `git_dirty` \| `backlog_approval` \| `scope_change` \| `sprint_continuation` (Retrospective → next-Sprint handshake; `decision ∈ {choice:next_sprint, choice:integration_sprint, choice:complete}`). |
 | `sprint_id` | string \| `null` | Set when scope is sprint-bound (`sprint-N` pattern). |
 | `pbi_id` | string \| `null` | Set when scope is PBI-bound (`pbi-N` pattern). |
 | `request` | string \| absent | Summary of what SM asked the PO to decide. |

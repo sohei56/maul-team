@@ -175,6 +175,9 @@ allow_stop() {
 #   complete                          → allow (watchdog observes terminal)
 #   retrospective (criteria passed)   → allow (recycle session for next sprint)
 #   integration_sprint (passed)       → allow (recycle session for next loop)
+#   backlog_created (Sprint rollover: → allow (recycle session before next
+#     sprint-history non-empty)              Sprint Planning)
+#   backlog_created (initial backlog) → block + "run sprint-planning"
 #   anything else reached via allow_stop → block + "do X next" instruction
 #
 # Teammate sessions (session_id != lead_session_id) always allow — blocking
@@ -200,6 +203,25 @@ autonomous_intercept_or_allow() {
       # Checkpoint phases — exit criteria has been met; let the watchdog
       # take over the next phase (or terminate on `complete`).
       return 0
+      ;;
+    backlog_created)
+      # A `backlog_created` phase that FOLLOWS at least one completed
+      # Sprint is a Sprint rollover produced by the Retrospective's
+      # sprint-continuation handshake (retrospective → next_sprint). It
+      # is a clean recycle checkpoint: allow the stop so the watchdog
+      # spawns a fresh session for the next Sprint's planning. The
+      # INITIAL backlog (post-requirements, no Sprint history yet) is NOT
+      # a checkpoint — fall through so the SM is blocked to proceed
+      # directly into the first Sprint Planning.
+      if [ -f ".scrum/sprint-history.json" ] \
+         && jq empty ".scrum/sprint-history.json" >/dev/null 2>&1; then
+        local _sprints
+        _sprints="$(jq -r '(.sprints // []) | length' \
+          ".scrum/sprint-history.json" 2>/dev/null || echo 0)"
+        if [ "${_sprints:-0}" -ge 1 ]; then
+          return 0
+        fi
+      fi
       ;;
   esac
 

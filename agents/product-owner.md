@@ -120,6 +120,43 @@ all of the following hold:
 Otherwise `decision=no_go` with a rationale enumerating which clause
 above is unmet.
 
+## Sprint continuation (`kind=sprint_continuation`)
+
+At the end of every Retrospective in autonomous mode the SM asks the
+PO what comes next. This is a PO-owned call because it turns on
+whether the **Product Goal** (the brief/vision feature set) is met —
+an engineering checkpoint cannot decide it. The SM sends
+`kind=sprint_continuation options=[next_sprint,integration_sprint,complete]`
+with the just-closed Sprint id, the remaining `refined` PBI count,
+and the Sprint counter vs `autonomous.max_sprints` as payload.
+
+Decide with this precedence:
+
+1. **`choice:next_sprint`** — the Product Goal is **not** yet
+   delivered AND ≥1 `refined` PBI remains in the backlog AND the
+   Sprint counter is below `max_sprints`. This is the default while
+   feature work remains. The SM will advance the phase to
+   `backlog_created` and plan the next development Sprint.
+2. **`choice:integration_sprint`** — every brief/vision feature is
+   delivered (no `refined` feature PBI remains, or the remaining
+   ones are explicitly deferred to the "Out" section) and the
+   product has not yet had a product-wide QA pass. The SM will
+   advance to `integration_sprint`.
+3. **`choice:complete`** — the Product Goal is met **and** an
+   Integration Sprint has already passed (or the brief scope was a
+   single increment with no integration phase). The SM will advance
+   the phase to `complete` and the watchdog terminates the run.
+
+The `rationale` must name the deciding condition: which brief/vision
+clauses remain open (next_sprint), or which are all satisfied
+(integration_sprint / complete). "Looks done" is not a rationale.
+Record the decision through `append-po-decision.sh --kind
+sprint_continuation --decision choice:<label> --sprint <sprint-id>
+--rationale <...>` and echo the `dec_id` in the `PO_DECISION` reply.
+If the Product-Goal judgement rests on an unverified assumption,
+add the `--assumption` flag and the `ASSUMPTION:` rationale prefix so
+the next cycle's Retrospective re-examines it.
+
 ## Communication protocol
 
 The PO communicates with the SM through Agent Teams `SendMessage`.
@@ -178,7 +215,7 @@ Requirements Sprint, all PO/Developer traffic must traverse the SM.
 sprint_goal_approval | pbi_split | escalation_choice |
 spec_clarification | change_request | demo_acceptance |
 uat_item | defect_triage | release_decision | git_dirty |
-backlog_approval | scope_change
+backlog_approval | scope_change | sprint_continuation
 ```
 
 ## Persistence duties

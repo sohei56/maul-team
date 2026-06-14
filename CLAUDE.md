@@ -108,7 +108,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
   - Full graph (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
-- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → sprint_planning (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`
+- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode); in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint.
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
