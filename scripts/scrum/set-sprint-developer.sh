@@ -58,7 +58,7 @@ case "$FIELD" in
     if ! printf '%s' "$VALUE_JSON" | jq -e '
       type == "object"
       and ((.implement // []) | type == "array")
-      and ((.implement // []) | all(.; type == "string" and test("^pbi-[0-9]+$")))
+      and all(.implement[]?; type == "string" and test("^pbi-[0-9]+$"))
     ' >/dev/null; then
       fail E_INVALID_ARG "assigned_work: must be object with implement: array of pbi-NNN"
     fi

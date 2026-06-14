@@ -585,6 +585,11 @@ EOF
   "last_failure": null
 }
 EOF
+  # A live watchdog must appear to be driving the loop for the autonomous
+  # block to fire (BUG-3: the gate degrades to human mode when no live
+  # watchdog_pid is present). Use this test process's pid — it is alive.
+  jq --argjson pid "$$" '.watchdog_pid = $pid' .scrum/autonomy.json > .scrum/autonomy.json.tmp \
+    && mv .scrum/autonomy.json.tmp .scrum/autonomy.json
 
   run bash -c "printf '%s' '{\"session_id\":\"sess-lead\",\"hook_event_name\":\"Stop\"}' | bash $PROJECT_ROOT/hooks/completion-gate.sh"
   [ "$status" -eq 2 ]

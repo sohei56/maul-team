@@ -130,7 +130,10 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   3-axis OR rule) and machine-enforced at ready-to-merge via
   `paths_touched ⊆ *.md`. Violation → `escalated(kind_mismatch)`.
   Stages skipped by a kind=docs PBI carry the status value `skipped`
-  on `pbi-state.json {design_status, ut_status, coverage_status}`.
+  on `pbi-state.json {design_status, coverage_status}`; `ut_status`
+  stays `pending` (the UT author/run/coverage gate are skipped, not
+  the status value — `begin-impl-round.sh` resets `ut_status` to
+  `pending` every impl round regardless of `kind`).
   Full flow: `skills/pbi-pipeline/SKILL.md` § Stages; rationale +
   detailed branches: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user

@@ -110,8 +110,12 @@ conductor preflights Codex via `codex_is_available` from
 `scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
 subagent_type="codex-ut-reviewer", model="opus", ...)`.
 `effort: high` + `maxTurns: 80` in the frontmatter cover both modes.
-See `skills/pbi-pipeline/references/sub-agent-prompts.md` §
-Conductor codex preflight.
+The helper bounds each `codex exec` with `CODEX_TIMEOUT_SECS` (default
+300 s; unbounded + WARN on a stock macOS lacking `timeout`/`gtimeout`)
+and maps a timeout to the Claude fallback, so a hung Codex never
+blocks the review. See
+`skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
+codex preflight.
 
 ## Strict Rules
 

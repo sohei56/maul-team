@@ -44,6 +44,35 @@ autonomy_enabled() {
   return 0
 }
 
+# autonomy_watchdog_alive
+# Returns 0 iff autonomy.json records a watchdog_pid that maps to a live
+# process. Fail-closed: a missing file, an absent/null/non-numeric pid, or a
+# pid that is not currently running all return 1 (no live watchdog). The
+# watchdog records its pid at startup and clears it (null) on clean exit, so
+# "alive" means an outer loop is genuinely driving the Stop iterations.
+autonomy_watchdog_alive() {
+  [ -f "$AUTONOMY_FILE" ] || return 1
+  local pid
+  pid="$(jq -r '.watchdog_pid // empty' "$AUTONOMY_FILE" 2>/dev/null || echo "")"
+  case "$pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  kill -0 "$pid" 2>/dev/null
+}
+
+# autonomy_loop_active
+# True iff autonomous-PO mode is enabled AND a live watchdog is driving the
+# outer loop. The Stop gate uses THIS (not autonomy_enabled alone) to decide
+# whether to apply block-every-Stop semantics. Rationale: the block-every-Stop
+# contract exists solely to hand control back to the watchdog's inner loop;
+# with no live watchdog, blocking would storm a session nothing will resume,
+# so the gate must degrade to human-mode behaviour.
+autonomy_loop_active() {
+  autonomy_enabled || return 1
+  autonomy_watchdog_alive || return 1
+  return 0
+}
+
 # is_lead_session <session_id>
 # Returns 0 iff autonomy.json's lead_session_id equals the given session id.
 # Fail-open: missing file or null lead → return 1.

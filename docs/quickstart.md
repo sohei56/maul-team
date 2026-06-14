@@ -56,7 +56,7 @@ This sets `.scrum/config.json.po_mode == "agent"` so the `product-owner`
 teammate takes every PO decision, and starts the outer Ralph-Loop
 watchdog (`scripts/autonomous/watchdog.sh`) which re-launches headless
 Claude sessions, enforces safety valves (iterations / wall clock /
-Sprints / budget / consecutive-failure / per-phase Stop-block budgets),
+Sprints / consecutive-failure / per-phase Stop-block budget),
 backs off on rate-limit signals, and writes a morning report to
 `.scrum/reports/autonomous-run-<run_id>.md`. Full operator guide:
 [docs/autonomous-mode.md](autonomous-mode.md).

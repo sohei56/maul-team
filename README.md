@@ -62,7 +62,7 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 
 - **17 Skills** (16 Scrum ceremonies + 1 PO acceptance) covering the full Scrum lifecycle: requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, and integration testing
 - **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint (1 Developer per PBI, capped at 6)
-- **Autonomous PO mode** (`--autonomous`) — runs the team end-to-end with an AI Product Owner (`po_mode=agent`). An outer Ralph-Loop watchdog (`scripts/autonomous/watchdog.sh`) re-launches headless Claude sessions, enforces safety valves (iterations / wall clock / Sprints / budget) and writes a morning report to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
+- **Autonomous PO mode** (`--autonomous`) — runs the team end-to-end with an AI Product Owner (`po_mode=agent`). An outer Ralph-Loop watchdog (`scripts/autonomous/watchdog.sh`) re-launches headless Claude sessions, enforces safety valves (iterations / wall clock / Sprints / consecutive failures / per-phase Stop-block budget) and writes a morning report to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
 - **Real-time TUI dashboard** — Textual-based three-panel display (Sprint Overview, PBI Progress Board, unified Work Log of agent messages + work events) with watchdog filesystem monitoring
 - **Design document governance** — immutable catalog (`catalog.md`) with editable enablement config (`catalog-config.json`) enforced by status-gate hooks, controlling the documents AI agents are allowed to create
 - **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow enforcement (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates (Definition of Done), session context restoration, plus an external stall watchdog (`scripts/stall-watchdog.sh`) in human mode — turning the behaviors you want agents to follow into mechanisms
@@ -143,13 +143,12 @@ cd /path/to/your/project
 sh /path/to/claude-scrum-team/scrum-start.sh
 
 # Or: launch in autonomous PO mode (no human at the keyboard)
-sh /path/to/claude-scrum-team/scrum-start.sh \
-   --autonomous --brief docs/product/brief.md --max-sprints 3
+sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 
 The script validates prerequisites (auto-installing `textual` and `watchdog` if missing), copies agent definitions, Skills, hooks, shared rules, and the design catalog to your project's `.claude/` directory, and launches a tmux session with Claude Code (Scrum Master) and the TUI dashboard.
 
-For detailed setup instructions, see [quickstart.md](docs/quickstart.md). For autonomous-mode operation (safety valves, budgets, morning report), see [docs/autonomous-mode.md](docs/autonomous-mode.md).
+For detailed setup instructions, see [quickstart.md](docs/quickstart.md). For autonomous-mode operation (safety valves, Stop-block budgets, morning report), see [docs/autonomous-mode.md](docs/autonomous-mode.md).
 
 ### Prerequisites
 

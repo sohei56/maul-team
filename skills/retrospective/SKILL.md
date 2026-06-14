@@ -1,6 +1,6 @@
 ---
 name: retrospective
-description: Sprint Retrospective — record improvements, consolidate periodically
+description: Sprint Retrospective — record improvements for the next cycle
 disable-model-invocation: false
 ---
 
@@ -12,7 +12,7 @@ disable-model-invocation: false
 
 ## Outputs
 
-- improvements.json → entries[] appended, stale entries archived every 3 Sprints
+- improvements.json → entries[] appended (3-Sprint consolidation/archival is deferred — see Step 4)
 - state.json → phase: retrospective
 - sprint.json → status: "complete"
 
@@ -70,7 +70,15 @@ Overrides in agent mode:
    ```
 2. Reflect on Sprint: what went well, what to improve (process, communication, tooling, code quality)
 3. Record ≥1 improvement → call `.scrum/scripts/append-improvement.sh --sprint <sprint-id> --description "<what to improve>"` for each item. The wrapper auto-assigns `id` (`imp-NNNN`), stamps `created_at`, sets `status: "active"`, and validates against `improvements.schema.json`. In `po_mode=agent`, when the entry derives from a `PO_DECISION_REQUEST` round-trip, pass `--dec-id dec-NNNN` to link the entry to the decision record. Direct edits to `.scrum/improvements.json` are blocked by `pre-tool-use-scrum-state-guard.sh`.
-4. **Consolidation check**: Every 3 Sprints (compare last_consolidation_sprint)→archive stale entries (status: "archived", archived_at)→update last_consolidation_sprint
+4. **Consolidation check (deferred — currently a no-op)**: The
+   3-Sprint consolidation pass (archive stale entries → bump
+   `last_consolidation_sprint`) is **not yet implemented**: its
+   wrapper `consolidate-improvements.sh` does not exist, and direct
+   edits to `.scrum/improvements.json` are blocked by
+   `pre-tool-use-scrum-state-guard.sh`. Skip this step — do **not**
+   attempt a raw edit (the guard will reject it). Until the wrapper
+   lands, `improvements.json` simply accumulates entries. (Tracking:
+   `docs/MIGRATION-scrum-state-tools.md` § Known gaps.)
 5. Present retrospective report: went well, to improve, archived items
 6. sprint.json → status: "complete":
    ```bash
@@ -135,7 +143,6 @@ agent mode — that is the dead end this step exists to prevent.
 ## Exit Criteria
 
 - ≥1 improvement recorded (all fields set)
-- If consolidation due→archived + last_consolidation_sprint updated
 - sprint.json status: "complete"
 - **Human mode:** state.json phase: "retrospective"; session reset
   recommended to user.

@@ -21,7 +21,11 @@ Critical design reviewer delegating to OpenAI Codex CLI. Receives
 design doc + catalog references locally → builds review instructions
 → invokes `codex exec` via shared lib
 (`scripts/lib/codex-invoke.sh`) → returns result. The exact codex
-flags live in that helper, not here.
+flags live in that helper, not here. The helper bounds each `codex
+exec` with `CODEX_TIMEOUT_SECS` (default 300 s; runs unbounded with a
+WARN on a stock macOS without `timeout`/`gtimeout`); a timeout is
+treated as a non-zero exit and routed to the Claude fallback, so a
+hung Codex never blocks the review.
 
 ## Receives
 

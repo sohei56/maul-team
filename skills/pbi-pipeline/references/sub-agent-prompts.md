@@ -200,14 +200,57 @@ Inputs:
 
 Write tests to project's normal test paths (e.g., tests/).
 
-Also emit the AC coverage map to:
-  .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
+You have TWO mandatory deliverables this Round. BOTH must exist before
+you return — a missing AC coverage map fails the Round:
+  1. The unit tests (in the project's test paths).
+  2. The AC coverage map at:
+       .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
 
-Schema (see agents/pbi-ut-author.md § "AC coverage map" for full
-rules): one entry per AC from the design doc's `Acceptance Criteria
+AC coverage map schema (see agents/pbi-ut-author.md § "AC coverage
+map" for full rules): one entry per AC from the design doc's
+`Acceptance Criteria Mapping` table; each entry has `index` (1-based),
+`text` (verbatim), and `tests` (non-empty array of
+"<file>::<test-name>" ids written this Round).
+
+FINAL SELF-CHECK before returning (do not skip): confirm the file
+exists and every `criteria[].tests` array is non-empty —
+`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
+.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json`. If it fails, write/fix
+the map before you finish. List the file in the envelope `artifacts`.
+
+{common envelope reminder}
+```
+
+## pbi-ut-author prompt (AC-coverage-map re-spawn)
+
+Focused re-spawn used by the conductor's Step-1b guard when the first
+spawn returned without a valid AC coverage map. Do NOT re-author or
+modify tests — only produce the missing map over the tests already
+written this Round.
+
+```text
+You are pbi-ut-author for {pbi_id} Round {n}, re-spawned for ONE
+purpose: the AC coverage map at
+`.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` is missing or has an
+empty `tests` array. Produce it now. Do NOT add, delete, or edit any
+test file.
+
+Inputs:
+- Design doc (Acceptance Criteria Mapping): .scrum/pbi/{pbi_id}/design/design.md
+- The unit tests already written this Round (read them to collect the
+  "<file>::<test-name>" ids).
+
+Emit one entry per AC from the design doc's `Acceptance Criteria
 Mapping` table; each entry has `index` (1-based), `text` (verbatim),
-and `tests` (non-empty array of "<file>::<test-name>" ids written
-this Round). List the file in the envelope `artifacts`.
+and `tests` (non-empty array of the "<file>::<test-name>" ids that
+exercise that AC). If an AC genuinely has no test, that is a UT gap —
+do NOT invent an id; instead state the gap in your envelope summary so
+the Round fails honestly rather than with a fabricated map.
+
+FINAL SELF-CHECK before returning:
+`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
+.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` must succeed. List the
+file in the envelope `artifacts`.
 
 {common envelope reminder}
 ```

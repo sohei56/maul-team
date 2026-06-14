@@ -6,9 +6,13 @@
 # allow.
 #
 # Block-noise policy:
-#   * Autonomous-PO mode (autonomy_enabled) — block on every Stop while the
-#     condition holds, with the original verbose reason. The watchdog
-#     contract depends on this; see autonomous_intercept_or_allow().
+#   * Autonomous-PO mode WITH a live watchdog (autonomy_loop_active) — block
+#     on every Stop while the condition holds, with the original verbose
+#     reason. The watchdog contract depends on this; see
+#     autonomous_intercept_or_allow(). If autonomous mode is configured but
+#     NO live watchdog is driving the loop (autonomy.json.watchdog_pid is
+#     absent/null or its process is dead), the gate degrades to human-mode
+#     behaviour so it never storms a session nothing will re-launch.
 #   * Human mode — collapse repeated identical blocks via
 #     hooks/lib/stop-gate-state.sh (".scrum/stop-gate.json"): first block of
 #     a <phase, signature> tuple emits the verbose reason and exits 2;
@@ -78,13 +82,14 @@ block_stop() {
   local hint
   hint="$(in_flight_hint)"
 
-  if autonomy_enabled; then
+  if autonomy_loop_active; then
     log_hook "completion-gate" "WARN" "Blocked stop: $reason"
     jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
     exit 2
   fi
 
-  # Human mode: consult the dedup ledger.
+  # Human mode (or autonomous mode with no live watchdog): consult the dedup
+  # ledger so a session that nothing will re-launch is not blocked forever.
   local fingerprint verdict
   fingerprint="${block_kind}|${signature}"
   verdict="$(stop_gate_check_and_bump "$fingerprint" "${phase:-unknown}" 2>/dev/null || echo "FIRST")"
@@ -184,7 +189,10 @@ allow_stop() {
 # them would just spin idle Agent-tool callers and burn tokens.
 autonomous_intercept_or_allow() {
   # Fail-open: any error path here simply allows the original allow_stop.
-  if ! autonomy_enabled; then
+  # autonomy_loop_active (not autonomy_enabled) gates this: with no live
+  # watchdog there is no outer loop to hand control to, so we must allow the
+  # stop rather than keep the session pinned with "do X next" blocks.
+  if ! autonomy_loop_active; then
     return 0
   fi
   if [ -z "$SESSION_ID" ]; then
@@ -505,8 +513,8 @@ EOF
       fi
     done < <(jq -r '.items[]? | select(.status == "escalated") | .id' "$BACKLOG_FILE" 2>/dev/null)
 
-    if autonomy_enabled; then
-      # Autonomous path — historical behaviour, do not change.
+    if autonomy_loop_active; then
+      # Autonomous path (live watchdog) — historical behaviour, do not change.
       if [ "$in_flight_total" -gt 0 ] || [ -n "$escalated_unresolved" ]; then
         msg="PBI pipeline active"
         if [ "$in_flight_total" -gt 0 ]; then
@@ -530,8 +538,9 @@ EOF
         fi
       fi
     else
-      # Human path — only escalated_unresolved blocks. in-flight PBIs are
-      # allowed to coexist with Stop; external watchdog monitors liveness.
+      # Human path (or autonomous mode with no live watchdog) — only
+      # escalated_unresolved blocks. in-flight PBIs are allowed to coexist
+      # with Stop; external watchdog monitors liveness.
       if [ -n "$escalated_unresolved" ]; then
         msg="PBI pipeline active; escalated without resolution: ${escalated_unresolved}"
         block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"

@@ -414,6 +414,12 @@ EOF
 # Always invoked on watchdog exit (success or failure).
 finalize() {
   local code="$1" reason="$2"
+  # Clear our pid so a later session (e.g. an interactive `claude` opened in
+  # this repo after the run) sees no live watchdog and the Stop gate behaves
+  # in human mode rather than block-every-Stop. Best-effort: a crash that
+  # skips finalize leaves a stale pid, but `kill -0` on the dead pid still
+  # reports "not alive", so the gate degrades correctly either way.
+  autonomy_atomic_write "(.watchdog_pid = null) | (.updated_at = \"$(iso_utc_now)\")" || true
   local report_path
   report_path="$(generate_morning_report "$reason" || true)"
   if [ -n "$report_path" ]; then
@@ -457,6 +463,15 @@ print_startup_banner
 
 printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failures=%s)\n' \
   "$MAX_ITERATIONS" "$MAX_WALL_HOURS" "$MAX_SPRINTS" "$MAX_CONSECUTIVE_FAILURES" >&2
+
+# Record our PID so the Stop gate can verify a live outer loop is driving this
+# run (hooks/lib/autonomy.sh::autonomy_watchdog_alive). Without it the gate
+# would block every Stop with no watchdog to re-launch the session — the
+# "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
+WATCHDOG_PID="$$"
+if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID}) | (.updated_at = \"$(iso_utc_now)\")"; then
+  printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
+fi
 
 # Loop-local accumulators
 ITER=0

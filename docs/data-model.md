@@ -80,7 +80,7 @@ Valid phases:
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
 | `ux_change` | boolean | Whether this PBI involves UX changes (determines live demo in FR-010) |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
-| `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). `kind=docs` means `paths_touched` MUST be ⊆ `**/*.md` (machine-enforced at `mark-pbi-ready-to-merge.sh`; violation → `escalated(kind_mismatch)`). `kind=docs` PBIs skip the Design stage and the entire UT pipeline (UT author, UT reviewer, UT Run, coverage, AC coverage gate) — only `pbi-implementer` + `codex-impl-reviewer` run. Set during `backlog-refinement` by an Opus 3-axis OR rule (description markers / AC content shape / `catalog_targets ⊆ *.md`). See `skills/pbi-pipeline/SKILL.md` § Stages. |
+| `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). Set during `backlog-refinement` (the Opus 3-axis OR rule is canonical in `skills/backlog-refinement/SKILL.md`). `kind=docs` reshapes the pipeline (skip Design + UT, `paths_touched ⊆ **/*.md` enforcement, `escalated(kind_mismatch)`) — see the **kind=docs override** subsection below and `skills/pbi-pipeline/SKILL.md` § Stages for the full behaviour. |
 | `created_at` | ISO 8601 string | Creation timestamp |
 | `updated_at` | ISO 8601 string | Last update timestamp |
 | `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
@@ -150,8 +150,11 @@ The two retry paths (`escalated → in_progress_design` retry, `blocked
 `in_progress_impl` instead, since design is never the failed stage.
 
 `pbi-state.json` `*_status` carries the value **`skipped`** on the
-stages a kind=docs PBI does not run: `design_status`, `ut_status`,
-`coverage_status`. `impl_status` retains the kind=code enum
+stages a kind=docs PBI does not run: `design_status` and
+`coverage_status`. `ut_status` stays **`pending`** (the UT author/run
+is skipped, not the status value — `begin-impl-round.sh` resets
+`ut_status` to `pending` every impl round regardless of `kind`).
+`impl_status` retains the kind=code enum
 (pending/in_review/fail/pass) since impl is the one stage that
 always runs.
 
@@ -262,10 +265,17 @@ State descriptions:
 | `status` | enum | `"active"`, `"archived"` |
 | `created_at` | ISO 8601 string | When recorded |
 | `archived_at` | ISO 8601 string \| null | When archived (during consolidation) |
+| `dec_id` | string \| absent | Optional `dec-NNNN` link to a `po-decisions.json` record. Set by `append-improvement.sh --dec-id` in `po_mode=agent` when the entry derives from a PO decision; omitted otherwise. |
 
 ### Validation Rules
-- Consolidation occurs every 3 Sprints (FR-012).
-- Archived entries are retained but not shown to Developers.
+- Consolidation is designed to occur every 3 Sprints (FR-012) but is
+  **not yet implemented**: `consolidate-improvements.sh` does not
+  exist, so no writer currently sets `status: "archived"` /
+  `archived_at` or bumps `last_consolidation_sprint`. Entries
+  accumulate until the wrapper lands. See
+  `docs/MIGRATION-scrum-state-tools.md` § Known gaps.
+- Archived entries (once consolidation lands) are retained but not
+  shown to Developers.
 
 ---
 
@@ -423,7 +433,7 @@ with the work events from `.scrum/dashboard.json`.
 |-------|------|-------------|
 | `timestamp` | ISO 8601 string | When the message was sent |
 | `sender_id` | string | Agent ID of the sender (e.g., `"scrum-master"`, `"dev-001-s3"`) |
-| `sender_role` | string | Human-readable role (e.g., `"Scrum Master"`, `"Developer"`) |
+| `sender_role` | enum | Sender role. SSOT: `communications.schema.json`. Allowed values: `"scrum-master"`, `"developer"`, `"teammate"`, `"sub-agent"`, `"coordinator"`, `"system"` (lowercase-hyphenated; free-form title-case strings fail validation) |
 | `recipient_id` | string \| null | Agent ID of the recipient; null = broadcast to all |
 | `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"message"`, `"report"`, `"review"`, `"escalation"`, `"info"`. The enum mirrors `dashboard.events[].type` (past-tense convention). Hooks emit `message` (SendMessage), `agent_spawn`, and `progress_update`; the remaining kinds are available to manual `append-communication.sh` callers. (The legacy `"status_change"` value was dropped from the schema — `"status_transition"` is the canonical past-tense form; no writer ever emitted `"status_change"`.) |
 | `content` | string | Human-readable message summary |
