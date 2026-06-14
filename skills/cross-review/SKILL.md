@@ -173,6 +173,36 @@ reverse-lookup against `paths_touched`.
    per-PBI fan-out — each reviewer receives the whole Sprint.**
    Single `Agent` call per aspect.
 
+   **PBI kind partition (prerequisite).** Before spawning, partition
+   the Sprint's `cross_review` PBIs by kind. Aspects 2/3/4 evaluate
+   runtime / source-code concerns and have nothing to inspect when a
+   PBI only touched `*.md`; passing docs PBIs to those reviewers
+   produces noise findings and wastes a reviewer slot. Aspects 1 and 5
+   still receive every PBI (requirement conformance and
+   docs-consistency apply to all changes regardless of kind).
+
+   ```bash
+   SPRINT_ID="$(jq -r '.id' .scrum/sprint.json)"
+   CODE_PBIS="$(jq -r --arg s "$SPRINT_ID" '
+     .items[]
+     | select(.sprint_id == $s and .status == "cross_review")
+     | select((.kind // "code") == "code")
+     | .id
+   ' .scrum/backlog.json)"
+   DOCS_PBIS="$(jq -r --arg s "$SPRINT_ID" '
+     .items[]
+     | select(.sprint_id == $s and .status == "cross_review")
+     | select((.kind // "code") == "docs")
+     | .id
+   ' .scrum/backlog.json)"
+   CODE_COUNT="$(printf '%s\n' "$CODE_PBIS" | grep -c .)"
+   ```
+
+   If `CODE_COUNT == 0` (the entire Sprint is docs-only), skip
+   spawning aspects 2/3/4 entirely and write empty `aspect-*.md` stubs
+   stating "Skipped: Sprint contains no kind=code PBI". Continue with
+   aspects 1 and 5.
+
    **File ownership reminder (responsibility split).** Aspect
    reviewers are intentionally Read-only (no `Write` tool — see
    `agents/*-reviewer.md` `tools:`). They return the review content
@@ -185,38 +215,46 @@ reverse-lookup against `paths_touched`.
    review content as your final message; the orchestrator will
    persist it to <path>."
 
-   Inputs and destination file per aspect:
+   Inputs and destination file per aspect (kind-filtered):
    - `requirement-conformance-reviewer` → `requirements.md`,
-     `docs/design/specs/**` (touched), Sprint PBI summary (id, title,
-     `acceptance_criteria`, `paths_touched`), Sprint-wide source path
-     list, per-PBI `.scrum/pbi/<pbi-id>/design/design.md` (for the
-     AC Mapping section) and
-     `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{last}.json` (the AC →
-     test evidence). SM persists final message to
+     `docs/design/specs/**` (touched), Sprint PBI summary for **all
+     PBIs** in `cross_review` (id, title, `acceptance_criteria`,
+     `paths_touched`, **kind**), Sprint-wide source path list (code
+     PBIs only), per-PBI `.scrum/pbi/<pbi-id>/design/design.md` (code
+     PBIs only — docs PBIs have no design doc) and
+     `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{last}.json` (code PBIs only
+     — docs PBIs have no AC coverage map). For docs PBIs, the reviewer
+     judges AC by reading the modified passage; the prompt MUST
+     explicitly forbid grep-pattern hit count as a substitute for
+     comprehension. SM persists final message to
      `.scrum/reviews/aspect-requirement-conformance-review.md`.
-   - `functional-quality-reviewer` → same Sprint summary + source
-     list, with explicit reminder that scope is **cross-PBI seams
-     only**. SM persists to
+   - `functional-quality-reviewer` → Sprint summary for **code PBIs
+     only** + Sprint-wide source path list, with explicit reminder
+     that scope is **cross-PBI seams only**. SM persists to
      `.scrum/reviews/aspect-functional-quality-review.md`.
-   - `security-reviewer` → Sprint-wide source path list +
-     `requirements.md`. SM persists to
+   - `security-reviewer` → Sprint-wide source path list (**code PBIs
+     only**) + `requirements.md`. SM persists to
      `.scrum/reviews/aspect-security-review.md`.
-   - `maintainability-reviewer` → Sprint-wide source list +
-     `.scrum/reviews/static-analysis-r${ROUND}.json`. SM persists to
+   - `maintainability-reviewer` → Sprint-wide source list (**code
+     PBIs only**) + `.scrum/reviews/static-analysis-r${ROUND}.json`.
+     SM persists to
      `.scrum/reviews/aspect-maintainability-review.md`.
    - `docs-consistency-reviewer` → `docs/**` +
-     `.scrum/reviews/sprint-impl-diff.txt` + Sprint PBI summary. SM
-     persists to `.scrum/reviews/aspect-docs-consistency-review.md`.
+     `.scrum/reviews/sprint-impl-diff.txt` + Sprint PBI summary for
+     **all PBIs** (kind included so docs PBIs can be cross-checked
+     against their parent PBI's findings). SM persists to
+     `.scrum/reviews/aspect-docs-consistency-review.md`.
 
    Do NOT pass: PBI descriptions, dev communications, `.scrum/`
    pipeline state. (Reviewers 1/2/5 may receive PBI `id` + `title` +
-   `paths_touched` only — the minimum needed for PBI-mapping.)
+   `paths_touched` + `kind` + `parent_pbi_id` only — the minimum
+   needed for PBI-mapping and docs parent linkage.)
 
-   **Reviewer wait barrier.** After spawning, wait for all 5
-   reviewer Tasks to reach `Status = completed`. Do NOT attempt to
-   stop the session in between. Reviewer completion typically takes
-   60-120s — do NOT interpret a Stop hook block
-   (`completion-gate.sh` "PBIs not done") as reviewer failure.
+   **Reviewer wait barrier.** After spawning, wait for all reviewer
+   Tasks (3 or 5 depending on `CODE_COUNT`) to reach `Status =
+   completed`. Do NOT attempt to stop the session in between. Reviewer
+   completion typically takes 60-120s — do NOT interpret a Stop hook
+   block (`completion-gate.sh` "PBIs not done") as reviewer failure.
    Persistence to `aspect-*.md` is Step 9's job, after `Status =
    completed` — do NOT wait for the file to appear before Step 9.
    See `agents/scrum-master.md` § Background Subagent + Stop Hook
@@ -270,6 +308,43 @@ reverse-lookup against `paths_touched`.
      follow-up PBIs created without AC required inline rework at
      Sprint Planning in a target project.
 
+     **Docs-consistency loop guard.** Before generating a
+     `docs-consistency` follow-up, walk the PBI's ancestor chain
+     (`parent_pbi_id` recursively) and count how many ancestors are
+     themselves `[cross-review-followup:*:docs-consistency]` PBIs. If
+     the chain already contains 2 such docs-consistency follow-ups,
+     the docs problem is not converging by adding another doc PBI on
+     top — the parent's findings are likely ambiguous or the
+     requirement itself is unclear. Escalate to a human instead of
+     looping:
+
+     ```bash
+     LOOP_DEPTH=0
+     ANC="${PBI_ID}"
+     for _ in 1 2 3 4 5; do
+       ANC="$(jq -r --arg id "$ANC" '
+         .items[] | select(.id == $id) | .parent_pbi_id // empty
+       ' .scrum/backlog.json)"
+       [ -z "$ANC" ] && break
+       TITLE="$(jq -r --arg id "$ANC" '
+         .items[] | select(.id == $id) | .title
+       ' .scrum/backlog.json)"
+       case "$TITLE" in
+         *"[cross-review-followup:"*":docs-consistency]"*)
+           LOOP_DEPTH=$((LOOP_DEPTH + 1))
+           ;;
+       esac
+     done
+     if [ "$ASPECT" = "docs-consistency" ] && [ "$LOOP_DEPTH" -ge 2 ]; then
+       printf >&2 'docs-consistency loop for %s (ancestor depth=%d) — escalating instead of generating another follow-up\n' "$PBI_ID" "$LOOP_DEPTH"
+       .scrum/scripts/update-pbi-state.sh "$PBI_ID" \
+         escalation_reason requirements_unclear
+       .scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
+       # Skip the add-backlog-item.sh block below for this PBI
+       continue
+     fi
+     ```
+
      **Opus override for follow-up AC drafting (mandatory).** Same
      reasoning as `skills/backlog-refinement/SKILL.md` § Step 3b
      Opus override: the SM main loop running on Sonnet has produced
@@ -287,7 +362,7 @@ reverse-lookup against `paths_touched`.
          Draft acceptance_criteria for a cross-review follow-up PBI.
 
          Inputs:
-         - Parent PBI id, title, paths_touched
+         - Parent PBI id, title, paths_touched, kind
          - Aspect: maintainability | docs-consistency
          - Findings (Critical/High only) from the per-PBI digest
          - Per-PBI digest path: .scrum/reviews/<pbi-id>-review.md
@@ -297,9 +372,14 @@ reverse-lookup against `paths_touched`.
            measurable assertion).
          - Cover normal-path + at least one failure / regression-prevention
            check.
-         - docs-consistency follow-up: AC must include a grep-style
-           check ("grep <symbol> returns zero across the spec" or
-           "spec file contains <new-value> in every occurrence").
+         - docs-consistency follow-up: AC MUST describe semantic
+           changes ("§X states the new constraint and the rationale";
+           "frontmatter related_pbis includes pbi-NNN"). DO NOT
+           formulate AC as bare `grep` hit counts — those generate
+           empty UT artifacts and don't verify content semantics. This
+           is enforced by `backlog-refinement` Check 5 on the next
+           refinement pass; pre-flag it here so the refinement audit
+           passes first try.
          - maintainability follow-up: AC must reference the specific
            static-analysis rule (ruff/shellcheck code) or the named
            Finding from the digest.
@@ -313,7 +393,8 @@ reverse-lookup against `paths_touched`.
      })
      ```
 
-     Then invoke the wrapper with `--ac` flags built from the JSON:
+     Then invoke the wrapper with `--ac` and `--kind` flags built from
+     the aspect:
      ```bash
      # dedup guard — skip if a matching follow-up already exists
      TITLE_PREFIX="[cross-review-followup:${PBI_ID}:${ASPECT}]"
@@ -321,16 +402,24 @@ reverse-lookup against `paths_touched`.
        '[.items[] | select(.title | startswith($p))] | length' \
        .scrum/backlog.json)
      if [ "$EXISTS" = "0" ]; then
+       # docs-consistency follow-ups inherit kind=docs (they only edit
+       # .md files); maintainability follow-ups default to code.
+       case "$ASPECT" in
+         docs-consistency) KIND_FLAG="--kind docs" ;;
+         maintainability)  KIND_FLAG="--kind code" ;;
+       esac
        # build --ac arguments from the Opus JSON output above
        AC_ARGS=()
        while IFS= read -r line; do AC_ARGS+=(--ac "$line"); done < <(
          jq -r '.ac[]' <<<"$OPUS_JSON"
        )
        SUMMARY=$(jq -r '.title_summary' <<<"$OPUS_JSON")
+       # shellcheck disable=SC2086  # KIND_FLAG is two whitespace-separated tokens
        .scrum/scripts/add-backlog-item.sh \
          --title "${TITLE_PREFIX} ${SUMMARY}" \
          --description "<aspect> follow-up for ${PBI_ID}. See .scrum/reviews/${PBI_ID}-review.md for findings." \
          --parent "${PBI_ID}" \
+         $KIND_FLAG \
          "${AC_ARGS[@]}"
      else
        echo "skip dedup ${TITLE_PREFIX}"
