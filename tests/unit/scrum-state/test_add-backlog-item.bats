@@ -108,3 +108,34 @@ teardown() {
     --title "X"
   [ "$status" -eq 67 ]
 }
+
+@test "add-backlog-item: defaults kind to 'code' when --kind absent" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "Default kind"
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].kind' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "code" ]
+}
+
+@test "add-backlog-item: --kind docs persists kind=docs" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "Docs PBI" --kind docs
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].kind' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "docs" ]
+}
+
+@test "add-backlog-item: --kind code persists kind=code (explicit)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "Code PBI" --kind code
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].kind' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "code" ]
+}
+
+@test "add-backlog-item: --kind rejects unknown value" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "X" --kind bogus
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --kind"* ]]
+}

@@ -28,7 +28,9 @@ Sprint Increment.
   `git diff --name-only <sprint.base_sha>..HEAD`, filtered to
   non-doc paths. Provided as a plain newline list at
   `.scrum/reviews/sprint-impl-diff.txt`.
-- Sprint PBI summary (`id`, `title`, `paths_touched`) for cross-ref.
+- Sprint PBI summary (`id`, `title`, `paths_touched`, `kind`,
+  `parent_pbi_id`) for cross-ref. `kind` and `parent_pbi_id` matter
+  for docs PBIs — see Review Criterion 5.
 
 ## Does NOT Receive (intentional)
 
@@ -47,6 +49,18 @@ to verify a doc claim.
 4. **Missing follow-up** — implementation change in the Sprint that
    has no corresponding doc update where one is clearly required
    (e.g., a new public command without a usage line).
+5. **Docs PBI parent-fix verification** — for each Sprint PBI with
+   `kind == "docs"` and a non-null `parent_pbi_id`, read the parent's
+   per-PBI digest at `.scrum/reviews/<parent-pbi-id>-review.md`. Each
+   docs-consistency Finding on the parent that spawned this PBI must
+   be semantically resolved by the .md change. A docs PBI that ships
+   with the parent finding still unresolved is itself a docs-consistency
+   Finding (criterion_key `parent_finding_unresolved`).
+6. **Docs PBI cross-reference integrity** — any `S-NNN` / `pbi-NNN` /
+   file path introduced or modified in a docs PBI's diff resolves to
+   an existing target. A broken reference shipping in a docs PBI is
+   a Critical Finding because the PBI's whole purpose was to keep
+   docs internally consistent.
 
 ## Out of scope (delegated)
 
@@ -72,7 +86,10 @@ to verify a doc claim.
 ```
 
 `criterion_key` enum: doc_impl_drift, stale_wording, redundant,
-missing_doc_update.
+missing_doc_update, parent_finding_unresolved, broken_cross_reference.
+
+The last two apply to docs PBIs (Review Criteria 5 / 6) and the
+first four apply to all PBIs.
 
 PBI mapping: when the doc drift was caused by a specific PBI's code
 change, name that PBI. When unable to attribute (older drift), use

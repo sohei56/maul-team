@@ -15,6 +15,7 @@
 #   set-backlog-item-field.sh <pbi-id> acceptance_criteria <json-array-of-strings>
 #   set-backlog-item-field.sh <pbi-id> design_doc_paths <json-array-of-strings>
 #   set-backlog-item-field.sh <pbi-id> depends_on_pbi_ids <json-array-of-pbi-ids>
+#   set-backlog-item-field.sh <pbi-id> kind <code|docs>
 #
 # `catalog_targets`, `acceptance_criteria`, `design_doc_paths`, and
 # `depends_on_pbi_ids` all take JSON string literals (e.g.
@@ -113,10 +114,16 @@ case "$FIELD" in
       fail E_INVALID_ARG "depends_on_pbi_ids: must be a JSON array of pbi-NNN strings"
     fi
     ;;
+  kind)
+    case "$VALUE" in
+      code|docs) VALUE_JSON="\"$VALUE\"" ;;
+      *) fail E_INVALID_ARG "bad kind: $VALUE (expected code or docs)" ;;
+    esac
+    ;;
   status)
     fail E_INVALID_ARG "use update-backlog-status.sh to write status (12-value enum has its own wrapper)"
     ;;
-  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|acceptance_criteria|design_doc_paths|depends_on_pbi_ids)" ;;
+  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind)" ;;
 esac
 
 PATHF=".scrum/backlog.json"

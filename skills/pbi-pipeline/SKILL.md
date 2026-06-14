@@ -51,6 +51,17 @@ The 7 SM-managed status values (see [docs/data-model.md § State Transitions: st
 
 ## Stages (decision tree)
 
+The flow branches on `backlog.json items[].kind`. Read kind at Init
+and pick one of two paths.
+
+```bash
+KIND="$(jq -r --arg id "$PBI_ID" '
+  (.items[] | select(.id == $id) | .kind) // "code"
+' .scrum/backlog.json)"
+```
+
+### kind=code (default — full pipeline)
+
 ```text
 [Init] create .scrum/pbi/<pbi-id>/ + state.json (rounds, *_status)
        update-backlog-status.sh "$PBI_ID" in_progress_design
@@ -83,6 +94,40 @@ The 7 SM-managed status values (see [docs/data-model.md § State Transitions: st
    - stop and wait for SM SendMessage (MERGED / MERGE_CONFLICT /
      ARTIFACT_MISSING)
 ```
+
+### kind=docs (Design + UT all skipped)
+
+```text
+[Init] create .scrum/pbi/<pbi-id>/ + state.json
+       # Skip in_progress_design entirely; mark design/UT/coverage as skipped.
+       update-pbi-state.sh "$PBI_ID" \
+         design_status skipped ut_status pending coverage_status skipped
+       update-backlog-status.sh "$PBI_ID" in_progress_impl
+   ↓
+[Impl Stage] Rounds 1..5 → see references/impl-ut-stage.md § kind=docs
+   - status: in_progress_impl
+   - per round: spawn pbi-implementer ONLY (no pbi-ut-author)
+   ↓
+[PBI Review Stage]
+   - status: in_progress_pbi_review
+   - codex-impl-reviewer ONLY (no codex-ut-reviewer)
+   - docs-shaped review: cross-ref / frontmatter / revision_history /
+     semantic match against the parent PBI's findings.
+   - aggregate verdict; FAIL → status reverts to in_progress_impl
+     (next impl round).
+   ↓ PASS
+[Ready-to-merge handoff]  (UT Run stage skipped)
+   - mark-pbi-ready-to-merge.sh enforces paths_touched ⊆ **/*.md;
+     violation → escalation_reason=kind_mismatch.
+   - notify SM identically to the kind=code path.
+```
+
+The `paths_touched ⊆ **/*.md` boundary is machine-enforced by
+`mark-pbi-ready-to-merge.sh` (PR-1). The conductor itself does not
+re-validate — a `kind_mismatch` escalation is the wrapper's response
+to a docs PBI that touched non-.md, which means either refinement
+mis-classified the PBI or the implementer scope-crept. Either way,
+the SM owns the decision.
 
 ## Sub-agents spawned
 

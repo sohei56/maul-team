@@ -140,3 +140,21 @@ field_value() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 sprint_id
   [ "$status" -eq 64 ]
 }
+
+@test "set-backlog-item-field: sets kind=docs" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 kind docs
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 kind)" = '"docs"' ]
+}
+
+@test "set-backlog-item-field: sets kind=code (explicit)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 kind code
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 kind)" = '"code"' ]
+}
+
+@test "set-backlog-item-field: rejects bad kind value" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 kind bogus
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad kind"* ]]
+}

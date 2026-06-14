@@ -46,8 +46,6 @@ JSON
     "max_sprints": 5,
     "max_consecutive_failures": 3,
     "stop_block_budget_per_phase": 8,
-    "max_budget_usd_per_iteration": 10,
-    "max_total_budget_usd": 50,
     "permission_mode": "dontAsk",
     "notify_command": null,
     "fallback_model": null
@@ -139,42 +137,50 @@ JSON
 }
 
 # --------------------------------------------------------------------------
-# (c) Rate-limit detected → enters backoff branch (RATE_STREAK does not count
-#     toward fail_streak, watchdog keeps iterating until safety valve)
+# (c) Rate-limit detected via dashboard event → watchdog sleeps and retries;
+#     iteration counter is NOT advanced. After the wait, the next call
+#     succeeds (advances phase to complete), so the watchdog exits 0 and
+#     last_failure preserves the rate-limit wait marker.
 # --------------------------------------------------------------------------
-@test "watchdog: rate_limit dashboard event triggers backoff, not failure" {
-  # Configure: every call posts a stop_failure rate_limit event. With
-  # AUTON_SLEEP_SCALE=0 the loop spins fast through the rate-limit branch.
-  # Provide 7 events so the >6 streak guard fires (exit 1, reason
-  # rate_limit_persistent).
+@test "watchdog: rate_limit dashboard event triggers wait, not failure" {
   cat > scenario.json <<'JSON'
 {
   "calls": [
     {"stdout_json": {}, "exit_code": 0,
      "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]},
-    {"stdout_json": {}, "exit_code": 0,
-     "dashboard_events": [{"type": "stop_failure", "detail": "rate_limit exceeded"}]}
+    {"phase_to": "complete", "stdout_json": {}, "exit_code": 0}
   ]
 }
 JSON
 
-  # Raise max_iterations so safety valve doesn't fire first
-  jq '.autonomous.max_iterations = 50 | .autonomous.max_consecutive_failures = 99' \
-    .scrum/config.json > .scrum/config.json.tmp && mv .scrum/config.json.tmp .scrum/config.json
+  run "$WATCHDOG"
+  [ "$status" -eq 0 ]
+  grep -F 'Exit reason' .scrum/reports/autonomous-run-test-run.md | grep -q 'complete'
+  # last_failure should reflect the rate-limit wait (never overwritten)
+  reason="$(jq -r '.last_failure.reason // empty' .scrum/autonomy.json)"
+  [ "$reason" = "rate_limit_wait" ]
+}
+
+# --------------------------------------------------------------------------
+# (c2) Rate-limit detected via iter-N.json result envelope (subtype) →
+#      same wait-and-retry behaviour.
+# --------------------------------------------------------------------------
+@test "watchdog: rate_limit in result envelope triggers wait, not failure" {
+  cat > scenario.json <<'JSON'
+{
+  "calls": [
+    {"stdout_json": {"is_error": true, "subtype": "error_rate_limit",
+                      "errors": ["Rate limit exceeded; reset in 60 seconds"]},
+     "exit_code": 0},
+    {"phase_to": "complete", "stdout_json": {}, "exit_code": 0}
+  ]
+}
+JSON
 
   run "$WATCHDOG"
-  [ "$status" -eq 1 ]
-  grep -F 'Exit reason' .scrum/reports/autonomous-run-test-run.md | grep -q 'rate_limit_persistent'
+  [ "$status" -eq 0 ]
+  reason="$(jq -r '.last_failure.reason // empty' .scrum/autonomy.json)"
+  [ "$reason" = "rate_limit_wait" ]
 }
 
 # --------------------------------------------------------------------------
@@ -309,24 +315,23 @@ JSON
 }
 
 # --------------------------------------------------------------------------
-# (i) max_total_budget_usd safety valve → exit 2
+# (i) total_cost_usd is recorded but not enforced (budget caps removed)
 # --------------------------------------------------------------------------
-@test "watchdog: max_total_budget_usd safety valve → exit 2" {
-  # Cap total budget at $1. First iteration logs total_cost_usd 1.5 → safety
-  # valve trips at the start of iteration 2.
-  jq '.autonomous.max_total_budget_usd = 1' .scrum/config.json > .scrum/config.json.tmp \
-    && mv .scrum/config.json.tmp .scrum/config.json
-
+@test "watchdog: total_cost_usd is accumulated for observability, not enforced" {
+  # Two iterations spending plenty; previously this tripped a budget cap.
+  # Now the run should complete normally and autonomy.json should hold the
+  # sum.
   cat > scenario.json <<'JSON'
 {
   "calls": [
-    {"phase_to": "backlog_created", "stdout_json": {"total_cost_usd": 1.5}, "exit_code": 0},
-    {"phase_to": "complete",        "stdout_json": {}, "exit_code": 0}
+    {"phase_to": "backlog_created", "stdout_json": {"total_cost_usd": 40}, "exit_code": 0},
+    {"phase_to": "complete",        "stdout_json": {"total_cost_usd": 60}, "exit_code": 0}
   ]
 }
 JSON
 
   run "$WATCHDOG"
-  [ "$status" -eq 2 ]
-  grep -F 'Exit reason' .scrum/reports/autonomous-run-test-run.md | grep -q 'max_total_budget_reached'
+  [ "$status" -eq 0 ]
+  cost="$(jq -r '.total_cost_usd' .scrum/autonomy.json)"
+  awk -v c="$cost" 'BEGIN{exit !(c >= 99.99 && c <= 100.01)}'
 }

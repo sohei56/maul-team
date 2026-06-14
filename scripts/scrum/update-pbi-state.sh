@@ -10,15 +10,21 @@
 # Writable fields (see docs/contracts/scrum-state/pbi-state.schema.json):
 #   design_round      integer >= 0
 #   impl_round        integer >= 0
-#   design_status     pending|in_review|fail|pass
+#   design_status     pending|in_review|fail|pass|skipped
 #   impl_status       pending|in_review|fail|pass
-#   ut_status         pending|in_review|fail|pass
-#   coverage_status   pending|fail|pass
+#   ut_status         pending|in_review|fail|pass|skipped
+#   coverage_status   pending|fail|pass|skipped
 #   escalation_reason null|stagnation|divergence|max_rounds|budget_exhausted|
 #                     requirements_unclear|coverage_tool_error|
 #                     coverage_tool_unavailable|catalog_lock_timeout|
 #                     reviewer_unavailable|stale_review_snapshot|
-#                     merge_conflict|merge_artifact_missing|merge_regression
+#                     merge_conflict|merge_artifact_missing|merge_regression|
+#                     kind_mismatch
+#
+# skipped is the canonical value for stages a kind=docs PBI never runs
+# (design / UT author / UT execution / coverage). kind_mismatch is the
+# escalation reason emitted by mark-pbi-ready-to-merge.sh when a
+# kind=docs PBI has paths_touched outside *.md.
 #   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
 #   worktree          .scrum/worktrees/pbi-NNN (validated)
 #   base_sha          hex sha, 7..40 chars
@@ -76,7 +82,14 @@ while [ "$#" -ge 2 ]; do
       esac
       EXPR="$EXPR | .$F = $V"
       ;;
-    design_status|impl_status|ut_status)
+    design_status|ut_status)
+      case "$V" in
+        pending|in_review|fail|pass|skipped) ;;
+        *) fail E_INVALID_ARG "bad $F: $V" ;;
+      esac
+      EXPR="$EXPR | .$F = \"$V\""
+      ;;
+    impl_status)
       case "$V" in
         pending|in_review|fail|pass) ;;
         *) fail E_INVALID_ARG "bad $F: $V" ;;
@@ -85,7 +98,7 @@ while [ "$#" -ge 2 ]; do
       ;;
     coverage_status)
       case "$V" in
-        pending|fail|pass) ;;
+        pending|fail|pass|skipped) ;;
         *) fail E_INVALID_ARG "bad coverage_status: $V" ;;
       esac
       EXPR="$EXPR | .coverage_status = \"$V\""
@@ -93,7 +106,7 @@ while [ "$#" -ge 2 ]; do
     escalation_reason)
       case "$V" in
         null) EXPR="$EXPR | .escalation_reason = null" ;;
-        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|reviewer_unavailable|stale_review_snapshot|merge_conflict|merge_artifact_missing|merge_regression)
+        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|reviewer_unavailable|stale_review_snapshot|merge_conflict|merge_artifact_missing|merge_regression|kind_mismatch)
           EXPR="$EXPR | .escalation_reason = \"$V\""
           ;;
         *) fail E_INVALID_ARG "bad escalation_reason: $V" ;;

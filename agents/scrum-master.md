@@ -5,7 +5,7 @@ description: >
   Coordinates Sprint ceremonies, manages the Product Backlog,
   spawns Developer teammates, and orchestrates the full Scrum
   workflow. Cannot write code, run tests, or perform implementation.
-model: sonnet
+model: opus
 effort: high
 maxTurns: 300
 # Intentionally uses `disallowedTools:` (denylist), not `tools:`
@@ -219,7 +219,7 @@ decision.
 
 ### Sprint cap and human attention
 
-- `config.autonomous.max_sprints` (default `5`) bounds how many
+- `config.autonomous.max_sprints` (default `8`) bounds how many
   Sprints the SM may run before the autonomy loop must stop. On
   reaching the cap, do **not** start the next Sprint; append a
   numbered entry to `.scrum/po/attention.md` summarizing the run

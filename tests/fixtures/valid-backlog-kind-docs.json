@@ -1,0 +1,44 @@
+{
+  "product_goal": "Build an e-commerce platform",
+  "items": [
+    {
+      "id": "pbi-001",
+      "title": "User Management",
+      "description": "User registration and login",
+      "acceptance_criteria": ["Users can register", "Users can login"],
+      "status": "refined",
+      "priority": 1,
+      "sprint_id": "sprint-001",
+      "implementer_id": "dev-001-s1",
+      "design_doc_paths": ["docs/design/specs/ui/S-030-login.md"],
+      "review_doc_path": null,
+      "depends_on_pbi_ids": [],
+      "ux_change": true,
+      "kind": "code",
+      "parent_pbi_id": null,
+      "created_at": "2026-03-01T10:00:00Z",
+      "updated_at": "2026-03-01T12:00:00Z"
+    },
+    {
+      "id": "pbi-002",
+      "title": "Docs follow-up: fix S-030 cross-reference",
+      "description": "docs-consistency follow-up for pbi-001",
+      "acceptance_criteria": [
+        "S-030-login.md §2 references the correct upstream spec S-022 (reviewer reads and confirms meaning, not grep hit count)"
+      ],
+      "status": "refined",
+      "priority": 2,
+      "sprint_id": "sprint-002",
+      "implementer_id": null,
+      "design_doc_paths": [],
+      "review_doc_path": null,
+      "depends_on_pbi_ids": [],
+      "ux_change": false,
+      "kind": "docs",
+      "parent_pbi_id": "pbi-001",
+      "created_at": "2026-03-08T10:00:00Z",
+      "updated_at": "2026-03-08T12:00:00Z"
+    }
+  ],
+  "next_pbi_id": 3
+}

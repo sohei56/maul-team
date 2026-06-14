@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Retrospective improvement log",
+  "description": "Append + consolidate log at .scrum/improvements.json. Records every retrospective improvement item. Writes go exclusively through scripts/scrum/append-improvement.sh (and a future consolidate-improvements.sh for 3-Sprint archival). Direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
+  "type": "object",
+  "required": ["entries"],
+  "additionalProperties": true,
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sprint_id", "description", "status", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Auto-assigned sequential id. imp-NNNN with 4-digit zero-padded counter.",
+            "type": "string",
+            "pattern": "^imp-[0-9]{4}$"
+          },
+          "sprint_id": {
+            "type": "string",
+            "pattern": "^sprint-[0-9]+$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": ["active", "archived"]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archived_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "dec_id": {
+            "description": "Optional link to a PO decision record (po-decisions.json) that motivated this improvement. Used by retrospective in po_mode=agent for change_request decisions flagged ASSUMPTION: in the rationale.",
+            "type": "string",
+            "pattern": "^dec-[0-9]{4}$"
+          }
+        }
+      }
+    },
+    "last_consolidation_sprint": {
+      "description": "Sprint id of the last 3-Sprint consolidation pass. Null until the first consolidation runs.",
+      "type": ["string", "null"],
+      "pattern": "^sprint-[0-9]+$"
+    }
+  }
+}

@@ -60,13 +60,15 @@ disable-model-invocation: false
       Agent({
         subagent_type: "general-purpose",
         model: "opus",
-        description: "AC verifiability audit",
+        description: "AC verifiability + kind audit",
         prompt: <<<EOF
-          Audit the acceptance_criteria of one PBI before refinement.
+          Audit the acceptance_criteria of one PBI before refinement,
+          AND classify it as kind=code or kind=docs.
 
           Inputs:
           - PBI id, title, description, ux_change
           - Draft acceptance_criteria (string array)
+          - catalog_targets (string array; may be empty)
           - PBI type signal: derive from description keywords
             (impl / refactor / config-removal / order-engine /
              schema-version / docs-only / audit-follow-up)
@@ -90,9 +92,46 @@ disable-model-invocation: false
                per AC
           4. AC ordering: normal-path first, failure / edge after.
 
+          Kind classification (3-axis OR rule, lean toward `code` on
+          ambiguity — false-negative `code` is harmless, false-positive
+          `docs` skips UT/coverage gates and lets code slip through):
+
+          - Axis A — description markers: "doc-only", "docs-consistency",
+            "documentation only", "[docs]", "[doc]" anywhere in title or
+            description.
+          - Axis B — AC content: every AC describes a doc-shaped change
+            (a passage exists / a cross-reference is correct /
+            frontmatter / revision_history / spec text). NO AC names a
+            runtime behaviour, API contract, UI interaction, or DB
+            mutation.
+          - Axis C — catalog_targets non-empty AND all elements end in
+            `.md`.
+
+          Decision: kind = "docs" iff (A AND B), OR (B AND C). All other
+          cases → kind = "code". (Axis A alone is a marker but not
+          sufficient — title text can lie. Axis C alone happens when a
+          code PBI also updates a spec — still code.)
+
+          Extra Check 5 — grep-shaped AC anti-pattern (applies when
+          kind == "docs"):
+          - Reject any AC whose verifiable claim is reducible to
+            "grep <pattern> in <file> returns N lines" / "<file>
+            contains <substring>" / "occurrence count == N" without a
+            semantic read of the content.
+          - Replace with: "<file> §X states <semantic claim>, verified
+            by reviewer reading the passage". The cross-review's
+            requirement-conformance reviewer reads passages; grep is
+            not a substitute for comprehension.
+          - Rationale: target-project pbi-054 had 6 grep-shaped AC and
+            the UT author wrapped each grep in a test function. The
+            tests passed without anyone (human or model) reading the
+            doc. Never again.
+
           Output: JSON
             {
               "verdict": "pass" | "needs_revision",
+              "kind": "code" | "docs",
+              "kind_rationale": "axes A=<true|false> B=<...> C=<...>; decision=...",
               "per_ac": [
                 { "index": 1, "text": "...", "issues": ["..."],
                   "rewrite_suggestion": "..." | null }
@@ -107,6 +146,12 @@ disable-model-invocation: false
       apply `rewrite_suggestion` for flagged AC and append every
       `missing_acs` entry before persisting. Do not advance status to
       `refined` until the next audit returns `verdict: pass`.
+
+      Persist `kind` on every PBI (code or docs — never leave the
+      field unset, the default is for legacy data only):
+      ```bash
+      .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" kind <code|docs>
+      ```
 
       Persist the audited AC list via the wrapper:
       ```bash
@@ -152,7 +197,8 @@ Ref: FR-003
 ## Exit Criteria
 
 - All selected PBIs status: refined
-- Every refined PBI: non-empty acceptance_criteria, ux_change set, design_doc_paths set, priority set (integer)
+- Every refined PBI: non-empty acceptance_criteria, ux_change set, design_doc_paths set, priority set (integer), kind set (`code` or `docs`)
 - Every `acceptance_criteria[i]` is independently verifiable per Step 3b
   (Given/When/Then or measurable assertion; no bare vague adjective)
+- For kind=docs PBIs: no AC reduces to a grep-pattern hit count (see Check 5 above)
 - Total refined PBIs within 6-12 range

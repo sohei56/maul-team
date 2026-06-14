@@ -153,9 +153,24 @@ For detailed setup instructions, see [quickstart.md](docs/quickstart.md). For au
 
 ### Prerequisites
 
-- **Claude Code CLI** installed and on PATH
+- **Claude Code CLI** installed and on PATH — **2.1.172 or later recommended** (see [Claude Code version](#claude-code-version) below)
 - **Python 3.9+** with `textual` and `watchdog`
 - **tmux** (recommended) for side-by-side dashboard layout
+
+#### Claude Code version
+
+`scrum-start.sh` emits a warning when Claude Code is older than **2.1.172**. The PBI pipeline (the `pbi-pipeline` skill) relies on the Developer sub-agent spawning further specialist sub-agents — `pbi-designer`, `pbi-implementer`, `pbi-ut-author`, and the `codex-{design,impl,ut}-reviewer` trio. **Sub-agents spawning further sub-agents was unlocked upstream in Claude Code 2.1.172** ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)). On older versions the Developer's tool surface lacks `Agent` / `Task` and the pipeline halts at the design stage.
+
+Upgrade paths:
+
+- **Homebrew** — the stock `claude-code` cask is frozen at 2.1.153; switch to the rolling-release cask:
+  ```bash
+  brew uninstall --cask claude-code
+  brew install --cask claude-code@latest
+  ```
+- **Native installer** — `curl -fsSL https://claude.ai/install.sh | bash`
+
+Sessions, memory, and settings under `~/.claude/` are preserved across either upgrade.
 
 ### Your role as Product Owner
 

@@ -43,6 +43,25 @@ SM picks it up via the `pbi-escalation-handler` skill.
 - **UT Run stage**: see `coverage-gate.md` § Pass criteria
   (test failures + coverage thresholds + pragma audit)
 
+### kind=docs overrides
+
+When `backlog.json items[].kind == "docs"`:
+
+- **Design stage**: not run. No gate fires; `design_status` stays
+  `skipped`. The hard-cap `design_round >= 5` cannot trigger because
+  `design_round` stays at 0 throughout.
+- **PBI Review stage**: success criterion is `codex-impl-reviewer.verdict
+  == PASS` (single-reviewer; codex-ut-reviewer is not spawned).
+  Stagnation and divergence are evaluated on the impl-reviewer's
+  findings alone — the signature set is a strict subset of the kind=code
+  path so the same algorithms apply unchanged.
+- **UT Run stage**: not run. No gate fires; `ut_status` and
+  `coverage_status` stay `skipped`.
+- **Impl stage hard cap**: same as kind=code (`impl_round >= 5`).
+  doc-only PBIs that can't converge in 5 impl rounds usually mean
+  the parent finding was mis-framed; escalating to the SM is
+  correct.
+
 ## Stagnation detection
 
 ```bash

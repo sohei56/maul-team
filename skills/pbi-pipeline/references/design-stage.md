@@ -3,7 +3,25 @@
 Per-Round flow for the design stage (max 5 Rounds). Backlog status
 during this stage is `in_progress_design`.
 
-## Round n procedure
+## kind=docs PBI: stage entirely skipped
+
+If `backlog.json items[].kind == "docs"`, this stage does **not** run.
+The conductor sets `design_status = "skipped"` and `design_round = 0`
+at Init, then transitions backlog status directly to
+`in_progress_impl` (skipping `in_progress_design` entirely). No
+`pbi-designer` or `codex-design-reviewer` is spawned, no
+`.scrum/pbi/$PBI_ID/design/design.md` is created, and no
+`design-r{n}.md` review file is produced. See `pbi-pipeline/SKILL.md`
+§ Stages and `impl-ut-stage.md` for the docs flow.
+
+Rationale: doc-only PBIs (modifications confined to `*.md` files
+under any directory — `docs/**`, `skills/**`, `agents/**`,
+`CLAUDE.md`, `README.md`) edit existing prose. Design documents about
+documents are noise; the parent PBI's cross-review findings or the
+docs-consistency follow-up payload already constitute the design
+input. The implementer reads those directly.
+
+## Round n procedure (kind=code only)
 
 1. **Prepare**
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_round "$n" design_status pending`

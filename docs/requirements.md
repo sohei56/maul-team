@@ -542,10 +542,15 @@ Observe implementation and verify Developers use support sub-agents.
   the `scripts/autonomous/watchdog.sh` outer loop. The watchdog
   MUST enforce all of: `max_iterations`, `max_wall_clock_hours`,
   `max_sprints`, `max_consecutive_failures`,
-  `stop_block_budget_per_phase`, `max_budget_usd_per_iteration`,
-  `max_total_budget_usd`, exponential backoff on observed
-  rate-limit signals, and produce a morning report under
-  `.scrum/reports/autonomous-run-<run_id>.md` on exit. The PO
+  `stop_block_budget_per_phase`; on observed rate-limit /
+  usage-limit / overload signals it MUST sleep until the
+  advertised reset time (or a 1h default when no reset time is
+  parseable) and resume without counting the wait toward
+  `max_iterations`; and it MUST produce a morning report under
+  `.scrum/reports/autonomous-run-<run_id>.md` on exit. The
+  watchdog MUST NOT enforce a USD spend cap — spend ceilings
+  live in the operator's Claude subscription plan, and
+  `total_cost_usd` is recorded for observability only. The PO
   teammate MUST defer human-only matters (credentials, billing,
   legal/compliance, production deploy) to `.scrum/po/attention.md`
   rather than guessing, MUST NOT weaken any engineering quality

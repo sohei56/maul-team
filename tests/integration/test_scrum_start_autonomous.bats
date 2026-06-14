@@ -176,3 +176,84 @@ JSON
   run jq -r '.autonomous.permission_mode' .scrum/config.json
   [ "$output" = "bypassPermissions" ]
 }
+
+# --- (e) PO model: default opus applied to deployed agent file --------------
+# SSOT is the deployed .claude/agents/product-owner.md `model:` field.
+# .scrum/config.json must NOT carry a shadow `po_model` key (single-source
+# design).
+
+@test "scrum-start --autonomous (no --po-model): deployed PO agent file defaults to opus" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous \
+    --brief "$TEMP_DIR/seed/brief.md"
+
+  [ "$status" -eq 0 ]
+
+  # No shadow key in config (agent file is the only SSOT).
+  run jq -r '.autonomous | has("po_model")' .scrum/config.json
+  [ "$output" = "false" ]
+
+  # Deployed agent file's frontmatter `model:` line was patched in place.
+  [ -f ".claude/agents/product-owner.md" ]
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: opus" ]
+}
+
+# --- (f) --po-model patches deployed agent file (no config shadow) ----------
+
+@test "scrum-start --autonomous --po-model sonnet patches deployed agent file" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous \
+    --brief "$TEMP_DIR/seed/brief.md" \
+    --po-model sonnet
+
+  [ "$status" -eq 0 ]
+
+  # SSOT is the agent file; no shadow key in config.
+  run jq -r '.autonomous | has("po_model")' .scrum/config.json
+  [ "$output" = "false" ]
+
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: sonnet" ]
+}
+
+# --- (g) --po-model without --autonomous is rejected (exit 2) ---------------
+
+@test "scrum-start --po-model without --autonomous exits 2" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --po-model opus
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--po-model requires --autonomous"* ]]
+}
+
+# --- (h) --po-model choice persists across re-runs via deployed agent file --
+# Verifies the capture-before-setup-user.sh logic: a prior --po-model choice
+# survives a re-run with no flag, because the deployed agent file IS the
+# memory.
+
+@test "scrum-start --autonomous: --po-model sonnet persists to next run" {
+  # Run 1 — set sonnet, creates .scrum/state.json so Run 2 takes the
+  # resume branch (no --brief required).
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous \
+    --brief "$TEMP_DIR/seed/brief.md" \
+    --po-model sonnet
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: sonnet" ]
+
+  # Run 2 — no --po-model. The script captures the deployed value before
+  # setup-user.sh overwrites it, then re-applies it to the freshly copied
+  # agent file. Result: sonnet preserved without any shadow state.
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: sonnet" ]
+
+  # And still no shadow key in config.
+  run jq -r '.autonomous | has("po_model")' .scrum/config.json
+  [ "$output" = "false" ]
+}

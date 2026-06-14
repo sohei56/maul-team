@@ -6,7 +6,8 @@
 #     [--description <text>] \
 #     [--ac <criterion>]... \
 #     [--parent <pbi-id>] \
-#     [--ux-change]
+#     [--ux-change] \
+#     [--kind {code|docs}]
 #
 # Allocates the new id from `.next_pbi_id` (incremented post-write) and falls
 # back to `max(items[].id) + 1` when the field is missing. Status is hardcoded
@@ -25,6 +26,7 @@ TITLE=""
 DESC=""
 PARENT=""
 UX_CHANGE="false"
+KIND="code"
 ACS=()
 
 while [ "$#" -gt 0 ]; do
@@ -34,11 +36,17 @@ while [ "$#" -gt 0 ]; do
     --parent)       PARENT="$2"; shift 2 ;;
     --ac)           ACS+=("$2"); shift 2 ;;
     --ux-change)    UX_CHANGE="true"; shift 1 ;;
+    --kind)         KIND="$2"; shift 2 ;;
     *) fail E_INVALID_ARG "unknown flag: $1" ;;
   esac
 done
 
 [ -n "$TITLE" ] || fail E_INVALID_ARG "--title required"
+
+case "$KIND" in
+  code|docs) ;;
+  *) fail E_INVALID_ARG "bad --kind: $KIND (allowed: code, docs)" ;;
+esac
 
 if [ -n "$PARENT" ]; then
   case "$PARENT" in
@@ -81,6 +89,7 @@ NEW_ITEM_JSON="$(
     --arg desc "$DESC" \
     --arg parent "$PARENT" \
     --arg now "$NOW" \
+    --arg kind "$KIND" \
     --argjson ac "$AC_JSON" \
     --argjson ux "$UX_CHANGE" \
     '{
@@ -96,6 +105,7 @@ NEW_ITEM_JSON="$(
       review_doc_path: null,
       depends_on_pbi_ids: [],
       ux_change: $ux,
+      kind: $kind,
       parent_pbi_id: (if $parent == "" then null else $parent end),
       created_at: $now,
       updated_at: $now

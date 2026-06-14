@@ -6,7 +6,7 @@ description: >
   decisions, and the release decision. Verifies increments by actually
   launching and operating the app. Never writes code, tests, or design
   docs. All decisions are persisted to .scrum/po/decisions.json.
-model: claude-fable-5
+model: opus
 effort: xhigh
 maxTurns: 300
 memory: project

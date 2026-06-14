@@ -131,7 +131,7 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 The current wrapper set covers the pbi-pipeline migration, the four migrated skill SKILL files, and the sprint-planning per-PBI item-field updates. Remaining gaps:
 
 1. ~~**Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).~~ **Resolved**: `init-sprint.sh` lands `.scrum/sprint.json` AND updates `state.current_sprint_id` atomically per call. Closes the recurring `current_sprint_id` lag bug surfaced by retrospectives across target projects (IMP-003 / IMP-009 / imp-s28-02).
-2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/improvements.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks.
+2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. ~~`.scrum/improvements.json`~~ **Resolved**: surfaced when an autonomous-mode Retrospective hit the `pre-tool-use-scrum-state-guard.sh` block writing the entry. `improvements.schema.json` + `append-improvement.sh` land the missing wrapper (auto-assigned `imp-NNNN`, optional `dec_id` for the `po_mode=agent` `PO_DECISION_REQUEST → improvement` linkage). 3-Sprint consolidation (`status: archived`, `archived_at`, `last_consolidation_sprint` bump) is still wrapper-less; not required until Sprint 4 hits — `consolidate-improvements.sh` is a follow-up.
 3. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 4. **`TeammateIdle` hook gate as the source-level fix for silent-death teammates.** The current `scripts/stall-watchdog.sh` daemon catches the *symptom* (no `.scrum/dashboard.json` / `.scrum/pbi/*/` mtime change inside `idle_threshold_minutes`) but the *cause* — Agent-tool teammates terminating without surfacing the cause to the SM — is not handled at the source. A cleaner fix is to gate `TeammateIdle` events in a hook so the SM is woken with the actual `reason`/`exit-code` payload instead of inferring liveness from filesystem mtimes. **Blocker for the spike**: the `TeammateIdle` payload contract (which fields are guaranteed, when the event fires, what `reason` values exist) is not documented in any current Claude Code reference — needs a live-CLI spike on a recent release to nail down the schema before the hook can be written. Until then the external watchdog stands in.
 5. **Single-Stop-hook display verification.** The dispatcher (`hooks/stop-dispatch.sh`) folds two registered Stop hooks into one to reduce the Claude Code session UI's `"Ran 2 stop hooks"` notification to `"Ran 1 stop hook"`. The wording, the threshold for plural-vs-singular, and whether the timeline counts the dispatcher-spawned child processes as separate hooks are all **unofficial implementation details** of the CLI's session UI — not part of any public contract. The display change after the rollout has therefore been reasoned through but not verified against a live session; the first autonomous-mode dogfooding run should confirm the count drops to 1 (or note the actual observed wording for follow-up).
@@ -194,3 +194,65 @@ naturally evicts pre-v2 entries within a few Sprints. The Sprint-end
 `cross-review` precondition is now `status ∈
 {awaiting_cross_review, escalated}` (formerly
 `phase ∈ {merged, escalated}`).
+
+## v2 → v3: `kind` field on PBI items (2026-06-14)
+
+The doc-only PBI flow (planning: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`)
+adds a `kind` field to `backlog.json.items[]` and adds the `skipped`
+enum value to `pbi-state.json.{design_status, ut_status,
+coverage_status}` plus `kind_mismatch` to `escalation_reason`. PBIs
+whose `paths_touched ⊆ **/*.md` (`kind="docs"`) skip the Design
+stage and the entire UT pipeline (UT author, UT reviewer, UT Run,
+coverage gate, AC coverage gate); only `pbi-implementer` +
+`codex-impl-reviewer` run.
+
+### Backward compatibility
+
+- `backlog.schema.json` declares `kind` with `default: "code"`.
+  Items that lack the field validate fine; readers that need the
+  value substitute `"code"` via `(.kind // "code")`. The boundary
+  enforce at `mark-pbi-ready-to-merge.sh` reads `kind` the same way.
+- Existing `pbi-state.json` files validate against the new enum
+  because `skipped` is an addition, not a removal.
+- No legacy field is removed.
+
+### One-shot migration
+
+For consistency in dashboards and refinement audit logging,
+backfill an explicit `kind: "code"` on every existing item:
+
+```bash
+.scrum/scripts/migrate-add-kind-field.sh
+```
+
+The wrapper is idempotent (second run prints `no-op`). It refuses
+to write items that already have any `kind` value (so a
+hand-tagged `kind: "docs"` survives untouched). The framework
+repository's own `.scrum/backlog.json` (used by integration tests)
+is also a valid target — running the migration there before
+shipping the changes keeps fixtures honest.
+
+### Operator checklist
+
+1. Pull the framework repo to a revision that includes PR-1 .. PR-5.
+2. Re-run `setup-user.sh <target>` so the target project picks up
+   the updated `scripts/scrum/*.sh` (including
+   `migrate-add-kind-field.sh`) and the schema files.
+3. In the target project, run
+   `.scrum/scripts/migrate-add-kind-field.sh`.
+4. Optionally hand-promote already-doc-shaped PBIs to
+   `kind="docs"` via
+   `.scrum/scripts/set-backlog-item-field.sh <pbi-id> kind docs`.
+   This is purely cosmetic until those PBIs re-enter the pipeline;
+   the next time they do, the pipeline reads `kind` and routes
+   accordingly.
+
+### No reverse migration
+
+`kind="docs"` is a forward-only tag. There is no automated
+demotion to `code` — the only way to undo a `kind="docs"`
+classification on a PBI mid-pipeline is to manually call
+`set-backlog-item-field.sh kind code` AND restart the pipeline
+(the wrapper does not reset `*_status` skipped values). In
+practice this never matters: kind is determined per-PBI by
+refinement, and refinement happens once.

@@ -9,8 +9,10 @@
 # iteration. Each session runs until the Stop hook releases (typically when
 # the workflow phase advances or a checkpoint is reached); on process exit
 # control returns here. The watchdog enforces global safety bounds (max
-# iterations / wall clock / sprints / consecutive failures / budget) and
-# handles rate-limit backoff observed via dashboard `stop_failure` events.
+# iterations / wall clock / sprints / consecutive failures) and, on API
+# rate-limit / usage-limit hits, sleeps until the limit resets and resumes
+# automatically. Cost (USD) is recorded for observability but not enforced
+# — spend caps are expected to live in the user's Claude subscription plan.
 #
 # Usage: scripts/autonomous/watchdog.sh
 #   Reads `.scrum/config.json`.autonomous and `.scrum/autonomy.json` (which
@@ -18,8 +20,8 @@
 #
 # Exit codes:
 #   0 — workflow phase reached `complete`
-#   1 — connsecutive failures exceeded threshold (incl. sustained rate-limit)
-#   2 — safety valve tripped (iterations / wall clock / sprints / budget)
+#   1 — consecutive failures exceeded threshold
+#   2 — safety valve tripped (iterations / wall clock / sprints)
 #   3 — configuration error (missing autonomy.json, etc.)
 #
 # Test hooks (env vars; harmless in production):
@@ -63,11 +65,20 @@ ITER_OUT_DIR=".scrum/autonomous"
 # --- Defaults (mirrored from .scrum-config.example.json) ---------------------
 DEFAULT_MAX_ITERATIONS=50
 DEFAULT_MAX_WALL_HOURS=8
-DEFAULT_MAX_SPRINTS=5
+DEFAULT_MAX_SPRINTS=8
 DEFAULT_MAX_CONSECUTIVE_FAILURES=3
-DEFAULT_MAX_BUDGET_PER_ITER=10
-DEFAULT_MAX_TOTAL_BUDGET=50
 DEFAULT_PERMISSION_MODE="dontAsk"
+
+# Rate-limit handling: when a session ends because Claude returned a
+# rate-limit / usage-limit / overload error, watchdog sleeps until the
+# advertised reset time (if parseable from the error payload) or
+# `DEFAULT_RATE_LIMIT_WAIT_SECS` otherwise, then retries. There is no
+# streak ceiling — the loop waits indefinitely; wall-clock / iteration
+# safety valves remain the ultimate runaway protection.
+DEFAULT_RATE_LIMIT_WAIT_SECS=3600
+# Maximum sleep applied even if a reset time parses to something further
+# out (parser sanity cap).
+MAX_RATE_LIMIT_WAIT_SECS=21600
 
 # --- Helpers ----------------------------------------------------------------
 
@@ -181,6 +192,95 @@ progress_hash() {
   else
     printf '%s' "$body" | cksum | awk '{print $1}'
   fi
+}
+
+# iter_is_rate_limit_error <iter_stdout_path>
+# Returns 0 if the captured `claude -p` JSON output indicates the session
+# ended because the API rate limit / usage limit / overload error fired.
+# Matches both the result envelope `subtype` (e.g. `error_rate_limit`,
+# `error_usage_limit_exceeded`) and the human-readable `errors[]` strings
+# emitted by the CLI for the same conditions.
+iter_is_rate_limit_error() {
+  local f="$1"
+  [ -f "$f" ] || return 1
+  jq empty "$f" >/dev/null 2>&1 || return 1
+  local is_err subtype errs
+  is_err="$(jq -r '.is_error // false' "$f" 2>/dev/null || true)"
+  subtype="$(jq -r '.subtype // ""' "$f" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+  errs="$(jq -r '(.errors // []) | map(tostring) | join(" ")' "$f" 2>/dev/null \
+    | tr '[:upper:]' '[:lower:]' || true)"
+  case "$subtype" in
+    *rate*limit*|*usage*limit*|*overload*|*429*|*too*many*) return 0 ;;
+  esac
+  if [ "$is_err" = "true" ]; then
+    case "$errs" in
+      *rate*limit*|*usage*limit*|*overload*|*429*|*too*many*) return 0 ;;
+    esac
+  fi
+  return 1
+}
+
+# extract_rate_limit_reset_epoch <iter_stdout_path>
+# Best-effort: scans the result JSON's errors[] strings for a reset time
+# and emits the unix epoch seconds when the limit is expected to clear.
+# Recognised forms (all case-insensitive):
+#   - ISO 8601 timestamp: 2026-06-13T15:00:00Z
+#   - "reset(s) in N (hour|minute|second)s?"
+#   - 10-digit unix epoch (interpreted as seconds)
+# Returns non-zero (and prints nothing) if no match is confidently parsed —
+# the caller should fall back to DEFAULT_RATE_LIMIT_WAIT_SECS.
+extract_rate_limit_reset_epoch() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+  jq empty "$file" >/dev/null 2>&1 || return 1
+  local errs
+  errs="$(jq -r '(.errors // []) | map(tostring) | join(" ")' "$file" 2>/dev/null || true)"
+  [ -n "$errs" ] || return 1
+
+  # 1. ISO 8601 timestamp.
+  local iso e
+  iso="$(printf '%s' "$errs" \
+    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' \
+    | head -1 || true)"
+  if [ -n "$iso" ]; then
+    e="$(date -u -d "$iso" +%s 2>/dev/null \
+      || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null \
+      || echo 0)"
+    if [ "${e:-0}" -gt 0 ]; then
+      printf '%s\n' "$e"
+      return 0
+    fi
+  fi
+
+  # 2. "reset(s)? in N hour|minute|second(s)?"
+  local rel num unit
+  rel="$(printf '%s' "$errs" \
+    | grep -iEo 'reset[s]?[[:space:]]+in[[:space:]]+[0-9]+[[:space:]]*(hour|minute|second)s?' \
+    | head -1 || true)"
+  if [ -n "$rel" ]; then
+    num="$(printf '%s' "$rel" | grep -oE '[0-9]+' | head -1)"
+    unit="$(printf '%s' "$rel" | grep -ioE '(hour|minute|second)' | head -1 \
+      | tr '[:upper:]' '[:lower:]')"
+    case "$unit" in
+      hour)   num=$((num * 3600)) ;;
+      minute) num=$((num * 60)) ;;
+      second) ;;
+    esac
+    if [ "${num:-0}" -gt 0 ]; then
+      printf '%s\n' "$(($(now_epoch) + num))"
+      return 0
+    fi
+  fi
+
+  # 3. 10-digit unix epoch (Retry-After / X-RateLimit-Reset style).
+  local ep
+  ep="$(printf '%s' "$errs" | grep -oE '\b1[6-9][0-9]{8}\b' | head -1 || true)"
+  if [ -n "$ep" ]; then
+    printf '%s\n' "$ep"
+    return 0
+  fi
+
+  return 1
 }
 
 # rate_limited_since <epoch>
@@ -301,7 +401,7 @@ print_startup_banner() {
  |_____|  / ___ \\ |_| | || (_) | | |  | | (_) | (_| |  __/
          /_/   \\_\\__,_|\\__\\___/  |_|  |_|\\___/ \\__,_|\\___|
 
-       Ralph Loop  ·  Limits: ${MAX_ITERATIONS} iter · ${MAX_WALL_HOURS}h · ${MAX_SPRINTS} sprints · \$${MAX_TOTAL_BUDGET} total
+       Ralph Loop  ·  Limits: ${MAX_ITERATIONS} iter · ${MAX_WALL_HOURS}h · ${MAX_SPRINTS} sprints
 
        ▸ This pane shows iteration boundaries only.
        ▸ Live PBI board · work log · PO decisions →  RIGHT PANE
@@ -342,8 +442,6 @@ MAX_ITERATIONS="$(cfg_value '.autonomous.max_iterations' "$DEFAULT_MAX_ITERATION
 MAX_WALL_HOURS="$(cfg_value '.autonomous.max_wall_clock_hours' "$DEFAULT_MAX_WALL_HOURS")"
 MAX_SPRINTS="$(cfg_value '.autonomous.max_sprints' "$DEFAULT_MAX_SPRINTS")"
 MAX_CONSECUTIVE_FAILURES="$(cfg_value '.autonomous.max_consecutive_failures' "$DEFAULT_MAX_CONSECUTIVE_FAILURES")"
-MAX_BUDGET_PER_ITER="$(cfg_value '.autonomous.max_budget_usd_per_iteration' "$DEFAULT_MAX_BUDGET_PER_ITER")"
-MAX_TOTAL_BUDGET="$(cfg_value '.autonomous.max_total_budget_usd' "$DEFAULT_MAX_TOTAL_BUDGET")"
 PERMISSION_MODE="$(cfg_value '.autonomous.permission_mode' "$DEFAULT_PERMISSION_MODE")"
 case "$PERMISSION_MODE" in
   dontAsk|bypassPermissions) ;;
@@ -357,14 +455,12 @@ START_EPOCH="$(now_epoch)"
 
 print_startup_banner
 
-printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failures=%s, max_total_budget=%s)\n' \
-  "$MAX_ITERATIONS" "$MAX_WALL_HOURS" "$MAX_SPRINTS" "$MAX_CONSECUTIVE_FAILURES" "$MAX_TOTAL_BUDGET" >&2
+printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failures=%s)\n' \
+  "$MAX_ITERATIONS" "$MAX_WALL_HOURS" "$MAX_SPRINTS" "$MAX_CONSECUTIVE_FAILURES" >&2
 
 # Loop-local accumulators
 ITER=0
 FAIL_STREAK=0
-RATE_BACKOFF=60
-RATE_STREAK=0
 LAST_HASH="__INIT__"
 
 # ---------------------------------------------------------------------------
@@ -398,14 +494,6 @@ while :; do
     finalize 2 "max_sprints_reached"
   fi
 
-  TOTAL_COST="$(jq -r '.total_cost_usd // 0' "$AUTONOMY_FILE" 2>/dev/null || echo 0)"
-  # Compare floats with awk
-  if awk -v a="$TOTAL_COST" -v b="$MAX_TOTAL_BUDGET" 'BEGIN{exit !(a>=b)}'; then
-    printf 'watchdog: max_total_budget_usd (%s) reached (cost=%s).\n' \
-      "$MAX_TOTAL_BUDGET" "$TOTAL_COST" >&2
-    finalize 2 "max_total_budget_reached"
-  fi
-
   # ----- 2. Phase check -----
   PHASE="$(_jq_safe "$STATE_FILE" '.phase // ""' '')"
   if [ "$PHASE" = "complete" ]; then
@@ -434,7 +522,6 @@ while :; do
     --agent scrum-master
     --session-id "$SID"
     --permission-mode "$PERMISSION_MODE"
-    --max-budget-usd "$MAX_BUDGET_PER_ITER"
     --output-format json
   )
   if [ -n "$FALLBACK_MODEL" ]; then
@@ -460,20 +547,48 @@ while :; do
   # ----- 6. Progress + rate-limit + failure judgement -----
   NEW_HASH="$(progress_hash)"
 
-  if rate_limited_since "$ITER_START_EPOCH"; then
-    RATE_STREAK=$((RATE_STREAK + 1))
-    if [ "$RATE_STREAK" -ge 6 ]; then
-      printf 'watchdog: rate-limit streak >=6 — giving up.\n' >&2
-      finalize 1 "rate_limit_persistent"
+  # Rate-limit / usage-limit detection. Two independent signals:
+  #   (a) the captured `claude -p` result JSON has an is_error envelope
+  #       with a rate-limit / usage-limit / overload subtype or message,
+  #   (b) dashboard.json has a stop_failure event since this iteration
+  #       started whose detail matches the same patterns.
+  # Either signal triggers a wait. We do NOT count rate-limited iterations
+  # toward the iteration cap (decrement ITER before continue) so the user's
+  # Sprint budget isn't consumed by waiting; runaway protection comes from
+  # max_wall_clock_hours.
+  RATE_LIMITED=0
+  RESET_EPOCH=""
+  if iter_is_rate_limit_error "$ITER_STDOUT"; then
+    RATE_LIMITED=1
+    RESET_EPOCH="$(extract_rate_limit_reset_epoch "$ITER_STDOUT" || true)"
+  elif rate_limited_since "$ITER_START_EPOCH"; then
+    RATE_LIMITED=1
+  fi
+
+  if [ "$RATE_LIMITED" = "1" ]; then
+    WAIT_SECS="$DEFAULT_RATE_LIMIT_WAIT_SECS"
+    if [ -n "$RESET_EPOCH" ]; then
+      NOW_EPOCH2="$(now_epoch)"
+      # +60s jitter beyond the advertised reset to avoid racing the server.
+      WAIT_SECS=$((RESET_EPOCH - NOW_EPOCH2 + 60))
+      if [ "$WAIT_SECS" -lt 60 ]; then
+        WAIT_SECS=60
+      fi
+      if [ "$WAIT_SECS" -gt "$MAX_RATE_LIMIT_WAIT_SECS" ]; then
+        WAIT_SECS="$MAX_RATE_LIMIT_WAIT_SECS"
+      fi
+      printf 'watchdog: rate-limit detected; sleeping %ss until reset (epoch=%s)\n' \
+        "$WAIT_SECS" "$RESET_EPOCH" >&2
+    else
+      printf 'watchdog: rate-limit detected; no reset time parsed — sleeping %ss\n' \
+        "$WAIT_SECS" >&2
     fi
-    printf 'watchdog: rate-limit detected; sleeping %ss (streak=%s)\n' \
-      "$RATE_BACKOFF" "$RATE_STREAK" >&2
-    do_sleep "$RATE_BACKOFF"
-    RATE_BACKOFF=$((RATE_BACKOFF * 2))
-    if [ "$RATE_BACKOFF" -gt 3600 ]; then
-      RATE_BACKOFF=3600
-    fi
+    autonomy_atomic_write \
+      "(.last_failure = {reason: \"rate_limit_wait\", at: \"$(iso_utc_now)\"}) | (.updated_at = \"$(iso_utc_now)\")" \
+      || true
+    do_sleep "$WAIT_SECS"
     LAST_HASH="$NEW_HASH"
+    ITER=$((ITER - 1))
     continue
   fi
 
@@ -496,8 +611,6 @@ while :; do
 
   if [ "$PROGRESSED" = "1" ] && [ "$rc" -eq 0 ] && [ -z "$CB_TRIPPED" ]; then
     FAIL_STREAK=0
-    RATE_BACKOFF=60
-    RATE_STREAK=0
   else
     FAIL_STREAK=$((FAIL_STREAK + 1))
     REASON="no_progress"

@@ -1,0 +1,19 @@
+{
+  "pbi_id": "pbi-002",
+  "design_round": 0,
+  "impl_round": 1,
+  "design_status": "skipped",
+  "impl_status": "pass",
+  "ut_status": "skipped",
+  "coverage_status": "skipped",
+  "escalation_reason": null,
+  "branch": "pbi/pbi-002",
+  "worktree": ".scrum/worktrees/pbi-002",
+  "base_sha": "d132a615867c066320f780b36e1fc542e3b7e467",
+  "head_sha": "10415f8363b7f9aedbe135ec7a30d8119609b8cf",
+  "paths_touched": ["docs/design/specs/ui/S-030-login.md"],
+  "ready_at": "2026-03-08T13:00:00Z",
+  "merge_failure_count": 0,
+  "started_at": "2026-03-08T12:30:00Z",
+  "updated_at": "2026-03-08T13:00:00Z"
+}

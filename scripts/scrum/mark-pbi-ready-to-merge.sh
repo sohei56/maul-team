@@ -34,6 +34,38 @@ if [ "${#PATHS[@]}" -eq 0 ]; then
   fail E_INVALID_ARG "no commits beyond base — refusing to mark ready_to_merge"
 fi
 
+# kind=docs PBIs are confined to *.md by design. A docs PBI that touches a
+# non-.md path means either the PBI was mis-classified at refinement, or
+# the implementer scope-crept into code. Either way the right move is to
+# escalate to the SM rather than silently grant ready_to_merge: the
+# UT/coverage gates were skipped under the docs contract, so a code change
+# would slip through without test coverage.
+BACKLOG=".scrum/backlog.json"
+KIND="code"
+if [ -f "$BACKLOG" ]; then
+  KIND="$(jq -r --arg id "$PBI" '
+    (.items[] | select(.id == $id) | .kind) // "code"
+  ' "$BACKLOG")"
+fi
+if [ "$KIND" = "docs" ]; then
+  NON_MD=()
+  for p in "${PATHS[@]}"; do
+    case "$p" in
+      *.md) ;;
+      *) NON_MD+=("$p") ;;
+    esac
+  done
+  if [ "${#NON_MD[@]}" -gt 0 ]; then
+    printf >&2 '[mark-pbi-ready-to-merge] kind_mismatch for %s: non-.md paths touched:\n' "$PBI"
+    for p in "${NON_MD[@]}"; do printf >&2 '  - %s\n' "$p"; done
+    "$HERE/update-pbi-state.sh" "$PBI" escalation_reason kind_mismatch
+    if pbi_in_backlog "$PBI" "$BACKLOG"; then
+      "$HERE/update-backlog-status.sh" "$PBI" escalated
+    fi
+    fail E_INVALID_ARG "kind=docs PBI must not touch non-.md paths (see above; status set to escalated)"
+  fi
+fi
+
 # Build paths_touched array literal for jq.
 PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -s .)"
 NOW="$(_iso_utc_now)"
@@ -45,7 +77,7 @@ EXPR="$EXPR | .paths_touched = $PATHS_JSON"
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 
 # Update backlog status to in_progress_merge (silently skip if PBI not in backlog).
-BACKLOG=".scrum/backlog.json"
+# (BACKLOG was already resolved above for the kind boundary check.)
 if pbi_in_backlog "$PBI" "$BACKLOG"; then
   "$HERE/update-backlog-status.sh" "$PBI" in_progress_merge
 fi
