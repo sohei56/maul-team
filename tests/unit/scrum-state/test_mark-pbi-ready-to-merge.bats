@@ -53,3 +53,64 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
   [ "$status" -ne 0 ]
 }
+
+# ---------------------------------------------------------------------------
+# kind=docs boundary enforce
+# ---------------------------------------------------------------------------
+
+# Helper: flip backlog item kind to docs and add a second commit touching
+# only a .md file. Reuses the setup() PBI but layers docs commits on top.
+_mark_kind_docs_pbi() {
+  jq '(.items[] | select(.id == "pbi-001") | .kind) = "docs"' .scrum/backlog.json > tmp.json
+  mv tmp.json .scrum/backlog.json
+}
+
+@test "mark-ready-to-merge: kind=docs + paths only .md -> success" {
+  _mark_kind_docs_pbi
+  WT=.scrum/worktrees/pbi-001
+  # Replace the existing src.txt commit with a .md-only history.
+  git -C "$WT" reset --hard HEAD~1
+  echo "# title" > "$WT/notes.md"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/commit-pbi.sh" pbi-001 "docs only"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+  run jq -r '.paths_touched[0]' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "notes.md" ]
+}
+
+@test "mark-ready-to-merge: kind=docs + non-.md path -> escalated(kind_mismatch)" {
+  _mark_kind_docs_pbi
+  # setup() already committed src.txt (non-.md) — exactly the violation case.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -ne 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "kind_mismatch" ]
+  # paths_touched / head_sha must NOT be set when the boundary fails.
+  run jq -r 'has("paths_touched")' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "false" ]
+}
+
+@test "mark-ready-to-merge: kind=docs + mixed paths -> escalated(kind_mismatch)" {
+  _mark_kind_docs_pbi
+  WT=.scrum/worktrees/pbi-001
+  # On top of setup()'s src.txt commit (non-.md), add a docs-only commit.
+  echo "# title" > "$WT/notes.md"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/commit-pbi.sh" pbi-001 "mixed"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -ne 0 ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "kind_mismatch" ]
+}
+
+@test "mark-ready-to-merge: kind=code + non-.md path -> success (boundary inactive)" {
+  # Default kind from setup() is absent (treated as 'code'). setup() committed
+  # src.txt which is non-.md — under kind=code this must merge cleanly.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+}

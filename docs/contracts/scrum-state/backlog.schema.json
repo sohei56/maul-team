@@ -39,6 +39,11 @@
           "review_doc_path": {"type": ["string", "null"]},
           "depends_on_pbi_ids": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
           "ux_change": {"type": "boolean"},
+          "kind": {
+            "enum": ["code", "docs"],
+            "default": "code",
+            "description": "PBI kind. 'docs' = paths_touched MUST be subset of *.md (machine-enforced at mark-pbi-ready-to-merge). 'docs' PBIs skip Design / UT / Coverage stages; impl + impl-reviewer only."
+          },
           "parent_pbi_id": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},

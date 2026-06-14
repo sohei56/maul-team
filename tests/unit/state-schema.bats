@@ -147,6 +147,29 @@ EOF
   done
 }
 
+@test "backlog kind enum is exactly {code, docs}" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  run jq -e '
+    .properties.items.items.properties.kind.enum
+    == ["code","docs"]
+  ' "$schema"
+  assert_success
+}
+
+@test "backlog kind defaults to code" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  run jq -e '.properties.items.items.properties.kind.default == "code"' "$schema"
+  assert_success
+}
+
+@test "kind=docs fixture validates: kind is one of {code, docs}" {
+  local file="$FIXTURES_DIR/valid-backlog-kind-docs.json"
+  run jq -e '
+    [.items[].kind] | all(. as $k | ["code","docs"] | index($k) != null)
+  ' "$file"
+  assert_success
+}
+
 # ---------------------------------------------------------------------------
 # sprint.json
 # ---------------------------------------------------------------------------

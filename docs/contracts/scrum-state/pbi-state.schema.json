@@ -9,10 +9,10 @@
     "pbi_id": {"type": "string", "pattern": "^pbi-[0-9]+$"},
     "design_round": {"type": "integer", "minimum": 0},
     "impl_round": {"type": "integer", "minimum": 0},
-    "design_status": {"enum": ["pending", "in_review", "fail", "pass"]},
+    "design_status": {"enum": ["pending", "in_review", "fail", "pass", "skipped"]},
     "impl_status": {"enum": ["pending", "in_review", "fail", "pass"]},
-    "ut_status": {"enum": ["pending", "in_review", "fail", "pass"]},
-    "coverage_status": {"enum": ["pending", "fail", "pass"]},
+    "ut_status": {"enum": ["pending", "in_review", "fail", "pass", "skipped"]},
+    "coverage_status": {"enum": ["pending", "fail", "pass", "skipped"]},
     "escalation_reason": {
       "type": ["string", "null"],
       "enum": [
@@ -29,7 +29,8 @@
         "stale_review_snapshot",
         "merge_conflict",
         "merge_artifact_missing",
-        "merge_regression"
+        "merge_regression",
+        "kind_mismatch"
       ]
     },
     "branch": {"type": "string", "pattern": "^pbi/pbi-[0-9]+$"},
