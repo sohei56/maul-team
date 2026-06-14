@@ -47,7 +47,9 @@
 #   config + deployed agent file remain authoritative in those cases.
 #
 # Prerequisites:
-#   - Claude Code CLI on PATH
+#   - Claude Code CLI on PATH (>= 2.1.172 recommended; older versions
+#     emit a warning — sub-agents-spawning-sub-agents is required for
+#     the PBI pipeline and was unlocked upstream in 2.1.172)
 #   - Python 3.9+ with textual and watchdog packages
 #
 # Exit codes:
@@ -100,7 +102,7 @@ while [ "$#" -gt 0 ]; do
     --bypass-permissions) BYPASS_PERMS=1; BYPASS_PERMS_GIVEN=1; shift ;;
     --no-attach)          NO_ATTACH=1; shift ;;
     -h|--help)
-      sed -n '1,68p' "$0"
+      sed -n '1,70p' "$0"
       exit 0 ;;
     *)
       echo "Error: unknown argument: $1" >&2
@@ -143,6 +145,9 @@ fi
 # shellcheck source=scripts/lib/check-python.sh
 . "$SCRIPT_DIR/scripts/lib/check-python.sh"
 check_claude_cli
+# Version warning lives only in scrum-start.sh (not setup-user.sh) so the
+# operator sees the upgrade prompt once per launch rather than twice.
+check_claude_cli_version
 check_python_prereqs
 
 # --- Wizard helpers --------------------------------------------------------

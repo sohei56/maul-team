@@ -3,8 +3,9 @@
 # Sourced by scrum-start.sh and setup-user.sh to avoid duplication.
 #
 # Provides:
-#   check_claude_cli   — Verify Claude Code CLI on PATH (exits 1 on failure)
-#   check_python_prereqs — Verify Python 3.9+ and TUI packages (exits 3 on failure)
+#   check_claude_cli         — Verify Claude Code CLI on PATH (exits 1 on failure)
+#   check_claude_cli_version — Warn (do not exit) when below MIN_CLAUDE_VERSION
+#   check_python_prereqs     — Verify Python 3.9+ and TUI packages (exits 3 on failure)
 #
 # On success: exports PYTHON_VERSION (e.g. "3.12").
 
@@ -15,6 +16,14 @@ if [ "${_CHECK_PYTHON_LOADED:-}" = "1" ]; then
 fi
 _CHECK_PYTHON_LOADED=1
 
+# Minimum recommended Claude Code version. The PBI pipeline (Developer
+# spawns pbi-designer / pbi-implementer / pbi-ut-author / codex-*-reviewer)
+# requires sub-agents to spawn further sub-agents, which the upstream
+# changelog records as unlocked in Claude Code 2.1.172. On older versions
+# the Developer's tool surface lacks Agent / Task and the pipeline halts
+# at the design stage.
+MIN_CLAUDE_VERSION="2.1.172"
+
 # Verify Claude Code CLI is available
 check_claude_cli() {
   if ! command -v claude >/dev/null 2>&1; then
@@ -22,6 +31,41 @@ check_claude_cli() {
     echo "Install it: https://docs.anthropic.com/en/docs/claude-code/overview" >&2
     exit 1
   fi
+}
+
+# Warn (do not exit) when Claude Code is older than MIN_CLAUDE_VERSION.
+# Silently skips when the version string cannot be parsed (e.g. a CI
+# stub returning a non-semver string, or a vendor wrapper).
+check_claude_cli_version() {
+  local version lowest
+  version="$(claude --version 2>/dev/null | awk '{print $1}')"
+  # Only act on values that look like a semver triple at the start.
+  # Stubs returning 'stub-claude 0.0.1' or vendor wrappers fall through.
+  if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+    return 0
+  fi
+  lowest="$(printf '%s\n%s\n' "$version" "$MIN_CLAUDE_VERSION" | sort -V | head -1)"
+  # version >= MIN_CLAUDE_VERSION iff MIN is the lowest of the pair, or equal.
+  if [ "$version" = "$MIN_CLAUDE_VERSION" ] || [ "$lowest" = "$MIN_CLAUDE_VERSION" ]; then
+    return 0
+  fi
+  cat >&2 <<EOF
+Warning: Claude Code $version is older than the recommended $MIN_CLAUDE_VERSION.
+  Sub-agents spawning further sub-agents was unlocked in Claude Code
+  $MIN_CLAUDE_VERSION. On older versions the Developer cannot spawn the
+  pbi-pipeline specialist sub-agents (pbi-designer / pbi-implementer /
+  pbi-ut-author / codex-*-reviewer) and the PBI pipeline halts at design.
+
+  Upgrade (Homebrew — the stock 'claude-code' cask is frozen at 2.1.153):
+    brew uninstall --cask claude-code
+    brew install --cask claude-code@latest
+
+  Or native installer:
+    curl -fsSL https://claude.ai/install.sh | bash
+
+  Continuing — Requirements Sprint and ceremonies that do not spawn
+  sub-agents will still run.
+EOF
 }
 
 check_python_prereqs() {
