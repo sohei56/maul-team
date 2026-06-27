@@ -64,7 +64,13 @@ target with an `Info.plist`, a **Developer ID** signature, and **notarization**
 (Apple Developer Program, $99/yr). `swift run` / `swift build` produce an
 unsigned binary suitable for local development only.
 
+## CI
+
+`.github/workflows/swift.yml` runs `swift build` on a macOS runner whenever
+`macapp/**` changes (path-filtered to avoid spending macOS minutes on
+unrelated commits).
+
 ## Status
 
-Scaffold complete; **not yet compiled** in this environment (SwiftTerm fetch
-requires network). Verify with `swift build` before relying on it.
+Builds and runs locally (verified via `scripts/make-app.sh`). Center/right
+panes embed the live SM session and Textual dashboard.

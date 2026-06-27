@@ -1,0 +1,39 @@
+name: Swift
+
+# macapp/ is a native macOS (SwiftUI + AppKit + SwiftTerm) target, so it must
+# build on a macOS runner. Those minutes are ~10x ubuntu, so this workflow is
+# path-filtered to run only when the macapp sources (or this file) change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "macapp/**"
+      - ".github/workflows/swift.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "macapp/**"
+      - ".github/workflows/swift.yml"
+
+jobs:
+  build:
+    name: Swift Build (macapp)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      # Cache the resolved SwiftTerm checkout + build products, keyed on the
+      # pinned dependency graph so a lockfile change busts the cache.
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: macapp/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('macapp/Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: Build
+        run: swift build --package-path macapp
