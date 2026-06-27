@@ -14,13 +14,16 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
+        // Highlightr-based SwiftUI code editor: syntax highlighting + themes.
+        .package(url: "https://github.com/ZeeZide/CodeEditor", from: "1.2.0")
     ],
     targets: [
         .executableTarget(
             name: "ScrumTeam",
             dependencies: [
-                .product(name: "SwiftTerm", package: "SwiftTerm")
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
+                .product(name: "CodeEditor", package: "CodeEditor")
             ],
             path: "Sources/ScrumTeam"
         )

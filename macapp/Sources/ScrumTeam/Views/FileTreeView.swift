@@ -76,6 +76,7 @@ final class FileNode: Identifiable {
 
 private struct FileRow: View {
     @EnvironmentObject var state: AppState
+    @EnvironmentObject var editor: EditorModel
     let node: FileNode
     let depth: Int
     @State var expanded: Bool
@@ -119,17 +120,20 @@ private struct FileRow: View {
         .contentShape(Rectangle())
         .onTapGesture {
             if node.isDirectory { withAnimation(.easeInOut(duration: 0.12)) { expanded.toggle() } }
-            else { reveal() }
+            else { editor.open(URL(fileURLWithPath: node.path)) }
         }
         .contextMenu {
-            Button("Reveal in Finder") { reveal() }
             if !node.isDirectory {
-                Button(editable ? "Open in External Editor" : "Open (protected — read only)") { openExternally() }
-                    .disabled(!editable)
-                if !editable {
-                    Text("Unlock editing in Advanced Settings")
+                Button("Open") { editor.open(URL(fileURLWithPath: node.path)) }
+                Button("Open in New Window") {
+                    let tab = editor.open(URL(fileURLWithPath: node.path))
+                    EditorWindowController.shared.open(tab: tab, projectRoot: node.root, state: state)
                 }
+                Button(editable ? "Open in External Editor" : "Open Externally (read only here)") { openExternally() }
+                    .disabled(!editable)
+                Divider()
             }
+            Button("Reveal in Finder") { reveal() }
         }
     }
 

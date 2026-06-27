@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The editor-like 3-pane workspace:
+/// The editor-like workspace:
 ///   left   = project file tree (read-only unless Advanced)
-///   center = Scrum Master conversation (live terminal)
-///   right  = Textual dashboard (live terminal)
+///   center = tabbed code editor (syntax highlighting; files open here)
+///   right  = Scrum Master + Dashboard terminals, stacked vertically
 ///
 /// The two terminals come from a long-lived ProjectSession in the SessionStore,
 /// so leaving to the picker can keep them running in the background.
@@ -13,13 +13,12 @@ struct WorkspaceView: View {
     let project: Project
 
     @State private var showLeaveDialog = false
+    @StateObject private var editor = EditorModel()
 
     var body: some View {
         VStack(spacing: 0) {
             toolbar
             Divider()
-            // The session is created (processes started) in onAppear; until then
-            // show a brief placeholder rather than mutating store state in body.
             if let session = sessions.existingSession(for: project.id) {
                 panes(session: session)
             } else {
@@ -43,18 +42,26 @@ struct WorkspaceView: View {
 
     private func panes(session: ProjectSession) -> some View {
         HSplitView {
-            FileTreeView(rootPath: project.path)
-                .frame(minWidth: 200, idealWidth: 280, maxWidth: 480)
+            // Left column: Explorer on top, the tabbed editor below it.
+            VSplitView {
+                FileTreeView(rootPath: project.path)
+                    .environmentObject(editor)
+                    .frame(minHeight: 140)
+
+                EditorPane(model: editor, projectRoot: project.path)
+                    .frame(minHeight: 180)
+            }
+            .frame(minWidth: 240, idealWidth: 340, maxWidth: 620)
 
             paneContainer(title: "Scrum Master", systemImage: "bubble.left.and.bubble.right.fill") {
                 TerminalPaneView(terminal: session.smTerminal)
             }
-            .frame(minWidth: 420)
+            .frame(minWidth: 380, idealWidth: 560)
 
             paneContainer(title: "Dashboard", systemImage: "chart.bar.doc.horizontal") {
                 TerminalPaneView(terminal: session.dashboardTerminal)
             }
-            .frame(minWidth: 320, idealWidth: 420)
+            .frame(minWidth: 300, idealWidth: 420)
         }
     }
 

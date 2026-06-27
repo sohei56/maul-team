@@ -1,16 +1,22 @@
 # ScrumTeam.app (macOS)
 
 A native macOS shell for the `claude-scrum-team` framework. MVP scope:
-a **project picker** plus an editor-like **3-pane workspace**:
+a **project picker** plus an editor-like workspace:
 
 ```
-┌──────────────┬─────────────────────────┬──────────────────┐
-│  Explorer    │     Scrum Master        │    Dashboard     │
-│ (file tree,  │  (live terminal —       │ (live terminal — │
-│  read-only)  │   claude --agent        │  Textual TUI)    │
-│              │   scrum-master)         │                  │
-└──────────────┴─────────────────────────┴──────────────────┘
+┌──────────────┬─────────────────┬──────────────┐
+│  Explorer    │                 │              │
+│  (file tree) │                 │              │
+│──────────────│  Scrum Master   │  Dashboard   │
+│  Editor      │  (live terminal)│ (live term.) │
+│  (tabs,      │                 │              │
+│   highlight) │                 │              │
+└──────────────┴─────────────────┴──────────────┘
 ```
+
+Left column: file tree on top, a tabbed code editor below it (files open here;
+a tab can be detached into its own draggable window). Center: the Scrum Master
+terminal. Right: the Textual dashboard terminal.
 
 ## Design (MVP = approach A)
 
@@ -35,13 +41,30 @@ Each open project's SM + dashboard processes are owned by a long-lived
 `ProjectSession` in `SessionStore`, not by the workspace view. Returning to the
 picker therefore offers a choice (confirmation dialog):
 
-- **継続** — keep the session running in the background; the project shows a
-  green **Running** lamp in the picker, and reopening it re-attaches to the same
-  live session (scrollback + state preserved).
-- **停止** — SIGTERM both processes and discard the session.
+- **Keep Running** — keep the session running in the background; the project
+  shows a green **Running** lamp in the picker, and reopening it re-attaches to
+  the same live session (scrollback + state preserved).
+- **Stop** — SIGTERM both processes and discard the session.
 
 A running session can also be stopped from the picker via the project's context
 menu. Sessions do not survive quitting the app.
+
+## Editor
+
+The center pane is a tabbed code editor backed by
+[CodeEditor](https://github.com/ZeeZide/CodeEditor) (Highlightr / highlight.js):
+
+- Clicking a file in the Explorer opens it as a tab with syntax highlighting
+  (dark `atom-one-dark` theme). Images preview inline; large/binary files show
+  a notice.
+- Editing is allowed for non-protected files (or any file when Advanced is
+  unlocked); protected files are read-only. **Save** writes in place (⌘S).
+- **Open in New Window** (Explorer or tab context menu) detaches a file into a
+  free-floating, draggable window that shares state with its center tab.
+
+Not included in this iteration: line-number gutter and in-editor find (the
+chosen component lacks a gutter; adding both would mean swapping to an
+`STTextView`-based editor).
 
 ## Read-only framework sources
 
