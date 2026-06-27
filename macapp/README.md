@@ -5,18 +5,20 @@ a **project picker** plus an editor-like workspace:
 
 ```
 ┌──────────────┬─────────────────┬──────────────┐
-│  Explorer    │                 │              │
-│  (file tree) │                 │              │
-│──────────────│  Scrum Master   │  Dashboard   │
-│  Editor      │  (live terminal)│ (live term.) │
-│  (tabs,      │                 │              │
-│   highlight) │                 │              │
+│  Explorer    │  Scrum Master   │  Dashboard   │
+│  (file tree) │  (live terminal)│  (native:    │
+│──────────────│─────────────────│   project,   │
+│  Editor      │  Work Log       │   PBI board, │
+│  (tabs,      │  (native        │   integration│
+│   highlight) │   activity log) │   results)   │
 └──────────────┴─────────────────┴──────────────┘
 ```
 
-Left column: file tree on top, a tabbed code editor below it (files open here;
-a tab can be detached into its own draggable window). Center: the Scrum Master
-terminal. Right: the Textual dashboard terminal.
+- **Left**: file tree on top, a tabbed code editor below it (files open here;
+  a tab can be detached into its own draggable window).
+- **Center**: the Scrum Master terminal on top, a native Work Log below it.
+- **Right**: a native dashboard — project/sprint overview, the PBI board
+  (click a PBI for details), and Integration Sprint test results.
 
 ## Design (MVP = approach A)
 
@@ -28,12 +30,15 @@ framework's own scripts so they remain the single source of truth:
   directly inside an embedded [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)
   terminal. (Prereq checks, framework deployment, and the initial prompt all
   still come from `scrum-start.sh`.)
-- **Dashboard pane** runs `python3 dashboard/app.py` in the project directory.
+- **Dashboard + Work Log** are native SwiftUI views (`DashboardModel`) that poll
+  the project's `.scrum/*.json` every 2s — the same state the Textual dashboard
+  reads (state/sprint/backlog, per-PBI `pbi/<id>/state.json`, `test-results.json`,
+  `communications.json`, `dashboard.json`). No Python dashboard process runs.
 - **New Project** runs `scripts/setup-user.sh` to deploy
   agents/skills/hooks/rules into the chosen folder.
 
-A future iteration can replace the center pane with a native chat UI driving
-`claude` programmatically (approach B) without touching the picker or layout.
+A future iteration can replace the Scrum Master pane with a native chat UI
+driving `claude` programmatically (approach B) without touching the layout.
 
 ## Background sessions
 

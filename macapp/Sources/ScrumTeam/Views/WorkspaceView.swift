@@ -1,12 +1,13 @@
 import SwiftUI
 
 /// The editor-like workspace:
-///   left   = project file tree (read-only unless Advanced)
-///   center = tabbed code editor (syntax highlighting; files open here)
-///   right  = Scrum Master + Dashboard terminals, stacked vertically
+///   left   = file tree (top) + tabbed code editor (bottom)
+///   center = Scrum Master terminal (top) + native Work Log (bottom)
+///   right  = native project/PBI/integration dashboard
 ///
-/// The two terminals come from a long-lived ProjectSession in the SessionStore,
-/// so leaving to the picker can keep them running in the background.
+/// The Scrum Master terminal comes from a long-lived ProjectSession in the
+/// SessionStore, so leaving to the picker can keep it running in the background.
+/// The dashboard and work log are native, polling the project's `.scrum/` state.
 struct WorkspaceView: View {
     @EnvironmentObject var state: AppState
     @EnvironmentObject var sessions: SessionStore
@@ -14,6 +15,12 @@ struct WorkspaceView: View {
 
     @State private var showLeaveDialog = false
     @StateObject private var editor = EditorModel()
+    @StateObject private var dashboard: DashboardModel
+
+    init(project: Project) {
+        self.project = project
+        _dashboard = StateObject(wrappedValue: DashboardModel(projectPath: project.path))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,6 +35,13 @@ struct WorkspaceView: View {
         .onAppear {
             _ = sessions.session(for: project, frameworkPath: state.frameworkPath)
         }
+        .task {
+            // Poll .scrum/ state for the native dashboard + work log while shown.
+            while !Task.isCancelled {
+                dashboard.refresh()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
         .confirmationDialog("Return to Projects?", isPresented: $showLeaveDialog, titleVisibility: .visible) {
             Button("Keep Running in Background") { state.closeProject() }
             Button("Stop and Return", role: .destructive) {
@@ -36,33 +50,50 @@ struct WorkspaceView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Keep Running leaves the Scrum Master and dashboard running in the background — the project shows a green lamp in the Projects list, and reopening it re-attaches to the same session. Stop ends the session and any unsaved conversation state is lost.")
+            Text("Keep Running leaves the Scrum Master running in the background — the project shows a green lamp in the Projects list, and reopening it re-attaches to the same session. Stop ends the session and any unsaved conversation state is lost.")
         }
     }
 
     private func panes(session: ProjectSession) -> some View {
-        HSplitView {
-            // Left column: Explorer on top, the tabbed editor below it.
-            VSplitView {
-                FileTreeView(rootPath: project.path)
-                    .environmentObject(editor)
-                    .frame(minHeight: 140)
-
-                EditorPane(model: editor, projectRoot: project.path)
-                    .frame(minHeight: 180)
-            }
-            .frame(minWidth: 240, idealWidth: 340, maxWidth: 620)
-
-            paneContainer(title: "Scrum Master", systemImage: "bubble.left.and.bubble.right.fill") {
-                TerminalPaneView(terminal: session.smTerminal)
-            }
-            .frame(minWidth: 380, idealWidth: 560)
-
+        // NSSplitView-backed; divider positions persist across launches (drag to
+        // set your defaults). Env objects must be injected per hosted pane — they
+        // do not cross the NSHostingView boundary inside SplitContainer.
+        let left = AnyView(
+            SplitContainer(
+                isVertical: false, storageKey: "ws.left",
+                minSizes: [120, 120], initialFractions: [0.66],
+                panes: [
+                    AnyView(FileTreeView(rootPath: project.path)
+                        .environmentObject(editor).environmentObject(state)
+                        .textSelection(.enabled)),
+                    AnyView(EditorPane(model: editor, projectRoot: project.path)
+                        .environmentObject(state)),
+                ])
+        )
+        let center = AnyView(
+            SplitContainer(
+                isVertical: false, storageKey: "ws.center",
+                minSizes: [200, 140], initialFractions: [0.68],
+                panes: [
+                    AnyView(paneContainer(title: "Scrum Master", systemImage: "bubble.left.and.bubble.right.fill") {
+                        TerminalPaneView(terminal: session.smTerminal)
+                    }),
+                    AnyView(paneContainer(title: "Work Log", systemImage: "list.bullet.rectangle") {
+                        WorkLogView(model: dashboard)
+                    }.textSelection(.enabled)),
+                ])
+        )
+        let right = AnyView(
             paneContainer(title: "Dashboard", systemImage: "chart.bar.doc.horizontal") {
-                TerminalPaneView(terminal: session.dashboardTerminal)
+                DashboardView(model: dashboard)
             }
-            .frame(minWidth: 300, idealWidth: 420)
-        }
+            .environmentObject(state)
+            .textSelection(.enabled)
+        )
+        return SplitContainer(
+            isVertical: true, storageKey: "ws.h",
+            minSizes: [180, 360, 300], initialFractions: [0.20, 0.67],
+            panes: [left, center, right])
     }
 
     private var toolbar: some View {

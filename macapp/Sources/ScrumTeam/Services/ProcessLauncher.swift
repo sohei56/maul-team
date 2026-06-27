@@ -20,13 +20,6 @@ enum ProcessLauncher {
         return Command(executable: loginShell, args: ["-lc", inner])
     }
 
-    /// Textual dashboard: reads the project's `.scrum/` state. Runs standalone.
-    static func dashboard(project: Project, frameworkPath: String) -> Command {
-        let app = shellQuote((frameworkPath as NSString).appendingPathComponent("dashboard/app.py"))
-        let inner = "cd \(shellQuote(project.path)) && COLORTERM=truecolor exec python3 \(app)"
-        return Command(executable: loginShell, args: ["-lc", inner])
-    }
-
     /// One-shot framework deployment into a freshly created project directory.
     /// Mirrors what scrum-start.sh does on first run (setup-user.sh copies
     /// agents/skills/hooks/rules + writes .gitignore). Returns the command to

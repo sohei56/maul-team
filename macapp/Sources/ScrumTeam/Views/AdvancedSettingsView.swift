@@ -40,13 +40,15 @@ struct AdvancedSettingsView: View {
                 }
             }
 
-            Section {
-                Text("Note: the Scrum Master and Dashboard panes are full terminals. The read-only guard applies to the file tree only — it does not block edits made from a shell.")
+            Section("Notes") {
+                Text("The Scrum Master pane is a full terminal; the Dashboard and Work Log are native views. The read-only guard applies only to the file tree — it does not block edits made from the Scrum Master shell.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("To change the framework itself (agents, skills, hooks/harness), edit the framework checkout directly at the Framework path above. A project's deployed copies under .claude/ are overwritten from the checkout on setup, so the checkout is the source of truth — edit there, not in the project.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 360)
+        .frame(width: 520, height: 460)
         .alert("Enable editing of framework sources?", isPresented: $confirmUnlock) {
             Button("Cancel", role: .cancel) {}
             Button("Unlock", role: .destructive) { state.advancedUnlocked = true }

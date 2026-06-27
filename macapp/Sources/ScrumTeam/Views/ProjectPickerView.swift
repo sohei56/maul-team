@@ -9,6 +9,9 @@ struct ProjectPickerView: View {
     @State private var busyMessage: String?
     @State private var errorMessage: String?
     @State private var stopTarget: Project?
+    @State private var newProjectParent: URL?
+    @State private var newProjectName: String = ""
+    @State private var showNameInput = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,13 +36,21 @@ struct ProjectPickerView: View {
         } message: {
             Text("This stops the background session (Scrum Master / dashboard) for \(stopTarget?.name ?? ""). Any unsaved conversation state is lost.")
         }
+        .alert("New Project", isPresented: $showNameInput) {
+            TextField("Project name", text: $newProjectName)
+            Button("Cancel", role: .cancel) { newProjectName = "" }
+            Button("Create") { createProjectFolder() }
+        } message: {
+            Text("Create a new project folder inside \(newProjectParent?.path ?? "").")
+        }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: "person.3.sequence.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.tint)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 40, height: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Scrum Team").font(.title.bold())
                 Text("Select a project to open").foregroundStyle(.secondary)
@@ -56,9 +67,9 @@ struct ProjectPickerView: View {
 
     private var recentsColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Recent").font(.headline).padding(.horizontal, 16).padding(.top, 16)
+            Text("Projects").font(.headline).padding(.horizontal, 16).padding(.top, 16)
             if state.recents.isEmpty {
-                Text("No recent projects").foregroundStyle(.secondary).padding(16)
+                Text("No projects yet").foregroundStyle(.secondary).padding(16)
                 Spacer()
             } else {
                 List {
@@ -90,7 +101,8 @@ struct ProjectPickerView: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { state.open(project) }
+        .textSelection(.disabled)   // this row navigates; don't select the name text
+        .onTapGesture(count: 2) { state.open(project) }
         .contextMenu {
             Button(sessions.isRunning(project.id) ? "Reattach to Running Session" : "Open") {
                 state.open(project)
@@ -99,7 +111,7 @@ struct ProjectPickerView: View {
                 Button("Stop Session", role: .destructive) { stopTarget = project }
             }
             Divider()
-            Button("Remove from Recents") { state.removeRecent(project) }
+            Button("Remove from Projects") { state.removeRecent(project) }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([project.url])
             }
@@ -150,9 +162,35 @@ struct ProjectPickerView: View {
         state.open(Project(path: url.path, lastOpened: Date()))
     }
 
+    /// Pick a parent folder, then prompt for a name; the project is a new
+    /// subfolder created under the chosen parent.
     private func createNew() {
-        guard let url = chooseDirectory(prompt: "Create Here", canCreate: true) else { return }
-        let project = Project(path: url.path, lastOpened: Date())
+        guard let parent = chooseDirectory(prompt: "Choose Location", canCreate: true) else { return }
+        newProjectParent = parent
+        newProjectName = ""
+        showNameInput = true
+    }
+
+    private func createProjectFolder() {
+        guard let parent = newProjectParent else { return }
+        let name = newProjectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newProjectName = ""
+        guard !name.isEmpty else { errorMessage = "Please enter a project name."; return }
+        guard !name.contains("/") else { errorMessage = "The name cannot contain '/'."; return }
+
+        let dir = parent.appendingPathComponent(name, isDirectory: true)
+        if FileManager.default.fileExists(atPath: dir.path) {
+            errorMessage = "A folder named \"\(name)\" already exists here."
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
+        } catch {
+            errorMessage = "Could not create the folder: \(error.localizedDescription)"
+            return
+        }
+
+        let project = Project(path: dir.path, lastOpened: Date())
         busyMessage = "Setting up project…"
         Task {
             let result = await ShellRunner.run(

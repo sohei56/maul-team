@@ -78,6 +78,7 @@ struct ScrumTeamApp: App {
             }
             .environmentObject(state)
             .environmentObject(sessions)
+            .textSelection(.enabled)   // make labels selectable/copyable app-wide
             .frame(minWidth: 1100, minHeight: 700)
         }
         .windowStyle(.titleBar)

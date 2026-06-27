@@ -2,39 +2,34 @@ import Foundation
 import AppKit
 import SwiftTerm
 
-/// A long-lived project session that owns the two terminal views (and thus the
-/// running SM + dashboard processes). Held by SessionStore — NOT by any SwiftUI
-/// view — so it keeps running after the workspace is dismissed ("background").
+/// A long-lived project session that owns the Scrum Master terminal view (and
+/// thus its running process). Held by SessionStore — NOT by any SwiftUI view —
+/// so it keeps running after the workspace is dismissed ("background").
 ///
-/// The terminal views are created and their processes started exactly once, in
-/// init; reopening the project re-parents these same views (preserving live
-/// state + scrollback) rather than spawning fresh processes.
+/// The terminal view is created and its process started exactly once, in init;
+/// reopening the project re-parents the same view (preserving live state +
+/// scrollback) rather than spawning a fresh process. The dashboard and work log
+/// are rendered natively (DashboardModel), so no Python dashboard process runs.
 final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalViewDelegate, Identifiable {
     let project: Project
     let smTerminal: LocalProcessTerminalView
-    let dashboardTerminal: LocalProcessTerminalView
 
-    /// Bumped whenever a child process exits, so observers re-read `isRunning`.
+    /// Bumped whenever the child process exits, so observers re-read `isRunning`.
     @Published private(set) var stateTick = 0
 
     var id: String { project.id }
 
-    /// True while at least one of the two child processes is alive.
-    var isRunning: Bool {
-        (smTerminal.process?.running ?? false) || (dashboardTerminal.process?.running ?? false)
-    }
+    /// True while the Scrum Master process is alive.
+    var isRunning: Bool { smTerminal.process?.running ?? false }
 
     init(project: Project, frameworkPath: String) {
         self.project = project
         self.smTerminal = LocalProcessTerminalView(frame: .zero)
-        self.dashboardTerminal = LocalProcessTerminalView(frame: .zero)
         super.init()
 
         smTerminal.processDelegate = self
-        dashboardTerminal.processDelegate = self
 
-        // Inherit the user's environment so claude/python3 resolve, and force a
-        // truecolor-capable TERM for the Textual dashboard.
+        // Inherit the user's environment so claude resolves on PATH.
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
@@ -42,15 +37,11 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
 
         let sm = ProcessLauncher.scrumMaster(project: project, frameworkPath: frameworkPath)
         smTerminal.startProcess(executable: sm.executable, args: sm.args, environment: envArray)
-
-        let dash = ProcessLauncher.dashboard(project: project, frameworkPath: frameworkPath)
-        dashboardTerminal.startProcess(executable: dash.executable, args: dash.args, environment: envArray)
     }
 
-    /// Send SIGTERM to both children. Used by the "stop" actions.
+    /// Send SIGTERM to the child. Used by the "stop" actions.
     func terminate() {
         smTerminal.terminate()
-        dashboardTerminal.terminate()
     }
 
     // MARK: - LocalProcessTerminalViewDelegate
