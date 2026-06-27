@@ -5,8 +5,10 @@ import AppKit
 /// one. Selecting a project transitions to the 3-pane workspace.
 struct ProjectPickerView: View {
     @EnvironmentObject var state: AppState
+    @EnvironmentObject var sessions: SessionStore
     @State private var busyMessage: String?
     @State private var errorMessage: String?
+    @State private var stopTarget: Project?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,6 +24,15 @@ struct ProjectPickerView: View {
         .alert("Error", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
         } message: { Text(errorMessage ?? "") }
+        .alert("Stop session?", isPresented: .constant(stopTarget != nil)) {
+            Button("Cancel", role: .cancel) { stopTarget = nil }
+            Button("Stop", role: .destructive) {
+                if let t = stopTarget { sessions.stop(t.id) }
+                stopTarget = nil
+            }
+        } message: {
+            Text("This stops the background session (Scrum Master / dashboard) for \(stopTarget?.name ?? ""). Any unsaved conversation state is lost.")
+        }
     }
 
     private var header: some View {
@@ -70,10 +81,24 @@ struct ProjectPickerView: View {
                 Text(project.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
             Spacer()
+            if sessions.isRunning(project.id) {
+                Label("Running", systemImage: "circle.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.green)
+                    .help("Running in the background")
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture { state.open(project) }
         .contextMenu {
+            Button(sessions.isRunning(project.id) ? "Reattach to Running Session" : "Open") {
+                state.open(project)
+            }
+            if sessions.isRunning(project.id) {
+                Button("Stop Session", role: .destructive) { stopTarget = project }
+            }
+            Divider()
             Button("Remove from Recents") { state.removeRecent(project) }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([project.url])

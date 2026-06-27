@@ -29,6 +29,20 @@ framework's own scripts so they remain the single source of truth:
 A future iteration can replace the center pane with a native chat UI driving
 `claude` programmatically (approach B) without touching the picker or layout.
 
+## Background sessions
+
+Each open project's SM + dashboard processes are owned by a long-lived
+`ProjectSession` in `SessionStore`, not by the workspace view. Returning to the
+picker therefore offers a choice (confirmation dialog):
+
+- **継続** — keep the session running in the background; the project shows a
+  green **Running** lamp in the picker, and reopening it re-attaches to the same
+  live session (scrollback + state preserved).
+- **停止** — SIGTERM both processes and discard the session.
+
+A running session can also be stopped from the picker via the project's context
+menu. Sessions do not survive quitting the app.
+
 ## Read-only framework sources
 
 The file tree marks framework-owned paths (`agents/`, `skills/`, `rules/`,
