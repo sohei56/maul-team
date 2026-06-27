@@ -422,7 +422,11 @@ echo ""
 # Build the autonomous launch command (used by both tmux and no-tmux branches).
 WATCHDOG_CMD="$SCRIPT_DIR/scripts/autonomous/watchdog.sh"
 
-if command -v tmux >/dev/null 2>&1; then
+# SCRUM_NO_TMUX=1 forces the no-tmux foreground branch even when tmux is
+# installed. The macOS app (macapp/) sets this so the Scrum Master runs in
+# the foreground of an embedded SwiftTerm pane; the app supplies its own
+# layout (dashboard is launched separately in its own pane).
+if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
   # tmux available — create the session, optionally with a split dashboard
   #
   # Session name is derived from the project directory so that concurrent
