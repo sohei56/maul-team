@@ -13,6 +13,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/build/${APP_NAME}.app"
 ICON_SRC="$ROOT/../images/macos_icon.png"
 
+# Version matches the GitHub release: the latest git tag (e.g. v1.4.3 -> 1.4.3).
+VERSION="$(git -C "$ROOT/.." describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+[ -n "$VERSION" ] || VERSION="0.0.0"
+
 echo "==> swift build (-c $CONFIG)"
 swift build --package-path "$ROOT" -c "$CONFIG"
 
@@ -49,12 +53,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>            <string>${APP_NAME}</string>
-  <key>CFBundleDisplayName</key>     <string>Scrum Team</string>
+  <key>CFBundleDisplayName</key>     <string>Scrum Team for Claude Code</string>
   <key>CFBundleIdentifier</key>      <string>com.claude-scrum-team.${APP_NAME}</string>
   <key>CFBundleExecutable</key>      <string>${APP_NAME}</string>
   <key>CFBundlePackageType</key>     <string>APPL</string>
-  <key>CFBundleShortVersionString</key> <string>0.1.0</string>
-  <key>CFBundleVersion</key>         <string>1</string>
+  <key>CFBundleShortVersionString</key> <string>${VERSION}</string>
+  <key>CFBundleVersion</key>         <string>${VERSION}</string>
 ${ICON_PLIST}  <key>LSMinimumSystemVersion</key>  <string>14.0</string>
   <key>NSHighResolutionCapable</key> <true/>
   <key>NSPrincipalClass</key>        <string>NSApplication</string>

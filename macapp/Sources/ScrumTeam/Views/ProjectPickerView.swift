@@ -12,6 +12,9 @@ struct ProjectPickerView: View {
     @State private var newProjectParent: URL?
     @State private var newProjectName: String = ""
     @State private var showNameInput = false
+    @State private var showInfo = false
+
+    private let issuesURL = URL(string: "https://github.com/sohei56/claude-scrum-team/issues")!
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,9 +53,9 @@ struct ProjectPickerView: View {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 40, height: 40)
+                .frame(width: 64, height: 64)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Scrum Team").font(.title.bold())
+                Text("Scrum Team for Claude Code").font(.title.bold())
                 Text("Select a project to open").foregroundStyle(.secondary)
             }
             Spacer()
@@ -61,8 +64,47 @@ struct ProjectPickerView: View {
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).font(.callout)
             }
+            Button { showInfo = true } label: {
+                Image(systemName: "info.circle").font(.title3)
+            }
+            .buttonStyle(.borderless)
+            .help("About & feedback")
+            .popover(isPresented: $showInfo, arrowEdge: .bottom) { infoPopover }
         }
         .padding(20)
+    }
+
+    private var infoPopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable().interpolation(.high).frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Scrum Team for Claude Code").font(.headline)
+                    Text("Version \(appVersion)").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Divider()
+            Text("Questions, bug reports, or feature requests?")
+                .font(.callout)
+            Link(destination: issuesURL) {
+                Label("Open an issue on GitHub", systemImage: "arrow.up.forward.square")
+            }
+            Text(issuesURL.absoluteString)
+                .font(.caption).foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Divider()
+            Text("\"Claude\" and \"Claude Code\" are trademarks of Anthropic. "
+                 + "This is an independent project, not affiliated with, "
+                 + "sponsored by, or endorsed by Anthropic.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(width: 320)
+    }
+
+    private var appVersion: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
     }
 
     private var recentsColumn: some View {

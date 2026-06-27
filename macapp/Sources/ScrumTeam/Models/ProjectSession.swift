@@ -14,6 +14,10 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
     let project: Project
     let smTerminal: LocalProcessTerminalView
 
+    /// Local monitor that forwards mouse-wheel scrolling to the running TUI
+    /// (see ScrollForwardingTerminalView.swift). Removed on deinit.
+    private var scrollMonitor: Any?
+
     /// Bumped whenever the child process exits, so observers re-read `isRunning`.
     @Published private(set) var stateTick = 0
 
@@ -37,6 +41,25 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
 
         let sm = ProcessLauncher.scrumMaster(project: project, frameworkPath: frameworkPath)
         smTerminal.startProcess(executable: sm.executable, args: sm.args, environment: envArray)
+
+        installScrollForwarding()
+    }
+
+    /// Forward mouse-wheel events over the terminal to the running app when it
+    /// has mouse reporting on, so the full-screen Scrum Master session scrolls.
+    private func installScrollForwarding() {
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self else { return event }
+            let term = self.smTerminal
+            guard let window = term.window, event.window === window else { return event }
+            let local = term.convert(event.locationInWindow, from: nil)
+            guard term.bounds.contains(local) else { return event }
+            return term.forwardScrollToMouseReporting(event) ? nil : event
+        }
+    }
+
+    deinit {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
     }
 
     /// Send SIGTERM to the child. Used by the "stop" actions.

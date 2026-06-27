@@ -118,6 +118,7 @@ private struct FileRow: View {
         .padding(.leading, CGFloat(depth) * 14 + 8)
         .padding(.vertical, 2)
         .contentShape(Rectangle())
+        .textSelection(.disabled)   // this row opens the file / toggles the folder; don't select the name text
         .onTapGesture {
             if node.isDirectory { withAnimation(.easeInOut(duration: 0.12)) { expanded.toggle() } }
             else { editor.open(URL(fileURLWithPath: node.path)) }
