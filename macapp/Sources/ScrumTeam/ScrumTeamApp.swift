@@ -4,22 +4,43 @@ import AppKit
 /// Ensures the app behaves as a normal foreground app (Dock icon, menu bar,
 /// front window) even when launched as a bare SPM binary rather than a signed
 /// .app bundle.
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+
+        // Become the main window's delegate so the red close button is confirmed
+        // BEFORE the window closes — otherwise the window vanishes first and a
+        // Cancel leaves the app with no window to return to.
+        DispatchQueue.main.async { [weak self] in
+            // The main window — exclude detached editor windows (owned by
+            // EditorWindowController). None exist yet at launch, so this is it.
+            NSApp.windows.first(where: { !($0.delegate is EditorWindowController) })?.delegate = self
+        }
     }
 
-    /// Closing the last window (red button) quits the app, routing through
-    /// applicationShouldTerminate below so the quit confirmation also applies.
+    /// Closing the last window quits the app (the confirmation happens earlier,
+    /// in windowShouldClose, so by here any sessions are already stopped).
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// Confirm before quitting if any project sessions are running in the
-    /// background — quitting stops them all (no persistence across launches).
+    /// ⌘Q path: confirm if sessions are running.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let running = SessionStore.shared.runningCount
-        guard running > 0 else { return .terminateNow }
+        if SessionStore.shared.runningCount == 0 { return .terminateNow }
+        return confirmQuit() ? .terminateNow : .terminateCancel
+    }
 
+    /// Red-button path: confirm before the window actually closes. Cancel keeps
+    /// the window open; Quit stops sessions and lets the close (→ terminate)
+    /// proceed without a second prompt (runningCount is 0 by then).
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if SessionStore.shared.runningCount == 0 { return true }
+        return confirmQuit()
+    }
+
+    /// Show the quit confirmation. Returns true if the user chose Quit (and
+    /// stops all background sessions); false to stay in the app.
+    private func confirmQuit() -> Bool {
+        let running = SessionStore.shared.runningCount
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Quit Scrum Team?"
@@ -34,9 +55,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if alert.runModal() == .alertFirstButtonReturn {
             SessionStore.shared.stopAll()
-            return .terminateNow
+            return true
         }
-        return .terminateCancel
+        return false
     }
 }
 
