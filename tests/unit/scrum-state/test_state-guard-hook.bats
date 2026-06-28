@@ -163,6 +163,79 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+# --- Artifact carve-out: agent-authored review/metric JSON is writable ---
+# These dirs have NO .scrum/scripts/* wrapper and are written directly by
+# design (cross-review SM outputs, PBI pipeline coverage/AC maps).
+
+@test "guard: allows Write to .scrum/reviews/static-analysis-r1.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/reviews/static-analysis-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Bash redirect into .scrum/reviews/static-analysis-r1.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq -s . parts/*.json > .scrum/reviews/static-analysis-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Write to .scrum/pbi/pbi-001/metrics/coverage-r2.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/pbi/pbi-001/metrics/coverage-r2.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Write to .scrum/pbi/pbi-001/ut/ac-coverage-r1.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/pbi/pbi-001/ut/ac-coverage-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows tee into .scrum/pbi/pbi-001/metrics/test-results-r1.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cat raw.json | tee .scrum/pbi/pbi-001/metrics/test-results-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows mv into .scrum/reviews/ artifact json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"mv /tmp/sa.json .scrum/reviews/static-analysis-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: still blocks Write to .scrum/pbi/pbi-001/state.json (state under pbi/, NOT carved out)" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/pbi/pbi-001/state.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: still blocks redirect to .scrum/backlog.json (carve-out is dir-scoped)" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq . in.json > .scrum/backlog.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+# --- Carve-out must not enable a multi-destination bypass ---
+# A compound command where an exempt artifact write precedes an SSOT write
+# must still block (the exempt path must not mask the SSOT sibling).
+
+@test "guard: blocks compound redirect when SSOT write follows an exempt artifact write" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq . a > .scrum/reviews/ok.json; jq . b > .scrum/backlog.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: blocks compound redirect when SSOT write precedes an exempt artifact write" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq . a > .scrum/backlog.json; jq . b > .scrum/reviews/ok.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: blocks compound mv when exempt artifact mv masks an SSOT mv" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"mv /tmp/a.json .scrum/reviews/ok.json && mv /tmp/b.json .scrum/state.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: allows compound redirect when ALL destinations are exempt artifacts" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq . a > .scrum/reviews/r1.json; jq . b > .scrum/pbi/pbi-001/metrics/coverage-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows reading an SSOT json while writing an exempt artifact json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq .items .scrum/backlog.json > .scrum/reviews/summary.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
 # --- Fail-open cases (malformed input) ---
 
 @test "guard: empty payload → allow" {

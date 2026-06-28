@@ -267,7 +267,13 @@ reverse-lookup against `paths_touched`.
 9. **Persist aspect reviews.** For each completed reviewer Task,
    read its final assistant message and write it verbatim to the
    per-aspect file under `.scrum/reviews/aspect-<aspect>-review.md`.
-   This file ownership lives with the SM (Write tool) — reviewers
+   The SM has no `Write` tool (Delegate mode — see
+   `agents/scrum-master.md` `disallowedTools:`), so persist via a
+   Bash heredoc/redirect (`cat > .scrum/reviews/aspect-<aspect>-review.md
+   <<'EOF' … EOF`). `.scrum/reviews/` is an artifact directory carved
+   out of the scrum-state guard, so direct writes there — both the
+   `.md` digests and `static-analysis-r{n}.json` (Step 5) — are
+   permitted. This file ownership lives with the SM — reviewers
    themselves do not have the Write tool by design, so this step is
    not optional. If the reviewer's message is empty / lacks a
    "Verdict:" line, re-spawn that reviewer instead of writing a
