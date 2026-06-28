@@ -65,7 +65,13 @@ overlay:
   `--brief <file>` on first run. The autonomous PO expands the
   brief into `docs/product/vision.md` during the Requirements
   Sprint; without a brief there is nothing to anchor YAGNI
-  decisions against.
+  decisions against. **If no brief exists and you launch on a TTY,
+  `scrum-start.sh` runs the [`create-brief`](../skills/create-brief/SKILL.md)
+  skill first** — an interactive pre-flight session that co-authors
+  `docs/product/brief.md` with you, then chains straight into the
+  watchdog when you exit. On a non-TTY run (e.g. `--no-attach`, piped
+  stdin) there is no human to interview, so a missing brief is still a
+  hard error — supply `--brief <file>`.
 - `.scrum/config.json.po_mode == "agent"` (set automatically by
   `scrum-start.sh --autonomous`).
 
@@ -100,17 +106,37 @@ Flags accepted by `scrum-start.sh`:
 | Flag | Effect |
 |---|---|
 | `--autonomous` | Launches `scripts/autonomous/watchdog.sh` in the main pane instead of an interactive Claude session. Sets `po_mode = "agent"` and merges defaults into `.scrum/config.json.autonomous`. |
-| `--brief <file>` | **Required on a new project.** Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. |
+| `--brief <file>` | Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. **Required on a new non-TTY run**; on a TTY, omitting it triggers the interactive `create-brief` pre-flight instead of erroring. |
 | `--max-sprints N` | Overrides `.scrum/config.json.autonomous.max_sprints`. |
 | `--max-hours H` | Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`. |
 | `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
 | `--bypass-permissions` | Sets `autonomous.permission_mode = bypassPermissions` (default `dontAsk`). See [Permission model](#permission-model) — this is a destructive switch. |
 | `--no-attach` | Skips `tmux attach-session` after launching. The session runs in the background; attach later with `tmux attach-session -t scrum-team-<basename>-<hash>`. |
 
-On a new project, `--brief` is mandatory; the script exits with
-code 2 otherwise. The brief is copied **only when**
+On a new project the script needs a brief at
+`docs/product/brief.md`. It is resolved in this order: (1) an
+existing canonical brief is reused as-is; (2) an explicit `--brief
+<file>` is copied into place; (3) on a **TTY with no brief**, the
+interactive `create-brief` pre-flight co-authors one before the
+watchdog starts; (4) on a **non-TTY with no brief**, the script
+exits with code 2. The brief is copied / written **only when**
 `docs/product/brief.md` does not already exist — re-runs preserve
 the existing file.
+
+#### Brief co-authoring pre-flight (`create-brief`)
+
+When a new autonomous run finds no brief and a human is present
+(stdin is a TTY), `scrum-start.sh` launches an interactive Claude
+session that invokes the [`create-brief`](../skills/create-brief/SKILL.md)
+skill. The skill interviews you one topic at a time (problem,
+users, falsifiable success metrics, scope in/out, constraints,
+priorities, risks), quality-gates the draft against product-brief
+best practices, and writes `docs/product/brief.md`. When you exit
+that session, the same pane chains straight into the watchdog — so
+the brief you just wrote becomes the PO's YAGNI anchor with no
+re-run needed. If you exit **without** writing a brief, the launch
+aborts cleanly instead of running the PO with no anchor. The skill
+is also usable standalone any time via `/create-brief`.
 
 ### Interactive wizard
 
@@ -435,7 +461,7 @@ next section before trying again on the real project.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `watchdog: .scrum/autonomy.json missing — run scrum-start.sh --autonomous first.` (exit 3) | Watchdog ran without `scrum-start.sh --autonomous` bootstrap. | Run `scrum-start.sh --autonomous` once to set `po_mode=agent`, default `autonomous.*` keys, and initialize `.scrum/autonomy.json`. |
-| `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief. | Provide `--brief docs/product/brief.md` (or any path). |
+| `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief, on a **non-TTY** invocation (no human to interview). | Provide `--brief docs/product/brief.md` (or any path), or re-run on a TTY to co-author one via the `create-brief` pre-flight. |
 | `watchdog: rate-limit detected; sleeping <N>s until reset` / `... no reset time parsed — sleeping <N>s` | Inner session hit the API rate limit / usage limit / overload error. Watchdog is waiting until the limit resets (advertised reset time + 60s jitter, capped at 6h) or `DEFAULT_RATE_LIMIT_WAIT_SECS` (1h) when no reset time was parseable. | Wait. The iteration counter is not advanced; `max_wall_clock_hours` is the only runaway protection. To resume sooner, kill the watchdog and rerun `scrum-start.sh --autonomous` once your subscription quota refills. |
 | `watchdog: K consecutive failures — giving up.` (exit 1) | Three consecutive iterations made no progress (no phase/PBI status change), or the inner Claude session kept failing, or the circuit breaker tripped K times. | Inspect `.scrum/autonomous/iter-<N>.json`, `iter-<N>.err`, and `.scrum/autonomy.json.last_failure`. Common causes: missing PO context (no `docs/product/brief.md`), a deadlocked Stop hook (check `completion-gate.sh` logs in `.scrum/hooks.log`), or persistent CLI errors that aren't rate-limits (those would have triggered the wait branch instead). |
 | `watchdog: max_sprints (N) reached` (exit 2) | The watchdog finished `N` Sprints. | This is "successful park", not a failure — review the morning report and either declare the product done manually or raise the cap. |

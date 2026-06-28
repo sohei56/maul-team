@@ -129,6 +129,38 @@ teardown() {
   [[ "$output" == *"requires --brief"* ]]
 }
 
+# Non-TTY (the bats run is never a TTY) cannot co-author a brief, so the
+# error must mention the interactive create-brief escape hatch.
+@test "scrum-start --autonomous no-brief error points to the create-brief skill" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"create-brief"* ]]
+}
+
+# An explicit --brief that names a missing (non-canonical) path is a typo,
+# not a request to co-author — fail loudly.
+@test "scrum-start --autonomous --brief <missing path> exits 2 (typo, not builder)" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/does-not-exist.md"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"brief file not found"* ]]
+}
+
+# A canonical brief already in place is never clobbered, even when --brief
+# names a different existing file.
+@test "scrum-start --autonomous keeps an existing canonical brief" {
+  mkdir -p docs/product
+  printf '# Existing canonical brief\nkeep me.\n' > docs/product/brief.md
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/brief.md"
+  [ "$status" -eq 0 ]
+
+  # The pre-existing file wins; the seed brief is NOT copied over it.
+  grep -q 'Existing canonical brief' docs/product/brief.md
+  ! grep -q 'Test product brief' docs/product/brief.md
+}
+
 # --- (c) Non-autonomous launch does NOT inject po_mode / autonomous ---------
 
 @test "scrum-start (no flags) leaves config.json untouched (regression)" {

@@ -7,6 +7,10 @@ final class AppState: ObservableObject {
     /// The project currently open in the workspace. `nil` => show the picker.
     @Published var currentProject: Project?
 
+    /// The mode chosen for the project being opened. Read once by the workspace
+    /// when it starts the session; ignored when re-attaching to a running one.
+    @Published var pendingLaunchMode: LaunchMode = .normal
+
     /// Recently opened projects, most-recent first. Persisted across launches.
     @Published var recents: [Project]
 
@@ -41,11 +45,12 @@ final class AppState: ObservableObject {
         self.frameworkPath = (stored?.isEmpty == false ? stored! : FrameworkLocator.defaultGuess())
     }
 
-    func open(_ project: Project) {
+    func open(_ project: Project, mode: LaunchMode = .normal) {
         var p = project
         p.lastOpened = Date()
         recents = RecentProjectsStore.upsert(p, into: recents)
         RecentProjectsStore.save(recents)
+        pendingLaunchMode = mode
         currentProject = p
     }
 

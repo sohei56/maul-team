@@ -14,6 +14,7 @@ struct WorkspaceView: View {
     let project: Project
 
     @State private var showLeaveDialog = false
+    @State private var showInfo = false
     @StateObject private var editor = EditorModel()
     @StateObject private var dashboard: DashboardModel
 
@@ -33,7 +34,7 @@ struct WorkspaceView: View {
             }
         }
         .onAppear {
-            _ = sessions.session(for: project, frameworkPath: state.frameworkPath)
+            _ = sessions.session(for: project, frameworkPath: state.frameworkPath, mode: state.pendingLaunchMode)
         }
         .task {
             // Poll .scrum/ state for the native dashboard + work log while shown.
@@ -115,8 +116,12 @@ struct WorkspaceView: View {
                 Label("Advanced", systemImage: "lock.open.fill")
                     .font(.caption).foregroundStyle(.orange)
             }
-            SettingsLink { Image(systemName: "gearshape") }
-                .buttonStyle(.borderless)
+            Button { showInfo = true } label: {
+                Image(systemName: "info.circle")
+            }
+            .buttonStyle(.borderless)
+            .help("About & feedback")
+            .popover(isPresented: $showInfo, arrowEdge: .bottom) { InfoPopover() }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

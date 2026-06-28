@@ -13,8 +13,8 @@ struct ProjectPickerView: View {
     @State private var newProjectName: String = ""
     @State private var showNameInput = false
     @State private var showInfo = false
-
-    private let issuesURL = URL(string: "https://github.com/sohei56/claude-scrum-team/issues")!
+    @State private var modeTarget: Project?
+    @State private var selectedMode: LaunchMode = .normal
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,6 +46,18 @@ struct ProjectPickerView: View {
         } message: {
             Text("Create a new project folder inside \(newProjectParent?.path ?? "").")
         }
+        .sheet(item: $modeTarget) { project in
+            LaunchModeSheet(
+                project: project,
+                selection: $selectedMode,
+                onStart: {
+                    let mode = selectedMode
+                    modeTarget = nil
+                    state.open(project, mode: mode)
+                },
+                onCancel: { modeTarget = nil }
+            )
+        }
     }
 
     private var header: some View {
@@ -69,42 +81,9 @@ struct ProjectPickerView: View {
             }
             .buttonStyle(.borderless)
             .help("About & feedback")
-            .popover(isPresented: $showInfo, arrowEdge: .bottom) { infoPopover }
+            .popover(isPresented: $showInfo, arrowEdge: .bottom) { InfoPopover() }
         }
         .padding(20)
-    }
-
-    private var infoPopover: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable().interpolation(.high).frame(width: 44, height: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Scrum Team for Claude Code").font(.headline)
-                    Text("Version \(appVersion)").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Divider()
-            Text("Questions, bug reports, or feature requests?")
-                .font(.callout)
-            Link(destination: issuesURL) {
-                Label("Open an issue on GitHub", systemImage: "arrow.up.forward.square")
-            }
-            Text(issuesURL.absoluteString)
-                .font(.caption).foregroundStyle(.secondary)
-                .textSelection(.enabled)
-            Divider()
-            Text("\"Claude\" and \"Claude Code\" are trademarks of Anthropic. "
-                 + "This is an independent project, not affiliated with, "
-                 + "sponsored by, or endorsed by Anthropic.")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .frame(width: 320)
-    }
-
-    private var appVersion: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "—"
     }
 
     private var recentsColumn: some View {
@@ -144,10 +123,10 @@ struct ProjectPickerView: View {
         }
         .contentShape(Rectangle())
         .textSelection(.disabled)   // this row navigates; don't select the name text
-        .onTapGesture(count: 2) { state.open(project) }
+        .onTapGesture(count: 2) { launch(project) }
         .contextMenu {
             Button(sessions.isRunning(project.id) ? "Reattach to Running Session" : "Open") {
-                state.open(project)
+                launch(project)
             }
             if sessions.isRunning(project.id) {
                 Button("Stop Session", role: .destructive) { stopTarget = project }
@@ -199,9 +178,21 @@ struct ProjectPickerView: View {
 
     // MARK: - Actions
 
+    /// Decide whether to prompt for a launch mode. A running background session
+    /// is re-attached as-is (its original mode stands); a fresh launch opens the
+    /// mode picker.
+    private func launch(_ project: Project) {
+        if sessions.isRunning(project.id) {
+            state.open(project)
+        } else {
+            selectedMode = .normal
+            modeTarget = project
+        }
+    }
+
     private func openExisting() {
         guard let url = chooseDirectory(prompt: "Open", canCreate: false) else { return }
-        state.open(Project(path: url.path, lastOpened: Date()))
+        launch(Project(path: url.path, lastOpened: Date()))
     }
 
     /// Pick a parent folder, then prompt for a name; the project is a new
@@ -241,7 +232,7 @@ struct ProjectPickerView: View {
             await MainActor.run {
                 busyMessage = nil
                 if result.exitCode == 0 {
-                    state.open(project)
+                    launch(project)
                 } else {
                     errorMessage = "Setup failed (exit \(result.exitCode)).\n\(result.output.suffix(800))"
                 }
@@ -260,5 +251,74 @@ struct ProjectPickerView: View {
             ? "Choose or create a folder for the new project"
             : "Choose an existing project folder"
         return panel.runModal() == .OK ? panel.url : nil
+    }
+}
+
+/// Modal shown before a fresh session starts: choose Normal vs Autonomous, with
+/// an explanation of each. Re-attaching to a running session skips this.
+private struct LaunchModeSheet: View {
+    let project: Project
+    @Binding var selection: LaunchMode
+    let onStart: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("How should the team run?").font(.title2.bold())
+                Text(project.name).font(.callout).foregroundStyle(.secondary)
+            }
+
+            ForEach(LaunchMode.allCases) { mode in
+                modeCard(mode)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button("Start", action: onStart)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
+    }
+
+    private func modeCard(_ mode: LaunchMode) -> some View {
+        let isSelected = selection == mode
+        return Button { selection = mode } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: mode.systemImage).foregroundStyle(.tint)
+                        Text(mode.title).font(.headline)
+                        Text(mode.subtitle).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(mode.explanation)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.10)) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(isSelected ? Color.accentColor : Color(nsColor: .separatorColor),
+                                  lineWidth: isSelected ? 2 : 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 }

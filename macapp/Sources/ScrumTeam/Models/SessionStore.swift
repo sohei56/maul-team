@@ -18,10 +18,12 @@ final class SessionStore: ObservableObject {
     private var sessions: [String: ProjectSession] = [:]
     private var cancellables: [String: AnyCancellable] = [:]
 
-    /// Return the existing session for a project, or create + start one.
-    func session(for project: Project, frameworkPath: String) -> ProjectSession {
+    /// Return the existing session for a project, or create + start one in the
+    /// requested mode. `mode` only applies to a freshly created session — an
+    /// already-running background session is returned untouched (re-attach).
+    func session(for project: Project, frameworkPath: String, mode: LaunchMode = .normal) -> ProjectSession {
         if let existing = sessions[project.id] { return existing }
-        let session = ProjectSession(project: project, frameworkPath: frameworkPath)
+        let session = ProjectSession(project: project, frameworkPath: frameworkPath, mode: mode)
         sessions[project.id] = session
         cancellables[project.id] = session.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()

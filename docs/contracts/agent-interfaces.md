@@ -92,11 +92,12 @@ responsibilities (what it owns).
 ### Skill Inputs/Outputs Reference
 
 Every Skill MUST declare `## Inputs` and `## Outputs` at the top of its
-body. Below is the reference for all 16 Skills (15 SM ceremonies + 1
-PO-owned `po-acceptance`):
+body. Below is the reference for the deployed Skills (SM ceremonies +
+1 PO-owned `po-acceptance` + 1 interactive `create-brief` pre-flight):
 
 | Skill | Inputs (required state) | Outputs (files/keys updated) |
 |-------|------------------------|------------------------------|
+| `create-brief` | Human dialogue (interactive); existing `docs/product/brief.md` if any | `docs/product/brief.md` (1–2 page product brief). Pre-flight for autonomous launch when no brief exists; also usable standalone via `/create-brief`. No `.scrum/` state writes. |
 | `requirements-sprint` | `state.json` → `phase: new` | `requirements.md` (created); `state.json` → `phase: requirements_sprint → backlog_created` |
 | `backlog-refinement` | `backlog.json` → `items[]` with `status: draft`; `requirements.md`; count of existing `refined` PBIs (WIP check) | `backlog.json` → `items[].status: refined`, `acceptance_criteria`, `ux_change`, `design_doc_paths` (refined WIP capped at 6-12) |
 | `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`; oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |

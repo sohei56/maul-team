@@ -223,8 +223,8 @@ State descriptions:
 ## Entity: SprintHistory
 
 **File**: `.scrum/sprint-history.json`
-**Owner**: Scrum Master (append-only)
-**Readers**: Textual dashboard app, statusline.sh
+**Owner**: Scrum Master (append-only, via `append-sprint-history.sh`)
+**Readers**: Textual dashboard app, statusline.sh, `completion-gate.sh` (sprint_review exit criterion), `watchdog.sh` (max_sprints)
 
 | Field | Type | Description |
 |-------|------|-------------|

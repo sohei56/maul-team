@@ -63,7 +63,21 @@ on `read` from stdin in this mode.
    - **po_mode=agent**: skip step 4a–d. Send `[sprint-<N>] PO_DECISION_REQUEST kind=demo_acceptance options=[pass,fail,waive] recommendation=pass pbis=[<list>]`; the PO teammate runs `po-acceptance` (mode=demo) on its own — the skill is on the PO's allowlist, not the SM's. PO operates the app itself, returns one `kind=demo_acceptance` decision per PBI plus the aggregated `PO_ACCEPTANCE_REPORT`. fail → step 9 defect route.
 5. **Doc-implementation consistency**: For every completed PBI→compare docs vs code→mismatch→`add-backlog-item.sh` (status: draft). Track each new pbi-id for the Leftover Summary.
 6. Report remaining backlog scope + Product Goal progress
-7. Append SprintSummary to sprint-history.json: id, goal, type, pbis_completed, pbis_total, started_at, completed_at
+7. Append the SprintSummary to `sprint-history.json` via the wrapper
+   (direct edits are blocked by the scrum-state guard). `--id` and
+   `--goal` are required; the rest are optional (`--completed-at`
+   defaults to now). The call is idempotent on `--id`, so a retried
+   Sprint Review does not duplicate the entry:
+   ```bash
+   .scrum/scripts/append-sprint-history.sh \
+     --id "<sprint-id>" \
+     --goal "<sprint goal>" \
+     --type development \
+     --pbis-completed <N_done> \
+     --pbis-total <N_total> \
+     --started-at "<sprint.json started_at>" \
+     --completed-at "<ISO 8601 now>"
+   ```
 8. Get user feedback
    - **po_mode=agent**: merged into step 9's single structured PO pass; no separate prompt.
 9. **Defect/change handling**:

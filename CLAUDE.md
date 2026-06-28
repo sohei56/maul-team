@@ -10,8 +10,9 @@ agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-ma
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
   # Sprint-end cross-review (5-aspect parallel): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
-skills/                  # 17 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
+skills/                  # 18 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance + 1 brief authoring) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
+  create-brief/          # Co-author docs/product/brief.md with the human (interactive); pre-flight for autonomous launch when no brief exists
   change-process/        # Manage changes to frozen design docs
   cross-review/          # Sprint-end cross-cutting quality gate
   design-completeness-check/ # Design-doc functional completeness at integration granularity

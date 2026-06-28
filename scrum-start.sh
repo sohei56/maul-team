@@ -299,31 +299,53 @@ if [ "$AUTONOMOUS" = "1" ]; then
     fi
   fi
 
-  # --- Brief validation ----------------------------------------------------
-  # New-project bootstrap requires a brief. After the wizard the value may
-  # be set; on non-TTY runs the wizard returns the default ("docs/product/
-  # brief.md") which only counts if it exists. Re-test against an actual
-  # readable file (the wizard's silent default doesn't satisfy this) so a
-  # non-interactive new-project run still errors out cleanly.
-  if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ]; then
-    echo "Error: --autonomous on a new project requires --brief <file>." >&2
-    echo "  Provide a product brief that the autonomous PO can use to drive" >&2
-    echo "  the Requirements Sprint without a human in the loop." >&2
-    exit 2
-  fi
-
-  # Copy brief into the canonical location (do not overwrite if present).
-  if [ -n "$BRIEF_FILE" ]; then
-    if [ ! -f "$BRIEF_FILE" ]; then
-      echo "Error: brief file not found: $BRIEF_FILE" >&2
-      exit 2
+  # --- Brief resolution ----------------------------------------------------
+  # A product brief at docs/product/brief.md anchors every scope / YAGNI
+  # decision the autonomous PO makes. Resolution order:
+  #   1. canonical brief already exists       → use it (resume / re-run).
+  #   2. explicit readable --brief file        → copy it into place.
+  #   3. explicit --brief path that is missing → hard error (typo).
+  #   4. new project, no brief anywhere:
+  #        - TTY (human present) → co-author one via the create-brief skill
+  #          as a pre-flight step before the watchdog launches (set
+  #          NEED_BRIEF_BUILDER; the launch branches below run it first).
+  #        - non-TTY (no human)  → hard error; a brief cannot be
+  #          co-authored headlessly.
+  # The wizard above fills an unset BRIEF_FILE with the canonical default on
+  # a TTY, so "BRIEF_FILE == canonical but the file is absent" is the
+  # no-brief-yet case and routes to the builder, not to the typo error.
+  BRIEF_CANONICAL="docs/product/brief.md"
+  NEED_BRIEF_BUILDER=0
+  if [ -f "$BRIEF_CANONICAL" ]; then
+    # Canonical brief already present — never clobber it.
+    if [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ] \
+       && [ -f "$BRIEF_FILE" ]; then
+      echo "Warning: $BRIEF_CANONICAL already exists — keeping existing copy" \
+           "(ignoring --brief $BRIEF_FILE)." >&2
     fi
+  elif [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ] \
+       && [ -f "$BRIEF_FILE" ]; then
+    # Explicit, readable brief provided — copy into the canonical location.
     mkdir -p docs/product
-    if [ -f "docs/product/brief.md" ]; then
-      echo "Warning: docs/product/brief.md already exists — keeping existing copy." >&2
+    cp "$BRIEF_FILE" "$BRIEF_CANONICAL"
+    echo "  Copied brief to $BRIEF_CANONICAL"
+  elif [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ]; then
+    # Explicit non-canonical path that does not exist — almost certainly a
+    # typo. Fail loudly rather than silently co-authoring a new brief.
+    echo "Error: brief file not found: $BRIEF_FILE" >&2
+    exit 2
+  elif [ "$IS_NEW_PROJECT" = "1" ]; then
+    # New project with no brief. Co-author one if a human is present;
+    # otherwise this run cannot proceed.
+    if [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+      NEED_BRIEF_BUILDER=1
+      echo "  No product brief found — will co-author $BRIEF_CANONICAL with" \
+           "Claude (create-brief skill) before the autonomous run starts."
     else
-      cp "$BRIEF_FILE" "docs/product/brief.md"
-      echo "  Copied brief to docs/product/brief.md"
+      echo "Error: --autonomous on a new project requires --brief <file>." >&2
+      echo "  Provide a product brief, or run interactively (a TTY) so the" >&2
+      echo "  create-brief skill can co-author docs/product/brief.md with you." >&2
+      exit 2
     fi
   fi
 
@@ -421,6 +443,13 @@ echo ""
 
 # Build the autonomous launch command (used by both tmux and no-tmux branches).
 WATCHDOG_CMD="$SCRIPT_DIR/scripts/autonomous/watchdog.sh"
+
+# Pre-flight brief builder (set by the brief-resolution block above). When no
+# brief exists on a new autonomous project and a human is present, an
+# interactive Claude session co-authors docs/product/brief.md via the
+# create-brief skill before the watchdog starts. Kept apostrophe-free so it
+# can be single-quoted safely inside the tmux send-keys command string.
+BRIEF_BUILDER_PROMPT="A product brief is required to start autonomous mode, but docs/product/brief.md does not exist yet. Use the create-brief skill now to co-author the brief with me interactively. Interview me one topic at a time, quality-gate the draft, and write the result to docs/product/brief.md. When the brief is complete, tell me it is done and that autonomous mode will start as soon as I exit this session."
 
 # SCRUM_NO_TMUX=1 forces the no-tmux foreground branch even when tmux is
 # installed. The macOS app (macapp/) sets this so the Scrum Master runs in
@@ -543,8 +572,19 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
     # Autonomous mode: main pane runs the watchdog. We deliberately keep the
     # pane alive after the watchdog exits (read -r) so the user can attach in
     # the morning, inspect the report, and decide whether to kill the session.
-    tmux send-keys -t "$session_name" \
-      "${WATCHDOG_CMD}; echo; echo 'Watchdog exited.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}" C-m
+    #
+    # When NEED_BRIEF_BUILDER is set, prepend an interactive Claude session
+    # that co-authors docs/product/brief.md (create-brief skill). The watchdog
+    # only starts once the brief exists; if the user exits without writing one,
+    # the launch aborts cleanly instead of running the PO with no anchor.
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      AUTO_MAIN_CMD="CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '${BRIEF_BUILDER_PROMPT}'; "
+      AUTO_MAIN_CMD="${AUTO_MAIN_CMD}if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — aborting autonomous launch.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}; exit 0; fi; "
+    else
+      AUTO_MAIN_CMD=""
+    fi
+    AUTO_MAIN_CMD="${AUTO_MAIN_CMD}${WATCHDOG_CMD}; echo; echo 'Watchdog exited.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}"
+    tmux send-keys -t "$session_name" "$AUTO_MAIN_CMD" C-m
   else
     # Main pane: Claude Code with Scrum Master agent (Agent Teams enabled
     # process-scoped). --teammate-mode in-process forces Agent Teams to use
@@ -611,6 +651,15 @@ else
   fi
 
   if [ "$AUTONOMOUS" = "1" ]; then
+    # Pre-flight brief co-authoring (see the tmux branch for rationale).
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      echo "No product brief found — launching the brief builder (create-brief skill)..."
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
+      if [ ! -f docs/product/brief.md ]; then
+        echo "Error: no brief was created — aborting autonomous launch." >&2
+        exit 2
+      fi
+    fi
     echo "Launching autonomous-PO watchdog (no tmux fallback)..."
     "$WATCHDOG_CMD"
   else

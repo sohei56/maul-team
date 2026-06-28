@@ -60,7 +60,7 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 
 ## Features
 
-- **17 Skills** (16 Scrum ceremonies + 1 PO acceptance) covering the full Scrum lifecycle: requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, and integration testing
+- **18 Skills** (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, and integration testing
 - **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint (1 Developer per PBI, capped at 6)
 - **Autonomous PO mode** (`--autonomous`) — runs the team end-to-end with an AI Product Owner (`po_mode=agent`). An outer Ralph-Loop watchdog (`scripts/autonomous/watchdog.sh`) re-launches headless Claude sessions, enforces safety valves (iterations / wall clock / Sprints / consecutive failures / per-phase Stop-block budget) and writes a morning report to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
 - **Real-time TUI dashboard** — Textual-based three-panel display (Sprint Overview, PBI Progress Board, unified Work Log of agent messages + work events) with watchdog filesystem monitoring
@@ -187,7 +187,7 @@ Sessions, memory, and settings under `~/.claude/` are preserved across either up
 
 - **`scrum-start.sh`** — Entry point: validates prereqs, runs `scripts/setup-user.sh` internally to copy agents/skills/hooks/rules into the target project, then launches tmux. Supports `--autonomous --brief <file> --max-sprints <N>`.
 - **`agents/`** — 3 top-level agents (Scrum Master in Delegate mode, Developer, Product Owner) plus 11 specialist sub-agents (5 cross-review reviewers + 6 PBI Pipeline sub-agents, including the Codex-CLI cross-model reviewers). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
-- **`skills/`** — 17 Skills (16 Scrum ceremonies + 1 PO acceptance) with mandatory Inputs/Outputs
+- **`skills/`** — 18 Skills (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) with mandatory Inputs/Outputs
 - **`hooks/`** — Status gates, path guards, branch-ops guard, single Stop entry (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates, session context. Plus `scripts/stall-watchdog.sh` (external teammate-stall monitor in human mode).
 - **`rules/`** — Cross-cutting Scrum context (team map, SSOT locations, communication protocol) auto-loaded by every agent via `.claude/rules/`
 - **`dashboard/app.py`** — Textual TUI with real-time panels (Sprint Overview, PBI Board, Work Log)

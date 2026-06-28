@@ -14,6 +14,10 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
     let project: Project
     let smTerminal: LocalProcessTerminalView
 
+    /// The mode this session was launched with. Fixed for the session's life —
+    /// re-attaching never re-prompts, so the original mode is authoritative.
+    let mode: LaunchMode
+
     /// Local monitor that forwards mouse-wheel scrolling to the running TUI
     /// (see ScrollForwardingTerminalView.swift). Removed on deinit.
     private var scrollMonitor: Any?
@@ -26,8 +30,9 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
     /// True while the Scrum Master process is alive.
     var isRunning: Bool { smTerminal.process?.running ?? false }
 
-    init(project: Project, frameworkPath: String) {
+    init(project: Project, frameworkPath: String, mode: LaunchMode = .normal) {
         self.project = project
+        self.mode = mode
         self.smTerminal = LocalProcessTerminalView(frame: .zero)
         super.init()
 
@@ -39,7 +44,7 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
         env["COLORTERM"] = "truecolor"
         let envArray = env.map { "\($0.key)=\($0.value)" }
 
-        let sm = ProcessLauncher.scrumMaster(project: project, frameworkPath: frameworkPath)
+        let sm = ProcessLauncher.scrumMaster(project: project, frameworkPath: frameworkPath, mode: mode)
         smTerminal.startProcess(executable: sm.executable, args: sm.args, environment: envArray)
 
         installScrollForwarding()

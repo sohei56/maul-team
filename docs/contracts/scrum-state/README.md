@@ -14,6 +14,7 @@ Each schema corresponds to one file under `.scrum/` and is the single source of 
 | `.scrum/autonomy.json`              | `autonomy.schema.json`                | `scrum-start.sh --autonomous` (initial seed in the run-launcher block), `scripts/autonomous/watchdog.sh` (atomic tmp+mv), and the hook library `hooks/lib/autonomy.sh` (`bump_stop_block_counter`, `record_circuit_breaker`). **No `.scrum/scripts/*.sh` wrapper** — the runtime hot-path is latency-sensitive. Agent direct edits are blocked by `pre-tool-use-scrum-state-guard.sh`; schema is enforced by the watchdog on rotation, not per call. |
 | `.scrum/po/decisions.json`          | `po-decisions.schema.json`            | `append-po-decision.sh` only. Append-only; ids auto-assigned (`dec-NNNN`). Wrapper enforces evidence requirement for `kind ∈ {demo_acceptance, uat_item, release_decision}` and the green-tests gate for `release_decision=go`. |
 | `.scrum/improvements.json`          | `improvements.schema.json`            | `append-improvement.sh` only (append; auto-assigned `imp-NNNN`; optional `dec_id` links to a `po-decisions.json` record). 3-Sprint consolidation (`status: archived`, `archived_at`, `last_consolidation_sprint` bump) is wrapper-less for now; tracked in `MIGRATION-scrum-state-tools.md` § Known gaps. |
+| `.scrum/sprint-history.json`        | `sprint-history.schema.json`          | `append-sprint-history.sh` only (append; `--id`/`--goal` required, optional `--type`/`--pbis-completed`/`--pbis-total`/`--started-at`/`--completed-at`). Idempotent on `--id` so a retried Sprint Review never double-counts a Sprint in the watchdog `max_sprints` tally. Read by `completion-gate.sh` (sprint_review exit criterion), `watchdog.sh`, the dashboard, and `statusline.sh`. |
 | `.scrum/stop-gate.json`             | `stop-gate.schema.json`               | `hooks/lib/stop-gate-state.sh` (`stop_gate_check_and_bump`), sourced by `hooks/completion-gate.sh`. **Human-mode only** dedup ledger — absent under autonomous mode. **No `.scrum/scripts/*.sh` wrapper** — the hook process runs outside the `pre-tool-use-scrum-state-guard.sh` intercept. Atomic tmp + mv writes; fail-open toward block on any I/O failure. |
 
 Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh`, `cleanup-pbi-worktree.sh`, `migrate-legacy.sh`) drive git operations and the writers above; they do not bypass the schema-validated writes.
@@ -33,15 +34,15 @@ Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh
   `.scrum/` without their own JSON Schema and are intentionally
   absent from the table above: `.scrum/runtime.json` (tmux session
   + SM pane id + stall-watchdog PID, written by `scrum-start.sh`),
-  `.scrum/test-results.json` (smoke-test summary), `.scrum/sprint-history.json` (rolling list of completed Sprints), and
+  `.scrum/test-results.json` (smoke-test summary) and
   `.scrum/session-map.json` (autonomous-mode iteration → session id
   ledger). They match the guard's `.scrum/**/*.json` pattern but
   their writers run outside the agent tool surface (launcher
   script, smoke-test wrapper), so the guard never intercepts them.
   Schemas are out of scope until a reader-side bug demands them —
   see `MIGRATION-scrum-state-tools.md` § Known gaps. (Historical
-  note: `.scrum/improvements.json` was in this list until an
-  autonomous-mode Retrospective surfaced that the retrospective
-  skill writes via the agent tool surface and *is* intercepted by
-  the guard. It now has a schema + `append-improvement.sh` wrapper
-  per the table above.)
+  note: `.scrum/improvements.json` and `.scrum/sprint-history.json`
+  were both in this list until autonomous-mode ceremonies surfaced
+  that the retrospective and sprint-review skills write them via the
+  agent tool surface and *are* intercepted by the guard. Each now
+  has a schema + an `append-*.sh` wrapper per the table above.)
