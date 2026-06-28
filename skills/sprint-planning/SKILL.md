@@ -56,8 +56,26 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
 6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
 7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — Sprint-end cross-review is performed by the Scrum Master via independent reviewer sub-agents (FR-009 Layer 2)
-8. **Create sprint.json + update state.current_sprint_id (atomic
-   pair).** `init-sprint.sh` creates `.scrum/sprint.json` at
+8. **Roll over the previous Sprint, then create sprint.json + update
+   state.current_sprint_id (atomic pair).**
+
+   On the **second and later** Sprints a completed `sprint.json` from
+   the prior Sprint is still on disk. `init-sprint.sh` refuses while it
+   exists and `freeze-sprint-base.sh` refuses while its `base_sha` is
+   frozen — so you **must** archive-and-clear it first via
+   `rollover-sprint.sh`. The wrapper archives the completed Sprint to
+   `sprint-history.json` and removes `sprint.json`; it is an idempotent
+   no-op on the **first** Sprint (no `sprint.json` yet), so always run
+   it before `init-sprint.sh`:
+   ```bash
+   .scrum/scripts/rollover-sprint.sh
+   ```
+   `rollover-sprint.sh` refuses unless the prior Sprint is
+   `status: complete`. If it refuses, the previous Sprint never reached
+   a terminal state — stop and resolve that (do **not** force it); a
+   non-complete prior Sprint is a real signal, not a rollover input.
+
+   Then `init-sprint.sh` creates `.scrum/sprint.json` at
    `status: "planning"` AND writes `state.current_sprint_id` in the
    same invocation. Keeping the two in sync at Sprint start prevents
    the recurring `current_sprint_id` lag that `completion-gate.sh`
@@ -68,6 +86,12 @@ decision is `choice:start_sprint`. No additional PO request is needed.
    If you skip this wrapper or only create sprint.json by other means,
    `state.current_sprint_id` will still point at the previous Sprint
    and downstream phase transitions will block.
+
+   > The new Sprint's base is captured later by `spawn-teammates`
+   > (`freeze-sprint-base.sh`, once per Sprint). Because `rollover-sprint.sh`
+   > cleared the prior `sprint.json`, that call now records
+   > `base_sha = current main HEAD` — which includes the prior Sprint's
+   > merged work — instead of refusing on a stale frozen base.
 
 9. Update backlog.json: sprint_id, implementer_id. For each PBI in
    the Sprint:
