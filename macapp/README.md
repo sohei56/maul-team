@@ -87,11 +87,21 @@ copies) with a lock and disables their edit action. **Advanced Settings**
 Requirements: macOS 13+, Xcode 15+ (Swift 5.9+), network access to fetch
 SwiftTerm on first build.
 
+Launch as a user would see it (proper Dock icon + front window):
+
+```bash
+sh macapp/scripts/make-app.sh    # build + assemble build/ScrumTeam.app (pass `release` for a release build)
+open macapp/build/ScrumTeam.app
+```
+
+`swift run` builds and runs the bare binary, but it has **no `.app` bundle**
+(no `Info.plist`, no icon) so macOS shows a generic/blank Dock icon — use it
+only for a quick compile-and-smoke-run, not to judge launch behaviour:
+
 ```bash
 cd macapp
-swift run            # build + launch (debug)
-# or open in Xcode:
-open Package.swift
+swift run            # dev compile-and-run only (no Dock icon)
+open Package.swift   # or open in Xcode
 ```
 
 On first launch, set the **framework checkout path** in Settings (⌘,) if it
