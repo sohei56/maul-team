@@ -72,12 +72,6 @@ struct PBIDetailView: View {
                     field("Design round", "\(st.design_round ?? 0)")
                     field("Impl round", "\(st.impl_round ?? 0)")
                 }
-                HStack(spacing: 14) {
-                    stageField("Design", st.design_status)
-                    stageField("Impl", st.impl_status)
-                    stageField("UT", st.ut_status)
-                    stageField("Coverage", st.coverage_status)
-                }
                 if let branch = st.branch { field("Branch", branch) }
                 if let wt = st.worktree { field("Worktree", wt) }
                 if let mf = st.merge_failure_count, mf > 0 { field("Merge failures", "\(mf)") }
@@ -112,25 +106,6 @@ struct PBIDetailView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.caption2).foregroundStyle(.secondary)
             Text(value).font(.callout.monospaced())
-        }
-    }
-
-    private func stageField(_ label: String, _ status: String?) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(status ?? "—")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(stageColor(status))
-        }
-    }
-
-    private func stageColor(_ s: String?) -> Color {
-        switch s {
-        case "pass", "passed", "done": return .green
-        case "fail", "failed": return .red
-        case "skipped": return .secondary
-        case "running", "in_progress": return .blue
-        default: return .primary
         }
     }
 }

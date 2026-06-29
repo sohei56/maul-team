@@ -49,12 +49,44 @@ done < <(jq -r '.paths_touched[]' "$STATE")
 mkdir -p "$SCRUM_LOCK_DIR"
 MERGE_LOCK_DIR="$SCRUM_LOCK_DIR/merge.lock.d"
 _acquire_lock "$MERGE_LOCK_DIR"
-# shellcheck disable=SC2064
-trap "rmdir '$MERGE_LOCK_DIR' 2>/dev/null || true" EXIT
+# Cleanup on any exit: restore stashed out-of-scope drift (if any), then drop
+# the merge lock. Defined as a function so STASHED is read at fire time.
+STASHED=0
+_merge_cleanup() {
+  local rc=$?
+  if [ "${STASHED:-0}" = "1" ]; then
+    git stash pop >/dev/null 2>&1 \
+      || printf '[merge-pbi] WARN: could not auto-restore stashed working-tree drift; recover manually with: git stash pop\n' >&2
+  fi
+  rmdir "$MERGE_LOCK_DIR" 2>/dev/null || true
+  return $rc
+}
+trap _merge_cleanup EXIT
 
-# Working tree must have no staged/modified/deleted tracked-file changes
-# (untracked files are ignored — .scrum/ is not versioned)
-assert_clean_worktree "refuse to merge"
+# Merge-scoped clean check. A blanket "main must be fully clean" check strands
+# an unrelated PBI merge behind working-tree drift the merge would never touch
+# (a leaked catalog spec, a framework-file edit on a disjoint path) — a failure
+# mode that repeatedly halted whole autonomous Sprints. Refuse ONLY when the
+# drift intersects the files THIS merge modifies (git would refuse those
+# anyway). Disjoint tracked drift is stashed across the merge so a post-merge
+# rollback (`git reset --hard`) cannot destroy it, then restored by the trap.
+COLLIDE="$(merge_colliding_dirt "$BRANCH")"
+if [ "$COLLIDE" = "__NO_BASE__" ]; then
+  fail E_INVALID_ARG "no merge base between current branch and '$BRANCH'; refusing to merge a dirty tree"
+fi
+if [ -n "$COLLIDE" ]; then
+  CSV="$(printf '%s' "$COLLIDE" | tr '\n' ',' | sed 's/,$//')"
+  fail E_INVALID_ARG "refuse to merge: working tree has uncommitted changes to files this merge modifies: $CSV"
+fi
+if [ -n "$(git diff --name-only HEAD 2>/dev/null || true)" ]; then
+  # Dirty but disjoint from the merge set — protect it across the merge.
+  if git stash push -m "merge-pbi:$PBI disjoint-drift" >/dev/null 2>&1; then
+    STASHED=1
+    printf '[merge-pbi] WARN: stashed out-of-scope working-tree drift across the merge (auto-restored after)\n' >&2
+  else
+    fail E_INVALID_ARG "failed to stash out-of-scope working-tree drift; refusing to merge"
+  fi
+fi
 
 PRE_HEAD="$(git rev-parse HEAD)"
 

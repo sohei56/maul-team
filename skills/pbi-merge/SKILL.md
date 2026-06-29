@@ -43,11 +43,16 @@ disable-model-invocation: false
 
 - SM has just received `[<pbi-id>] PBI_READY_TO_MERGE` from a Developer
 - backlog.json `items[].status == "in_progress_merge"` for this PBI
-- Main worktree has no tracked-file changes (`git status --porcelain`
-  shows only untracked entries). `.scrum/` is untracked by design;
-  the wrapper additionally asserts `.scrum/` is **not tracked at all**
-  (`assert_scrum_untracked` in `lib/git-guards.sh`) and aborts with
-  `E_INVALID_ARG` if a stray commit ever made it tracked.
+- Main worktree has no tracked-file changes **on the paths this merge
+  would modify**. The check is merge-scoped (`merge_colliding_dirt` in
+  `lib/git-guards.sh`): tracked drift that is *disjoint* from the merge's
+  file set does **not** block — it is stashed across the merge and
+  restored afterward (a post-merge rollback `git reset --hard` cannot eat
+  it). Drift that *intersects* the merge's file set still aborts with
+  `E_INVALID_ARG` (git would refuse to overwrite it anyway). `.scrum/` is
+  untracked by design; the wrapper additionally asserts `.scrum/` is **not
+  tracked at all** (`assert_scrum_untracked`) and aborts if a stray commit
+  ever made it tracked.
 
 ## Steps
 

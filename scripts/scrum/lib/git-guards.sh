@@ -45,3 +45,49 @@ assert_clean_worktree() {
     fail E_INVALID_ARG "$where has uncommitted tracked changes${hint:+ — $hint}"
   fi
 }
+
+# merge_colliding_dirt <branch>
+# Merge-scoped variant of the clean-tree check. Echoes (newline-separated) the
+# tracked working-tree dirty paths in the CURRENT worktree that the impending
+# merge of <branch> would ALSO modify — i.e. the paths for which the merge is
+# genuinely unsafe (git's own merge would refuse to overwrite them).
+#
+# Why this exists: a blanket "main must be 100% clean" check strands an
+# unrelated PBI merge behind working-tree drift the merge never touches (a
+# leaked catalog spec, a framework-file edit on a disjoint path). Such drift
+# recurred across real autonomous runs and halted whole Sprints. Dirt that is
+# disjoint from the merge's file set cannot be clobbered by `git merge`, so it
+# should not block the merge.
+#
+# Output contract (so callers can branch without re-running git):
+#   (empty)        — tree clean, or all dirt is disjoint from the merge set
+#   __NO_BASE__    — no merge base with <branch>; caller should fall back to
+#                    a strict refusal (cannot scope safely)
+#   <paths…>       — the colliding tracked paths (merge is unsafe)
+#
+# Untracked files are always ignored (.scrum/ is untracked by design). The
+# dirty set is taken from `git diff --name-only HEAD` (tracked changes vs
+# HEAD, staged + unstaged), which yields clean newline-separated paths.
+merge_colliding_dirt() {
+  local branch="$1"
+  local dirty
+  dirty="$(git diff --name-only HEAD 2>/dev/null || true)"
+  [ -z "$dirty" ] && return 0
+  local base
+  base="$(git merge-base HEAD "$branch" 2>/dev/null || true)"
+  if [ -z "$base" ]; then
+    printf '__NO_BASE__\n'
+    return 0
+  fi
+  local merge_set
+  merge_set="$(git diff --name-only "$base" "$branch" 2>/dev/null || true)"
+  local f
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if printf '%s\n' "$merge_set" | grep -Fxq -- "$f"; then
+      printf '%s\n' "$f"
+    fi
+  done <<EOF
+$dirty
+EOF
+}

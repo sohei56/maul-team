@@ -62,7 +62,7 @@ struct WorkspaceView: View {
         let left = AnyView(
             SplitContainer(
                 isVertical: false, storageKey: "ws.left",
-                minSizes: [120, 120], initialFractions: [0.66],
+                minSizes: [120, 120], initialFractions: [0.504],
                 panes: [
                     AnyView(FileTreeView(rootPath: project.path)
                         .environmentObject(editor).environmentObject(state)
@@ -74,7 +74,7 @@ struct WorkspaceView: View {
         let center = AnyView(
             SplitContainer(
                 isVertical: false, storageKey: "ws.center",
-                minSizes: [200, 140], initialFractions: [0.68],
+                minSizes: [200, 140], initialFractions: [0.655],
                 panes: [
                     AnyView(paneContainer(title: "Scrum Master", systemImage: "bubble.left.and.bubble.right.fill") {
                         TerminalPaneView(terminal: session.smTerminal)
@@ -93,7 +93,7 @@ struct WorkspaceView: View {
         )
         return SplitContainer(
             isVertical: true, storageKey: "ws.h",
-            minSizes: [180, 360, 300], initialFractions: [0.20, 0.67],
+            minSizes: [180, 360, 300], initialFractions: [0.184, 0.729],
             panes: [left, center, right])
     }
 

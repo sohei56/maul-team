@@ -39,20 +39,8 @@ struct DashboardView: View {
 
     private var projectCard: some View {
         SectionCard(title: "Project", systemImage: "shippingbox") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(model.state?.product_goal ?? model.backlog?.product_goal ?? "No product goal")
-                    .font(.body)
-                if let phase = model.state?.phase {
-                    HStack(spacing: 6) {
-                        Text("Phase").font(.caption).foregroundStyle(.secondary)
-                        Text(phaseLabel(phase))
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(.blue.opacity(0.15), in: Capsule())
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
+            Text(model.state?.product_goal ?? model.backlog?.product_goal ?? "No product goal")
+                .font(.body)
         }
     }
 
@@ -62,13 +50,23 @@ struct DashboardView: View {
         SectionCard(title: "Sprint", systemImage: "flag.checkered") {
             if let sprint = model.sprint {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Text(sprint.id ?? "—").font(.headline)
                         if let st = sprint.status {
                             Text(st).font(.caption.weight(.semibold))
                                 .padding(.horizontal, 7).padding(.vertical, 2)
                                 .background(.green.opacity(0.15), in: Capsule())
                                 .foregroundStyle(.green)
+                        }
+                        if let phase = model.state?.phase {
+                            HStack(spacing: 4) {
+                                Text("Phase").font(.caption2).foregroundStyle(.secondary)
+                                Text(phaseLabel(phase))
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(.blue.opacity(0.15), in: Capsule())
+                                    .foregroundStyle(.blue)
+                            }
                         }
                         Spacer()
                     }
@@ -91,7 +89,19 @@ struct DashboardView: View {
                     }
                 }
             } else {
-                Text("No active sprint").foregroundStyle(.secondary).font(.subheadline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No active sprint").foregroundStyle(.secondary).font(.subheadline)
+                    if let phase = model.state?.phase {
+                        HStack(spacing: 4) {
+                            Text("Phase").font(.caption2).foregroundStyle(.secondary)
+                            Text(phaseLabel(phase))
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(.blue.opacity(0.15), in: Capsule())
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
             }
         }
     }
@@ -215,11 +225,11 @@ struct DashboardView: View {
 
     private func phaseLabel(_ phase: String) -> String {
         [
-            "new": "New", "requirements_sprint": "Requirements",
+            "new": "New", "requirements_sprint": "Requirements Definition",
             "backlog_created": "Backlog Created", "sprint_planning": "Sprint Planning",
-            "pbi_pipeline_active": "PBI Pipelines Running", "review": "Review",
+            "pbi_pipeline_active": "Parallel Development for Each PBI", "review": "Cross Review",
             "sprint_review": "Sprint Review", "retrospective": "Retrospective",
-            "integration_sprint": "Integration", "complete": "Complete",
+            "integration_sprint": "Integration Tests & UAT", "complete": "Complete",
         ][phase] ?? phase
     }
 }

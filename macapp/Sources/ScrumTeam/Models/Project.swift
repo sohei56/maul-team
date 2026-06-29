@@ -15,4 +15,12 @@ struct Project: Identifiable, Codable, Hashable {
     var isInitialized: Bool {
         FileManager.default.fileExists(atPath: (path as NSString).appendingPathComponent(".scrum"))
     }
+
+    /// True when a product brief already exists at `docs/product/brief.md`.
+    /// Autonomous mode needs a brief to anchor scope — when absent, the terminal
+    /// co-authors one (the create-brief skill) before the run starts, so the
+    /// launch picker surfaces an extra heads-up.
+    var hasBrief: Bool {
+        FileManager.default.fileExists(atPath: (path as NSString).appendingPathComponent("docs/product/brief.md"))
+    }
 }

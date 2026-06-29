@@ -190,6 +190,40 @@ JSON
   [ ! -f ".scrum/autonomy.json" ]
 }
 
+@test "scrum-start (no flags) resets leftover po_mode=agent to human" {
+  # A prior --autonomous run left po_mode=agent + an autonomous tuning block
+  # in config.json. A plain start must flip po_mode back to human (so the SM
+  # does not re-spawn the PO teammate) while preserving .autonomous.*.
+  mkdir -p .scrum
+  cat > .scrum/state.json <<'JSON'
+{
+  "phase": "requirements_sprint",
+  "current_sprint_id": null,
+  "product_goal": "x",
+  "created_at": "2026-06-12T00:00:00Z",
+  "updated_at": "2026-06-12T00:00:00Z"
+}
+JSON
+  cat > .scrum/config.json <<'JSON'
+{
+  "po_mode": "agent",
+  "autonomous": {"max_sprints": 8, "max_iterations": 50}
+}
+JSON
+
+  run bash "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+
+  # po_mode reset to human ...
+  run jq -r '.po_mode' .scrum/config.json
+  [ "$output" = "human" ]
+  # ... but the autonomous tuning block is preserved untouched.
+  run jq -r '.autonomous.max_sprints' .scrum/config.json
+  [ "$output" = "8" ]
+  run jq -r '.autonomous.max_iterations' .scrum/config.json
+  [ "$output" = "50" ]
+}
+
 # --- (d) --max-sprints override is reflected in config.json -----------------
 
 @test "scrum-start --autonomous --max-sprints N overrides config" {

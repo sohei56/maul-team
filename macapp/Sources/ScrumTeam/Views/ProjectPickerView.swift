@@ -273,17 +273,56 @@ private struct LaunchModeSheet: View {
                 modeCard(mode)
             }
 
+            if selection == .autonomous {
+                autonomousGuidance
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button("Start", action: onStart)
+                Button(selection == .autonomous ? "Continue in Terminal" : "Start", action: onStart)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
             }
         }
         .padding(24)
         .frame(width: 520)
+    }
+
+    /// Heads-up shown once Autonomous is selected: the run is configured through
+    /// the terminal, not this dialog. Sets the expectation that the next prompts
+    /// (sprint count, limits, and — for a new project — the brief brainstorm)
+    /// must be answered in the terminal pane.
+    private var autonomousGuidance: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Setup continues in the terminal", systemImage: "terminal")
+                .font(.callout.weight(.semibold))
+            guidanceRow(
+                "number.square",
+                "First, the terminal asks you to set the run limits — how many "
+                + "sprints to auto-run, max hours, and so on. Type your answers "
+                + "in the terminal pane; the run won't start until you do.")
+            if !project.hasBrief {
+                guidanceRow(
+                    "text.book.closed",
+                    "This project has no product brief yet. The terminal then "
+                    + "walks you through co-authoring one — finish that Q&A "
+                    + "(the \"壁打ち\") in the terminal before the autonomous run begins.")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.10)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.orange.opacity(0.35)))
+    }
+
+    private func guidanceRow(_ icon: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon).foregroundStyle(.orange).font(.caption)
+            Text(text).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func modeCard(_ mode: LaunchMode) -> some View {

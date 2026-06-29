@@ -138,11 +138,15 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   Full flow: `skills/pbi-pipeline/SKILL.md` § Stages; rationale +
   detailed branches: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user
-  (default; current behaviour unchanged). `"agent"` → the
-  `product-owner` teammate (FR-023). Skills do not branch on mode;
-  every "ask the user" prompt resolves to a `PO_DECISION_REQUEST`
-  to the PO teammate in agent mode. See `rules/scrum-context.md`
-  § PO seat resolution and `agents/product-owner.md`.
+  (default). `"agent"` → the `product-owner` teammate (FR-023).
+  Skills do not branch on mode; every "ask the user" prompt resolves
+  to a `PO_DECISION_REQUEST` to the PO teammate in agent mode. See
+  `rules/scrum-context.md` § PO seat resolution and
+  `agents/product-owner.md`. A **non-autonomous** `scrum-start.sh`
+  (no `--autonomous`) resets a leftover `po_mode=agent` in
+  `.scrum/config.json` back to `"human"` at launch, so a normal
+  start after a prior autonomous run does not silently re-spawn the
+  PO teammate; the `.autonomous.*` tuning block is preserved.
 - Autonomous mode (`scrum-start.sh --autonomous`) drives the team
   end-to-end without human input. The outer loop
   (`scripts/autonomous/watchdog.sh`) re-launches `claude -p`

@@ -408,3 +408,78 @@ stdin_session() {
   run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
   [ "$status" -eq 0 ]
 }
+
+# ------------------------------------------------------------------
+# (j) block_stop terminal gap (P0-a): exit-criteria-miss phases reached via
+#     block_stop (e.g. `review` with a stuck PBI) historically did `exit 2`
+#     directly under autonomy and NEVER reached the circuit breaker, pinning
+#     the session in an unbounded hard block. They must now route through the
+#     per-phase breaker: block within budget, trip + allow once exceeded.
+# ------------------------------------------------------------------
+
+@test "agent mode lead session: review with a non-done PBI BLOCKS within budget and surfaces stop-block count" {
+  write_config_agent 8
+  write_autonomy sess-lead review 0
+  write_state_phase review sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  # status=escalated (not done) → review exit-criteria miss → block_stop.
+  jq '.items[0].status = "escalated"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"not done"* ]]
+  # Bounded block now consumes the per-phase budget (regression: it used to
+  # exit 2 without touching the counter).
+  [[ "$output" == *"stop-block 1/8"* ]]
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "1" ]
+}
+
+@test "agent mode lead session: review with a stuck PBI TRIPS the breaker once budget exceeded (the missing terminal)" {
+  write_config_agent 2
+  # count=2, same phase: next bump → 3 > budget 2 → trip.
+  write_autonomy sess-lead review 2
+  write_state_phase review sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "escalated"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  # Breaker trips → allow exit so the watchdog flags the run (was: infinite
+  # in-session hard block with no path to the breaker).
+  [ "$status" -eq 0 ]
+  run jq -r '.circuit_breaker_tripped.phase' .scrum/autonomy.json
+  [ "$output" = "review" ]
+}
+
+@test "agent mode lead session: escalated_unresolved is BOUNDED and trips the breaker" {
+  # The real incident scenario — an escalated PBI with no recorded resolution
+  # that the team cannot auto-resolve must surface, not pin the session.
+  write_config_agent 2
+  write_autonomy sess-lead pbi_pipeline_active 2
+  write_state_phase pbi_pipeline_active sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "escalated" | .items[0].id = "pbi-009"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  # No .scrum/pbi/pbi-009/escalation-resolution.md → unresolved.
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+  run jq -r '.circuit_breaker_tripped.phase' .scrum/autonomy.json
+  [ "$output" = "pbi_pipeline_active" ]
+}
+
+@test "agent mode lead session: pure in-flight block is UNBOUNDED (never trips the breaker)" {
+  # A healthy Sprint legitimately blocks more than the budget within one
+  # iteration (the watchdog resets the counter per iteration). The in-flight
+  # inner loop must NOT consume the breaker budget or it would kill long
+  # Sprints. count is already past budget here.
+  write_config_agent 2
+  write_autonomy sess-lead pbi_pipeline_active 5
+  write_state_phase pbi_pipeline_active sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_impl"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"in-flight"* ]]
+  # Unbounded path must NOT bump the counter or trip the breaker.
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "5" ]
+  run jq -r '.circuit_breaker_tripped' .scrum/autonomy.json
+  [ "$output" = "null" ]
+}

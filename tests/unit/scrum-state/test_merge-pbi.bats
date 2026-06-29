@@ -133,6 +133,57 @@ EOF
   [ "$output" = "in_progress_merge" ]
 }
 
+@test "merge-pbi: disjoint working-tree drift does NOT block the merge (P0-b) and is restored" {
+  # A tracked file the merge never touches is dirtied on main. Historically
+  # the blanket clean check refused ALL merges in this state, stranding
+  # unrelated PBIs. The scoped check must let the merge proceed and the trap
+  # must restore the drift afterward.
+  echo "base" > other.txt; git add other.txt; git commit -q -m "main: other.txt"
+  echo "DIRTY-DISJOINT" > other.txt   # uncommitted, disjoint from file.txt
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "stashed out-of-scope working-tree drift"
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "awaiting_cross_review" ]
+  git log --oneline main | grep -q "merge: pbi-001"
+  # Out-of-scope drift restored verbatim.
+  [ "$(cat other.txt)" = "DIRTY-DISJOINT" ]
+}
+
+@test "merge-pbi: COLLIDING working-tree drift still refuses (P0-b safety floor)" {
+  # Drift on a path the merge WOULD modify must still block — git itself would
+  # refuse to overwrite it, and proceeding could lose the change.
+  echo "main-version" > file.txt; git add file.txt; git commit -q -m "main: file.txt"
+  PRE_MAIN_HEAD="$(git rev-parse HEAD)"
+  echo "DIRTY-COLLIDE" > file.txt    # same path the pbi-001 branch touches
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -q "files this merge modifies"
+  # No merge commit; the colliding drift is left untouched (NOT stashed).
+  [ "$(git rev-parse HEAD)" = "$PRE_MAIN_HEAD" ]
+  [ "$(cat file.txt)" = "DIRTY-COLLIDE" ]
+}
+
+@test "merge-pbi: regression rollback PRESERVES disjoint drift (no git reset --hard data loss)" {
+  # The critical safety property of stashing disjoint drift: a post-merge
+  # rollback (`git reset --hard PRE_HEAD`) must not eat unrelated uncommitted
+  # changes.
+  echo "base" > other.txt; git add other.txt; git commit -q -m "main: other.txt"
+  PRE_MAIN_HEAD="$(git rev-parse HEAD)"
+  echo "DIRTY-DISJOINT" > other.txt
+  cat > .scrum/config.json <<'EOF'
+{"merge_regression":{"command":"exit 1"}}
+EOF
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -ne 0 ]
+  run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "regression" ]
+  # Merge rolled back …
+  [ "$(git rev-parse HEAD)" = "$PRE_MAIN_HEAD" ]
+  # … but the disjoint drift survived the hard reset.
+  [ "$(cat other.txt)" = "DIRTY-DISJOINT" ]
+}
+
 @test "merge-pbi: refuses when .scrum/ is tracked in git" {
   git add -f .scrum/sprint.json
   git commit -q -m "track sprint.json"

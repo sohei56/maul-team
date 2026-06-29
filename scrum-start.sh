@@ -436,6 +436,32 @@ if [ "$AUTONOMOUS" = "1" ]; then
 }
 EOF
   echo "  Autonomous PO mode prepared (run_id=$RUN_ID)."
+else
+  # --- Non-autonomous (human) mode: neutralize leftover autonomous config ---
+  # A prior `--autonomous` run persists `po_mode = "agent"` in
+  # .scrum/config.json. Without this reset, a plain `scrum-start.sh` would
+  # inherit it and the SM would spawn the product-owner teammate. `po_mode`
+  # is the single authoritative switch (autonomy_enabled() requires it), so
+  # flipping it back to "human" fully restores human-PO behavior — no PO is
+  # spawned and the autonomous Stop-gate/hook paths all no-op. The
+  # `.autonomous.*` tuning block is left intact for the next autonomous run.
+  # Written directly (not via a .scrum/scripts wrapper) for the same reason
+  # the autonomous branch above does: this runs in the launcher, outside any
+  # agent tool call, so the scrum-state-guard hook never intercepts it.
+  RESET_CFG=".scrum/config.json"
+  if [ -f "$RESET_CFG" ]; then
+    _prior_po_mode="$(jq -r '.po_mode // "human"' "$RESET_CFG" 2>/dev/null || echo human)"
+    if [ "$_prior_po_mode" = "agent" ]; then
+      TMP_CFG="${RESET_CFG}.tmp.$$.${RANDOM}"
+      if jq '.po_mode = "human"' "$RESET_CFG" > "$TMP_CFG" 2>/dev/null; then
+        mv "$TMP_CFG" "$RESET_CFG"
+        echo "  Human mode: reset leftover po_mode=agent → human (PO teammate disabled)."
+      else
+        rm -f "$TMP_CFG"
+        echo "Warning: could not reset po_mode in $RESET_CFG (continuing)." >&2
+      fi
+    fi
+  fi
 fi
 
 # --- Launch ---

@@ -62,8 +62,36 @@ fi
 # Helpers
 # ---------------------------------------------------------------------------
 
+# autonomy_breaker_step
+# Shared per-phase circuit-breaker bookkeeping for autonomous mode. Bumps the
+# stop-block counter for the current $phase and consults
+# autonomous.stop_block_budget_per_phase. Echoes exactly one verdict:
+#   unavailable    — counter bookkeeping failed (no/invalid autonomy.json)
+#   trip           — budget exceeded; the breaker has been recorded, the
+#                    caller MUST allow exit so the watchdog flags the run
+#   block:<n>/<b>  — within budget; the caller should keep blocking, and
+#                    <n>/<b> may be surfaced in the block reason.
+# Used by BOTH block_stop (bounded path) and autonomous_intercept_or_allow so
+# the two share one terminal contract. The watchdog resets the counter to 0 at
+# the start of every iteration, so the budget is per-iteration.
+autonomy_breaker_step() {
+  local budget new_count
+  budget="$(autonomy_config_int '.autonomous.stop_block_budget_per_phase' 8)"
+  new_count="$(bump_stop_block_counter "${phase:-unknown}" 2>/dev/null || echo "0")"
+  if [ "${new_count:-0}" = "0" ]; then
+    printf 'unavailable'
+    return 0
+  fi
+  if [ "$new_count" -gt "$budget" ]; then
+    record_circuit_breaker "${phase:-unknown}" || true
+    printf 'trip'
+    return 0
+  fi
+  printf 'block:%s/%s' "$new_count" "$budget"
+}
+
 block_stop() {
-  # Usage: block_stop <reason> <block_kind> <signature>
+  # Usage: block_stop <reason> <block_kind> <signature> [breaker_mode]
   #   <reason>     human-readable text for the LLM (long-form OK).
   #   <block_kind> short tag (e.g. review_incomplete, sprint_history_missing,
   #               escalated_unresolved, tests_failed). Combined with the
@@ -71,23 +99,57 @@ block_stop() {
   #   <signature>  state snapshot that identifies the situation — e.g. the
   #               sorted list of incomplete PBI IDs, the current sprint_id.
   #               Empty string is allowed.
+  #   breaker_mode (autonomy only) — "bounded" (default) routes the block
+  #               through the per-phase circuit breaker so a stuck phase
+  #               terminates the iteration instead of pinning the session in
+  #               an unbounded hard block; "unbounded" is the healthy
+  #               pbi_pipeline_active inner loop (teammates working) that must
+  #               keep firing every turn-end without consuming the budget.
   #
   # When the autonomy loop is active (autonomous mode + a live watchdog,
-  # i.e. `autonomy_loop_active`), dedup is intentionally bypassed: the
-  # watchdog contract relies on every Stop block firing while the
-  # condition holds. In human mode — and in autonomous mode with no live
-  # watchdog — the dedup ledger collapses repeats to logged-only
-  # allow_stop.
+  # i.e. `autonomy_loop_active`), the human-mode dedup ledger is bypassed: the
+  # watchdog contract relies on Stop blocks firing while the condition holds.
+  # Historically EVERY autonomous block did `exit 2` directly and so never
+  # reached the circuit breaker (which lived only on the allow path) — leaving
+  # exit-criteria-miss phases (e.g. `review` with an unresolvable escalated
+  # PBI) with no terminal, burning iterations/cost. Bounded blocks now consume
+  # the same per-phase budget and trip the breaker, which allows exit so the
+  # watchdog flags the run. In human mode — and in autonomous mode with no live
+  # watchdog — the dedup ledger collapses repeats to logged-only allow_stop.
   local reason="$1"
   local block_kind="${2:-unknown}"
   local signature="${3:-}"
+  local breaker_mode="${4:-bounded}"
   local hint
   hint="$(in_flight_hint)"
 
   if autonomy_loop_active; then
-    log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-    jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-    exit 2
+    if [ "$breaker_mode" = "unbounded" ]; then
+      log_hook "completion-gate" "WARN" "Blocked stop: $reason"
+      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
+      exit 2
+    fi
+    local bstep
+    bstep="$(autonomy_breaker_step)"
+    case "$bstep" in
+      trip)
+        log_hook "completion-gate" "WARN" "Circuit breaker tripped via block_stop in phase '${phase:-unknown}': $reason"
+        exit 0
+        ;;
+      unavailable)
+        # Counter bookkeeping unavailable — fail-open to a plain block (do not
+        # silently allow an exit-criteria miss). The watchdog's outer
+        # max_iterations / wall-clock valves still bound the degenerate case.
+        log_hook "completion-gate" "WARN" "Blocked stop (breaker unavailable): $reason"
+        jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
+        exit 2
+        ;;
+      *)
+        log_hook "completion-gate" "WARN" "Blocked stop (${bstep#block:}): $reason"
+        jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint} (stop-block ${bstep#block:} for phase '${phase:-unknown}')" '{"reason": $r}' >&2
+        exit 2
+        ;;
+    esac
   fi
 
   # Human mode (or autonomous mode with no live watchdog): consult the dedup
@@ -235,29 +297,28 @@ autonomous_intercept_or_allow() {
       ;;
   esac
 
-  local budget
-  budget="$(autonomy_config_int '.autonomous.stop_block_budget_per_phase' 8)"
-
-  local new_count
-  new_count="$(bump_stop_block_counter "$phase" 2>/dev/null || echo "0")"
-  # If counter bookkeeping failed (no autonomy.json / bad JSON), fail-open:
-  # we are in autonomy mode according to the config flag but cannot track
-  # progress — letting the watchdog observe the allow is safer than an
-  # infinite block.
-  if [ "${new_count:-0}" = "0" ]; then
-    return 0
-  fi
-
-  if [ "$new_count" -gt "$budget" ]; then
-    record_circuit_breaker "$phase" || true
-    log_hook "completion-gate" "WARN" "Circuit breaker tripped for phase '$phase' (count=$new_count > budget=$budget)"
-    return 0
-  fi
+  # Shared per-phase breaker bookkeeping (see autonomy_breaker_step).
+  #   unavailable — counter bookkeeping failed; fail-open allow (we are in
+  #     autonomy mode per the config flag but cannot track progress, and
+  #     letting the watchdog observe the allow is safer than an infinite block)
+  #   trip        — budget exceeded; breaker recorded; allow so the watchdog
+  #     flags the run
+  local bstep
+  bstep="$(autonomy_breaker_step)"
+  case "$bstep" in
+    unavailable)
+      return 0
+      ;;
+    trip)
+      log_hook "completion-gate" "WARN" "Circuit breaker tripped for phase '${phase}'"
+      return 0
+      ;;
+  esac
 
   local instruction
   instruction="$(autonomous_next_action "$phase")"
-  log_hook "completion-gate" "INFO" "Autonomous block in '$phase' (count=$new_count/$budget): $instruction"
-  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Autonomous mode (lead session): do NOT stop. ${instruction} (stop-block ${new_count}/${budget} for phase '${phase}')" \
+  log_hook "completion-gate" "INFO" "Autonomous block in '$phase' (${bstep#block:}): $instruction"
+  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Autonomous mode (lead session): do NOT stop. ${instruction} (stop-block ${bstep#block:} for phase '${phase}')" \
     '{"reason": $r}' >&2
   exit 2
 }
@@ -533,10 +594,15 @@ EOF
         # `if autonomy_loop_active` branch bypasses the dedup ledger
         # — neither `stop-gate.json` nor any block_kind tag is read
         # or persisted here under the active autonomy loop.
+        # escalated_unresolved is an exit-criteria miss that the SM must act on
+        # — keep it BOUNDED so a Sprint that cannot resolve the escalation
+        # (e.g. needs human/PO authority) trips the breaker and surfaces,
+        # rather than pinning the session. A pure in-flight block (teammates
+        # working, no escalation) is the healthy inner loop → UNBOUNDED.
         if [ -n "$escalated_unresolved" ]; then
           block_stop "$msg" "escalated_unresolved" "$escalated_unresolved"
         else
-          block_stop "$msg" "pipeline_in_flight" "$in_flight_total"
+          block_stop "$msg" "pipeline_in_flight" "$in_flight_total" "unbounded"
         fi
       fi
     else
