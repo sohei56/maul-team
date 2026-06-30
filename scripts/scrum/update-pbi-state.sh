@@ -33,6 +33,7 @@
 #   ready_at          ISO-8601 datetime string
 #   merged_at         ISO-8601 datetime string
 #   merge_failure_count  non-negative integer
+#   websearch_attempted  true|false (once-per-PBI web-search remediation latch)
 #   merge_failure        null only (drops the object). Non-null values
 #                        of merge_failure are written by
 #                        mark-pbi-merge-failure.sh, not here. The retry
@@ -143,6 +144,13 @@ while [ "$#" -ge 2 ]; do
         ''|*[!0-9]*) fail E_INVALID_ARG "merge_failure_count must be non-negative integer (got: $V)" ;;
       esac
       EXPR="$EXPR | .merge_failure_count = $V"
+      ;;
+    websearch_attempted)
+      case "$V" in
+        true|false) ;;
+        *) fail E_INVALID_ARG "websearch_attempted must be true or false (got: $V)" ;;
+      esac
+      EXPR="$EXPR | .websearch_attempted = $V"
       ;;
     merge_failure)
       # Only null is accepted here — non-null objects must go through

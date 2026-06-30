@@ -138,6 +138,10 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
+  - If that file contains a `## Web-search remediation` section, you
+    MUST use the WebSearch tool to research the named error BEFORE
+    editing code, and base your fix on what you find — do not repeat
+    the previous approach unchanged.
 
 Write source code to project's normal implementation paths (e.g., src/).
 
@@ -195,6 +199,9 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/ut-r{n}.md
+  - If that file contains a `## Web-search remediation` section, you
+    MUST use the WebSearch tool to research the named error BEFORE
+    editing tests, and base your change on what you find.
 - Prior coverage report (gap reference):
   - .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
 

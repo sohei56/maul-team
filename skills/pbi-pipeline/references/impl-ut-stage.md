@@ -421,9 +421,24 @@ fire), revert to impl for the next round:
 # See "Build feedback for next round".
 ```
 
-#### Termination gate (Stagnation / Divergence / Hard cap)
+#### Termination gate (Tech-error recurrence / Stagnation / Divergence / Hard cap)
 
-See `termination-gates.md`. On any escalate gate:
+See `termination-gates.md` for the full gate set and evaluation order.
+Evaluate in that order. **Before** the escalate gates, check
+technical-error recurrence: if the same web-searchable technical error
+(test failure `type ∈ {exec_error, uncaught_exception, timeout}`, or an
+`:error_handling` reviewer finding) recurred across the last two Rounds
+AND `websearch_attempted` is unset, set the latch and route this FAIL to
+the normal next-round path with a `## Web-search remediation` section in
+the feedback (see `feedback-routing.md`) — do NOT escalate this Round:
+
+```bash
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" websearch_attempted true
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate "web-search remediation → next round"
+# then continue via the FAIL → next-round path (begin-impl-round.sh).
+```
+
+Otherwise, on any escalate gate:
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"

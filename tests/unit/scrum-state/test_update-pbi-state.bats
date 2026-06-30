@@ -153,6 +153,23 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "update-pbi-state: sets websearch_attempted true/false" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 websearch_attempted true
+  [ "$status" -eq 0 ]
+  run jq -r '.websearch_attempted' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "true" ]
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 websearch_attempted false
+  [ "$status" -eq 0 ]
+  run jq -r '.websearch_attempted' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "false" ]
+}
+
+@test "update-pbi-state: rejects non-boolean websearch_attempted" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 websearch_attempted yes
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"websearch_attempted must be true or false"* ]]
+}
+
 @test "update-pbi-state: rejects malformed sha" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 head_sha NOT_A_SHA
   [ "$status" -ne 0 ]

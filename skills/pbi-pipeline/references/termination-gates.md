@@ -17,6 +17,7 @@ Deterministic — no fuzzy heuristics.
 | Gate | Condition | Outcome |
 |---|---|---|
 | Success | (stage-specific success criteria all true) | STOP success |
+| Tech-error recurrence | Same root web-searchable technical error in 2 consecutive Rounds AND `websearch_attempted` unset | Set latch; redirect ONE next Round to web-search remediation (no escalate). See § Technical-error recurrence |
 | Stagnation | Same `signature` repeats in 2 consecutive Rounds (Critical/High only) | STOP escalate (`stagnation`) |
 | Divergence | (CRITICAL+HIGH count) increases Round n → n+1 | STOP escalate (`divergence`) |
 | Hard cap | `round_n >= 5` | STOP escalate (`max_rounds`) |
@@ -61,6 +62,77 @@ When `backlog.json items[].kind == "docs"`:
   doc-only PBIs that can't converge in 5 impl rounds usually mean
   the parent finding was mis-framed; escalating to the SM is
   correct.
+
+## Technical-error recurrence (web-search remediation)
+
+Purpose: when a Developer keeps producing ineffective fixes against the
+**same web-searchable technical error** (build/compile failure, runtime
+exception, library/API misuse, test-tooling failure), give the
+implementer ONE early shot at researching it via `WebSearch` instead of
+letting the error churn silently to the hard cap. Latched to at most one
+remediation Round per PBI.
+
+Evaluated only when control is about to loop into the next impl Round
+(a reviewer-FAIL or UT-run-FAIL where no escalate gate fired). It never
+overrides Success.
+
+### Technical-error set (web-searchable; machine-derived)
+
+A finding counts as a web-searchable technical error iff it is one of:
+
+- a `test-results-r{n}.json` `failures[]` entry with
+  `type ∈ {exec_error, uncaught_exception, timeout}`. **`type ==
+  assertion` is EXCLUDED** — an assertion failure is a logic/spec
+  mismatch the design must resolve, not something a web search answers.
+- a reviewer finding whose `signature` ends in `:error_handling` — the
+  sole `criterion_key` that maps to a library/API contract. Every other
+  `criterion_key` (`incorrect_behavior`, `scope_creep`, `naming`,
+  `missing_validation`, `unclear_intent`, `dead_code`,
+  `missing_test_for_acceptance`, `missing_branch_coverage`,
+  `redundant_test`, `mock_overuse`, `magic_number`, `bad_assertion`,
+  `pragma_unjustified`) is spec/style and is NOT in this set.
+
+### Recurrence judgment (the one bounded LLM call in this gate set)
+
+The rest of these gates are deterministic. This one is not, because
+test-failure `message` / `stack_trace` are free text (paths, line
+numbers, addresses vary run to run), so a brittle string match is
+unreliable. Instead the conductor reads the technical-error set of
+Round n and Round n-1 and answers a SINGLE yes/no:
+
+> Is the **same root technical error** present in both Rounds?
+
+Restrict the judgment strictly to the technical-error set above. Never
+let an assertion failure or a spec/style `criterion_key` enter this
+judgment — those belong to Stagnation/Divergence, which escalate.
+
+Unlike Stagnation, this gate does **not** need the post-Cross-Review
+skip: `test-results-r{n}.json` is uniformly schema'd, so Round n and
+n-1 are comparable even across a Cross-Review revert boundary (only
+reviewer *prose* is incomparable there).
+
+### Outcome
+
+```bash
+# recurrence == "yes":
+if [ "$(jq -r '.websearch_attempted // false' "$STATE_FILE")" != "true" ]; then
+  .scrum/scripts/update-pbi-state.sh "$PBI_ID" websearch_attempted true
+  .scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate \
+    "web-search remediation → next round"
+  # Do NOT escalate. Fall through to the normal FAIL → next-round path.
+  # The next round's feedback MUST carry the WebSearch directive — see
+  # feedback-routing.md § Web-search remediation and
+  # sub-agent-prompts.md (implementer obeys it).
+fi
+# If websearch_attempted is already true, the single remediation Round
+# was already spent: take NO special action here and let the Stagnation
+# / Divergence / Hard-cap gates below decide escalation as usual. The
+# latch bounds the added cost to at most +1 Round per PBI.
+```
+
+Documented limitation: the latch is per-PBI, not per-distinct-error. If
+a second, unrelated technical error appears after the latch is set, it
+does not get its own remediation Round — the existing gates handle it.
 
 ## Stagnation detection
 
@@ -139,8 +211,17 @@ cycle, Stagnation detection resumes normally for subsequent Rounds.
 ## Gate evaluation order
 
 1. If success criteria met → STOP success (no further checks)
-2. If stagnation → STOP escalate (stagnation)
-3. If divergence → STOP escalate (divergence)
-4. If hard cap → STOP escalate (max_rounds)
-5. Otherwise: proceed to next Round (or build feedback first for the
+2. If technical-error recurrence (same root web-searchable error in 2
+   consecutive Rounds) AND `websearch_attempted` is unset → set the
+   latch and redirect the next Round to web-search remediation (no
+   escalate); skip the escalation checks below for this Round. If the
+   latch is already set, continue to step 3.
+3. If stagnation → STOP escalate (stagnation)
+4. If divergence → STOP escalate (divergence)
+5. If hard cap → STOP escalate (max_rounds)
+6. Otherwise: proceed to next Round (or build feedback first for the
    impl/pbi-review/ut-run cycle)
+
+Step 2 only redirects; it never stops. A web-search remediation Round
+still counts toward the hard cap (step 5), so the latch can add at most
+one Round before the cap forces escalation.

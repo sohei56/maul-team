@@ -34,10 +34,36 @@ For each uncovered branch in `coverage-r{n}.json.files[].uncovered_branches`:
 - If you can't tell → **route to both** (low-cost: each agent will
   no-op if not its concern).
 
+## Web-search remediation (conditional)
+
+When the technical-error-recurrence gate fired this Round (see
+`termination-gates.md` § Technical-error recurrence — i.e. the conductor
+just set `websearch_attempted true`), prepend the following section to
+`feedback/impl-r{n+1}.md` **and** `feedback/ut-r{n+1}.md`. Omit it
+entirely on every other Round. List only the recurring web-searchable
+technical error(s) — the verbatim error `type` + `message` (and
+`stack_trace` first frame if present), or the `:error_handling` finding
+text. Do NOT list assertion failures or spec/style findings here.
+
+````markdown
+## Web-search remediation (REQUIRED this round)
+
+The following technical error has recurred unresolved across the last
+two Rounds. Before editing any code, use the `WebSearch` tool to
+research it (error text, library name + version, framework). Cite what
+you found and apply a fix grounded in it — do not retry the previous
+approach unchanged.
+
+- {type}: {message}
+  {first stack frame, if any}
+````
+
 ## Feedback file template — `feedback/impl-r{n+1}.md`
 
 ````markdown
 # Impl Feedback for Round {n+1}
+
+{Web-search remediation section here when the gate fired this Round}
 
 ## impl-reviewer findings (Round {n})
 
@@ -62,6 +88,8 @@ For each uncovered branch in `coverage-r{n}.json.files[].uncovered_branches`:
 
 ````markdown
 # UT Feedback for Round {n+1}
+
+{Web-search remediation section here when the gate fired this Round}
 
 ## ut-reviewer findings (Round {n})
 
