@@ -3,6 +3,10 @@
 #
 # Usage (interactive / human-PO mode):
 #   sh scrum-start.sh
+#   On a NEW project with no docs/product/brief.md, an interactive Claude
+#   session co-authors the product brief (create-brief skill) first; the
+#   Scrum Master's Requirement Definition then begins with that brief as its
+#   anchor. Exiting without writing a brief aborts the launch.
 #
 # Usage (autonomous-PO mode — Ralph Loop, no human at the keyboard):
 #   sh scrum-start.sh --autonomous [--brief docs/product/brief.md] \
@@ -225,8 +229,14 @@ else
   # update-state-phase call has a file to mutate. setup-user.sh above has
   # already copied scripts/scrum/*.sh to .scrum/scripts/.
   sh .scrum/scripts/init-state.sh
-  initial_prompt="Introduce yourself and begin the Requirement Definition. Greet the user, explain the Scrum workflow briefly, then start eliciting requirements."
+  initial_prompt="Introduce yourself and begin the Requirement Definition. Greet the user, explain the Scrum workflow briefly. A product brief has been co-authored at docs/product/brief.md — read it first and use it as the anchor for the interview: elicit requirements that realize the brief, and when a requirement conflicts with the brief, surface the conflict and resolve it by amending either the brief or the requirement (do not silently diverge)."
 fi
+
+# Brief pre-flight flag. Set to 1 by the brief-resolution blocks below (both
+# the autonomous and the human-mode branches) when a new project has no
+# docs/product/brief.md yet and a human is present. Initialized here so the
+# launch branches can reference it safely under `set -u`.
+NEED_BRIEF_BUILDER=0
 
 # --- Autonomous-PO mode preparation ----------------------------------------
 # Done before tmux/claude launch so the watchdog finds .scrum/config.json
@@ -462,6 +472,21 @@ else
       fi
     fi
   fi
+
+  # --- Brief pre-flight (human mode) --------------------------------------
+  # A product brief at docs/product/brief.md anchors Requirement Definition in
+  # human mode exactly as it anchors the PO's scope decisions in autonomous
+  # mode. On a new project with no brief and a human present (TTY), co-author
+  # one via the create-brief skill before the Scrum Master session starts —
+  # this makes "brief first" the very first thing the human does, mirroring the
+  # autonomous pre-flight. Non-TTY / DRY_RUN runs (tests, scripted launches)
+  # fall through with NEED_BRIEF_BUILDER=0 and behave as before.
+  if [ "$IS_NEW_PROJECT" = "1" ] && [ ! -f "docs/product/brief.md" ] \
+     && [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+    NEED_BRIEF_BUILDER=1
+    echo "  No product brief found — will co-author docs/product/brief.md with" \
+         "Claude (create-brief skill) before Requirement Definition begins."
+  fi
 fi
 
 # --- Launch ---
@@ -475,7 +500,12 @@ WATCHDOG_CMD="$SCRIPT_DIR/scripts/autonomous/watchdog.sh"
 # interactive Claude session co-authors docs/product/brief.md via the
 # create-brief skill before the watchdog starts. Kept apostrophe-free so it
 # can be single-quoted safely inside the tmux send-keys command string.
-BRIEF_BUILDER_PROMPT="A product brief is required to start autonomous mode, but docs/product/brief.md does not exist yet. Use the create-brief skill now to co-author the brief with me interactively. Interview me one topic at a time, quality-gate the draft, and write the result to docs/product/brief.md. When the brief is complete, tell me it is done and that autonomous mode will start as soon as I exit this session."
+if [ "$AUTONOMOUS" = "1" ]; then
+  BRIEF_BUILDER_TAIL="autonomous mode will start as soon as I exit this session."
+else
+  BRIEF_BUILDER_TAIL="the Scrum team will begin Requirement Definition as soon as I exit this session."
+fi
+BRIEF_BUILDER_PROMPT="A product brief is required before the Scrum team can start, but docs/product/brief.md does not exist yet. Use the create-brief skill now to co-author the brief with me interactively. Interview me one topic at a time, quality-gate the draft, and write the result to docs/product/brief.md. When the brief is complete, tell me it is done and that ${BRIEF_BUILDER_TAIL}"
 
 # SCRUM_NO_TMUX=1 forces the no-tmux foreground branch even when tmux is
 # installed. The macOS app (macapp/) sets this so the Scrum Master runs in
@@ -619,8 +649,18 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
     # argument starts an interactive session with an initial prompt (unlike
     # -p which exits). When Claude exits, the tmux session is killed
     # automatically.
-    tmux send-keys -t "$session_name" \
-      "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}" C-m
+    # When NEED_BRIEF_BUILDER is set, prepend an interactive Claude session
+    # that co-authors docs/product/brief.md (create-brief skill) before the
+    # Scrum Master starts. If the user exits without writing a brief, abort the
+    # launch cleanly rather than starting Requirement Definition with no anchor
+    # (mirrors the autonomous pre-flight).
+    SM_MAIN_CMD=""
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      SM_MAIN_CMD="CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '${BRIEF_BUILDER_PROMPT}'; "
+      SM_MAIN_CMD="${SM_MAIN_CMD}if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — aborting launch.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}; exit 0; fi; "
+    fi
+    SM_MAIN_CMD="${SM_MAIN_CMD}CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}"
+    tmux send-keys -t "$session_name" "$SM_MAIN_CMD" C-m
 
     # External stall watchdog (non-autonomous mode only). Replaces the
     # legacy SM-side Stop-hook block-loop. Detached so it survives this
@@ -689,6 +729,15 @@ else
     echo "Launching autonomous-PO watchdog (no tmux fallback)..."
     "$WATCHDOG_CMD"
   else
+    # Pre-flight brief co-authoring (human mode; see the tmux branch above).
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      echo "No product brief found — launching the brief builder (create-brief skill)..."
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
+      if [ ! -f docs/product/brief.md ]; then
+        echo "Error: no brief was created — aborting launch." >&2
+        exit 2
+      fi
+    fi
     echo "Launching Claude Code with Scrum Master agent..."
     CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master "$initial_prompt"
   fi

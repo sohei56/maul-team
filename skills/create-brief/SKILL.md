@@ -4,8 +4,10 @@ description: >
   Co-author a product brief (docs/product/brief.md) with the human
   through a structured interview, then quality-gate it against
   best practices. The brief is the single human-authored input that
-  anchors every scope / YAGNI decision the team makes — especially
-  in autonomous mode, where it is the Product Owner's source of
+  anchors every scope / YAGNI decision the team makes — in both human
+  and autonomous modes. It anchors the Requirement Definition interview
+  (the Requirements Analyst reads it first and reconciles requirements
+  against it) and, in autonomous mode, is the Product Owner's source of
   truth. Use when no brief exists yet, when a brief is thin or
   unmeasurable, or when the operator runs `/create-brief`.
 disable-model-invocation: false
@@ -22,14 +24,17 @@ contract — **not** a PRD (detailed requirements/user stories),
 **not** a vision doc (multi-year aspiration, no boundaries), and
 **not** an engineering spec (interfaces, schemas, sequencing).
 
-It matters most here because the autonomous Product Owner expands
-this brief into `docs/product/vision.md` and then answers every
-"is this in scope?" question against it. **Anything left implicit
-in the brief becomes an unbounded guess for an autonomous team
-that cannot ask hallway follow-ups.** The brief must be
-*self-sufficient*: every scope / YAGNI decision the team will face
-should be resolvable from the problem, the falsifiable metrics, the
-explicit non-goals, the stated constraints, and the priorities.
+It anchors work in **both modes**. In human mode the Requirements
+Analyst reads it first and drives the Requirement Definition interview
+from it, reconciling any requirement that conflicts with the brief. In
+autonomous mode the Product Owner expands this brief into
+`docs/product/vision.md` and then answers every "is this in scope?"
+question against it. **Anything left implicit in the brief becomes an
+unbounded guess for an autonomous team that cannot ask hallway
+follow-ups.** The brief must be *self-sufficient*: every scope / YAGNI
+decision the team will face should be resolvable from the problem, the
+falsifiable metrics, the explicit non-goals, the stated constraints,
+and the priorities.
 
 Deeper rationale, sources, and the section-by-section quality bar
 live in [references/brief-best-practices.md](references/brief-best-practices.md).
@@ -49,10 +54,14 @@ The fill-in skeleton lives in [references/brief-template.md](references/brief-te
 ## Preconditions
 
 - A human is present (this is an interactive ceremony; it cannot run
-  headless). At autonomous launch, `scrum-start.sh` invokes this skill
-  as a **pre-flight interactive step** only when stdin is a TTY; with
-  no TTY it errors out instead, because a brief cannot be co-authored
-  without a human.
+  headless). On a **new project in either mode**, `scrum-start.sh`
+  invokes this skill as a **pre-flight interactive step** (before the
+  Scrum Master's Requirement Definition in human mode, or before the
+  watchdog in autonomous mode) whenever `docs/product/brief.md` is
+  absent and stdin is a TTY. Human mode with no TTY skips the pre-flight
+  and proceeds; autonomous mode with no TTY errors out (a brief cannot
+  be co-authored without a human, and the autonomous PO cannot run
+  without one).
 - `docs/product/` is writable (create it if missing).
 
 ## Mindset (hold these while interviewing)

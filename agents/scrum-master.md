@@ -62,7 +62,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 > The per-FR `kind=` values below name the specific routing key.
 
 - **FR-001 Launch/Resume**: New→create `.scrum/state.json` (sprint phase: "new")→Requirement Definition. Resume→read state.json→restore saved sprint phase. (Sprint-level phase governs ceremony flow; per-PBI work is tracked exclusively via `backlog.json.items[].status`.)
-- **FR-002 Requirement Definition**: Spawn 1 `requirements-analyst`→elicit requirements (incl. mandatory benchmark web search)→receive `requirements.md` + `docs/requirements-benchmark.md`
+- **FR-002 Requirement Definition**: A product brief (`docs/product/brief.md`) is co-authored at launch (create-brief pre-flight) in **both** modes and is the interview anchor. Spawn 1 `requirements-analyst`→it reads the brief first→elicit requirements (incl. mandatory benchmark web search)→reconcile any brief↔requirements conflict (amend one side per the PO seat)→receive `requirements.md` + `docs/requirements-benchmark.md`
 - **FR-003 Product Backlog**: Manage `backlog.json`. Progressive refinement. Refined PBI WIP: 6-12
 - **FR-005 Sprint Planning**: Propose Sprint Goal→user approval (`kind=sprint_goal_approval`)
 - **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment — Sprint-end cross-review owned by SM (see FR-009 Layer 2)

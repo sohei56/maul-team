@@ -33,8 +33,12 @@ new -> requirements_sprint -> backlog_created -> sprint_planning
 ```
 
 Valid phases:
-- `new` — project just created, no work started
-- `requirements_sprint` — Requirement Definition in progress
+- `new` — project just created, no work started. On a new project the
+  `scrum-start.sh` launcher co-authors `docs/product/brief.md`
+  (create-brief pre-flight, both modes) before Requirement Definition;
+  the brief is a pre-ceremony input, not a distinct phase.
+- `requirements_sprint` — Requirement Definition in progress (anchored on
+  `docs/product/brief.md`)
 - `backlog_created` — initial Product Backlog created, ready for first Development Sprint
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).

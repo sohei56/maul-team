@@ -11,10 +11,20 @@ disable-model-invocation: false
 ## Inputs
 
 - `state.json` → `phase: "new"` or `"requirements_sprint"`
+- `docs/product/brief.md` — the human-authored product brief, co-authored
+  at launch in **both** human and agent modes (via the `create-brief` skill:
+  the `scrum-start.sh` pre-flight on a new project, or `--brief <file>` in
+  autonomous mode). It is the **anchor** for the interview and the source of
+  truth for in-scope vs out-of-scope. Requirements must realize the brief;
+  where they conflict, exactly one side is amended (see step 6). On the rare
+  path where no brief exists (user skipped the pre-flight, or a pre-brief
+  resumed project), the ceremony proceeds from the interview alone and the
+  brief is treated as absent.
 
 ## Outputs
 
 - `docs/requirements.md` — business, functional, non-functional requirements (committed to repo)
+- `docs/product/brief.md` — **possibly amended** during step 6 reconciliation when the interview reveals the brief was wrong/stale (committed to repo)
 - `docs/requirements-benchmark.md` — benchmark findings from similar products / prior art (source URLs + per-item `adopt`/`adapt`/`reject` disposition), gathered via mandatory web search (committed to repo)
 - `CLAUDE.md` — project root, ~200 lines target (project overview + cautions). Created if missing; existing→user choice
 - `state.json` → new→requirements_sprint→backlog_created
@@ -31,12 +41,14 @@ disable-model-invocation: false
   requirements-analyst lifecycle (step 2 spawn, step 10 terminate),
   `backlog.json` initialization (step 7), user confirmation prompts
   (steps 5, 8, 9a).
-- **Requirements Analyst** (`agents/requirements-analyst.md`) — user
+- **Requirements Analyst** (`agents/requirements-analyst.md`) — reads
+  `docs/product/brief.md` and anchors the interview to it (step 3), user
   dialogue (steps 3, 4), mandatory benchmark web-search research (step
   5), `docs/requirements.md` + `docs/requirements-benchmark.md`
-  authoring (steps 5, 6), `CLAUDE.md` authoring when overwrite/append
-  chosen (step 9b). Spawned solely for this ceremony; not the Sprint
-  PBI-pipeline Developer.
+  authoring (steps 5, 6), brief ↔ requirements reconciliation incl.
+  amending `docs/product/brief.md` when the PO seat so decides (step 6),
+  `CLAUDE.md` authoring when overwrite/append chosen (step 9b). Spawned
+  solely for this ceremony; not the Sprint PBI-pipeline Developer.
 
 ## PO Mode (po_mode: "agent")
 
@@ -77,7 +89,9 @@ resolved via `PO_DECISION_REQUEST` / `PO_DECISION` and logged through
    .scrum/scripts/update-state-phase.sh requirements_sprint
    ```
 2. Spawn 1 `requirements-analyst` for the requirements interview
-3. Requirements Analyst engages user in natural language:
+3. Requirements Analyst **reads `docs/product/brief.md` first** (when
+   present) and anchors the interview to it, then engages the user in
+   natural language to deepen and make each brief item testable:
    - Business: problem, users, goals
    - Functional: features, key workflows
    - Non-functional: performance, security, scalability, platform constraints
@@ -115,6 +129,25 @@ resolved via `PO_DECISION_REQUEST` / `PO_DECISION` and logged through
    `docs/` dir if missing). Functional / non-functional requirements
    that originate from an adopted benchmark item carry a provenance ref
    back to `docs/requirements-benchmark.md`.
+   - **Brief ↔ requirements reconciliation (mandatory).** Before
+     finalizing, cross-check the requirements against
+     `docs/product/brief.md`. Where a requirement contradicts the brief
+     (scope, goal, constraint, priority, or a success metric), the
+     Analyst **surfaces the conflict and resolves it by amending exactly
+     one side** — never let `requirements.md` silently diverge from the
+     brief:
+     - **Amend the brief** (`Edit` `docs/product/brief.md`) when the
+       interview revealed the brief was wrong, stale, or incomplete.
+     - **Amend the requirement** when the brief is authoritative and the
+       requirement over-reached (drop it as out-of-scope, or align it).
+     - The choice of which side to change is a **PO-seat decision**:
+       `po_mode=human` → the Analyst asks the user; `po_mode=agent` → SM
+       routes `[product] PO_DECISION_REQUEST kind=spec_clarification`
+       naming the conflict and a recommendation, and the fix follows the
+       `PO_DECISION` (logged via `append-po-decision.sh`).
+     - After reconciliation, `brief.md` and `requirements.md` must be
+       mutually consistent. Note any brief edits in the ceremony summary
+       (step 8) so the human/PO sees what the brief now says.
 7. SM creates `backlog.json` with coarse PBIs (status: "draft"). Use
    the wrappers — direct edits to `.scrum/backlog.json` are blocked.
    `init-backlog.sh` seeds the file (`items=[]`, `next_pbi_id=1`,
