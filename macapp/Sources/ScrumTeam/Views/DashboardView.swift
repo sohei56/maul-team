@@ -225,7 +225,7 @@ struct DashboardView: View {
 
     private func phaseLabel(_ phase: String) -> String {
         [
-            "new": "New", "requirements_sprint": "Requirements Definition",
+            "new": "New", "requirements_sprint": "Requirement Definition",
             "backlog_created": "Backlog Created", "sprint_planning": "Sprint Planning",
             "pbi_pipeline_active": "Parallel Development for Each PBI", "review": "Cross Review",
             "sprint_review": "Sprint Review", "retrospective": "Retrospective",

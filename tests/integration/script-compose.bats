@@ -47,7 +47,7 @@ teardown() {
   run bash "$PROJECT_ROOT/scripts/setup-user.sh"
   [ -f ".claude/skills/sprint-planning/SKILL.md" ]
   [ -f ".claude/skills/spawn-teammates/SKILL.md" ]
-  [ -f ".claude/skills/requirements-sprint/SKILL.md" ]
+  [ -f ".claude/skills/requirement-definition/SKILL.md" ]
 }
 
 @test "setup-user.sh creates settings.json with hook config" {

@@ -89,7 +89,7 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
     }'
 else
   # New project — no state yet
-  base_context="New project. No .scrum/state.json found. Begin by starting a Requirements Sprint to define the Product Goal and gather requirements."
+  base_context="New project. No .scrum/state.json found. Begin by starting a Requirement Definition to define the Product Goal and gather requirements."
   prologue="$(autonomous_prologue)"
   if [ -n "$prologue" ]; then
     base_context="${prologue} ${base_context}"

@@ -63,7 +63,7 @@ Warning: Claude Code $version is older than the recommended $MIN_CLAUDE_VERSION.
   Or native installer:
     curl -fsSL https://claude.ai/install.sh | bash
 
-  Continuing — Requirements Sprint and ceremonies that do not spawn
+  Continuing — Requirement Definition and ceremonies that do not spawn
   sub-agents will still run.
 EOF
 }

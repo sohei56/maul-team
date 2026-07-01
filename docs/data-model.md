@@ -34,7 +34,7 @@ new -> requirements_sprint -> backlog_created -> sprint_planning
 
 Valid phases:
 - `new` — project just created, no work started
-- `requirements_sprint` — Requirements Sprint in progress
+- `requirements_sprint` — Requirement Definition in progress
 - `backlog_created` — initial Product Backlog created, ready for first Development Sprint
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).
@@ -284,12 +284,12 @@ State descriptions:
 
 **File**: `docs/requirements.md`
 **Format**: Markdown (not JSON — human-readable document)
-**Owner**: Scrum Master (write once during Requirements Sprint)
+**Owner**: Scrum Master (write once during Requirement Definition)
 **Readers**: All Developer teammates, Integration Sprint
 **Persistence**: Committed to repo (not runtime state)
 
 This is the single source of truth for what the product must do. Produced
-during the Requirements Sprint (FR-002). Frozen during Development Sprints
+during the Requirement Definition (FR-002). Frozen during Development Sprints
 (FR-020). Changes follow the Change Process (FR-016). Lives outside
 `.scrum/` because the document outlives any single Sprint and must
 survive across machine/clone boundaries.

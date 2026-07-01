@@ -151,7 +151,7 @@ said X") from your inference.
    - If invoked **standalone** (`/create-brief`): tell the user the
      brief is ready and how to use it — e.g. start autonomous mode
      with `scrum-start.sh --autonomous` (the brief is now at the
-     canonical path), or hand it to the Requirements Sprint.
+     canonical path), or hand it to the Requirement Definition.
 
 ## Anti-patterns (do not do these)
 

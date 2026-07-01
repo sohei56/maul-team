@@ -225,7 +225,7 @@ else
   # update-state-phase call has a file to mutate. setup-user.sh above has
   # already copied scripts/scrum/*.sh to .scrum/scripts/.
   sh .scrum/scripts/init-state.sh
-  initial_prompt="Introduce yourself and begin the Requirements Sprint. Greet the user, explain the Scrum workflow briefly, then start eliciting requirements."
+  initial_prompt="Introduce yourself and begin the Requirement Definition. Greet the user, explain the Scrum workflow briefly, then start eliciting requirements."
 fi
 
 # --- Autonomous-PO mode preparation ----------------------------------------

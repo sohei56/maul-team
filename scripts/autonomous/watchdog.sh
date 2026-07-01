@@ -329,10 +329,10 @@ build_prompt() {
 
   case "$phase" in
     ""|new|unknown)
-      tail='No state.json yet — bootstrap: read docs/product/brief.md, then drive the Requirements Sprint with the product-owner teammate as the user proxy. Aim for `phase=backlog_created` this iteration.'
+      tail='No state.json yet — bootstrap: read docs/product/brief.md, then drive the Requirement Definition with the product-owner teammate as the user proxy. Aim for `phase=backlog_created` this iteration.'
       ;;
     requirements_sprint)
-      tail='Continue the Requirements Sprint. Drive elicitation through the product-owner teammate (no human prompts). When complete, transition to `backlog_created`.'
+      tail='Continue the Requirement Definition. Drive elicitation through the product-owner teammate (no human prompts). When complete, transition to `backlog_created`.'
       ;;
     backlog_created)
       tail='Run Sprint Planning. Select the next batch of PBIs with the product-owner teammate and transition to `pbi_pipeline_active`.'

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/scrum/init-backlog.sh — bootstrap .scrum/backlog.json at
-# Requirements Sprint exit.
+# Requirement Definition exit.
 # Usage: init-backlog.sh [--product-goal <text>]
 #
 # Creates `.scrum/backlog.json` with `{items: [], next_pbi_id: 1,

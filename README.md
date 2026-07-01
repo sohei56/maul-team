@@ -81,7 +81,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 
 **Constraints addressing AI weaknesses:**
 
-- **Mandatory Requirements Sprint** — the first Sprint is dedicated solely to requirements elicitation, preventing the team from charging ahead without a map
+- **Mandatory Requirement Definition** — the first Sprint (Sprint 0) is dedicated solely to requirements elicitation, preventing the team from charging ahead without a map
 - **No work without a PBI** — all development must be tied to a backlog item, stopping the Scrum Master from drifting into ad-hoc fixes mid-conversation
 - **Controlled document creation** — only document types listed in the design catalog may be created, curbing the AI tendency to produce sprawling, unstructured documentation
 - **PO-driven Sprint scope** — Sprint boundaries are set by meaningful review checkpoints rather than velocity estimates, since AI agents have no stable velocity baseline
@@ -90,7 +90,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 
 ```
  ┌─────────────────────────────────────────────────────────────┐
- │  Requirements Sprint (Sprint 0)                             │
+ │  Requirement Definition (Sprint 0)                          │
  │  Requirements Elicitation ──▶ Initial Product Backlog       │
  └──────────────────────────────┬──────────────────────────────┘
                                 ▼

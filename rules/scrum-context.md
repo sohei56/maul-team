@@ -132,7 +132,7 @@ returning to your caller):
 - `[req] INTERVIEW_QUESTION <question>` (Developer → PO) and
   `[req] INTERVIEW_ANSWER <answer>` (PO → Developer) — the **only**
   sanctioned PO ↔ Developer direct channel, active solely during a
-  Requirements Sprint. Outside that ceremony, every PO ↔ Developer
+  Requirement Definition. Outside that ceremony, every PO ↔ Developer
   exchange must traverse SM.
 - `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]`
   — PO → SM, aggregated report emitted once by the `po-acceptance` skill after every AC / release criterion has a decision logged.
@@ -262,7 +262,7 @@ pbi-designer / pbi-implementer / pbi-ut-author
 Only the PO seat changes between modes; the route shape itself is
 invariant. "Escalation routes are fixed" still holds — SM remains the
 single broker, and sub-agents never address the PO directly (the one
-exception is the requirements-sprint `[req] INTERVIEW_*` channel; see
+exception is the requirement-definition `[req] INTERVIEW_*` channel; see
 § Communication protocol).
 
 This is a synchronous path: the spawning sub-agent should end its

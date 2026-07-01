@@ -1,7 +1,7 @@
 ---
-name: requirements-sprint
+name: requirement-definition
 description: >
-  Requirements Sprint ceremony. Spawns a single Developer to elicit
+  Requirement Definition ceremony. Spawns a single Developer to elicit
   requirements from the user through natural language dialogue,
   producing a requirements document and initial Product Backlog.
 disable-model-invocation: false
@@ -102,7 +102,7 @@ resolved via `PO_DECISION_REQUEST` / `PO_DECISION` and logged through
    ```bash
    .scrum/scripts/update-state-phase.sh backlog_created
    ```
-   Then terminate Requirements Sprint Developer.
+   Then terminate Requirement Definition Developer.
 
 Ref: FR-002
 

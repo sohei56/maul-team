@@ -221,7 +221,7 @@ execute.
     cross-review/SKILL.md            # Sprint-end cross-cutting quality gate
     sprint-review/SKILL.md           # Sprint Review ceremony
     retrospective/SKILL.md           # Retrospective ceremony
-    requirements-sprint/SKILL.md     # Requirements Sprint ceremony
+    requirement-definition/SKILL.md  # Requirement Definition ceremony
     integration-sprint/SKILL.md      # Integration Sprint ceremony
     backlog-refinement/SKILL.md      # PBI refinement process
     change-process/SKILL.md          # FR-016 Change Process
@@ -264,7 +264,7 @@ execute.
 
 - The Scrum Master preloads ceremony skills via its `skills:` frontmatter
   (see `agents/scrum-master.md`). The Developer loads
-  `requirements-sprint`, `pbi-pipeline`, `install-subagents`, and
+  `requirement-definition`, `pbi-pipeline`, `install-subagents`, and
   `smoke-test`.
 
 ### Alternatives Considered

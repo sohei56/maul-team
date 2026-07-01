@@ -328,7 +328,7 @@ autonomous_intercept_or_allow() {
 autonomous_next_action() {
   case "$1" in
     new)
-      printf '%s' "Phase 'new': run the requirements-sprint skill to elicit requirements and advance phase to requirements_sprint."
+      printf '%s' "Phase 'new': run the requirement-definition skill to elicit requirements and advance phase to requirements_sprint."
       ;;
     requirements_sprint)
       printf '%s' "Phase 'requirements_sprint': finalize requirements with the product-owner teammate, create the initial backlog, and advance phase to backlog_created."

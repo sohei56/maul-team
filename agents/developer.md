@@ -19,7 +19,7 @@ tools:
   - TodoWrite
   - SendMessage
 skills:
-  - requirements-sprint
+  - requirement-definition
   - pbi-pipeline
   - install-subagents
   - smoke-test
@@ -44,7 +44,7 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 
 ## Responsibilities
 
-- **FR-002 Requirements** (Requirements Sprint only): Natural language dialogue with the PO→cover business, functional, non-functional requirements→follow-up unclear answers→produce `docs/requirements.md` (committed to repo). The PO seat depends on `.scrum/config.json.po_mode`: `human` = the human user via the main session (current); `agent` = the `product-owner` teammate, using the direct interview channel `[req] INTERVIEW_QUESTION` (Developer→PO) and `[req] INTERVIEW_ANSWER` (PO→Developer). See [rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
+- **FR-002 Requirements** (Requirement Definition only): Natural language dialogue with the PO→cover business, functional, non-functional requirements→follow-up unclear answers→produce `docs/requirements.md` (committed to repo). The PO seat depends on `.scrum/config.json.po_mode`: `human` = the human user via the main session (current); `agent` = the `product-owner` teammate, using the direct interview channel `[req] INTERVIEW_QUESTION` (Developer→PO) and `[req] INTERVIEW_ANSWER` (PO→Developer). See [rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
 - **FR-004 Design (per PBI)**: Spawn `pbi-designer` sub-agent to author
   `.scrum/pbi/<pbi-id>/design/design.md`. catalog spec updates happen
   as a side-effect via the same sub-agent. SM consults PO when
@@ -117,7 +117,7 @@ writes those.)
   teammate as `[<pbi-id>] PO_DECISION_REQUEST kind=spec_clarification`
   and relays the `PO_DECISION` back). Never message the PO directly
   for design/spec questions.
-- **Exception — Requirements Sprint only**: the Developer talks to
+- **Exception — Requirement Definition only**: the Developer talks to
   the PO through the direct `[req] INTERVIEW_QUESTION` /
   `[req] INTERVIEW_ANSWER` channel. This is the only sanctioned
   direct Developer↔PO channel; it does not apply to Development or

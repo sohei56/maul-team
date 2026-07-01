@@ -18,7 +18,7 @@ setup() {
     cross-review
     sprint-review
     retrospective
-    requirements-sprint
+    requirement-definition
     integration-sprint
     backlog-refinement
     change-process

@@ -199,7 +199,7 @@ route through the SM.
 - One `PO_CLARIFY` per `PO_DECISION_REQUEST` is permitted (see
   Anti-loop rules below for the cap on repeated rounds).
 
-**Requirements Sprint interview (PO ↔ Developer, direct):**
+**Requirement Definition interview (PO ↔ Developer, direct):**
 
 ```
 [req] INTERVIEW_QUESTION <question>     # Developer → PO
@@ -207,7 +207,7 @@ route through the SM.
 ```
 
 This is the **only** sanctioned PO ↔ Developer channel. Outside the
-Requirements Sprint, all PO/Developer traffic must traverse the SM.
+Requirement Definition, all PO/Developer traffic must traverse the SM.
 
 **`kind` enum:**
 

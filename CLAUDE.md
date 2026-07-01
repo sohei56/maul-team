@@ -22,7 +22,7 @@ skills/                  # 18 Skills (Scrum ceremonies + pipeline/merge/orchestr
   install-subagents/     # Install specialist sub-agents for PBI work
   integration-sprint/    # Product-wide QA and integration testing
   po-acceptance/         # PO-owned demo/UAT verification (autonomous mode)
-  requirements-sprint/   # Elicit requirements from user
+  requirement-definition/   # Elicit requirements from user
   retrospective/         # Sprint retrospective ceremony
   scaffold-design-spec/  # Create design doc stubs from catalog
   smoke-test/            # Automated test execution

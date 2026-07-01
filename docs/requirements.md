@@ -13,7 +13,7 @@ with the user acting as Product Owner.
 
 The user runs `sh ./claude-scrum-team/scrum-start.sh` from the
 CLI and an AI Scrum team is assembled automatically. The user is
-guided through a Requirements Sprint where a single Developer asks
+guided through a Requirement Definition where a single Developer asks
 structured questions to elicit product requirements. The user
 responds in natural language. The Sprint concludes when both
 parties agree on the requirements document. After the Requirements
@@ -32,19 +32,19 @@ created with coarse-grained PBIs.
    **Then** a Scrum Master and one Developer are created, and the
    Developer begins asking requirements questions.
 
-2. **Given** the Requirements Sprint is in progress,
+2. **Given** the Requirement Definition is in progress,
    **When** the user answers all questions and confirms the
    requirements,
    **Then** a requirements document is saved covering business,
    functional, and non-functional requirements.
 
-3. **Given** the Requirements Sprint is in progress,
+3. **Given** the Requirement Definition is in progress,
    **When** the user provides incomplete or unclear answers,
    **Then** the Developer asks follow-up questions to clarify
    before proceeding.
 
 4. **Given** the requirements document is complete,
-   **When** the Requirements Sprint concludes,
+   **When** the Requirement Definition concludes,
    **Then** the Scrum Master creates the initial Product Backlog
    with coarse-grained PBIs (e.g. "User Management", "Payment
    Processing", "CI/CD Setup").
@@ -72,7 +72,7 @@ The user inspects results and provides feedback. A Sprint Retrospective records
 improvements.
 
 **Verification**: Start a Development Sprint after the
-Requirements Sprint, verify Sprint Planning refines PBIs, design
+Requirement Definition, verify Sprint Planning refines PBIs, design
 documents are produced, implementation and cross-review occur,
 and Sprint Review presents the Increment to the user.
 
@@ -331,13 +331,13 @@ Observe implementation and verify Developers use support sub-agents.
   already exists on disk, running the script MUST resume the
   existing project from where it was last interrupted.
 
-- **FR-002**: The system MUST conduct a Requirements Sprint where
+- **FR-002**: The system MUST conduct a Requirement Definition where
   a single Developer elicits requirements from the user through
   structured questions and produces a requirements document
   covering business, functional, and non-functional requirements.
 
 - **FR-003**: The Scrum Master MUST create the initial Product
-  Backlog after the Requirements Sprint with coarse-grained PBIs.
+  Backlog after the Requirement Definition with coarse-grained PBIs.
   PBIs MUST be progressively refined into implementation-ready
   granularity when selected for a Sprint. The number of `refined`
   PBIs SHOULD be limited to 1-2 Sprints of capacity (6-12 PBIs)
@@ -537,7 +537,7 @@ Observe implementation and verify Developers use support sub-agents.
   resolved via `[<scope>] PO_DECISION dec_id=<dec-NNNN>`, and
   persisted to `.scrum/po/decisions.json` through
   `.scrum/scripts/append-po-decision.sh`. The team MUST be drivable
-  end-to-end (Requirements Sprint → Development Sprints →
+  end-to-end (Requirement Definition → Development Sprints →
   Integration Sprint → release decision) without human input by
   the `scripts/autonomous/watchdog.sh` outer loop. The watchdog
   MUST enforce all of: `max_iterations`, `max_wall_clock_hours`,
@@ -591,7 +591,7 @@ Observe implementation and verify Developers use support sub-agents.
   Definition of Done.
 
 - **Requirements Document**: The single source of truth for what
-  the product must do. Produced in the Requirements Sprint.
+  the product must do. Produced in the Requirement Definition.
 
 - **Design Documents**: Design knowledge base that grows
   incrementally across Sprints. Each Sprint adds design documents
@@ -622,7 +622,7 @@ Observe implementation and verify Developers use support sub-agents.
   packages). The script checks prerequisites and provides actionable
   error messages if any are missing.
 
-- **SC-002**: The Requirements Sprint produces a complete
+- **SC-002**: The Requirement Definition produces a complete
   requirements document through natural language conversation
   alone — the user never edits structured files.
 

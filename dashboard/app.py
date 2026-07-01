@@ -152,7 +152,7 @@ DEV_MANAGED_STATUSES = frozenset(
 # unification.
 PHASE_FLOW = [
     ("new", "New"),
-    ("requirements_sprint", "Requirements"),
+    ("requirements_sprint", "Requirement Definition"),
     ("backlog_created", "Backlog Created"),
     ("sprint_planning", "Sprint Planning"),
     ("pbi_pipeline_active", "PBI Pipelines Running"),
