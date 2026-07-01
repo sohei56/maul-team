@@ -11,7 +11,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: cleanup-pbi-worktree.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 
 STATE=".scrum/pbi/$PBI/state.json"
 [ -f "$STATE" ] || fail E_FILE_MISSING "$STATE"

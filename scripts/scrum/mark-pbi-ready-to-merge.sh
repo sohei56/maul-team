@@ -14,7 +14,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: mark-pbi-ready-to-merge.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 
 read_pbi_worktree_state "$PBI"
 [ -n "$PBI_BASE_SHA" ] || fail E_INVALID_ARG "state.base_sha unset"

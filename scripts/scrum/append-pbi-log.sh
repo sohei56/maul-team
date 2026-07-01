@@ -18,10 +18,7 @@ source "$HERE/lib/atomic.sh"
 [ "$#" -eq 5 ] || fail E_INVALID_ARG "usage: append-pbi-log.sh <pbi-id> <stage> <round> <event> <detail>"
 PBI="$1"; STAGE="$2"; ROUND="$3"; EVENT="$4"; DETAIL="$5"
 
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 case "$STAGE" in
   init|design|pbi_review|ut_run|complete|escalated) ;;
   *) fail E_INVALID_ARG "bad stage: $STAGE (allowed: init|design|pbi_review|ut_run|complete|escalated)" ;;

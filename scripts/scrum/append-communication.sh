@@ -45,10 +45,7 @@ if [ -n "$ROLE" ]; then
 fi
 
 if [ -n "$PBI" ] && [ "$PBI" != "null" ]; then
-  case "$PBI" in
-    pbi-[0-9]*) ;;
-    *) fail E_INVALID_ARG "bad --pbi: $PBI" ;;
-  esac
+  assert_pbi_id "$PBI" --pbi
 fi
 
 # Build the message JSON via jq -n so that arbitrary --content (quotes,

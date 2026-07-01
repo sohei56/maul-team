@@ -35,10 +35,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: begin-impl-round.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 STATE_FILE=".scrum/pbi/$PBI/state.json"
 BACKLOG_FILE=".scrum/backlog.json"

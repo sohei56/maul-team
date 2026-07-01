@@ -18,7 +18,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 4 ] || fail E_INVALID_ARG "usage: mark-pbi-merge-failure.sh <pbi-id> <kind> <pre-head-sha> <detail>"
 PBI="$1"; KIND="$2"; PRE="$3"; DETAIL="$4"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 case "$KIND" in conflict|artifact_missing|regression) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
 assert_hex_sha pre-head-sha "$PRE"
 

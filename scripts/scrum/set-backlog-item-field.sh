@@ -43,7 +43,7 @@ source "$HERE/lib/queries.sh"
 [ "$#" -eq 3 ] || fail E_INVALID_ARG "usage: set-backlog-item-field.sh <pbi-id> <field> <value>"
 PBI="$1"; FIELD="$2"; VALUE="$3"
 
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 
 # Validate field + value, build JSON literal for the value.
 case "$FIELD" in

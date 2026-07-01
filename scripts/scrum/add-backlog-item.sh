@@ -49,10 +49,7 @@ case "$KIND" in
 esac
 
 if [ -n "$PARENT" ]; then
-  case "$PARENT" in
-    pbi-[0-9]*) ;;
-    *) fail E_INVALID_ARG "bad --parent: $PARENT" ;;
-  esac
+  assert_pbi_id "$PARENT" --parent
 fi
 
 PATHF=".scrum/backlog.json"

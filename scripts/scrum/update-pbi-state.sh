@@ -57,10 +57,7 @@ source "$HERE/lib/atomic.sh"
 
 [ "$#" -ge 3 ] || fail E_INVALID_ARG "usage: update-pbi-state.sh <pbi-id> <field> <value> [<field> <value> ...]"
 PBI="$1"; shift
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 PATHF=".scrum/pbi/$PBI/state.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF (initialise via pbi-pipeline first)"

@@ -19,10 +19,7 @@ source "$HERE/lib/atomic.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: init-pbi-state.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 PBI_DIR=".scrum/pbi/$PBI"
 PATHF="$PBI_DIR/state.json"

@@ -10,10 +10,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: commit-pbi.sh <pbi-id> <message>"
 PBI="$1"; MSG="$2"
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 read_pbi_worktree_state "$PBI"
 assert_pbi_worktree_branch "$PBI_WT" "$PBI_BRANCH"

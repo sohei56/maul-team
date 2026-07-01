@@ -30,7 +30,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: update-backlog-status.sh <pbi-id> <status>"
 PBI="$1"; STATUS="$2"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 case "$STATUS" in
   draft|refined|blocked|\
 in_progress_design|in_progress_impl|in_progress_pbi_review|\

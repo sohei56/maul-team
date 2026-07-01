@@ -52,3 +52,15 @@ assert_hex_sha() {
     fail E_INVALID_ARG "$label length must be 7..40: $value"
   fi
 }
+
+# assert_pbi_id <value> [label]
+# Validates a pbi-NNN identifier. Fails E_INVALID_ARG otherwise. The optional
+# label customizes the error text (defaults to "pbi-id"); pass a flag name such
+# as "--parent" or "--pbi" at call sites that validate a flag argument.
+assert_pbi_id() {
+  local value="$1" label="${2:-pbi-id}"
+  case "$value" in
+    pbi-[0-9]*) ;;
+    *) fail E_INVALID_ARG "bad $label: $value" ;;
+  esac
+}

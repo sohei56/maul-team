@@ -14,7 +14,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: mark-pbi-merged.sh <pbi-id> <merged-sha>"
 PBI="$1"; SHA="$2"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 assert_hex_sha merged-sha "$SHA"
 
 STATE=".scrum/pbi/$PBI/state.json"

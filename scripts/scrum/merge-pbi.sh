@@ -23,7 +23,7 @@ source "$HERE/lib/git-guards.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: merge-pbi.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 
 # Pre-flight: .scrum/ must remain untracked. When tracked, branch switches
 # silently delete state files that exist only on the current branch.
