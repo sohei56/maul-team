@@ -386,7 +386,12 @@ if command -v npx >/dev/null 2>&1; then
   mcp_file="$TARGET_DIR/.mcp.json"
 
   if [ -f "$mcp_file" ]; then
-    tmp_mcp="$(mktemp)"
+    # Create the temp file alongside the target (not in $TMPDIR) so the
+    # subsequent mv is a same-directory rename and the step does not depend
+    # on the system temp dir being writable (sandboxed CI / restricted
+    # environments). Mirrors the atomic-write pattern used in scrum-start.sh
+    # and the .scrum/scripts wrappers.
+    tmp_mcp="$(mktemp "${mcp_file}.tmp.XXXXXX")"
     if jq '
       .mcpServers.context7 //= {"type": "stdio", "command": "npx", "args": ["-y", "@upstash/context7-mcp"]}
       | .mcpServers.playwright //= {"type": "stdio", "command": "npx", "args": ["@anthropic-ai/mcp-playwright"]}
