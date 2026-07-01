@@ -86,12 +86,20 @@ Inputs:
 - Related catalog specs (read-only references):
   - <path1>
   - <path2>
+- Existing library specs (reuse before researching anew; read-only):
+  - docs/design/specs/technology/S-070-*.md
 {if Round n>=2:}
 - Prior design review (address every Critical/High finding):
   - .scrum/pbi/{pbi_id}/design/review-r{n-1}.md
 
 Write the design to:
   .scrum/pbi/{pbi_id}/design/design.md
+
+Select any third-party libraries via mandatory web search and record
+web-verified specs to docs/design/specs/technology/S-070-<lib>.md; emit
+the design.md `Library Selection` section (or the stdlib-only line).
+See agents/pbi-designer.md § Mandatory library selection &
+verified-spec research.
 
 On catalog-lock timeout, exit with status=error, escalation_reason
 catalog_lock_timeout.

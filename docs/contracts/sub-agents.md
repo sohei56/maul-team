@@ -29,7 +29,7 @@ land at `.scrum/reviews/static-analysis-r{n}.json`.
 
 | Agent | Role | Tools |
 |---|---|---|
-| `pbi-designer` | Per-PBI design spec author | Read, Write, Edit, Grep, Glob, Bash |
+| `pbi-designer` | Per-PBI design spec author + library selection (S-070 verified specs) | Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch |
 | `pbi-implementer` | Source code (no test writes) | Read, Write, Edit, Grep, Glob, Bash |
 | `pbi-ut-author` | Black-box UT (no impl reads) | Read, Write, Edit, Grep, Glob, Bash |
 | `codex-design-reviewer` | Cross-model design critique | Read, Grep, Glob, Bash |

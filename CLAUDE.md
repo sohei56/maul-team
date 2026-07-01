@@ -115,7 +115,15 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
-  `.scrum/pbi/<pbi-id>/`. UT is black-box (UT author cannot read impl
+  `.scrum/pbi/<pbi-id>/`. During Design the `pbi-designer` runs a
+  **mandatory library selection web search** (proven track record +
+  use-case fit) and records only web-verified library specs into the
+  `S-070` catalog type (`docs/design/specs/technology/S-070-<lib>.md`,
+  one per library, committed + reusable) plus a `Library Selection`
+  section in `design.md`, to prevent API-misuse defects; a stdlib-only
+  PBI records an explicit stdlib-only line, and `codex-design-reviewer`
+  gates on the section's presence + backing specs (`missing_library_spec`).
+  UT is black-box (UT author cannot read impl
   source). Termination is deterministic via composite gates
   (success/stagnation/divergence/hard cap). Coverage measured by real
   tooling (C0/C1 100% by default; partial-C1 languages declare relaxed

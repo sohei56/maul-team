@@ -60,6 +60,20 @@ dev communications, Sprint context.
    section. Missing section, missing/extra/paraphrased AC rows, or
    any AC mapped to nothing / to an undefined interface →
    `missing_ac_mapping` Critical finding + verdict FAIL.
+7. **Library Selection completeness** — design.md contains a
+   `## Library Selection` section. Either it declares
+   `No third-party libraries required (stdlib only).`, OR every listed
+   library has a `Sources` URL and names a backing
+   `docs/design/specs/technology/S-070-<slug>.md` spec that exists and
+   is non-empty. Additionally, any third-party library evidently used
+   in the `Interfaces` section MUST appear in the Library Selection
+   table with a backing S-070 spec. This is a **structural /
+   presence** check — you verify the section, the URLs, and that the
+   S-070 files exist and carry source URLs; you do NOT re-run web
+   search or re-verify API facts. Missing section, a listed library
+   with no source URL or no existing S-070 spec, or an interface-used
+   library absent from the table → `missing_library_spec` Critical
+   finding + verdict FAIL.
 
 ## Severity Levels
 
@@ -76,7 +90,7 @@ Each finding's `signature` field MUST match:
 
 `criterion_key` enum (design review): missing_requirement, scope_creep,
 unclear_interface, inconsistent_with_catalog, inconsistent_internal,
-missing_error_handling, missing_ac_mapping.
+missing_error_handling, missing_ac_mapping, missing_library_spec.
 
 ## Processing Flow
 

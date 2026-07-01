@@ -29,6 +29,14 @@ input. The implementer reads those directly.
 
 2. **Step 1: Spawn pbi-designer** (single Agent call)
    - Build prompt from `sub-agent-prompts.md` § pbi-designer
+   - The designer performs **mandatory library selection web search**
+     and emits the design.md `Library Selection` section plus any
+     `docs/design/specs/technology/S-070-<lib>.md` verified specs (see
+     `agents/pbi-designer.md` § Mandatory library selection &
+     verified-spec research). A pure-stdlib PBI satisfies this with the
+     explicit stdlib-only statement. If the designer reports a
+     WebSearch harness incident (status=error), escalate — do not let
+     it fabricate specs.
    - Wait for completion
    - Parse JSON envelope from output. If status=error → escalate.
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status in_review`

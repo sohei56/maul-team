@@ -68,6 +68,9 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    ↓
 [Design Stage] Rounds 1..5 → see references/design-stage.md
    - status: in_progress_design
+   - mandatory library selection web search → design.md Library
+     Selection section + S-070 verified library specs (stdlib-only PBI
+     records the explicit stdlib-only line)
    ↓ success
 [Impl Stage] Rounds 1..5 → see references/impl-ut-stage.md
    - status: in_progress_impl

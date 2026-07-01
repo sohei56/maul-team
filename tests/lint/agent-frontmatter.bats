@@ -334,3 +334,20 @@ extract_frontmatter() {
   assert_output "80"
 }
 
+# ---------------------------------------------------------------------------
+# pbi-designer.md (mandatory library selection web search)
+# ---------------------------------------------------------------------------
+
+@test "pbi-designer.md tools include WebSearch and WebFetch (mandatory library research)" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/pbi-designer.md' | yq '.tools | contains([\"WebSearch\", \"WebFetch\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "pbi-designer.md does not disallow WebSearch/WebFetch" {
+  # coalesce null (field absent) to [] so contains() never errors
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/pbi-designer.md' | yq '(.disallowedTools // []) | contains([\"WebSearch\", \"WebFetch\"])'"
+  assert_success
+  assert_output "false"
+}
+

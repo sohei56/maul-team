@@ -351,6 +351,7 @@ and enabled in the config. Files follow the naming convention
 | quality | S-050 Test Strategy | `quality/S-050-test-strategy.md` |
 | decision-records | D-001 Architecture Decision Record | `decision-records/D-001-auth-api-choice.md` |
 | operations | S-060 Migration / Upgrade | `operations/S-060-v2-migration.md` |
+| technology | S-070 Library Specification | `technology/S-070-axios.md` |
 | docs | D-011 README / Feature Documentation | `docs/D-011-readme.md` |
 
 ### YAML Frontmatter
@@ -628,7 +629,7 @@ merge_conflict | merge_artifact_missing | merge_regression
 
 | Path | Purpose |
 |------|---------|
-| `design/design.md` | Primary design artifact authored by `pbi-designer` |
+| `design/design.md` | Primary design artifact authored by `pbi-designer` (includes the `Library Selection` section) |
 | `design/review-r{n}.md` | `codex-design-reviewer` output per Round |
 | `impl/review-r{n}.md` | `codex-impl-reviewer` output per Round |
 | `impl/summary.md` | Final-Round impl summary (file list, change summary) |
