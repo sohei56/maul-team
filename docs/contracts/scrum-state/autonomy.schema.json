@@ -66,6 +66,11 @@
         }
       ]
     },
+    "sprint_baseline": {
+      "description": "sprint-history length captured at watchdog startup. `autonomous.max_sprints` is counted relative to this baseline, not cumulatively: the watchdog stops once sprint-history reaches sprint_baseline + max_sprints. Absent on a fresh scrum-start.sh --autonomous init (the watchdog captures and persists it on first startup); preserved on resume so a re-launched watchdog continues the same run's budget.",
+      "type": "integer",
+      "minimum": 0
+    },
     "updated_at": {"type": "string", "format": "date-time"},
     "watchdog_pid": {
       "description": "PID of the watchdog process currently driving this run. Set at watchdog startup, cleared to null on clean exit. The Stop gate checks `kill -0 <pid>`: when the pid is absent/null or not alive, no outer loop will re-launch the session, so the gate falls back to human-mode Stop behaviour instead of block-every-Stop (which would storm a session nothing will resume).",

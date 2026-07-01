@@ -207,14 +207,19 @@ JSON
 }
 
 # --------------------------------------------------------------------------
-# (e) max_sprints safety valve → exit 2
+# (e) max_sprints safety valve is baseline-relative → exit 2 once
+#     sprint-history reaches sprint_baseline + max_sprints.
 # --------------------------------------------------------------------------
-@test "watchdog: sprint-history beyond max_sprints → exit 2" {
+@test "watchdog: sprint-history reaching baseline+max_sprints → exit 2" {
   jq '.autonomous.max_sprints = 2' .scrum/config.json > .scrum/config.json.tmp \
     && mv .scrum/config.json.tmp .scrum/config.json
 
-  # Already have 2 completed sprints in history (>= max_sprints = 2) → trip
-  # the safety valve on the very first safety-check.
+  # Simulate a resumed run whose baseline was 0 (persisted in autonomy.json).
+  # With max_sprints=2 the limit is 0 + 2 = 2, and history already has 2
+  # completed sprints → trip the valve on the very first safety-check.
+  jq '.sprint_baseline = 0' .scrum/autonomy.json > .scrum/autonomy.json.tmp \
+    && mv .scrum/autonomy.json.tmp .scrum/autonomy.json
+
   cat > .scrum/sprint-history.json <<'JSON'
 {"sprints":[
   {"id":"sprint-001","status":"complete","goal":"a"},
@@ -229,6 +234,36 @@ JSON
   run "$WATCHDOG"
   [ "$status" -eq 2 ]
   grep -F 'Exit reason' .scrum/reports/autonomous-run-test-run.md | grep -q 'max_sprints_reached'
+}
+
+# --------------------------------------------------------------------------
+# (e2) max_sprints is NOT a cumulative cap: a fresh run captures the
+#      startup sprint-history length as the baseline, so pre-existing
+#      Sprints do not trip the valve. history=2, max_sprints=2 → limit=4;
+#      history stays 2 across the run → the loop advances to phase=complete.
+# --------------------------------------------------------------------------
+@test "watchdog: pre-existing sprints below baseline+max_sprints do not trip" {
+  jq '.autonomous.max_sprints = 2' .scrum/config.json > .scrum/config.json.tmp \
+    && mv .scrum/config.json.tmp .scrum/config.json
+
+  # 2 sprints already in history, but no sprint_baseline recorded yet → the
+  # watchdog captures baseline=2 at startup, so the limit is 4, not 2.
+  cat > .scrum/sprint-history.json <<'JSON'
+{"sprints":[
+  {"id":"sprint-001","status":"complete","goal":"a"},
+  {"id":"sprint-002","status":"complete","goal":"b"}
+]}
+JSON
+
+  cat > scenario.json <<'JSON'
+{"calls": [{"phase_to": "complete", "stdout_json": {}, "exit_code": 0}]}
+JSON
+
+  run "$WATCHDOG"
+  [ "$status" -eq 0 ]
+  grep -F 'Exit reason' .scrum/reports/autonomous-run-test-run.md | grep -q 'complete'
+  # baseline captured and persisted as the startup history length (2)
+  [ "$(jq -r '.sprint_baseline' .scrum/autonomy.json)" = "2" ]
 }
 
 # --------------------------------------------------------------------------

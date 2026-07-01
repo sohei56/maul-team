@@ -200,7 +200,7 @@ in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
 | `po.max_integration_cycles` | (no default; advisory) | Max defect-fix loops the autonomous PO will tolerate before issuing `release_decision=no_go` and parking the run. |
 | `autonomous.max_iterations` | `50` | Hard cap on watchdog iterations. Exceeded → exit 2 (`max_iterations_exceeded`). |
 | `autonomous.max_wall_clock_hours` | `8` | Hard wall-clock budget for the whole run. Exceeded → exit 2. |
-| `autonomous.max_sprints` | `8` | Watchdog stops once `sprint-history.json.sprints` reaches this length. Exit 2. |
+| `autonomous.max_sprints` | `8` | Number of Sprints to run **this launch**, counted from the `sprint-history.json.sprints` length captured at watchdog startup (the *baseline*, persisted as `autonomy.json.sprint_baseline`) — **not** a cumulative cap. The watchdog stops once history reaches `baseline + max_sprints`. Example: a project with 10 Sprints in history launched with `max_sprints=8` runs through Sprint 18. Exit 2. |
 | `autonomous.max_consecutive_failures` | `3` | Number of consecutive zero-progress iterations (or non-zero Claude exit codes, or tripped circuit breakers) before the watchdog gives up. Exit 1. |
 | `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. In **human mode** the gate ignores this key and instead fingerprint-dedups blocks via `.scrum/stop-gate.json` (first identical block exits 2, repeats allow exit); teammate liveness is monitored by the external `scripts/stall-watchdog.sh` daemon. |
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
@@ -286,7 +286,8 @@ The watchdog enforces four global bounds and one per-phase one:
 
 1. `max_iterations` — hard cap on outer-loop turns.
 2. `max_wall_clock_hours` — hard cap from `started_at`.
-3. `max_sprints` — count of `sprint-history.json.sprints`.
+3. `max_sprints` — Sprints run this launch, i.e. `sprint-history.json.sprints`
+   length minus the baseline captured at startup (`autonomy.json.sprint_baseline`).
 4. `max_consecutive_failures` — three consecutive zero-progress
    iterations (no change in `phase | sprint_id | <pbi-id>:<status>`
    set) trips a give-up.
@@ -464,7 +465,7 @@ next section before trying again on the real project.
 | `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief, on a **non-TTY** invocation (no human to interview). | Provide `--brief docs/product/brief.md` (or any path), or re-run on a TTY to co-author one via the `create-brief` pre-flight. |
 | `watchdog: rate-limit detected; sleeping <N>s until reset` / `... no reset time parsed — sleeping <N>s` | Inner session hit the API rate limit / usage limit / overload error. Watchdog is waiting until the limit resets (advertised reset time + 60s jitter, capped at 6h) or `DEFAULT_RATE_LIMIT_WAIT_SECS` (1h) when no reset time was parseable. | Wait. The iteration counter is not advanced; `max_wall_clock_hours` is the only runaway protection. To resume sooner, kill the watchdog and rerun `scrum-start.sh --autonomous` once your subscription quota refills. |
 | `watchdog: K consecutive failures — giving up.` (exit 1) | Three consecutive iterations made no progress (no phase/PBI status change), or the inner Claude session kept failing, or the circuit breaker tripped K times. | Inspect `.scrum/autonomous/iter-<N>.json`, `iter-<N>.err`, and `.scrum/autonomy.json.last_failure`. Common causes: missing PO context (no `docs/product/brief.md`), a deadlocked Stop hook (check `completion-gate.sh` logs in `.scrum/hooks.log`), or persistent CLI errors that aren't rate-limits (those would have triggered the wait branch instead). |
-| `watchdog: max_sprints (N) reached` (exit 2) | The watchdog finished `N` Sprints. | This is "successful park", not a failure — review the morning report and either declare the product done manually or raise the cap. |
+| `watchdog: max_sprints (N) reached` (exit 2) | The watchdog ran `N` Sprints this launch (history reached `baseline + N`). | This is "successful park", not a failure — review the morning report and either declare the product done manually or relaunch to grant another `N`-Sprint budget from the new baseline. |
 | PO teammate keeps appending to `.scrum/po/attention.md` and the run halts. | The PO is correctly deferring human-only items (credentials, legal, billing). | Resolve the items, drain `attention.md`, then resume with `scrum-start.sh --autonomous`. |
 | `release_decision=go requires .scrum/test-results.json` from `append-po-decision.sh`. | PO tried to call `release_decision=go` without a green smoke-test run. | Run the `smoke-test` skill (Integration Sprint), confirm `overall_status ∈ {passed, passed_with_skips}`, then retry. |
 | Stop hook logs `Circuit breaker tripped for phase 'X'`. | Same phase blocked exit more than `stop_block_budget_per_phase` times. | The SM is stuck in `X`. Inspect the most recent `iter-N.json` for the assistant's last action and unblock manually (advance `state.json.phase`, resolve a stuck PBI, drain `attention.md`). The watchdog clears the breaker on the next iteration. |

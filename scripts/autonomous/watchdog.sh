@@ -462,6 +462,29 @@ if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID}) | (.updated_at = \
   printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
 fi
 
+# Sprint budget baseline. `max_sprints` is the number of Sprints to run
+# *this launch*, measured from the sprint-history length captured at
+# startup — NOT a cumulative cap. A project that already has B Sprints in
+# history and max_sprints=M runs until history reaches B+M. The baseline is
+# captured once and persisted to autonomy.json so a resumed watchdog (same
+# run) continues the original budget instead of granting a fresh M; a fresh
+# scrum-start.sh --autonomous writes a baseline-less autonomy.json, so the
+# next launch re-captures against the then-current history length.
+SPRINT_BASELINE="$(_jq_safe "$AUTONOMY_FILE" '.sprint_baseline // empty' '')"
+if [ -z "$SPRINT_BASELINE" ]; then
+  SPRINT_BASELINE=0
+  if [ -f "$SPRINT_HISTORY_FILE" ] && jq empty "$SPRINT_HISTORY_FILE" >/dev/null 2>&1; then
+    SPRINT_BASELINE="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
+  fi
+  if ! autonomy_atomic_write \
+       "(.sprint_baseline = ${SPRINT_BASELINE}) | (.updated_at = \"$(iso_utc_now)\")"; then
+    printf 'watchdog: WARN failed to record sprint_baseline in autonomy.json.\n' >&2
+  fi
+fi
+SPRINT_LIMIT=$((SPRINT_BASELINE + MAX_SPRINTS))
+printf 'watchdog: sprint budget: baseline=%s + max_sprints=%s → stop at history=%s\n' \
+  "$SPRINT_BASELINE" "$MAX_SPRINTS" "$SPRINT_LIMIT" >&2
+
 # Loop-local accumulators
 ITER=0
 FAIL_STREAK=0
@@ -492,9 +515,9 @@ while :; do
   if [ -f "$SPRINT_HISTORY_FILE" ] && jq empty "$SPRINT_HISTORY_FILE" >/dev/null 2>&1; then
     SPRINT_COUNT="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
   fi
-  if [ "${SPRINT_COUNT:-0}" -ge "$MAX_SPRINTS" ]; then
-    printf 'watchdog: max_sprints (%s) reached (history=%s).\n' \
-      "$MAX_SPRINTS" "$SPRINT_COUNT" >&2
+  if [ "${SPRINT_COUNT:-0}" -ge "$SPRINT_LIMIT" ]; then
+    printf 'watchdog: max_sprints (%s) reached (baseline=%s, history=%s, limit=%s).\n' \
+      "$MAX_SPRINTS" "$SPRINT_BASELINE" "$SPRINT_COUNT" "$SPRINT_LIMIT" >&2
     finalize 2 "max_sprints_reached"
   fi
 

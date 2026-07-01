@@ -681,7 +681,7 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `autonomous` | object \| absent | Watchdog (Ralph-Loop) settings; populated by `scrum-start.sh --autonomous`. |
 | `autonomous.max_iterations` | integer ≥ 1 | Hard cap on outer-loop iterations (default 50). |
 | `autonomous.max_wall_clock_hours` | number ≥ 0 | Hard cap on wall-clock from `started_at` (default 8). |
-| `autonomous.max_sprints` | integer ≥ 1 | Watchdog stops once `sprint-history.sprints.length` reaches this (default 8). |
+| `autonomous.max_sprints` | integer ≥ 1 | Sprints to run per launch, counted from the startup baseline (`autonomy.json.sprint_baseline`): the watchdog stops once `sprint-history.sprints.length` reaches `baseline + max_sprints` (default 8). |
 | `autonomous.max_consecutive_failures` | integer ≥ 1 | Consecutive zero-progress iterations before the watchdog gives up (default 3). |
 | `autonomous.stop_block_budget_per_phase` | integer ≥ 1 | Per workflow phase, how many times `completion-gate.sh` may block exit before tripping the circuit breaker (default 8). |
 | `autonomous.permission_mode` | enum (`"dontAsk"` \| `"bypassPermissions"`) | Passed to `claude -p --permission-mode` (default `"dontAsk"`). |
