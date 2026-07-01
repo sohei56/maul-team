@@ -186,7 +186,7 @@ Sessions, memory, and settings under `~/.claude/` are preserved across either up
 ## Architecture
 
 - **`scrum-start.sh`** — Entry point: validates prereqs, runs `scripts/setup-user.sh` internally to copy agents/skills/hooks/rules into the target project, then launches tmux. Supports `--autonomous --brief <file> --max-sprints <N>`.
-- **`agents/`** — 3 top-level agents (Scrum Master in Delegate mode, Developer, Product Owner) plus 11 specialist sub-agents (5 cross-review reviewers + 6 PBI Pipeline sub-agents, including the Codex-CLI cross-model reviewers). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
+- **`agents/`** — 4 top-level agents (Scrum Master in Delegate mode, Developer, Product Owner, Requirements Analyst) plus 11 specialist sub-agents (5 cross-review reviewers + 6 PBI Pipeline sub-agents, including the Codex-CLI cross-model reviewers). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
 - **`skills/`** — 18 Skills (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) with mandatory Inputs/Outputs
 - **`hooks/`** — Status gates, path guards, branch-ops guard, single Stop entry (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates, session context. Plus `scripts/stall-watchdog.sh` (external teammate-stall monitor in human mode).
 - **`rules/`** — Cross-cutting Scrum context (team map, SSOT locations, communication protocol) auto-loaded by every agent via `.claude/rules/`

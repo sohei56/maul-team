@@ -177,10 +177,17 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   forwards the payload to `dashboard-event.sh` (best-effort) and
   then to `completion-gate.sh`. In **autonomous mode with a live
   watchdog** (`autonomy_loop_active` = `autonomy_enabled` AND
-  `kill -0 watchdog_pid`) the gate's historical block-every-turn-end
-  behaviour is preserved (the Ralph-Loop watchdog contract depends on
-  it; `.scrum/stop-gate.json` is neither read nor written). With no
-  live watchdog the gate degrades to the human-mode behaviour below
+  `kill -0 watchdog_pid`) block-every-turn-end is preserved only for
+  the **unbounded** in-flight inner loop (`pipeline_in_flight`, which
+  always `exit 2`s); **bounded** exit-criteria-miss blocks (the
+  default `block_stop` mode, incl. `escalated_unresolved`) now route
+  through a per-phase circuit breaker (`autonomy_breaker_step`,
+  budget `autonomous.stop_block_budget_per_phase`) and **allow exit
+  (`exit 0`) once the budget trips**, so the watchdog can surface a
+  stuck run instead of storming it forever (the Ralph-Loop watchdog
+  contract depends on the in-flight loop; `.scrum/stop-gate.json` is
+  neither read nor written). With no live watchdog the gate degrades
+  to the human-mode behaviour below
   (storming a session nothing will re-launch is pointless). In
   **human mode** the gate
   fingerprint-dedups: the first block of a `<phase, situation>`
@@ -241,7 +248,10 @@ and notify SM `[<pbi-id>] PBI_READY_TO_MERGE`.
 
 SM merges per-PBI immediately by running the `pbi-merge` skill
 (see [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md) for
-the full protocol: `--no-ff` merge, `paths_touched` verification, a
+the full protocol: a **merge-scoped** clean check (disjoint tracked
+drift is stashed across the merge and auto-restored, not a blanket
+clean-tree refusal — only drift colliding with `paths_touched`
+blocks), `--no-ff` merge, `paths_touched` verification, a
 per-merge regression gate that runs
 `.scrum/config.json.merge_regression.command` (skipped with WARN when
 unset), SendMessage matrix for `conflict` / `artifact_missing` /

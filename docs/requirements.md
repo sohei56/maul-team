@@ -30,8 +30,8 @@ created with coarse-grained PBIs.
 
 1. **Given** the shell script is available and no project is active,
    **When** the user runs `sh ./claude-scrum-team/scrum-start.sh`,
-   **Then** a Scrum Master and one Developer are created, and the
-   Developer begins asking requirements questions.
+   **Then** a Scrum Master and a Requirements Analyst are created, and
+   the Requirements Analyst begins asking requirements questions.
 
 2. **Given** the Requirement Definition is in progress,
    **When** the user answers all questions and confirms the
@@ -41,7 +41,7 @@ created with coarse-grained PBIs.
 
 3. **Given** the Requirement Definition is in progress,
    **When** the user provides incomplete or unclear answers,
-   **Then** the Developer asks follow-up questions to clarify
+   **Then** the Requirements Analyst asks follow-up questions to clarify
    before proceeding.
 
 4. **Given** the requirements document is complete,

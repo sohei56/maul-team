@@ -122,7 +122,7 @@ returning to your caller):
 
 - `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>`
   — SM → PO request for a bounded decision. `<scope>` is one of
-  `pbi-NNN`, `sprint-N`, or `product`. The `kind` enum has 12
+  `pbi-NNN`, `sprint-N`, or `product`. The `kind` enum has 13
   values (e.g., `sprint_goal_approval`, `spec_clarification`,
   `demo_acceptance`, `release_decision`); see
   `agents/product-owner.md` for the full list.

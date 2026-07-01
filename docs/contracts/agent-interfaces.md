@@ -147,7 +147,7 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 
 | FR | Responsibility |
 |----|----------------|
-| FR-002 | (Requirement Definition only) Elicit requirements from user |
+| FR-002 | N/A for Developer — Requirement Definition (elicit requirements from user) is owned by the `requirements-analyst` agent, not the Developer |
 | FR-004 | Produce design documents; read all existing designs for consistency |
 | FR-012 | Read improvement log at Sprint start, apply relevant improvements |
 | FR-017 | Ensure PBI meets Definition of Done |

@@ -331,7 +331,7 @@ autonomous_next_action() {
       printf '%s' "Phase 'new': run the requirement-definition skill to elicit requirements and advance phase to requirements_sprint."
       ;;
     requirements_sprint)
-      printf '%s' "Phase 'requirements_sprint': finalize requirements with the product-owner teammate, create the initial backlog, and advance phase to backlog_created."
+      printf '%s' "Phase 'requirements_sprint': the requirements-analyst finalizes requirements.md (PO approves via PO_DECISION_REQUEST), then create the initial backlog and advance phase to backlog_created."
       ;;
     backlog_created)
       printf '%s' "Phase 'backlog_created': run the sprint-planning skill to plan the next Sprint and advance phase to sprint_planning."
