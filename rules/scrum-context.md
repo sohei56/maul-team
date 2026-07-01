@@ -116,30 +116,26 @@ returning to your caller):
   `docs/contracts/agent-interfaces.md` § 4.1. Missing or malformed
   envelopes break the pipeline orchestrator's parser.
 
-**PO-channel prefixes (used by SM ↔ product-owner teammate when
-`po_mode=agent`; canonical definitions live in
-`agents/product-owner.md` § Communication protocol):**
+**PO-channel prefixes** (SM ↔ product-owner teammate when
+`po_mode=agent`). All are prefixed `[<scope>]` where `<scope>` ∈
+`{pbi-NNN, sprint-N, product}`. Full syntax, the `kind` enum, and the
+clarification cap are **canonical in `agents/product-owner.md`
+§ Communication protocol / § Anti-loop rules** — do not restate field
+formats here. Message shapes:
 
-- `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>`
-  — SM → PO request for a bounded decision. `<scope>` is one of
-  `pbi-NNN`, `sprint-N`, or `product`. The `kind` enum has 13
-  values (e.g., `sprint_goal_approval`, `spec_clarification`,
-  `demo_acceptance`, `release_decision`); see
-  `agents/product-owner.md` for the full list.
-- `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>`
-  — PO → SM ruling. `dec_id` is returned by
-  `.scrum/scripts/append-po-decision.sh` and is mandatory.
-- `[<scope>] PO_CLARIFY <question>` — PO → SM, optional; **at
-  most one per `PO_DECISION_REQUEST`** before the PO must commit
-  (clarification cap; see `agents/product-owner.md` § Anti-loop
-  rules).
-- `[req] INTERVIEW_QUESTION <question>` (requirements-analyst → PO)
-  and `[req] INTERVIEW_ANSWER <answer>` (PO → requirements-analyst) —
-  the **only** sanctioned direct PO ↔ requirements-analyst channel,
-  active solely during a Requirement Definition. The Sprint Developer
-  has no such channel; every Developer ↔ PO exchange traverses SM.
-- `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]`
-  — PO → SM, aggregated report emitted once by the `po-acceptance` skill after every AC / release criterion has a decision logged.
+- `PO_DECISION_REQUEST` — SM → PO, requests a bounded decision.
+- `PO_DECISION` — PO → SM, the ruling; carries the mandatory `dec_id`
+  returned by `.scrum/scripts/append-po-decision.sh`.
+- `PO_CLARIFY` — PO → SM, optional; capped per `PO_DECISION_REQUEST`
+  (Anti-loop rules).
+- `[req] INTERVIEW_QUESTION` / `[req] INTERVIEW_ANSWER` — the **only**
+  sanctioned direct requirements-analyst ↔ PO channel, active solely
+  during Requirement Definition (also documented in
+  `agents/requirements-analyst.md`). The Sprint Developer has no such
+  channel; every other Developer ↔ PO exchange traverses SM.
+- `PO_ACCEPTANCE_REPORT` — PO → SM, aggregated once by the
+  `po-acceptance` skill after every AC / release criterion is decided
+  (canonical: `skills/po-acceptance/SKILL.md`).
 
 Escalation routes are fixed — do not invent new ones:
 
