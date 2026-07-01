@@ -33,6 +33,10 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
                           ▼
                    Scrum Master  (team lead, Delegate mode — never writes code)
                           │
+              (project start) spawn requirements-analyst  ──▶  Requirement
+                          │      Definition ceremony: interview + mandatory
+                          │      benchmark web search + requirements.md
+                          │
               spawn-teammates / pbi-merge / cross-review …
                           │
                           ▼
@@ -129,11 +133,11 @@ returning to your caller):
   most one per `PO_DECISION_REQUEST`** before the PO must commit
   (clarification cap; see `agents/product-owner.md` § Anti-loop
   rules).
-- `[req] INTERVIEW_QUESTION <question>` (Developer → PO) and
-  `[req] INTERVIEW_ANSWER <answer>` (PO → Developer) — the **only**
-  sanctioned PO ↔ Developer direct channel, active solely during a
-  Requirement Definition. Outside that ceremony, every PO ↔ Developer
-  exchange must traverse SM.
+- `[req] INTERVIEW_QUESTION <question>` (requirements-analyst → PO)
+  and `[req] INTERVIEW_ANSWER <answer>` (PO → requirements-analyst) —
+  the **only** sanctioned direct PO ↔ requirements-analyst channel,
+  active solely during a Requirement Definition. The Sprint Developer
+  has no such channel; every Developer ↔ PO exchange traverses SM.
 - `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]`
   — PO → SM, aggregated report emitted once by the `po-acceptance` skill after every AC / release criterion has a decision logged.
 
@@ -262,8 +266,8 @@ pbi-designer / pbi-implementer / pbi-ut-author
 Only the PO seat changes between modes; the route shape itself is
 invariant. "Escalation routes are fixed" still holds — SM remains the
 single broker, and sub-agents never address the PO directly (the one
-exception is the requirement-definition `[req] INTERVIEW_*` channel; see
-§ Communication protocol).
+exception is the requirement-definition `[req] INTERVIEW_*` channel
+owned by the `requirements-analyst`; see § Communication protocol).
 
 This is a synchronous path: the spawning sub-agent should end its
 turn with the question in `findings[]` and a `next_actions` entry

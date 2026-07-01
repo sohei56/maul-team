@@ -4,10 +4,11 @@
 
 ```text
 scrum-start.sh           # Entry point — validates prereqs, launches tmux (supports --autonomous)
-agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-master, developer, product-owner; sub-agents listed in docs/contracts/sub-agents.md)
+agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-master, developer, product-owner, requirements-analyst; sub-agents listed in docs/contracts/sub-agents.md)
   scrum-master.md        # Team lead (Delegate mode)
   developer.md           # Developer teammate (PBI pipeline conductor)
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
+  requirements-analyst.md # Requirement Definition ceremony (interview + mandatory benchmark web search + requirements.md/CLAUDE.md authoring)
   # Sprint-end cross-review (5-aspect parallel): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
 skills/                  # 18 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance + 1 brief authoring) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh

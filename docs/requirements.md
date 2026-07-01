@@ -13,8 +13,9 @@ with the user acting as Product Owner.
 
 The user runs `sh ./claude-scrum-team/scrum-start.sh` from the
 CLI and an AI Scrum team is assembled automatically. The user is
-guided through a Requirement Definition where a single Developer asks
-structured questions to elicit product requirements. The user
+guided through a Requirement Definition where a Requirements Analyst
+asks structured questions and researches similar products via
+mandatory web search to elicit product requirements. The user
 responds in natural language. The Sprint concludes when both
 parties agree on the requirements document. After the Requirements
 Sprint, the Scrum Master creates the initial Product Backlog with
@@ -332,9 +333,17 @@ Observe implementation and verify Developers use support sub-agents.
   existing project from where it was last interrupted.
 
 - **FR-002**: The system MUST conduct a Requirement Definition where
-  a single Developer elicits requirements from the user through
-  structured questions and produces a requirements document
+  a single `requirements-analyst` elicits requirements from the user
+  through structured questions and produces a requirements document
   covering business, functional, and non-functional requirements.
+  Before formulating functional / non-functional requirements from
+  its own knowledge, the `requirements-analyst` MUST research similar
+  products / prior art via live web search (`WebSearch`, not internal
+  knowledge), record the findings with source URLs in
+  `docs/requirements-benchmark.md`, and present them to the user (PO
+  seat) for a per-item adopt / adapt / reject decision. If `WebSearch`
+  is unavailable, the ceremony MUST surface a harness incident rather
+  than fall back to the model's internal knowledge.
 
 - **FR-003**: The Scrum Master MUST create the initial Product
   Backlog after the Requirement Definition with coarse-grained PBIs.

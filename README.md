@@ -49,7 +49,7 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 
 ### What a session looks like
 
-1. **You describe your project** — the Scrum Master spawns a Developer to elicit requirements and write `requirements.md`
+1. **You describe your project** — the Scrum Master spawns a Requirements Analyst to elicit requirements, research similar products via web search, and write `requirements.md`
 2. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
 3. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
 4. **PBI Pipeline (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage measurement. On PBI completion the SM merges that PBI immediately (`--no-ff` + per-merge regression gate, 3-strike escalation).

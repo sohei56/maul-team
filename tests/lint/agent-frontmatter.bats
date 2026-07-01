@@ -97,10 +97,22 @@ extract_frontmatter() {
   assert_output "200"
 }
 
-@test "developer.md has tools allowlist with 9 entries" {
+@test "developer.md has tools allowlist with 11 entries" {
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.tools | length'"
   assert_success
-  assert_output "9"
+  assert_output "11"
+}
+
+@test "developer.md tools allowlist includes WebSearch and WebFetch" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.tools | contains([\"WebSearch\", \"WebFetch\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "developer.md does not list requirement-definition skill" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq '.skills | contains([\"requirement-definition\"])'"
+  assert_success
+  assert_output "false"
 }
 
 @test "developer.md tools allowlist includes Agent" {
@@ -117,6 +129,45 @@ extract_frontmatter() {
 
 @test "developer.md has memory field set to project" {
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/developer.md' | yq -r '.memory'"
+  assert_success
+  assert_output "project"
+}
+
+# ---------------------------------------------------------------------------
+# requirements-analyst.md (Requirement Definition ceremony)
+# ---------------------------------------------------------------------------
+
+@test "requirements-analyst.md has valid YAML frontmatter" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq '.' > /dev/null 2>&1"
+  assert_success
+}
+
+@test "requirements-analyst.md has required name field" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq -r '.name'"
+  assert_success
+  assert_output "requirements-analyst"
+}
+
+@test "requirements-analyst.md owns requirement-definition skill" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq '.skills | contains([\"requirement-definition\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "requirements-analyst.md tools include WebSearch and WebFetch (mandatory benchmark research)" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq '.tools | contains([\"WebSearch\", \"WebFetch\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "requirements-analyst.md does not have Agent tool (not a pipeline conductor)" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq '.tools | contains([\"Agent\"])'"
+  assert_success
+  assert_output "false"
+}
+
+@test "requirements-analyst.md has memory field set to project" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/requirements-analyst.md' | yq -r '.memory'"
   assert_success
   assert_output "project"
 }

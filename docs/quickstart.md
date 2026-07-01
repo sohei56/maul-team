@@ -138,7 +138,8 @@ annotated tree.
 For deeper detail, follow these pointers:
 
 - **Agents and sub-agents**: top-level Scrum Master + Developer +
-  Product Owner plus 11 specialist sub-agents (6 PBI pipeline + 5
+  Product Owner + Requirements Analyst (Requirement Definition
+  ceremony) plus 11 specialist sub-agents (6 PBI pipeline + 5
   cross-review) — see [docs/contracts/sub-agents.md](contracts/sub-agents.md).
 - **Skills**: Markdown + YAML frontmatter under `.claude/skills/<name>/SKILL.md`,
   each with `## Inputs` / `## Outputs`. Invocation, side effects, and

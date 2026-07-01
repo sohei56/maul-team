@@ -37,7 +37,7 @@ responsibilities (what it owns).
 - `.scrum/sprint.json` (creates per Sprint)
 - `.scrum/sprint-history.json` (appends after Sprint completion)
 - `.scrum/improvements.json` (creates and updates)
-- `docs/requirements.md` (delegates creation to Developer, stores result; committed to repo)
+- `docs/requirements.md` (delegates creation to `requirements-analyst`, stores result; committed to repo)
 - `docs/design/catalog.md` (enables entries during Sprint Planning)
 - `docs/design/specs/{category}/*.md` (delegates creation to Developers)
 - Developer teammate creation (via Agent Teams)
@@ -48,7 +48,7 @@ responsibilities (what it owns).
 | FR | Responsibility |
 |----|----------------|
 | FR-001 | Launch team (spawn teammates via Agent Teams), resume from state |
-| FR-002 | Orchestrate Requirement Definition: spawn single Developer, receive requirements document |
+| FR-002 | Orchestrate Requirement Definition: spawn single `requirements-analyst`, receive requirements + benchmark documents |
 | FR-003 | Create and maintain Product Backlog; progressive refinement |
 | FR-004 | Orchestrate Design phase: determine design document granularity (R8), assign Developers, ensure existing designs are read |
 | FR-005 | Propose Sprint Goals (PO-reviewable scope), get user approval |
@@ -189,7 +189,7 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 - `.scrum/po/attention.md` (human-only queue; entries tagged `release-blocking: yes` block `release_decision=go`)
 - `.scrum/test-results.json` (release gate)
 - SM `SendMessage` of shape `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...> <payload>`
-- Developer `SendMessage` of shape `[req] INTERVIEW_QUESTION <question>` — **only** during the Requirement Definition
+- `requirements-analyst` `SendMessage` of shape `[req] INTERVIEW_QUESTION <question>` — **only** during the Requirement Definition
 
 ### Outputs
 
@@ -200,13 +200,13 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 - SM `SendMessage`: `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>`
 - SM `SendMessage`: `[<scope>] PO_CLARIFY <question>` (at most one per request; cap from `po.max_clarification_rounds`)
 - SM `SendMessage`: `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]` (single aggregated report emitted by the `po-acceptance` skill)
-- Developer `SendMessage`: `[req] INTERVIEW_ANSWER <answer>` — Requirement Definition only
+- `requirements-analyst` `SendMessage`: `[req] INTERVIEW_ANSWER <answer>` — Requirement Definition only
 
 ### Responsibilities
 
 | FR | Responsibility |
 |----|----------------|
-| FR-002 | (Requirement Definition, autonomous mode) Answer the Developer's `INTERVIEW_QUESTION` prompts; expand `brief.md` into `docs/product/vision.md`. |
+| FR-002 | (Requirement Definition, autonomous mode) Answer the `requirements-analyst`'s `INTERVIEW_QUESTION` prompts (incl. `kind=spec_clarification` benchmark adopt/adapt/reject dispositions); expand `brief.md` into `docs/product/vision.md`. |
 | FR-003 | Approve / reject backlog priorities and PBI splits via `kind=backlog_approval` and `kind=pbi_split`. |
 | FR-005 | Approve / reject Sprint Goals via `kind=sprint_goal_approval` (max 2 rejections per goal — third round must approve with `rationale=PROPOSED_GOAL: <text>`). |
 | FR-010 | Demo acceptance (per PBI) via `kind=demo_acceptance`. Invokes `po-acceptance` skill in `mode=demo`. |
@@ -238,8 +238,8 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 | SM → PO | `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>` | `<scope>` ∈ `pbi-NNN` \| `sprint-N` \| `product`. `kind` enum has 12 values (see `agents/product-owner.md`). |
 | PO → SM | `[<scope>] PO_CLARIFY <question>` | At most one per `PO_DECISION_REQUEST` (`po.max_clarification_rounds`, default 2). |
 | PO → SM | `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>` | `dec_id` is mandatory; returned by `.scrum/scripts/append-po-decision.sh`. |
-| Developer → PO | `[req] INTERVIEW_QUESTION <question>` | **Only** legal during Requirement Definition. Outside that ceremony all Developer/PO traffic must traverse SM. |
-| PO → Developer | `[req] INTERVIEW_ANSWER <answer>` | Same Requirement-Definition-only constraint. |
+| requirements-analyst → PO | `[req] INTERVIEW_QUESTION <question>` | **Only** legal during Requirement Definition. The Sprint Developer has no direct PO channel; its spec/requirement traffic traverses SM. |
+| PO → requirements-analyst | `[req] INTERVIEW_ANSWER <answer>` | Same Requirement-Definition-only constraint. |
 | PO → SM | `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo\|uat> results=[<id>:<verdict>:<dec_id>,...]` | Emitted once by `po-acceptance` after every AC / release criterion has a decision logged. |
 
 Routing rules and per-mode behaviour live in

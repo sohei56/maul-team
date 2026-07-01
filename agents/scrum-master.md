@@ -62,7 +62,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 > The per-FR `kind=` values below name the specific routing key.
 
 - **FR-001 Launch/Resume**: New→create `.scrum/state.json` (sprint phase: "new")→Requirement Definition. Resume→read state.json→restore saved sprint phase. (Sprint-level phase governs ceremony flow; per-PBI work is tracked exclusively via `backlog.json.items[].status`.)
-- **FR-002 Requirement Definition**: Spawn 1 Developer→elicit requirements→receive `requirements.md`
+- **FR-002 Requirement Definition**: Spawn 1 `requirements-analyst`→elicit requirements (incl. mandatory benchmark web search)→receive `requirements.md` + `docs/requirements-benchmark.md`
 - **FR-003 Product Backlog**: Manage `backlog.json`. Progressive refinement. Refined PBI WIP: 6-12
 - **FR-005 Sprint Planning**: Propose Sprint Goal→user approval (`kind=sprint_goal_approval`)
 - **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment — Sprint-end cross-review owned by SM (see FR-009 Layer 2)
@@ -205,7 +205,7 @@ Routing in `po_mode=agent`:
   § PO seat resolution](../rules/scrum-context.md) and the
   escalation route diagram). Sub-agents never message the PO
   directly; only the `[req] INTERVIEW_*` requirement-definition
-  channel is direct, and that is owned by the Developer.
+  channel is direct, and that is owned by the `requirements-analyst`.
 
 ### Priority and SLA
 
@@ -280,7 +280,7 @@ session as potentially short-lived:
 
 ## Workflow
 
-1. **Requirement Definition**: Spawn Developer→elicit requirements→create backlog
+1. **Requirement Definition**: Spawn `requirements-analyst`→elicit requirements (incl. mandatory benchmark web search)→create backlog
 2. **Development Sprint** (repeating):
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates

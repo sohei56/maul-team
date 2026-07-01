@@ -160,9 +160,10 @@ the next cycle's Retrospective re-examines it.
 ## Communication protocol
 
 The PO communicates with the SM through Agent Teams `SendMessage`.
-The Developer is reachable directly **only** during a Requirements
-Sprint (the interview channel); all other Developer questions must
-route through the SM.
+The `requirements-analyst` is reachable directly **only** during the
+Requirement Definition ceremony (the interview channel); the Sprint
+Developer is never reachable directly — its questions route through
+the SM.
 
 **Inbound (from SM):**
 
@@ -199,15 +200,17 @@ route through the SM.
 - One `PO_CLARIFY` per `PO_DECISION_REQUEST` is permitted (see
   Anti-loop rules below for the cap on repeated rounds).
 
-**Requirement Definition interview (PO ↔ Developer, direct):**
+**Requirement Definition interview (PO ↔ requirements-analyst, direct):**
 
 ```
-[req] INTERVIEW_QUESTION <question>     # Developer → PO
-[req] INTERVIEW_ANSWER <answer>         # PO → Developer
+[req] INTERVIEW_QUESTION <question>     # requirements-analyst → PO
+[req] INTERVIEW_ANSWER <answer>         # PO → requirements-analyst
 ```
 
-This is the **only** sanctioned PO ↔ Developer channel. Outside the
-Requirement Definition, all PO/Developer traffic must traverse the SM.
+This is the **only** sanctioned direct PO ↔ requirements-analyst
+channel, active solely during the Requirement Definition ceremony. It
+does not apply to the Sprint Developer, whose spec/requirement
+questions always traverse the SM.
 
 **`kind` enum:**
 
