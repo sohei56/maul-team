@@ -8,11 +8,21 @@ disable-model-invocation: false
 
 - `backlog.json` → items with status: draft
 - `requirements.md`
+- `docs/requirements-benchmark.md` — prior-art / similar-case findings
+  with per-item dispositions produced by Requirement Definition (reuse
+  first before any refinement-time web search; may be absent on a
+  pre-brief / resumed project)
 - Count of existing refined PBIs (WIP check)
 
 ## Outputs
 
 - `backlog.json` → items[].status: refined, acceptance_criteria (non-empty), ux_change, design_doc_paths, priority (non-negative integer)
+- Every refined PBI carries a **settled approach/method** — the
+  solution direction is recorded in `description` (and the doc it will
+  shape is named in `design_doc_paths`), with no PO-only spec question
+  about it left open (see Steps 3.a2 / 3.a3)
+- `.scrum/po/decisions.json` (agent mode) — any `spec_clarification`
+  ruling emitted during refinement, logged via `append-po-decision.sh`
 
 ## Preconditions
 
@@ -20,12 +30,128 @@ disable-model-invocation: false
 - backlog.json has ≥1 draft PBI
 - Refined PBI count < WIP cap 12
 
+## PO seat resolution (po_mode)
+
+The PO-clarification points below (Step 3.a3, and any PO-only spec
+question surfaced during 3.a2 research) resolve to the PO seat per
+`.scrum/config.json.po_mode` and `rules/scrum-context.md` § PO seat
+resolution:
+
+- `human` (default) → the SM asks the user in the main session and
+  waits for a natural-language reply.
+- `agent` → the SM routes
+  `[<pbi-id>] PO_DECISION_REQUEST kind=spec_clarification options=[...]
+  recommendation=<...>` to the `product-owner` teammate and proceeds on
+  the returned `PO_DECISION` (logged via `append-po-decision.sh`, with
+  the `dec_id` echoed). **Never block on human input**: a genuinely
+  human-only unknown is appended to `.scrum/po/attention.md` and the
+  PBI stays `draft`.
+
+The route is invariant across modes; only the seat changes. SM remains
+the sole broker — sub-agents never address the PO directly.
+
 ## Steps
 
 1. Read backlog.json
 2. Count refined PBIs. If ≥12→skip (WIP cap reached)
 3. Each draft PBI (up to WIP cap 12 total refined):
    a. Break into implementation-ready items (per function/screen/API/component)
+
+   a2. **Approach & prior-art clarity gate (mandatory, before AC).**
+      The goal of refinement is to hand the Developer a PBI whose
+      **solution approach/method is settled** — not one where the
+      designer must guess the method or reverse-engineer intent. Before
+      writing AC, decide per item whether the approach is determinable
+      from `requirements.md` + `docs/requirements-benchmark.md`:
+      - **Reuse `docs/requirements-benchmark.md` first.** It already
+        holds prior-art dispositions (`adopt`/`adapt`/`reject`) from
+        Requirement Definition. Do NOT re-search what it already
+        answers.
+      - Is there a known prior-art / similar-case pattern for this
+        feature, and is the technical direction (algorithm / protocol /
+        data model / integration style) determinable, or genuinely
+        open?
+
+      If a gap remains that a targeted search can close (prior-art or
+      tech-direction **not** settled at Requirement Definition),
+      delegate a **bounded web search** to an Opus sub-agent (mirrors
+      the Requirement Definition benchmark pattern). Record the resolved
+      direction into the PBI `description`, and name the doc it will
+      shape in `design_doc_paths` (step 3d):
+
+      ```
+      Agent({
+        subagent_type: "general-purpose",
+        model: "opus",
+        description: "Refinement approach/prior-art research",
+        prompt: <<<EOF
+          Given one PBI (title, description, draft AC) plus excerpts of
+          requirements.md and requirements-benchmark.md, close the
+          *approach/method* gap for this PBI.
+
+          Rules:
+          1. Reuse requirements-benchmark.md first; only search for what
+             it does NOT already answer.
+          2. Run >=3 distinct WebSearch queries on prior art / similar
+             solutions / the accepted method for this feature, then
+             WebFetch the most relevant sources. Ground every claim in a
+             source read this session — never from memory.
+          3. Return the settled approach, the sources, the design docs
+             it should shape, and any residual question that ONLY the PO
+             can answer (business rule / scope boundary / ordering /
+             threshold / acceptance semantics).
+
+          Scope boundary — do NOT duplicate the Design stage. Detailed
+          per-library API selection and the S-070 technology specs are
+          the pbi-designer's mandatory library web search at Design
+          time. Here, settle *direction/method* only; do not pre-empt
+          library-level choices.
+
+          Output JSON:
+            {
+              "approach": "<settled method, 1-3 sentences>",
+              "sources": ["<url>", ...],
+              "shapes_docs": ["docs/design/specs/....md", ...],
+              "po_questions": ["<spec question only the PO can answer>", ...]
+            }
+          If WebSearch is unavailable or fails at the harness level (not
+          a "no results" content outcome), return
+            {"harness_incident": "websearch_unavailable"}
+          and do NOT fabricate an approach from memory.
+        EOF
+      })
+      ```
+
+      SM main loop reads the JSON: fold `approach` into the PBI
+      `description`, merge `shapes_docs` into `design_doc_paths`, and
+      carry every `po_questions` entry into step 3.a3. On
+      `harness_incident` treat it as a **harness incident, not a
+      fallback** (mirrors requirement-definition step 5): surface per
+      the PO seat (human → tell the user and wait; agent → append to
+      `.scrum/po/attention.md`) and do not fabricate an approach.
+
+      **Boundary restated:** this step settles approach/method
+      *direction* only. Per-library API selection + `S-070` specs stay
+      with the Design stage — do not duplicate them here.
+
+   a3. **PO clarification for residual spec ambiguity (do not pass
+      ambiguity downstream).** After research, resolve **now** — not by
+      deferring to the Developer/designer — any remaining unknown that
+      is **PO-only**: a business rule, scope boundary, ordering /
+      threshold, or acceptance semantics. Apply the escalate-vs-guess
+      filter in `rules/scrum-context.md` § When you don't know:
+      - Escalate (route to the PO seat) when guessing wrong would change
+        observable behavior or break a contract. See § PO seat
+        resolution above for the human / agent routing; fold the
+        answer/ruling into the PBI `description` / AC before refining.
+      - Do **not** escalate purely reversible unknowns (local naming,
+        internal decomposition, test-fixture values) — leave those to
+        the pipeline. Over-escalation defeats the point.
+
+      **Never guess PO intent.** An item is not eligible for `refined`
+      while a PO-only question about it is open (human mode: unanswered;
+      agent mode: no matching `PO_DECISION` / parked in `attention.md`).
+
    b. Fill `acceptance_criteria` (Definition of Ready). Every string MUST
       be **independently verifiable** — either:
       - Given/When/Then form, or
@@ -145,7 +271,10 @@ disable-model-invocation: false
       SM main loop reads the JSON. If `verdict == "needs_revision"`,
       apply `rewrite_suggestion` for flagged AC and append every
       `missing_acs` entry before persisting. Do not advance status to
-      `refined` until the next audit returns `verdict: pass`.
+      `refined` until the next audit returns `verdict: pass`. If an AC
+      cannot be made verifiable without a PO-only decision (e.g. an
+      undecided acceptance threshold), route that question through step
+      3.a3 rather than inventing a value.
 
       Persist `kind` on every PBI (code or docs — never leave the
       field unset, the default is for legacy data only):
@@ -201,4 +330,15 @@ Ref: FR-003
 - Every `acceptance_criteria[i]` is independently verifiable per Step 3b
   (Given/When/Then or measurable assertion; no bare vague adjective)
 - For kind=docs PBIs: no AC reduces to a grep-pattern hit count (see Check 5 above)
+- Every refined PBI has a **settled approach/method** recorded in
+  `description` (Step 3.a2) — the designer is not left to guess the
+  method; approach/prior-art gaps were closed by reusing
+  `requirements-benchmark.md`, by delegated web research, or by a PO
+  `spec_clarification` decision
+- **No PO-only spec question about a refined PBI is left open** (Step
+  3.a3) — human mode: answered; agent mode: a matching `PO_DECISION` is
+  logged, or the question is parked in `.scrum/po/attention.md` and the
+  PBI remains `draft`
+- Any WebSearch harness incident encountered during 3.a2 was surfaced
+  (not papered over with fabricated approach)
 - Total refined PBIs within 6-12 range
