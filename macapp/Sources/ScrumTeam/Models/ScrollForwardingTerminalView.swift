@@ -36,6 +36,24 @@ extension LocalProcessTerminalView {
         return true
     }
 
+    /// True when a bare mouse-move (hover, no button down) over this terminal
+    /// would be forwarded to the child process as a motion report.
+    ///
+    /// SwiftTerm encodes button-less motion (mode 1003 / any-event tracking) as
+    /// an SGR `CSI<32;col;row m` sequence: the "no button" code (3) is collapsed
+    /// to the left-button bits (0) and the final byte becomes `m` (release).
+    /// A TUI mouse parser that ignores the motion bit (32) reads that as a plain
+    /// left-button release — i.e. a click — so the option Claude has highlighted
+    /// under the pointer commits on hover, with no click. `mouseMoved` is
+    /// `public` but not `open`, so it cannot be overridden from outside
+    /// SwiftTerm; instead `ProjectSession` installs a local `.mouseMoved`
+    /// monitor that swallows the event when this returns true. Button presses
+    /// (`mouseDown`/`mouseUp`) and drags (`mouseDragged`) are distinct event
+    /// types and are left untouched, so click-to-select still works.
+    func reportsHoverAsMotion() -> Bool {
+        allowMouseReporting && getTerminal().mouseMode.sendMotionEvent()
+    }
+
     /// Pointer location in 0-based terminal cells, derived from the view
     /// geometry (SwiftTerm's own cell metrics are not public API).
     private func scrollCellPosition(of event: NSEvent, terminal: Terminal) -> (col: Int, row: Int) {

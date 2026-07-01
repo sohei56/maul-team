@@ -22,6 +22,12 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
     /// (see ScrollForwardingTerminalView.swift). Removed on deinit.
     private var scrollMonitor: Any?
 
+    /// Local monitor that swallows bare hover (`.mouseMoved`) events over the
+    /// terminal while the TUI has motion reporting on, so a hover does not
+    /// commit Claude's highlighted choice (see ScrollForwardingTerminalView
+    /// `reportsHoverAsMotion`). Removed on deinit.
+    private var hoverMonitor: Any?
+
     /// Bumped whenever the child process exits, so observers re-read `isRunning`.
     @Published private(set) var stateTick = 0
 
@@ -48,6 +54,7 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
         smTerminal.startProcess(executable: sm.executable, args: sm.args, environment: envArray)
 
         installScrollForwarding()
+        installHoverMotionSuppression()
     }
 
     /// Forward mouse-wheel events over the terminal to the running app when it
@@ -63,8 +70,26 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
         }
     }
 
+    /// Swallow bare hover events over the terminal while the running TUI has
+    /// motion reporting enabled. SwiftTerm would otherwise encode the hover as
+    /// a motion report a TUI can misread as a click, committing the option the
+    /// pointer is over without a click (see ScrollForwardingTerminalView
+    /// `reportsHoverAsMotion`). Only `.mouseMoved` (button-less hover) is
+    /// suppressed; clicks and drags are distinct event types and pass through.
+    private func installHoverMotionSuppression() {
+        hoverMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            guard let self else { return event }
+            let term = self.smTerminal
+            guard let window = term.window, event.window === window else { return event }
+            let local = term.convert(event.locationInWindow, from: nil)
+            guard term.bounds.contains(local) else { return event }
+            return term.reportsHoverAsMotion() ? nil : event
+        }
+    }
+
     deinit {
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        if let hoverMonitor { NSEvent.removeMonitor(hoverMonitor) }
     }
 
     /// Send SIGTERM to the child. Used by the "stop" actions.
