@@ -146,3 +146,38 @@ setup() {
   run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git rebase -i HEAD~3\"}}' | $HOOK"
   [ "$status" -ne 0 ]
 }
+
+# Compound-command bypass regression: a blocked verb hidden behind a shell
+# statement boundary must still be caught segment-by-segment.
+@test "blocks: cd x && git merge foo (compound &&)" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd x && git merge foo\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+@test "blocks: true; git push origin main (compound ;)" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"true; git push origin main\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+@test "blocks: echo | git rebase main (pipe)" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo | git rebase main\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+# The wrapper allowlist is not inherited by compound segments: a lone wrapper
+# call is allowed, but a wrapper followed by a blocked git verb still blocks.
+@test "allows: bash .scrum/scripts/merge-pbi.sh wrapper" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"bash .scrum/scripts/merge-pbi.sh pbi-001\"}}' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "blocks: .scrum/scripts/merge-pbi.sh pbi-001 && git push" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\".scrum/scripts/merge-pbi.sh pbi-001 && git push\"}}' | $HOOK"
+  [ "$status" -ne 0 ]
+}
+
+# A compound command whose segments are all benign still passes.
+@test "allows: cd x && git status (compound, no blocked verb)" {
+  run bash -c "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd x && git status\"}}' | $HOOK"
+  [ "$status" -eq 0 ]
+}

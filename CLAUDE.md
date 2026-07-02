@@ -259,9 +259,12 @@ unset), SendMessage matrix for `conflict` / `artifact_missing` /
 The full Sprint-end lint/quality review still runs in `cross-review`.
 
 In **deployed target projects** (registered via `setup-user.sh`), the
-hook `pre-tool-use-no-branch-ops.sh` blocks raw `git checkout -b`,
-`switch -c`, `branch <new>`, `merge`, `push`, `rebase` from the Bash
-tool unless invoked through `.scrum/scripts/*`. The framework repo
+hook `pre-tool-use-no-branch-ops.sh` scans each shell statement segment
+(splitting on `&&`, `||`, `;`, `|`, newlines) and blocks raw `git
+checkout -b`, `switch -c`, `branch <new>`, `merge`, `push`, `rebase`,
+and `worktree add -b` from the Bash tool unless the command is a lone
+`.scrum/scripts/*.sh` wrapper invocation (this is a guardrail against
+honest mistakes, not a sandbox against obfuscated commands). The framework repo
 itself does **not** register this hook (see `.claude/settings.json`)
 so that framework dev work — branching, merging, pushing — proceeds
 normally. The same scope applies to other PreToolUse guards shipped

@@ -33,8 +33,7 @@ Black-box test author. Spawned by Developer per impl+UT Round.
 
 ## Path Constraints (enforced by hook)
 
-- Read/Write/Edit allowed: test paths, design doc, .scrum/pbi/, and
-  declaration-only files (.d.ts, .pyi).
+- Read/Write/Edit allowed: test paths, design doc, .scrum/pbi/.
 - Read/Write/Edit BLOCKED: implementation paths (path-guard hook returns
   exit 2). Do not attempt to read src/* or lib/*.
 

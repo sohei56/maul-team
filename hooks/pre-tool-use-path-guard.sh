@@ -50,8 +50,10 @@ fi
 # Path-based checks below require file_path.
 [ -n "$path" ] || exit 0
 
-# Normalize path: strip leading $PWD/ if absolute
-rel="${path#"$PWD"/}"
+# Normalize path to a root-anchored relative form: strip $PWD/, collapse /./,
+# and strip a leading .scrum/worktrees/<pbi>/ prefix so worktree-relative paths
+# match the same root-anchored impl/test globs (see lib/validate.sh).
+rel="$(project_rel_path "$path")"
 
 # Glob match helper using bash pattern matching
 matches_any_glob() {
@@ -89,14 +91,25 @@ if [ ! -f "$CONFIG" ]; then
   exit 0
 fi
 
-mapfile -t impl_globs < <(jq -r '.path_guard.impl_globs[]?' "$CONFIG")
-mapfile -t test_globs < <(jq -r '.path_guard.test_globs[]?' "$CONFIG")
+# Read config globs into arrays. Bash 3.2 (macOS default) has no `mapfile`/
+# `readarray`, and under `set -euo pipefail` calling them would abort the hook
+# on the impl/test path-blocking branch (fail-open). Use a portable read loop.
+impl_globs=()
+while IFS= read -r _line; do
+  [ -n "$_line" ] && impl_globs+=("$_line")
+done < <(jq -r '.path_guard.impl_globs[]?' "$CONFIG")
+test_globs=()
+while IFS= read -r _line; do
+  [ -n "$_line" ] && test_globs+=("$_line")
+done < <(jq -r '.path_guard.test_globs[]?' "$CONFIG")
 
 case "$agent" in
   pbi-ut-author)
     case "$tool" in
       Read|Write|Edit|MultiEdit)
-        if matches_any_glob "$rel" "${impl_globs[@]}"; then
+        # ${#arr[@]} is safe under `set -u` even for an empty array; guard the
+        # "${arr[@]}" expansion which would otherwise abort in Bash 3.2.
+        if [ "${#impl_globs[@]}" -gt 0 ] && matches_any_glob "$rel" "${impl_globs[@]}"; then
           hook_block "path-guard" "pbi-ut-author cannot $tool $rel (impl path)" "UT must remain black-box; do not access impl files."
         fi
         ;;
@@ -105,7 +118,7 @@ case "$agent" in
   pbi-implementer)
     case "$tool" in
       Write|Edit|MultiEdit)
-        if matches_any_glob "$rel" "${test_globs[@]}"; then
+        if [ "${#test_globs[@]}" -gt 0 ] && matches_any_glob "$rel" "${test_globs[@]}"; then
           hook_block "path-guard" "pbi-implementer cannot $tool $rel (test path)" "Implementer cannot modify tests; UT author owns test paths."
         fi
         ;;

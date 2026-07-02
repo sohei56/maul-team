@@ -236,6 +236,81 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+# --- Worktree symlink normalization (RC#12 / T1-9) ---
+# Each worktree has a .scrum -> ../../../.scrum symlink, so a write to
+# .scrum/worktrees/<pbi>/.scrum/<x> targets the real shared SSOT and must be
+# guarded identically to the main-repo form. Stripping the worktree prefix
+# both keeps SSOT json blocked AND lets exempt-artifact writes through.
+
+@test "guard: blocks Write to worktree-symlinked .scrum/backlog.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/worktrees/pbi-001/.scrum/backlog.json\"}}'"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED"* ]]
+}
+
+@test "guard: blocks Edit to worktree-symlinked .scrum/pbi/pbi-001/state.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\".scrum/worktrees/pbi-001/.scrum/pbi/pbi-001/state.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: blocks Bash redirect to worktree-symlinked .scrum/backlog.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"jq . in.json > .scrum/worktrees/pbi-001/.scrum/backlog.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: allows Write to worktree-symlinked exempt artifact (reviews)" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/worktrees/pbi-001/.scrum/reviews/static-analysis-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Write to worktree-symlinked exempt artifact (metrics)" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".scrum/worktrees/pbi-001/.scrum/pbi/pbi-001/metrics/coverage-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+# --- rm / unlink of SSOT json (OD-4) ---
+
+@test "guard: blocks Bash rm of .scrum/sprint.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm .scrum/sprint.json\"}}'"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED"* ]]
+}
+
+@test "guard: blocks Bash rm -f of .scrum/backlog.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm -f .scrum/backlog.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: blocks Bash rm -rf of nested .scrum/pbi/pbi-001/state.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm -rf .scrum/pbi/pbi-001/state.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: blocks Bash unlink of .scrum/state.json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"unlink .scrum/state.json\"}}'"
+  [ "$status" -eq 2 ]
+}
+
+@test "guard: does NOT block .scrum/scripts/rollover-sprint.sh invocation" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\".scrum/scripts/rollover-sprint.sh\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Bash rm of an exempt review artifact json" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm .scrum/reviews/static-analysis-r1.json\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: allows Bash rm of a non-json .scrum file" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm .scrum/notes.txt\"}}'"
+  [ "$status" -eq 0 ]
+}
+
+@test "guard: does NOT block 'confirm' word colliding with rm" {
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo confirm .scrum/backlog.json is fine\"}}'"
+  [ "$status" -eq 0 ]
+}
+
 # --- Fail-open cases (malformed input) ---
 
 @test "guard: empty payload → allow" {

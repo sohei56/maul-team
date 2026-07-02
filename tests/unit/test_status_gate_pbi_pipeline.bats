@@ -45,3 +45,19 @@ payload() {
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.decision == "deny"'
 }
+
+# --- Worktree-prefix normalization (RC#12 / T1-9) ---
+# PBI work runs in .scrum/worktrees/<pbi-id>/; a worktree-relative spec path
+# must be denied to a non-designer just like the main-repo form.
+
+@test "pbi_pipeline_active phase denies non-pbi-designer Write to worktree-prefixed docs/design/specs/" {
+  run bash -c "echo '$(payload pbi-implementer Write .scrum/worktrees/pbi-001/docs/design/specs/api/auth.md)' | $HOOK"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "deny"'
+}
+
+@test "pbi_pipeline_active phase allows pbi-designer Write to worktree-prefixed docs/design/specs/" {
+  run bash -c "echo '$(payload pbi-designer Write .scrum/worktrees/pbi-001/docs/design/specs/api/auth.md)' | $HOOK"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "allow"'
+}

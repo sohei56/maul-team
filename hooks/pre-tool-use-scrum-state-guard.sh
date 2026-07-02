@@ -28,16 +28,23 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 block() { hook_block "scrum-guard" "$1" "Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md."; }
 
-# Normalize a path against $PWD: make absolute, collapse '/./' segments.
-# Threat model is honest agent — we don't try to defeat clever obfuscation
-# (eval, $(...)-substitutions, ../ traversals into PWD), just trivial forms.
-normalize_path() {
-  local p="$1"
-  [ "${p:0:1}" = "/" ] || p="$PWD/$p"
-  while [[ "$p" == */./* ]]; do
-    p="${p/\/.\//\/}"
-  done
-  printf '%s' "$p"
+# normalize_path / strip_worktree_prefix are provided by lib/validate.sh.
+
+# Collapse a ".scrum/worktrees/<pbi>/" symlink prefix from an ABSOLUTE path.
+# A write to .scrum/worktrees/<pbi>/.scrum/backlog.json targets the real shared
+# SSOT (each worktree has .scrum -> ../../../.scrum), so stripping the prefix
+# makes it match the same guard / exempt patterns as a main-repo write. Only
+# fires under "$PWD"/.scrum/worktrees/<seg>/…; paths elsewhere are untouched.
+abs_strip_worktree() {
+  local a="$1"
+  case "$a" in
+    "$PWD"/.scrum/worktrees/*/*)
+      printf '%s' "$PWD/$(strip_worktree_prefix "${a#"$PWD"/}")"
+      ;;
+    *)
+      printf '%s' "$a"
+      ;;
+  esac
 }
 
 # A .scrum/**/*.json path that is an agent-authored review/metric ARTIFACT,
@@ -49,7 +56,7 @@ normalize_path() {
 # directories, so the carve-out cannot expose state to a raw write.
 is_exempt_artifact() {
   local p
-  p="$(normalize_path "$1")"
+  p="$(abs_strip_worktree "$(normalize_path "$1")")"
   case "$p" in
     "$PWD"/.scrum/reviews/*.json)        return 0 ;;
     "$PWD"/.scrum/pbi/*/metrics/*.json)  return 0 ;;
@@ -87,7 +94,7 @@ case "$tool" in
   Write|Edit|MultiEdit)
     file="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
     [ -n "$file" ] || exit 0
-    abs_file="$(normalize_path "$file")"
+    abs_file="$(abs_strip_worktree "$(normalize_path "$file")")"
     # Bash glob `*` matches '/', so the pattern covers nested paths like
     # $PWD/.scrum/pbi/pbi-001/state.json too.
     case "$abs_file" in
@@ -137,6 +144,20 @@ case "$tool" in
       inplace_dests="$(sgrep '\.scrum/[^[:space:]]*\.json')"
       [ -n "$inplace_dests" ] && block_unless_all_exempt "$inplace_dests" \
         "in-place edit/truncate on .scrum json"
+    fi
+
+    # rm / unlink of an SSOT json: a raw delete bypasses the wrappers exactly
+    # like a raw write, so it must be blocked too. When the command invokes rm
+    # or unlink as a command word, treat every .scrum json token as a deletion
+    # target (mirrors the in-place-editor branch above; exempt artifacts are
+    # still allowed via block_unless_all_exempt). The (^|[^[:alnum:]_]) anchor
+    # keeps `perform`, `confirm`, `.scrum/scripts/rollover-sprint.sh`, etc. from
+    # matching — a wrapper invocation carries no bare `rm `/`unlink ` word.
+    if [[ "$cmd" =~ (^|[^[:alnum:]_])rm[[:space:]] ]] \
+       || [[ "$cmd" =~ (^|[^[:alnum:]_])unlink[[:space:]] ]]; then
+      rm_dests="$(sgrep '\.scrum/[^[:space:]]*\.json')"
+      [ -n "$rm_dests" ] && block_unless_all_exempt "$rm_dests" \
+        "rm/unlink of .scrum json from Bash (use .scrum/scripts/* wrapper)"
     fi
     ;;
   *)

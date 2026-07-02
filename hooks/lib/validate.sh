@@ -43,6 +43,58 @@ hook_block() {
   exit 2
 }
 
+# ---------------------------------------------------------------------------
+# Path normalization (shared by the PreToolUse guards)
+# ---------------------------------------------------------------------------
+# These are the single source of truth for how the guard hooks reduce a
+# tool-supplied path to a canonical form before glob-matching. Threat model is
+# an honest agent: we normalize trivial forms (./, $PWD/, absolute, /./, and a
+# .scrum/worktrees/<pbi>/ symlink prefix), not adversarial obfuscation
+# (eval, $(...) substitutions, ../ traversals into PWD).
+
+# Normalize a path against $PWD: make absolute, collapse '/./' segments.
+normalize_path() {
+  local p="$1"
+  [ "${p:0:1}" = "/" ] || p="$PWD/$p"
+  while [[ "$p" == */./* ]]; do
+    p="${p/\/.\//\/}"
+  done
+  printf '%s' "$p"
+}
+
+# Strip a leading ".scrum/worktrees/<segment>/" prefix (exactly one segment =
+# the PBI id) from a RELATIVE path, so a worktree-relative path is matched
+# against the same root-anchored globs (src/**, tests/**, docs/design/specs/*,
+# .scrum/*.json) as a main-repo path. POSIX-safe (no Bash-4 features).
+#   .scrum/worktrees/pbi-001/tests/x.py           -> tests/x.py
+#   .scrum/worktrees/pbi-001/.scrum/backlog.json  -> .scrum/backlog.json
+#     (each worktree has .scrum -> ../../../.scrum, so this refers to the real
+#      shared SSOT and must STILL match the guard patterns after stripping)
+strip_worktree_prefix() {
+  local p="$1" rest
+  case "$p" in
+    .scrum/worktrees/*/*)
+      rest="${p#.scrum/worktrees/}"   # <segment>/<rest...>
+      printf '%s' "${rest#*/}"        # drop the single <segment>/ prefix
+      ;;
+    *)
+      printf '%s' "$p"
+      ;;
+  esac
+}
+
+# Reduce a tool-supplied path to a root-anchored relative path suitable for
+# matching against project-root globs. Steps: (1) normalize to absolute +
+# collapse /./  (2) strip $PWD/ back to relative  (3) strip a leading
+# .scrum/worktrees/<pbi>/ prefix. Paths outside $PWD stay absolute (step 2 is a
+# no-op) and are left untouched by step 3.
+project_rel_path() {
+  local p
+  p="$(normalize_path "$1")"
+  p="${p#"$PWD"/}"
+  strip_worktree_prefix "$p"
+}
+
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
 # Authoritative timestamp helper. scripts/scrum/lib/atomic.sh::_iso_utc_now
 # mirrors this format; keep both in sync if format changes.

@@ -154,3 +154,35 @@ payload() {
   run bash -c "echo '$(payload product-owner Write docs/product/vision.md)' | $HOOK"
   [ "$status" -eq 0 ]
 }
+
+# ---------------------------------------------------------------------------
+# Worktree-prefix normalization (RC#12 / T1-9): PBI work runs in
+# .scrum/worktrees/<pbi-id>/, so worktree-relative paths must match the same
+# root-anchored impl/test globs as main-repo paths.
+# ---------------------------------------------------------------------------
+
+@test "blocks pbi-ut-author reading worktree-prefixed impl path" {
+  run bash -c "echo '$(payload pbi-ut-author Read .scrum/worktrees/pbi-001/src/auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED"* ]]
+}
+
+@test "blocks pbi-implementer writing worktree-prefixed test path" {
+  run bash -c "echo '$(payload pbi-implementer Write .scrum/worktrees/pbi-001/tests/test_auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+}
+
+@test "allows pbi-ut-author writing worktree-prefixed test path" {
+  run bash -c "echo '$(payload pbi-ut-author Write .scrum/worktrees/pbi-001/tests/test_auth.py)' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "allows pbi-implementer writing worktree-prefixed src path" {
+  run bash -c "echo '$(payload pbi-implementer Write .scrum/worktrees/pbi-001/src/auth.py)' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "blocks pbi-ut-author reading absolute worktree-prefixed impl path" {
+  run bash -c "echo '$(payload pbi-ut-author Read "$PWD/.scrum/worktrees/pbi-001/src/auth.py")' | $HOOK"
+  [ "$status" -eq 2 ]
+}

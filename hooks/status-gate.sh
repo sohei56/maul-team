@@ -139,12 +139,12 @@ phase="$(jq -r '.phase // "unknown"' "$STATE_FILE" 2>/dev/null)" || allow
 # Get the target file path (if determinable)
 target_path="$(get_target_path "$tool_name" "$tool_input")"
 
-# Normalize target_path: strip leading "./" or absolute prefix pointing to cwd
+# Normalize target_path to a root-anchored relative form: strip $PWD/ (or a
+# leading "./"), collapse /./, and strip a leading .scrum/worktrees/<pbi>/
+# prefix so worktree-relative paths match the same root-anchored globs
+# (docs/design/specs/*, source-file gating). See lib/validate.sh.
 if [ -n "$target_path" ]; then
-  target_path="${target_path#./}"
-  # Strip absolute path prefix if it matches the working directory
-  local_cwd="$(pwd)"
-  target_path="${target_path#"${local_cwd}"/}"
+  target_path="$(project_rel_path "$target_path")"
 fi
 
 # ---------------------------------------------------------------------------

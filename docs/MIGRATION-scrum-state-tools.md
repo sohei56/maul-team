@@ -90,11 +90,12 @@ pipeline.
 
 `hooks/pre-tool-use-scrum-state-guard.sh` is registered as a `PreToolUse` hook in `.claude/settings.json` (matcher: `Write|Edit|MultiEdit|Bash`). It blocks:
 
-- `Write` / `Edit` / `MultiEdit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form).
+- `Write` / `Edit` / `MultiEdit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form). A leading `.scrum/worktrees/<pbi-id>/` prefix is also stripped: each worktree has a `.scrum -> ../../../.scrum` symlink, so a write to `.scrum/worktrees/pbi-001/.scrum/backlog.json` targets the real shared SSOT and is guarded identically to `.scrum/backlog.json` (and worktree-relative exempt-artifact writes are correctly allowed rather than falsely blocked).
 - `Bash` commands that redirect (`>`, `>>`, `tee`, `sponge`) into `.scrum/*.json`
 - `Bash` with `jq -i`, `sed -i`, or `awk -i inplace` on `.scrum/*.json`
 - `Bash` with `mv X .scrum/*.json` or `cp X .scrum/*.json` (the second half of the redirect-then-rename pattern)
 - `Bash` with `truncate ... .scrum/*.json`
+- `Bash` with `rm ... .scrum/*.json` or `unlink .scrum/*.json` (a raw delete bypasses the wrappers just like a raw write). Wrapper invocations such as `.scrum/scripts/rollover-sprint.sh` are **not** matched — their command string carries no bare `rm `/`unlink ` word (any `rm` of a json happens inside the script, not in the argv the hook inspects). Exempt artifact paths (see below) are still deletable directly.
 
 The destination match works on absolute paths too (`mv /tmp/x $PWD/.scrum/y.json` is blocked, not just `mv /tmp/x .scrum/y.json`).
 
