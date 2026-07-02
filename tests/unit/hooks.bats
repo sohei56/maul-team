@@ -41,7 +41,7 @@ teardown() {
 @test "session-context.sh outputs phase context for existing project" {
   # Set up a .scrum/state.json with pbi_pipeline_active phase
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/hook-state-design.json" .scrum/state.json
+  cp "$FIXTURES_DIR/hook-state-pipeline-active.json" .scrum/state.json
 
   run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
