@@ -59,8 +59,6 @@
       "Bash(git stash drop*)",
       "Edit(.claude/settings.json)",
       "Write(.claude/settings.json)",
-      "Edit(.claude/hooks/*)",
-      "Write(.claude/hooks/*)",
       "Read(*.secrets/*)",
       "Bash(*.secrets/*)"
     ]
