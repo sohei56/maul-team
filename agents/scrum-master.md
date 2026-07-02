@@ -171,12 +171,10 @@ user to approve, choose, or confirm is now a SendMessage to the PO:
 ```
 
 - `<scope>` ∈ `{pbi-NNN, sprint-N, product}`.
-- `<kind>` is one of the 12 values defined in
-  `agents/product-owner.md` § Communication protocol
-  (`sprint_goal_approval`, `pbi_split`, `escalation_choice`,
-  `spec_clarification`, `change_request`, `demo_acceptance`,
-  `uat_item`, `defect_triage`, `release_decision`, `git_dirty`,
-  `backlog_approval`, `scope_change`).
+- `<kind>` is one of the values defined in
+  `agents/product-owner.md` § Communication protocol (canonical enum),
+  e.g. `sprint_goal_approval`, `spec_clarification`. Do not maintain a
+  parallel copy of the list here.
 - `recommendation` is the SM's preferred verdict — the PO may
   override, but you must always state your recommendation so the
   decision-log entry shows whether the PO agreed.

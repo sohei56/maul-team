@@ -90,5 +90,6 @@ variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
 
 ## Output Envelope
 
-End with the JSON envelope from spec 4.1. `verdict` is null. List all
-modified file paths in `artifacts`.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
+List all modified file paths in `artifacts`.

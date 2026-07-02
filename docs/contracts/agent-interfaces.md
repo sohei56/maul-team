@@ -16,11 +16,17 @@ responsibilities (what it owns).
   implementation work; can only manage tasks, communicate with teammates,
   and review output). Enforced via agent definition instruction +
   Shift+Tab toggle at runtime.
-**Skills**: All 15 SM-owned ceremony Skills preloaded via `skills:`
-  field. The 16th Skill (`po-acceptance`) is preloaded by the
-  `product-owner` teammate, not the SM (SM only invokes it
-  indirectly by sending `PO_DECISION_REQUEST kind=demo_acceptance |
-  uat_item` to the PO in autonomous mode).
+**Skills**: The SM preloads 12 ceremony Skills via its `skills:` field
+  (see `agents/scrum-master.md`). The repo ships 18 Skills total; the
+  remainder are preloaded by other agents — 4 by the Developer
+  (`pbi-pipeline`, `install-subagents`, `smoke-test`,
+  `design-completeness-check`), `po-acceptance` by the `product-owner`
+  teammate (SM only invokes it indirectly by sending
+  `PO_DECISION_REQUEST kind=demo_acceptance | uat_item` to the PO in
+  autonomous mode), and `create-brief` by no agent (the `scrum-start.sh`
+  launcher runs it as an interactive pre-flight). Note
+  `requirement-definition` is preloaded by both the SM and the
+  `requirements-analyst`.
 
 ### Inputs
 - User natural language (direct conversation)
@@ -37,7 +43,7 @@ responsibilities (what it owns).
 - `.scrum/sprint.json` (creates per Sprint)
 - `.scrum/sprint-history.json` (appends after Sprint completion)
 - `.scrum/improvements.json` (creates and updates)
-- `docs/requirements.md` (delegates creation to `requirements-analyst`, stores result; committed to repo)
+- `docs/requirements.md`, `docs/requirements-benchmark.md`, `CLAUDE.md` (delegates authorship to `requirements-analyst`; committed to repo)
 - `docs/design/catalog.md` (enables entries during Sprint Planning)
 - `docs/design/specs/{category}/*.md` (delegates creation to Developers)
 - Developer teammate creation (via Agent Teams)
@@ -88,6 +94,7 @@ responsibilities (what it owns).
 | `change-process` | Change Process | FR-016 |
 | `scaffold-design-spec` | Design stub creation on catalog enable | FR-004 |
 | `smoke-test` | Automated test execution and HTTP smoke testing | FR-013, FR-017 |
+| `design-completeness-check` | Design-doc functional completeness verification (Integration Sprint) | FR-013 |
 
 ### Skill Inputs/Outputs Reference
 
@@ -98,7 +105,7 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 | Skill | Inputs (required state) | Outputs (files/keys updated) |
 |-------|------------------------|------------------------------|
 | `create-brief` | Human dialogue (interactive); existing `docs/product/brief.md` if any | `docs/product/brief.md` (1–2 page product brief). Pre-flight for autonomous launch when no brief exists; also usable standalone via `/create-brief`. No `.scrum/` state writes. |
-| `requirement-definition` | `state.json` → `phase: new` | `requirements.md` (created); `state.json` → `phase: requirements_sprint → backlog_created` |
+| `requirement-definition` | `state.json` → `phase: new` | `requirements.md`, `docs/requirements-benchmark.md`, `CLAUDE.md` (authored by `requirements-analyst`); `state.json` → `phase: requirements_sprint → backlog_created` |
 | `backlog-refinement` | `backlog.json` → `items[]` with `status: draft`; `requirements.md`; count of existing `refined` PBIs (WIP check) | `backlog.json` → `items[].status: refined`, `acceptance_criteria`, `ux_change`, `design_doc_paths` (refined WIP capped at 6-12) |
 | `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`; oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |
 | `spawn-teammates` | `sprint.json` → `id`; `backlog.json` → items where `sprint_id == sprint.id` (Sprint PBIs are derived, not stored) | `sprint.json` → `developers[]` (populated, `assigned_work.implement`), `status: "active"`; Agent Teams teammates spawned |
@@ -113,6 +120,7 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 | `change-process` | Frozen document path; proposed change description; user approval | Updated document with new `revision_history` entry (incl. `pbis`); `backlog.json` updates if needed |
 | `scaffold-design-spec` | `docs/design/catalog.md` (newly enabled entries); `sprint.json` → `id` (current Sprint); `backlog.json` → PBI IDs for `related_pbis` | `docs/design/specs/{category}/{id}-{slug}.md` (stub files with frontmatter + placeholders) |
 | `smoke-test` | `state.json` → `phase: "integration_sprint"`; `requirements.md` (endpoint/workflow discovery); project source code with existing tests | Test execution results; `.scrum/test-results.json` (populated with test category results) |
+| `design-completeness-check` | `docs/design/catalog-config.json.enabled`; enabled `docs/design/specs/**`; `.scrum/test-results.json` (from `smoke-test`); `sprint.json.id` | `.scrum/design-verification-<sprint-id>.md`; `.scrum/test-results.json` (`design_completeness` TestCategory appended, `overall_status` recomputed); gap report `SendMessage` to SM |
 | `po-acceptance` | `.scrum/config.json.po_mode == "agent"`; `mode ∈ {demo, uat}` (from `PO_DECISION_REQUEST`); `.scrum/sprint.json.id`; demo: completed PBI list (from `backlog.json` `status: done|awaiting_cross_review` + `sprint.developers[].current_pbi`) and per-PBI `acceptance_criteria`; uat: `docs/requirements.md`, `docs/product/vision.md` (release criteria), `.scrum/test-results.json` (`overall_status ∈ {passed, passed_with_skips}`) | `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` (demo, one per PBI) or `.scrum/po/uat-<sprint-id>.md` (uat, one per Sprint); one `kind=demo_acceptance` or `kind=uat_item` PoDecision per AC via `.scrum/scripts/append-po-decision.sh`; aggregated `PO_ACCEPTANCE_REPORT` SendMessage to SM (`mode=<mode> results=[<id>:<verdict>:<dec_id>,...]`); the app process is stopped before the skill exits. |
 
 ### Lifecycle
@@ -197,10 +205,9 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 - `.scrum/po/decisions.json` (every decision, via `.scrum/scripts/append-po-decision.sh`; the wrapper returns the `dec-NNNN` id the PO must echo in the reply)
 - `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` and `.scrum/po/uat-<sprint-id>.md` (po-acceptance transcripts; referenced as `evidence` of the matching decision)
 - `.scrum/po/attention.md` (numbered entries for human-only deferrals; never blocks)
-- SM `SendMessage`: `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>`
-- SM `SendMessage`: `[<scope>] PO_CLARIFY <question>` (at most one per request; cap from `po.max_clarification_rounds`)
-- SM `SendMessage`: `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]` (single aggregated report emitted by the `po-acceptance` skill)
-- `requirements-analyst` `SendMessage`: `[req] INTERVIEW_ANSWER <answer>` — Requirement Definition only
+- SM / `requirements-analyst` `SendMessage`s: `PO_DECISION`,
+  `PO_CLARIFY`, `PO_ACCEPTANCE_REPORT`, `[req] INTERVIEW_ANSWER` — full
+  shapes and constraints in § Communication contracts below.
 
 ### Responsibilities
 
@@ -235,7 +242,7 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 
 | Direction | Message | Notes |
 |---|---|---|
-| SM → PO | `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>` | `<scope>` ∈ `pbi-NNN` \| `sprint-N` \| `product`. `kind` enum has 12 values (see `agents/product-owner.md`). |
+| SM → PO | `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>` | `<scope>` ∈ `pbi-NNN` \| `sprint-N` \| `product`. `kind` enum defined in `agents/product-owner.md`. |
 | PO → SM | `[<scope>] PO_CLARIFY <question>` | At most one per `PO_DECISION_REQUEST` (`po.max_clarification_rounds`, default 2). |
 | PO → SM | `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>` | `dec_id` is mandatory; returned by `.scrum/scripts/append-po-decision.sh`. |
 | requirements-analyst → PO | `[req] INTERVIEW_QUESTION <question>` | **Only** legal during Requirement Definition. The Sprint Developer has no direct PO channel; its spec/requirement traffic traverses SM. |
@@ -295,11 +302,11 @@ critics per Round.
 - Environment: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set process-scoped by `scrum-start.sh`; users do NOT set this globally)
 
 ### Outputs
-- Copies `agents/*.md` to `<project>/.claude/agents/` (local only, NEVER `~/.claude/agents/`)
-- Copies `skills/*/SKILL.md` to `<project>/.claude/skills/`
-- Copies hook scripts to `<project>/.claude/hooks/` (or configures inline)
-- Configures status line in `<project>/.claude/settings.json`
-- Configures hooks in `<project>/.claude/settings.json`
+- Deploys the framework asset set (agents, skills, hooks, rules) into
+  `<project>/.claude/` and configures the status line + hooks in
+  `<project>/.claude/settings.json` (local only, NEVER `~/.claude/`).
+  The authoritative deploy-set — what is copied where — is
+  `scripts/setup-user.sh`; do not re-enumerate it here.
 - Launches `claude --agent scrum-master`
 
 ### Exit Codes
@@ -420,9 +427,10 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 - `.scrum/communications.json` (read/append — agent messages)
 
 **Outputs** — each happening is written to exactly one file:
-- `.scrum/dashboard.json` (work events): `file_changed` (Write/Edit/Bash,
-  external `FileChanged`), `status_transition` (Stop), `subagent_start` /
-  `subagent_stop`, `task_completed`
+- `.scrum/dashboard.json` (work events): `file_changed` (PostToolUse
+  `Write|Edit|MultiEdit` branch of `dashboard-event.sh`),
+  `status_transition` (Stop), `subagent_start` / `subagent_stop`,
+  `task_completed`
 - `.scrum/communications.json` (agent messages): `message` (SendMessage —
   sender, recipient, summary/body), `agent_spawn` (Agent tool),
   `progress_update` (TeammateIdle)

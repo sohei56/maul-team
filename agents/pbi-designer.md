@@ -5,9 +5,10 @@ description: >
   responsibilities, business logic, and interfaces. Selects
   third-party libraries via mandatory web search (proven track record
   + use-case fit) and records only web-verified library specs into the
-  S-070 catalog type to prevent API-misuse defects. Reads catalog
-  specs read-only, may update them as a side-effect. Writes the
-  primary design artifact to .scrum/pbi/<pbi-id>/design/design.md.
+  S-070 catalog type to prevent API-misuse defects. Reads existing
+  catalog specs as read-only references; emits catalog-spec update
+  deltas as a side-effect (lock-serialized). Writes the primary design
+  artifact to .scrum/pbi/<pbi-id>/design/design.md.
 tools:
   - Read
   - Write
@@ -170,6 +171,7 @@ mirrors `rules/scrum-context.md` § Agent tool unavailability.
 
 ## Output Envelope
 
-End with a JSON code block matching the schema-first contract from
-the design spec section 4.1. Required fields: status, summary, verdict
-(null for designer), findings ([]), next_actions, artifacts.
+End with a JSON code block matching the schema-first contract in
+`docs/contracts/pbi-pipeline-envelope.schema.json`. Required fields:
+status, summary, verdict (null for designer), findings ([]),
+next_actions, artifacts.

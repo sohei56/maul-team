@@ -7,8 +7,11 @@
 # standard subdirectories (design/impl/ut/metrics/feedback).
 #
 # Idempotent: if state.json already exists and validates, succeeds without
-# touching it. The pbi-pipeline scrum-state-guard exempts this wrapper, so
-# this is the only sanctioned writer for the initial file.
+# touching it. No exemption mechanism exists in the scrum-state guard (the
+# v1 whitelist was deliberately removed) — like every other wrapper, this
+# script simply passes the guard's pattern check naturally by invoking
+# `.scrum/scripts/*` / `scripts/scrum/*`, and is the only sanctioned writer
+# for the initial file.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

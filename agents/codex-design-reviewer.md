@@ -133,7 +133,8 @@ missing_error_handling, missing_ac_mapping, missing_library_spec.
 [2-3 sentences]
 ```
 
-End with the JSON envelope from spec 4.1.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`.
 
 ## Model selection (conductor responsibility)
 

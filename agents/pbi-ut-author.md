@@ -109,6 +109,7 @@ Rules:
 
 ## Output Envelope
 
-End with the JSON envelope from spec 4.1. `verdict` is null. List all
-modified test file paths AND the `ac-coverage-r{n}.json` path in
-`artifacts`.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
+List all modified test file paths AND the `ac-coverage-r{n}.json` path
+in `artifacts`.

@@ -112,9 +112,9 @@ returning to your caller):
 - **Reports state facts, not narration**: "design.md emitted, 3
   catalog spec updates, 0 findings" — not "I worked on the design
   and I think it looks good".
-- **Sub-agents end output with the JSON envelope** specified in
-  `docs/contracts/agent-interfaces.md` § 4.1. Missing or malformed
-  envelopes break the pipeline orchestrator's parser.
+- **Sub-agents end output with the JSON envelope** specified by
+  `docs/contracts/pbi-pipeline-envelope.schema.json`. Missing or
+  malformed envelopes break the pipeline orchestrator's parser.
 
 **PO-channel prefixes** (SM ↔ product-owner teammate when
 `po_mode=agent`). All are prefixed `[<scope>]` where `<scope>` ∈

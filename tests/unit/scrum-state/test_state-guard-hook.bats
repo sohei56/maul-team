@@ -119,7 +119,7 @@ teardown() {
 }
 
 @test "guard: allows Bash with full env prefix calling scripts/scrum/" {
-  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli scripts/scrum/append-communication.sh --from a --kind info --content x\"}}'"
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli scripts/scrum/append-improvement.sh --sprint sprint-001 --description x\"}}'"
   [ "$status" -eq 0 ]
 }
 
@@ -129,7 +129,7 @@ teardown() {
 }
 
 @test "guard: allows Bash with env prefix calling .scrum/scripts/" {
-  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli .scrum/scripts/append-communication.sh --from a --kind info --content x\"}}'"
+  run bash -c "$HOOK <<< '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli .scrum/scripts/append-improvement.sh --sprint sprint-001 --description x\"}}'"
   [ "$status" -eq 0 ]
 }
 

@@ -6,7 +6,8 @@ runtime slot-fillers (PBI id, round number, paths, prior review).
 Constraints (path guards, output envelopes, severity levels, "Does
 NOT receive" boundaries) live in the corresponding agent definition
 under `agents/` and are not restated here. All sub-agents must end
-output with the JSON envelope from spec 4.1.
+output with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`.
 
 ## Conductor codex preflight (codex-*-reviewer spawns only)
 

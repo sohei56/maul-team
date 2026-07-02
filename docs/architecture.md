@@ -263,9 +263,10 @@ execute.
   after receiving PBI assignments; missing required sub-agent → BLOCK.
 
 - The Scrum Master preloads ceremony skills via its `skills:` frontmatter
-  (see `agents/scrum-master.md`). The Developer loads
-  `requirement-definition`, `pbi-pipeline`, `install-subagents`, and
-  `smoke-test`.
+  (see `agents/scrum-master.md`). The Developer loads `pbi-pipeline`,
+  `install-subagents`, `smoke-test`, and `design-completeness-check`.
+  The Requirement Definition ceremony is run by the SM plus the
+  `requirements-analyst` agent, not the Developer.
 
 ### Alternatives Considered
 - **Prompt-only control**: Rejected — enormous prompt, not reproducible.
