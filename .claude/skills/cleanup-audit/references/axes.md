@@ -97,7 +97,9 @@ which here:
 1. Run `git log --oneline -15` and `git diff [LAST_RELEVANT_SHA]..HEAD
    -- '*.md' '*.sh' '*.py' '*.json'` to confirm the removed symbols
    and discover any others.
-2. Search the entire working tree for stale references.
+2. Search the entire working tree for stale references. Exclude
+   docs/superpowers/plans/ and docs/superpowers/specs/ (frozen dated
+   historical documents; residues there are expected, not stale).
 3. Classify each hit:
    - `confirmed-stale`: clear residue of removed concept
    - `ambiguous`: needs human review (e.g. could be a still-valid
@@ -228,9 +230,11 @@ termination-logic-drift, agent-skill-drift, other.
 [Common protocol; output to /tmp/claude/cleanup-audit/redundancy-markdown.md]
 
 ## Scope
-ALL .md files except: docs/superpowers/plans/*.md (frozen historical
-plans). Specifically include: CLAUDE.md, README.md, docs/**/*.md,
-agents/*.md, skills/**/*.md, .claude/skills/**/*.md.
+ALL .md files except: docs/superpowers/plans/*.md AND
+docs/superpowers/specs/*.md (both are frozen dated historical
+documents — same convention). Specifically include: CLAUDE.md,
+README.md, docs/**/*.md, agents/*.md, skills/**/*.md,
+.claude/skills/**/*.md.
 
 ## Goal — three classes:
 1. Cross-file dup: same regulation/rule/example in 3+ files (2 is
