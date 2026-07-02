@@ -619,6 +619,8 @@ def _format_event_line(evt: dict) -> str:
         status_to = evt.get("status_to") or ""
         arrow = f"{status_from} → {status_to}" if status_from or status_to else detail
         return f"[dim]{ts_short}[/dim] {agent_str} [magenta]status[/magenta] {arrow}"
+    if evt_type == "stop_failure":
+        return f"[dim]{ts_short}[/dim] {agent_str} [red]failed[/red] {detail}"
     if detail:
         return f"[dim]{ts_short}[/dim] {agent_str} {detail}"
     return f"[dim]{ts_short}[/dim] {agent_str} {evt_type}"

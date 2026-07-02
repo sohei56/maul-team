@@ -23,16 +23,17 @@ teardown() {
 
 @test "session-context.sh outputs valid JSON for new project" {
   # No .scrum/ directory — brand-new project
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
 
   # Output must be valid JSON
   echo "$output" | jq empty
   [ $? -eq 0 ]
 
-  # Must contain additionalContext key
+  # Context is nested under hookSpecificOutput so Claude Code honours it.
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [ -n "$ctx" ]
   [[ "$ctx" == *"New project"* ]]
 }
@@ -42,7 +43,7 @@ teardown() {
   mkdir -p .scrum
   cp "$FIXTURES_DIR/hook-state-design.json" .scrum/state.json
 
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
 
   # Output must be valid JSON
@@ -51,18 +52,31 @@ teardown() {
 
   # additionalContext must mention the phase
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"pbi_pipeline_active"* ]]
+}
+
+@test "session-context.sh: PostCompact event name is passed through" {
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"PostCompact"}'
+  assert_success
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "PostCompact" ]
+  [ -n "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" ]
+}
+
+@test "session-context.sh: defaults hookEventName to SessionStart when payload absent" {
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" < /dev/null
+  assert_success
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
 }
 
 @test "session-context.sh: human mode emits no AUTONOMOUS PO MODE prologue" {
   mkdir -p .scrum
   jq -n '{"phase": "backlog_created", "current_sprint_id": "sprint-001", "product_goal": "g", "created_at": "2026-06-12T00:00:00Z", "updated_at": "2026-06-12T00:00:00Z"}' > .scrum/state.json
   echo '{"po_mode": "human"}' > .scrum/config.json
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" != *"AUTONOMOUS PO MODE"* ]]
 }
 
@@ -84,10 +98,10 @@ EOF
   "last_failure": null
 }
 EOF
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"product-owner teammate"* ]]
   [[ "$ctx" == *"Teammate Liveness Protocol"* ]]
@@ -110,10 +124,10 @@ EOF
 }
 EOF
   # No state.json — exercises the "new project" branch.
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"New project"* ]]
 }

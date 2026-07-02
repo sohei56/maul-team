@@ -112,7 +112,8 @@ comes next and advances the workflow:
    options=[next_sprint,integration_sprint,complete]
    recommendation=<sm-preferred>
    payload: product_goal_status=<met|not_met>,
-   refined_pbis_remaining=<count>, sprint=<N>/<max_sprints>
+   refined_pbis_remaining=<count>,
+   sprints_this_launch=<history_len - sprint_baseline>/<max_sprints>
    ```
 
    The `recommendation` follows the same precedence the PO uses

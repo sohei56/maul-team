@@ -149,28 +149,36 @@ Write `.scrum/design-verification-<sprint-id>.md`:
 
 ### 6. Record the TestCategory
 
-Append to `.scrum/test-results.json`:
+Record the `design_completeness` category via the wrapper (it appends
+to the `.scrum/test-results.json` the preceding `smoke-test` created,
+creating it if absent, and recomputes `overall_status` in place —
+direct edits are blocked by the scrum-state guard):
 
-- `name`: `"design_completeness"`.
-- `status`: derived from totals (`failed` if any `fail` or
-  `missing`; `skipped` if the whole skill skipped per Preconditions;
-  otherwise `passed` — `not_testable` items count in `skipped` but
-  do not fail the category).
-- `total`: inventory size.
-- `passed`: count of `pass`.
-- `failed`: `fail` + `missing`.
-- `skipped`: `not_testable`.
-- `errors`: up to 10 entries, each `{test_name: <item id>, message:
-  <one-line reason>}`. Prefix `missing:` for `missing` items so the
-  SM can spot completeness gaps at a glance.
-- `runner_command`: `"design-completeness-check"`.
-- `executed_at`: ISO 8601 timestamp.
+```bash
+.scrum/scripts/record-test-result.sh \
+  --name design_completeness --status <passed|failed|skipped> \
+  --total <inventory-size> --passed <#pass> --failed <#fail + #missing> \
+  --skipped <#not_testable> \
+  --runner-command 'design-completeness-check' --executed-at <ISO8601> \
+  [--error 'ITEM_ID::one-line reason']   # repeatable, max 10
+```
 
-Recompute `overall_status` per the smoke-test rules:
+Field derivation:
 
-- ANY failed → `"failed"`.
-- All non-skipped passed + ANY skipped → `"passed_with_skips"`.
-- All passed, none skipped → `"passed"`.
+- `--status`: `failed` if any `fail` or `missing`; `skipped` if the
+  whole skill skipped per Preconditions; otherwise `passed`
+  (`not_testable` items count in `--skipped` but do not fail the
+  category).
+- `--failed`: `fail` + `missing`.
+- `--skipped`: `not_testable`.
+- `--error`: up to 10, one per `fail`/`missing` item — `ITEM_ID` is
+  the item id, message a one-line reason. Prefix the message with
+  `missing:` for `missing` items so the SM can spot completeness gaps
+  at a glance.
+
+The wrapper recomputes `overall_status` (ANY failed → `"failed"`; all
+non-skipped passed + ANY skipped → `"passed_with_skips"`; all passed,
+none skipped → `"passed"`).
 
 ### 7. Report to SM
 

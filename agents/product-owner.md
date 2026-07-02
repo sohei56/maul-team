@@ -128,15 +128,18 @@ whether the **Product Goal** (the brief/vision feature set) is met —
 an engineering checkpoint cannot decide it. The SM sends
 `kind=sprint_continuation options=[next_sprint,integration_sprint,complete]`
 with the just-closed Sprint id, the remaining `refined` PBI count,
-and the Sprint counter vs `autonomous.max_sprints` as payload.
+and how many Sprints have run this launch (sprint-history length
+minus `autonomy.json.sprint_baseline`) vs `autonomous.max_sprints`
+as payload.
 
 Decide with this precedence:
 
 1. **`choice:next_sprint`** — the Product Goal is **not** yet
    delivered AND ≥1 `refined` PBI remains in the backlog AND the
-   Sprint counter is below `max_sprints`. This is the default while
-   feature work remains. The SM will advance the phase to
-   `backlog_created` and plan the next development Sprint.
+   number of Sprints run this launch (sprint-history length minus
+   `autonomy.json.sprint_baseline`) is below `max_sprints`. This is
+   the default while feature work remains. The SM will advance the
+   phase to `backlog_created` and plan the next development Sprint.
 2. **`choice:integration_sprint`** — every brief/vision feature is
    delivered (no `refined` feature PBI remains, or the remaining
    ones are explicitly deferred to the "Out" section) and the

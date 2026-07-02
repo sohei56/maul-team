@@ -14,6 +14,17 @@ STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
 BACKLOG_FILE=".scrum/backlog.json"
 
+# Read the hook payload from stdin to learn which event fired. Claude Code only
+# honours SessionStart/PostCompact context returned under
+# hookSpecificOutput.additionalContext with a matching hookEventName; a bare
+# top-level additionalContext key is ignored. Default to SessionStart when the
+# payload is absent or unparseable.
+HOOK_PAYLOAD="$(cat 2>/dev/null || true)"
+HOOK_EVENT="$(printf '%s' "$HOOK_PAYLOAD" | jq -r '.hook_event_name // empty' 2>/dev/null || true)"
+if [ -z "$HOOK_EVENT" ]; then
+  HOOK_EVENT="SessionStart"
+fi
+
 # Build an autonomous-mode prologue to splice into additionalContext.
 # Returns empty string when not in autonomy mode (human-mode contract: zero
 # behaviour change). The prologue makes three things unambiguous to the lead
@@ -81,11 +92,15 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
     context="${prologue} ${context}"
   fi
 
-  # Output additionalContext JSON
+  # Output additionalContext under hookSpecificOutput so Claude Code honours it.
   jq -n \
+    --arg event "$HOOK_EVENT" \
     --arg context "$context" \
     '{
-      "additionalContext": $context
+      "hookSpecificOutput": {
+        "hookEventName": $event,
+        "additionalContext": $context
+      }
     }'
 else
   # New project — no state yet
@@ -94,5 +109,8 @@ else
   if [ -n "$prologue" ]; then
     base_context="${prologue} ${base_context}"
   fi
-  jq -n --arg context "$base_context" '{"additionalContext": $context}'
+  jq -n \
+    --arg event "$HOOK_EVENT" \
+    --arg context "$base_context" \
+    '{"hookSpecificOutput": {"hookEventName": $event, "additionalContext": $context}}'
 fi

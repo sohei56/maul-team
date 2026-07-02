@@ -220,12 +220,16 @@ decision.
 ### Sprint cap and human attention
 
 - `config.autonomous.max_sprints` (default `8`) bounds how many
-  Sprints the SM may run before the autonomy loop must stop. On
-  reaching the cap, do **not** start the next Sprint; append a
-  numbered entry to `.scrum/po/attention.md` summarizing the run
-  (sprints completed, last Sprint Goal, release status, open
-  decisions) and allow the session to stop. The autonomy watchdog
-  uses this signal to halt the outer loop.
+  Sprints the SM may run **this launch** — a per-launch budget
+  measured from the sprint-history length captured at watchdog
+  startup (`autonomy.json.sprint_baseline`), not a cumulative cap
+  (see `docs/autonomous-mode.md` § Safety valves and circuit
+  breakers for the exact formula). On reaching the cap, do **not**
+  start the next Sprint; append a numbered entry to
+  `.scrum/po/attention.md` summarizing the run (sprints completed,
+  last Sprint Goal, release status, open decisions) and allow the
+  session to stop. The autonomy watchdog uses this signal to halt
+  the outer loop.
 - Any `PO_DECISION` whose rationale carries `cap_hit=true`
   (`PO_CLARIFY` or `sprint_goal_approval` cap fired) and any
   `.scrum/po/attention.md` entry tagged `release-blocking: yes`
@@ -246,8 +250,9 @@ Step 8) is a `sprint_continuation` handshake:
 
 1. Send the PO `PO_DECISION_REQUEST kind=sprint_continuation
    options=[next_sprint,integration_sprint,complete]` with the
-   closed Sprint id, remaining `refined` PBI count, and the Sprint
-   counter vs `max_sprints`.
+   closed Sprint id, remaining `refined` PBI count, and how many
+   Sprints have run this launch vs `max_sprints` (baseline-relative
+   definition: see § Sprint cap and human attention above).
 2. Advance the phase to match the `PO_DECISION`:
    `choice:next_sprint → backlog_created`,
    `choice:integration_sprint → integration_sprint`,
@@ -256,8 +261,8 @@ Step 8) is a `sprint_continuation` handshake:
    non-empty) is a recycle checkpoint — the watchdog spawns a fresh
    session that begins the next Sprint's planning.
 
-If the Sprint cap (`max_sprints`) is already reached, follow
-*Sprint cap and human attention* above instead: do not request
+If this launch's Sprint budget (`max_sprints`) is already exhausted,
+follow *Sprint cap and human attention* above instead: do not request
 `next_sprint`; the PO should reply `choice:complete` (or the SM
 advances to `complete`) after appending the run summary to
 `.scrum/po/attention.md`.
