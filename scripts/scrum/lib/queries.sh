@@ -50,6 +50,31 @@ pbi_in_backlog() {
     "$backlog" >/dev/null 2>&1
 }
 
+# alloc_next_id <file> <jq_array_path> <prefix> <pad_width>
+# Compute the next monotonic id for an append-only store: scan
+# <jq_array_path>[].id for `<prefix>NNN`, take max(N)+1 (0 when the array is
+# empty or absent → the first id is <prefix> padded to 1), zero-pad the result
+# to <pad_width>, and echo `<prefix><padded>`. <prefix> must include its
+# trailing hyphen (e.g. "imp-", "dec-"). Fails E_SCHEMA (via lib/errors.sh) if
+# the computed value is non-numeric, signalling a corrupt store.
+#
+# <jq_array_path> is a trusted literal (e.g. ".entries", ".decisions") and is
+# interpolated into the jq program, mirroring atomic_write's expr handling.
+alloc_next_id() {
+  local file="$1" arr="$2" prefix="$3" pad="$4"
+  local base="${prefix%-}"
+  local next_n
+  next_n="$(jq -r --arg p "$base" '
+    ('"$arr"' // [])
+    | map(.id | capture("^" + $p + "-(?<n>[0-9]+)$").n | tonumber)
+    | (max // 0) + 1
+  ' "$file" 2>/dev/null || true)"
+  case "$next_n" in
+    ''|*[!0-9]*) fail E_SCHEMA "could not compute next id from $file" ;;
+  esac
+  printf '%s%0*d' "$prefix" "$pad" "$next_n"
+}
+
 # read_pbi_worktree_state <pbi_id>
 # Read .scrum/pbi/<pbi-id>/state.json and populate the globals
 # `PBI_WT`, `PBI_BRANCH`, `PBI_BASE_SHA`. Fails (via lib/errors.sh::fail)

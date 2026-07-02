@@ -45,18 +45,7 @@ append_dashboard_event "$event_json"
 # outer loop. Fail-open: any error reading/writing autonomy.json is silently
 # ignored — the dashboard event above is the authoritative log.
 if autonomy_enabled; then
-  AUTONOMY_FILE=".scrum/autonomy.json"
-  if [ -f "$AUTONOMY_FILE" ] && jq empty "$AUTONOMY_FILE" >/dev/null 2>&1; then
-    tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-    if jq --arg reason "$reason" --arg ts "$timestamp" '
-      .last_failure = {reason: $reason, at: $ts}
-      | .updated_at = $ts
-    ' "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
-      mv "$tmp" "$AUTONOMY_FILE"
-    else
-      rm -f "$tmp"
-    fi
-  fi
+  autonomy_record_failure "$reason" "$timestamp" || true
 fi
 
 exit 0

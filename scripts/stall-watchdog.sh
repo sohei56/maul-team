@@ -12,7 +12,8 @@
 #   .scrum/backlog.json                — in-flight PBI count (status =
 #                                        in_progress_* but NOT
 #                                        in_progress_merge; matches the
-#                                        completion-gate.sh:348-363 filter)
+#                                        `pbi_pipeline_active` in-flight filter
+#                                        in completion-gate.sh)
 #   .scrum/dashboard.json mtime        — hook event activity
 #   .scrum/pbi/<id>/ recursive mtime   — pipeline artifact activity
 #
@@ -49,6 +50,10 @@
 # Bash 3.2 compatible. shellcheck clean.
 
 set -euo pipefail
+
+STALL_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/jq-read.sh
+. "$STALL_SCRIPT_DIR/lib/jq-read.sh"
 
 # ---------------------------------------------------------------------------
 # Arg parsing
@@ -176,22 +181,10 @@ EOF
 }
 
 # read_cfg_or <jq_path> <default>
+# Thin wrapper over the shared jq_cfg_or (scripts/lib/jq-read.sh), binding the
+# config file.
 read_cfg_or() {
-  local path="$1" default="$2" val
-  if [ ! -f "$CONFIG_FILE" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  if ! jq empty "$CONFIG_FILE" >/dev/null 2>&1; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  val="$(jq -r "$path // empty" "$CONFIG_FILE" 2>/dev/null || true)"
-  if [ -z "$val" ] || [ "$val" = "null" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  printf '%s\n' "$val"
+  jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
 # last_nudge_epoch — read from STATE_FILE or 0.
@@ -215,7 +208,8 @@ write_last_nudge_epoch() {
 }
 
 # in_flight_count — number of PBIs in in_progress_* (excluding in_progress_merge).
-# Mirrors hooks/completion-gate.sh:348-363 so the two stay in sync.
+# Mirrors the `pbi_pipeline_active` in-flight filter in
+# hooks/completion-gate.sh so the two stay in sync.
 in_flight_count() {
   if [ ! -f "$BACKLOG_FILE" ]; then
     printf '0\n'

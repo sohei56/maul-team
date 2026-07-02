@@ -47,6 +47,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/report.sh
 . "$SCRIPT_DIR/lib/report.sh"
+# shellcheck source=../lib/jq-read.sh
+. "$SCRIPT_DIR/../lib/jq-read.sh"
 
 # --- Configurable test hooks --------------------------------------------------
 AUTON_CLAUDE_BIN="${AUTON_CLAUDE_BIN:-claude}"
@@ -90,6 +92,15 @@ iso_utc_now() {
   date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z"
 }
 
+# iso_to_epoch <iso8601> — convert an ISO-8601 UTC timestamp to unix epoch
+# seconds, portable across GNU (`date -d`) and BSD (`date -j -f`). Emits 0 when
+# neither parser succeeds (caller treats 0 as "unparseable / very old").
+iso_to_epoch() {
+  date -u -d "$1" +%s 2>/dev/null \
+    || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null \
+    || echo 0
+}
+
 # do_sleep <seconds>
 # Sleeps for <seconds> * AUTON_SLEEP_SCALE. When the product is 0 (e.g. in
 # tests with AUTON_SLEEP_SCALE=0) we skip sleep entirely.
@@ -130,23 +141,10 @@ generate_uuid() {
 # callers that need numeric / enum guarantees must validate the returned
 # string themselves. (Historical name: cfg_num; the function never
 # enforced integer typing and was being used for both numeric limits and
-# the string-valued permission_mode.)
+# the string-valued permission_mode.) Thin wrapper over the shared
+# jq_cfg_or (scripts/lib/jq-read.sh), binding the config file.
 cfg_value() {
-  local path="$1" default="$2" val
-  if [ ! -f "$CONFIG_FILE" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  if ! jq empty "$CONFIG_FILE" >/dev/null 2>&1; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  val="$(jq -r "$path // empty" "$CONFIG_FILE" 2>/dev/null || true)"
-  if [ -z "$val" ] || [ "$val" = "null" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  printf '%s\n' "$val"
+  jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
 # cfg_str_or_null <jq_path>
@@ -161,10 +159,15 @@ cfg_str_or_null() {
 }
 
 # autonomy_atomic_write <jq_expr>
+# Applies <jq_expr> to autonomy.json and ALWAYS stamps .updated_at with the
+# current time, so call sites never append the updated_at clause themselves.
+# Atomic via tmp + mv; returns non-zero (without exiting) on jq failure so
+# fail-open callers can `|| true`.
 autonomy_atomic_write() {
-  local expr="$1" tmp
+  local expr="$1" tmp now
+  now="$(iso_utc_now)"
   tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-  if jq "$expr" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
+  if jq --arg now "$now" "$expr | (.updated_at = \$now)" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
     mv "$tmp" "$AUTONOMY_FILE"
     return 0
   fi
@@ -243,9 +246,7 @@ extract_rate_limit_reset_epoch() {
     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' \
     | head -1 || true)"
   if [ -n "$iso" ]; then
-    e="$(date -u -d "$iso" +%s 2>/dev/null \
-      || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null \
-      || echo 0)"
+    e="$(iso_to_epoch "$iso")"
     if [ "${e:-0}" -gt 0 ]; then
       printf '%s\n' "$e"
       return 0
@@ -306,9 +307,7 @@ rate_limited_since() {
   local ts epoch
   while IFS= read -r ts; do
     [ -n "$ts" ] || continue
-    # GNU date `--date` and BSD `-jf` differ; try GNU first, then BSD.
-    epoch="$(date -u -d "$ts" +%s 2>/dev/null || \
-             date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || echo 0)"
+    epoch="$(iso_to_epoch "$ts")"
     if [ "$epoch" -ge "$since_epoch" ]; then
       return 0
     fi
@@ -408,7 +407,7 @@ finalize() {
   # in human mode rather than block-every-Stop. Best-effort: a crash that
   # skips finalize leaves a stale pid, but `kill -0` on the dead pid still
   # reports "not alive", so the gate degrades correctly either way.
-  autonomy_atomic_write "(.watchdog_pid = null) | (.updated_at = \"$(iso_utc_now)\")" || true
+  autonomy_atomic_write "(.watchdog_pid = null)" || true
   local report_path
   report_path="$(generate_morning_report "$reason" || true)"
   if [ -n "$report_path" ]; then
@@ -458,7 +457,7 @@ printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failu
 # would block every Stop with no watchdog to re-launch the session — the
 # "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
 WATCHDOG_PID="$$"
-if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID}) | (.updated_at = \"$(iso_utc_now)\")"; then
+if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID})"; then
   printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
 fi
 
@@ -477,7 +476,7 @@ if [ -z "$SPRINT_BASELINE" ]; then
     SPRINT_BASELINE="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
   fi
   if ! autonomy_atomic_write \
-       "(.sprint_baseline = ${SPRINT_BASELINE}) | (.updated_at = \"$(iso_utc_now)\")"; then
+       "(.sprint_baseline = ${SPRINT_BASELINE})"; then
     printf 'watchdog: WARN failed to record sprint_baseline in autonomy.json.\n' >&2
   fi
 fi
@@ -531,7 +530,7 @@ while :; do
   # ----- 3. Session ID + autonomy bookkeeping -----
   SID="$(generate_uuid)"
   if ! autonomy_atomic_write \
-       "(.iteration = ${ITER}) | (.lead_session_id = \"${SID}\") | (.stop_blocks = {phase: (.stop_blocks.phase // \"\"), count: 0}) | (.updated_at = \"$(iso_utc_now)\")"; then
+       "(.iteration = ${ITER}) | (.lead_session_id = \"${SID}\") | (.stop_blocks = {phase: (.stop_blocks.phase // \"\"), count: 0})"; then
     printf 'watchdog: failed to update autonomy.json — aborting.\n' >&2
     finalize 3 "autonomy_write_failed"
   fi
@@ -566,7 +565,7 @@ while :; do
     ITER_COST="$(jq -r '.total_cost_usd // 0' "$ITER_STDOUT" 2>/dev/null || echo 0)"
     if [ -n "$ITER_COST" ] && [ "$ITER_COST" != "null" ] && [ "$ITER_COST" != "0" ]; then
       autonomy_atomic_write \
-        "(.total_cost_usd = ((.total_cost_usd // 0) + ${ITER_COST})) | (.updated_at = \"$(iso_utc_now)\")" \
+        "(.total_cost_usd = ((.total_cost_usd // 0) + ${ITER_COST}))" \
         || true
     fi
   fi
@@ -611,7 +610,7 @@ while :; do
         "$WAIT_SECS" >&2
     fi
     autonomy_atomic_write \
-      "(.last_failure = {reason: \"rate_limit_wait\", at: \"$(iso_utc_now)\"}) | (.updated_at = \"$(iso_utc_now)\")" \
+      "(.last_failure = {reason: \"rate_limit_wait\", at: \"$(iso_utc_now)\"})" \
       || true
     do_sleep "$WAIT_SECS"
     LAST_HASH="$NEW_HASH"
@@ -623,7 +622,7 @@ while :; do
   # Clear the breaker so the next iteration starts clean.
   if [ -n "$CB_TRIPPED" ]; then
     autonomy_atomic_write \
-      "(.circuit_breaker_tripped = null) | (.updated_at = \"$(iso_utc_now)\")" || true
+      "(.circuit_breaker_tripped = null)" || true
   fi
 
   PROGRESSED=0
@@ -644,7 +643,7 @@ while :; do
     [ "$rc" -ne 0 ]      && REASON="claude_exit_${rc}"
     [ -n "$CB_TRIPPED" ] && REASON="circuit_breaker"
     autonomy_atomic_write \
-      "(.last_failure = {reason: \"${REASON}\", at: \"$(iso_utc_now)\"}) | (.updated_at = \"$(iso_utc_now)\")" \
+      "(.last_failure = {reason: \"${REASON}\", at: \"$(iso_utc_now)\"})" \
       || true
     printf 'watchdog: failure (%s); fail_streak=%s\n' "$REASON" "$FAIL_STREAK" >&2
   fi

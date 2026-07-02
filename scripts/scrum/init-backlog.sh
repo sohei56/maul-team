@@ -39,25 +39,11 @@ fi
 
 mkdir -p .scrum
 
-TMP="$(_make_tmp_path "$PATHF")"
-if [ -n "$PRODUCT_GOAL" ]; then
-  jq -n --arg goal "$PRODUCT_GOAL" '{
-    items: [],
-    next_pbi_id: 1,
-    product_goal: $goal
-  }' > "$TMP"
-else
-  jq -n '{
-    items: [],
-    next_pbi_id: 1,
-    product_goal: null
-  }' > "$TMP"
-fi
-
-if ! err="$(_validate_against_schema "$TMP" "$SCHEMA" 2>&1)"; then
-  rm -f "$TMP"
-  fail E_SCHEMA "init produced invalid backlog.json: $err"
-fi
-mv "$TMP" "$PATHF"
+# shellcheck disable=SC2016  # $goal is a jq variable, expanded by jq -n --arg
+atomic_create "$PATHF" "$SCHEMA" '{
+  items: [],
+  next_pbi_id: 1,
+  product_goal: (if $goal == "" then null else $goal end)
+}' --arg goal "$PRODUCT_GOAL"
 
 printf '[init-backlog] created %s (next_pbi_id=1)\n' "$PATHF"

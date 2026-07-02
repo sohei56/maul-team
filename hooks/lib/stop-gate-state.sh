@@ -132,12 +132,9 @@ stop_gate_check_and_bump() {
 
   # No record yet OR record unreadable → write FIRST.
   if [ ! -f "$STOP_GATE_FILE" ] || ! jq empty "$STOP_GATE_FILE" >/dev/null 2>&1; then
-    if _stop_gate_write_first "$fp" "$phase"; then
-      printf '%s\n' "FIRST"
-    else
-      # Fail-open toward block: still emit FIRST so caller blocks.
-      printf '%s\n' "FIRST"
-    fi
+    # Fail-open toward block: emit FIRST whether or not the write succeeds.
+    _stop_gate_write_first "$fp" "$phase" || true
+    printf '%s\n' "FIRST"
     return 0
   fi
 
@@ -152,12 +149,9 @@ stop_gate_check_and_bump() {
   esac
 
   if [ "$prev_phase" != "$phase" ] || [ "$prev_fp" != "$fp" ]; then
-    # Situation changed → reset.
-    if _stop_gate_write_first "$fp" "$phase"; then
-      printf '%s\n' "FIRST"
-    else
-      printf '%s\n' "FIRST"
-    fi
+    # Situation changed → reset. Fail-open toward block regardless of write.
+    _stop_gate_write_first "$fp" "$phase" || true
+    printf '%s\n' "FIRST"
     return 0
   fi
 

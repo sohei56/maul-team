@@ -57,10 +57,7 @@ done
 [ -n "$ID" ]   || fail E_INVALID_ARG "--id required"
 [ -n "$GOAL" ] || fail E_INVALID_ARG "--goal required"
 
-case "$ID" in
-  sprint-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad --id: $ID (expected sprint-NNN)" ;;
-esac
+assert_sprint_id "$ID" --id
 
 if [ -n "$TYPE" ]; then
   case "$TYPE" in

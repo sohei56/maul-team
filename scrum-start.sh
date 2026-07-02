@@ -325,7 +325,6 @@ if [ "$AUTONOMOUS" = "1" ]; then
   # a TTY, so "BRIEF_FILE == canonical but the file is absent" is the
   # no-brief-yet case and routes to the builder, not to the typo error.
   BRIEF_CANONICAL="docs/product/brief.md"
-  NEED_BRIEF_BUILDER=0
   if [ -f "$BRIEF_CANONICAL" ]; then
     # Canonical brief already present — never clobber it.
     if [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ] \
@@ -507,6 +506,30 @@ else
 fi
 BRIEF_BUILDER_PROMPT="A product brief is required before the Scrum team can start, but docs/product/brief.md does not exist yet. Use the create-brief skill now to co-author the brief with me interactively. Interview me one topic at a time, quality-gate the draft, and write the result to docs/product/brief.md. When the brief is complete, tell me it is done and that ${BRIEF_BUILDER_TAIL}"
 
+# run_brief_builder_or_abort <abort_message>
+# No-tmux pre-flight: co-author docs/product/brief.md via the create-brief
+# skill (interactive Claude), then hard-exit (2) if the user left without
+# writing one. <abort_message> is the mode-specific error tail. Shared by the
+# autonomous and human no-tmux launch branches.
+run_brief_builder_or_abort() {
+  echo "No product brief found — launching the brief builder (create-brief skill)..."
+  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
+  if [ ! -f docs/product/brief.md ]; then
+    echo "Error: no brief was created — $1" >&2
+    exit 2
+  fi
+}
+
+# brief_builder_tmux_cmd <abort_message>
+# Emits (on stdout) the tmux pre-flight command prefix that co-authors the
+# brief and, if the user exits without one, prints the mode-specific abort
+# message and kills the session. Shared by the autonomous and human tmux
+# launch branches (uses the global $session_name, in scope at call time).
+brief_builder_tmux_cmd() {
+  printf "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '%s'; if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — %s  Press Enter to close.'; read -r; tmux kill-session -t %s; exit 0; fi; " \
+    "$BRIEF_BUILDER_PROMPT" "$1" "$session_name"
+}
+
 # SCRUM_NO_TMUX=1 forces the no-tmux foreground branch even when tmux is
 # installed. The macOS app (macapp/) sets this so the Scrum Master runs in
 # the foreground of an embedded SwiftTerm pane; the app supplies its own
@@ -634,8 +657,7 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
     # only starts once the brief exists; if the user exits without writing one,
     # the launch aborts cleanly instead of running the PO with no anchor.
     if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
-      AUTO_MAIN_CMD="CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '${BRIEF_BUILDER_PROMPT}'; "
-      AUTO_MAIN_CMD="${AUTO_MAIN_CMD}if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — aborting autonomous launch.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}; exit 0; fi; "
+      AUTO_MAIN_CMD="$(brief_builder_tmux_cmd 'aborting autonomous launch.')"
     else
       AUTO_MAIN_CMD=""
     fi
@@ -656,8 +678,7 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
     # (mirrors the autonomous pre-flight).
     SM_MAIN_CMD=""
     if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
-      SM_MAIN_CMD="CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '${BRIEF_BUILDER_PROMPT}'; "
-      SM_MAIN_CMD="${SM_MAIN_CMD}if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — aborting launch.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}; exit 0; fi; "
+      SM_MAIN_CMD="$(brief_builder_tmux_cmd 'aborting launch.')"
     fi
     SM_MAIN_CMD="${SM_MAIN_CMD}CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}"
     tmux send-keys -t "$session_name" "$SM_MAIN_CMD" C-m
@@ -719,24 +740,14 @@ else
   if [ "$AUTONOMOUS" = "1" ]; then
     # Pre-flight brief co-authoring (see the tmux branch for rationale).
     if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
-      echo "No product brief found — launching the brief builder (create-brief skill)..."
-      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
-      if [ ! -f docs/product/brief.md ]; then
-        echo "Error: no brief was created — aborting autonomous launch." >&2
-        exit 2
-      fi
+      run_brief_builder_or_abort "aborting autonomous launch."
     fi
     echo "Launching autonomous-PO watchdog (no tmux fallback)..."
     "$WATCHDOG_CMD"
   else
     # Pre-flight brief co-authoring (human mode; see the tmux branch above).
     if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
-      echo "No product brief found — launching the brief builder (create-brief skill)..."
-      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
-      if [ ! -f docs/product/brief.md ]; then
-        echo "Error: no brief was created — aborting launch." >&2
-        exit 2
-      fi
+      run_brief_builder_or_abort "aborting launch."
     fi
     echo "Launching Claude Code with Scrum Master agent..."
     CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master "$initial_prompt"

@@ -117,25 +117,9 @@ STATUS_LABELS = {
     "done": "done",
 }
 
-# Optional unicode glyphs prefixed to the status cell for at-a-glance
-# actor identification: ◇ for SM-managed, ◆ for Developer-managed.
-STATUS_ICONS = {
-    "draft": "◇",
-    "refined": "◇",
-    "blocked": "◇",
-    "awaiting_cross_review": "◇",
-    "cross_review": "◇",
-    "escalated": "◇",
-    "done": "◇",
-    "in_progress_design": "◆",
-    "in_progress_impl": "◆",
-    "in_progress_pbi_review": "◆",
-    "in_progress_ut_run": "◆",
-    "in_progress_merge": "◆",
-}
-
-# Developer-managed status set — used to pick which round counter to
-# surface (design_round vs impl_round) for live PBIs.
+# Developer-managed status set — used both to pick which round counter to
+# surface (design_round vs impl_round) for live PBIs and to derive the
+# at-a-glance actor glyph in format_status (◆ Developer-managed, ◇ SM-managed).
 DEV_MANAGED_STATUSES = frozenset(
     {
         "in_progress_design",
@@ -178,7 +162,15 @@ def format_phase(current_phase: str) -> str:
 
 def format_status(status: str) -> str:
     """Render a 12-value PBI status with icon + color + short label."""
-    icon = STATUS_ICONS.get(status, "")
+    # Actor glyph is derivable from the status: ◆ Developer-managed, ◇ any
+    # other *known* status (SM-managed). An unknown / missing status (e.g. the
+    # "?" placeholder) gets no glyph, preserving the pre-derivation default.
+    if status in DEV_MANAGED_STATUSES:
+        icon = "◆"
+    elif status in STATUS_LABELS:
+        icon = "◇"
+    else:
+        icon = ""
     label = STATUS_LABELS.get(status, status)
     color = STATUS_COLORS.get(status, "")
     body = f"{icon} {label}".strip()
@@ -613,8 +605,11 @@ def _format_event_line(evt: dict) -> str:
         change_str = f"[{ccolor}]{change}[/{ccolor}]" if ccolor else change
         return f"[dim]{ts_short}[/dim] {agent_str} {change_str} {escape(str(file_path))}"
     if evt_type == "teammate_idle":
+        # schema-permitted; no current producer (external writers may emit)
         return f"[dim]{ts_short}[/dim] {agent_str} [cyan]idle[/cyan] {detail}"
     if evt_type == "status_transition":
+        # status_from/status_to: schema-permitted; no current producer
+        # (external writers may emit) — falls back to detail when absent.
         status_from = evt.get("status_from") or ""
         status_to = evt.get("status_to") or ""
         arrow = f"{status_from} → {status_to}" if status_from or status_to else detail

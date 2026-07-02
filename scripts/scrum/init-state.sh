@@ -33,19 +33,13 @@ fi
 mkdir -p .scrum
 
 NOW="$(_iso_utc_now)"
-TMP="$(_make_tmp_path "$PATHF")"
-jq -n --arg now "$NOW" '{
+# shellcheck disable=SC2016  # $now is a jq variable, expanded by jq -n --arg
+atomic_create "$PATHF" "$SCHEMA" '{
   phase: "new",
   current_sprint_id: null,
   product_goal: null,
   created_at: $now,
   updated_at: $now
-}' > "$TMP"
-
-if ! err="$(_validate_against_schema "$TMP" "$SCHEMA" 2>&1)"; then
-  rm -f "$TMP"
-  fail E_SCHEMA "init produced invalid state.json: $err"
-fi
-mv "$TMP" "$PATHF"
+}' --arg now "$NOW"
 
 printf '[init-state] created %s (phase=new)\n' "$PATHF"

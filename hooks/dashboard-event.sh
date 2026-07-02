@@ -75,8 +75,9 @@ save_session_name() {
   if [ ! -f "$SESSION_MAP" ]; then
     jq -n --arg sid "$sid" --arg name "$name" '{($sid): $name}' > "$SESSION_MAP"
   else
-    local tmp_file="${SESSION_MAP}.tmp.$$"
-    jq --arg sid "$sid" --arg name "$name" '. + {($sid): $name}' "$SESSION_MAP" > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$SESSION_MAP"
+    # shellcheck disable=SC2016  # $sid/$name are jq variables, not shell expansion.
+    json_update_atomic "$SESSION_MAP" '. + {($sid): $name}' \
+      --arg sid "$sid" --arg name "$name"
   fi
 }
 

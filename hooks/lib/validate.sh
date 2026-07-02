@@ -138,6 +138,28 @@ get_pbi_status_from_backlog() {
   fi
 }
 
+# Atomically update a JSON file in place: run `jq [jq_args...] <jq_expr>`
+# against <file>, write to a temp sibling (<file>.tmp.$$), and mv on success.
+# On jq failure the temp is removed and the original is left untouched. Returns
+# non-zero on failure WITHOUT exiting — callers (fail-open hooks) decide how to
+# react. jq stderr is suppressed to keep hot-path hooks quiet.
+# NOTE: helpers in hooks/lib/autonomy.sh and hooks/lib/stop-gate-state.sh do NOT
+# use this — those libs are sourced standalone (without validate.sh) by their
+# unit tests, so they keep their own inline tmp+mv idiom.
+# Usage: json_update_atomic <file> <jq_expr> [jq_args...]
+json_update_atomic() {
+  local file="$1"
+  local expr="$2"
+  shift 2
+  local tmp="${file}.tmp.$$"
+  if jq "$@" "$expr" "$file" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$file"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via
 # max_default), write atomically.
 # Usage: append_to_json_array <filepath> <array_field> <item_json> <max_field> <max_default>

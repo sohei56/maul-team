@@ -38,8 +38,8 @@ if [ -f "$PATHF" ]; then
 fi
 
 NOW="$(_iso_utc_now)"
-TMP="$(_make_tmp_path "$PATHF")"
-jq -n --arg id "$PBI" --arg now "$NOW" '{
+# shellcheck disable=SC2016  # $id/$now are jq variables, expanded by jq -n --arg
+atomic_create "$PATHF" "$SCHEMA" '{
   pbi_id: $id,
   design_round: 0,
   impl_round: 0,
@@ -50,10 +50,4 @@ jq -n --arg id "$PBI" --arg now "$NOW" '{
   escalation_reason: null,
   started_at: $now,
   updated_at: $now
-}' > "$TMP"
-
-if ! err="$(_validate_against_schema "$TMP" "$SCHEMA" 2>&1)"; then
-  rm -f "$TMP"
-  fail E_SCHEMA "init produced invalid state.json: $err"
-fi
-mv "$TMP" "$PATHF"
+}' --arg id "$PBI" --arg now "$NOW"

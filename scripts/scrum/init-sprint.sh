@@ -42,7 +42,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$SPRINT_ID" ] || fail E_INVALID_ARG "usage: init-sprint.sh <sprint-id> [--goal <goal>] [--type development|integration]"
-case "$SPRINT_ID" in sprint-[0-9]*) ;; *) fail E_INVALID_ARG "bad sprint-id: $SPRINT_ID" ;; esac
+assert_sprint_id "$SPRINT_ID"
 case "$TYPE" in development|integration) ;; *) fail E_INVALID_ARG "bad type: $TYPE (expected development|integration)" ;; esac
 
 SPRINT=".scrum/sprint.json"
@@ -54,7 +54,6 @@ STATE_SCHEMA="$ROOT/docs/contracts/scrum-state/state.schema.json"
 [ -f "$STATE" ]    || fail E_FILE_MISSING "$STATE"
 
 NOW="$(_iso_utc_now)"
-TMP="$(_make_tmp_path "$SPRINT")"
 
 # Build sprint.json. `goal` is null when --goal not supplied; the schema permits
 # null/string.
@@ -65,25 +64,13 @@ TMP="$(_make_tmp_path "$SPRINT")"
 # count from `sprint.json.developers | length`. The schema's
 # `additionalProperties: true` means pre-existing files retaining the old
 # fields keep validating; we just stop seeding them.
-if [ -n "$GOAL" ]; then
-  jq -n --arg id "$SPRINT_ID" --arg goal "$GOAL" --arg type "$TYPE" --arg now "$NOW" '{
-    id: $id, goal: $goal, type: $type, status: "planning",
-    developers: [],
-    started_at: $now, completed_at: null
-  }' > "$TMP"
-else
-  jq -n --arg id "$SPRINT_ID" --arg type "$TYPE" --arg now "$NOW" '{
-    id: $id, goal: null, type: $type, status: "planning",
-    developers: [],
-    started_at: $now, completed_at: null
-  }' > "$TMP"
-fi
-
-if ! err="$(_validate_against_schema "$TMP" "$SPRINT_SCHEMA" 2>&1)"; then
-  rm -f "$TMP"
-  fail E_SCHEMA "init produced invalid sprint.json: $err"
-fi
-mv "$TMP" "$SPRINT"
+# shellcheck disable=SC2016  # $id/$goal/$type/$now are jq vars, expanded by jq -n --arg
+atomic_create "$SPRINT" "$SPRINT_SCHEMA" '{
+  id: $id, goal: (if $goal == "" then null else $goal end),
+  type: $type, status: "planning",
+  developers: [],
+  started_at: $now, completed_at: null
+}' --arg id "$SPRINT_ID" --arg goal "$GOAL" --arg type "$TYPE" --arg now "$NOW"
 
 # Update state.json.current_sprint_id via the standard atomic_write helper.
 # If this step fails (e.g. schema violation), sprint.json is left behind for

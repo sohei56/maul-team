@@ -25,6 +25,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 SPRINT=""
 DESCRIPTION=""
@@ -42,10 +44,7 @@ done
 [ -n "$SPRINT" ]      || fail E_INVALID_ARG "--sprint required"
 [ -n "$DESCRIPTION" ] || fail E_INVALID_ARG "--description required"
 
-case "$SPRINT" in
-  sprint-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad --sprint: $SPRINT" ;;
-esac
+assert_sprint_id "$SPRINT" --sprint
 
 if [ -n "$DEC_ID" ]; then
   case "$DEC_ID" in
@@ -63,15 +62,7 @@ fi
 
 # Compute next id (max imp-NNNN + 1, zero-padded to 4). jq returns 0 when the
 # array is empty, so the first record is imp-0001.
-NEXT_N="$(jq -r '
-  (.entries // [])
-  | map(.id | capture("^imp-(?<n>[0-9]+)$").n | tonumber)
-  | (max // 0) + 1
-' "$PATHF" 2>/dev/null || true)"
-case "$NEXT_N" in
-  ''|*[!0-9]*) fail E_SCHEMA "could not compute next id from $PATHF" ;;
-esac
-NEXT_ID="$(printf 'imp-%04d' "$NEXT_N")"
+NEXT_ID="$(alloc_next_id "$PATHF" '.entries' 'imp-' 4)"
 
 # Build record JSON via jq -n so all free-form text is properly escaped.
 REC_JSON="$(

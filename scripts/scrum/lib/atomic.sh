@@ -59,6 +59,26 @@ atomic_write() {
   trap - RETURN
 }
 
+# atomic_create <path> <schema> <jq_expr> [jq_args...]
+# Seed a fresh state file: render <jq_expr> via `jq -n [jq_args...]`, validate
+# the result against <schema>, then mv it into place. On validation failure the
+# tmp file is removed and it fails E_SCHEMA with `init produced invalid
+# <basename>: <err>`. Unlike atomic_write this takes no directory lock (initial
+# creation is not a concurrent mutation) and does not touch updated_at — the
+# caller's jq_expr seeds every field. Caller owns the already-exists / mkdir
+# guards.
+atomic_create() {
+  local path="$1" schema="$2" expr="$3"; shift 3
+  local tmp; tmp="$(_make_tmp_path "$path")"
+  jq -n "$@" "$expr" > "$tmp"
+  local err
+  if ! err="$(_validate_against_schema "$tmp" "$schema" 2>&1)"; then
+    rm -f "$tmp"
+    fail E_SCHEMA "init produced invalid $(basename "$path"): $err"
+  fi
+  mv "$tmp" "$path"
+}
+
 _iso_utc_now() {
   # Mirrors hooks/lib/validate.sh::get_timestamp (authoritative). Kept inline to
   # avoid a circular dep between scripts/scrum/lib and hooks/lib.

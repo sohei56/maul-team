@@ -64,3 +64,16 @@ assert_pbi_id() {
     *) fail E_INVALID_ARG "bad $label: $value" ;;
   esac
 }
+
+# assert_sprint_id <value> [label]
+# Validates a sprint-NNN identifier. Fails E_INVALID_ARG otherwise. The optional
+# label customizes the error text (defaults to "sprint-id"); pass a flag name
+# such as "--sprint" or "--id" at call sites that validate a flag argument.
+# Mirrors assert_pbi_id.
+assert_sprint_id() {
+  local value="$1" label="${2:-sprint-id}"
+  case "$value" in
+    sprint-[0-9]*) ;;
+    *) fail E_INVALID_ARG "bad $label: $value" ;;
+  esac
+}

@@ -155,6 +155,32 @@ record_circuit_breaker() {
   return 0
 }
 
+# autonomy_record_failure <reason> [ts]
+# Records .last_failure = {reason, at} (and bumps .updated_at) on
+# .scrum/autonomy.json so the watchdog can read the last failure and decide
+# whether to retry / abort the outer loop. Fail-open: a missing or unparseable
+# autonomy file returns 1 without crashing. Uses the file-local tmp+mv idiom
+# (this lib is sourced standalone, without hooks/lib/validate.sh, so it cannot
+# rely on json_update_atomic). When <ts> is omitted, _autonomy_now() is used.
+autonomy_record_failure() {
+  local reason="${1:-}"
+  local ts="${2:-}"
+  [ -f "$AUTONOMY_FILE" ] || return 1
+  jq empty "$AUTONOMY_FILE" >/dev/null 2>&1 || return 1
+  [ -n "$ts" ] || ts="$(_autonomy_now)"
+  local tmp
+  tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
+  if ! jq --arg reason "$reason" --arg ts "$ts" '
+    .last_failure = {reason: $reason, at: $ts}
+    | .updated_at = $ts
+  ' "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    return 1
+  fi
+  mv "$tmp" "$AUTONOMY_FILE"
+  return 0
+}
+
 # autonomy_config_int <jq_path> <default>
 # Reads an integer setting from .scrum/config.json at <jq_path> (a jq filter
 # such as '.autonomous.max_iterations'). Returns <default> if config is
