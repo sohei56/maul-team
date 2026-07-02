@@ -148,11 +148,8 @@ Escalation routes are fixed — do not invent new ones:
   See `skills/pbi-merge/SKILL.md` § Outputs for the kind →
   `escalation_reason` mapping.
 - Requirements unclear (designer/implementer) → raise to Developer →
-  Developer raises to SM → SM consults PO (route depends on
-  `.scrum/config.json.po_mode`: `human` = SM asks the user in the
-  main session; `agent` = SM sends `[<pbi-id>] PO_DECISION_REQUEST
-  kind=spec_clarification` to the product-owner teammate). Never
-  guess requirements from code. See § PO seat resolution.
+  SM → PO. Never guess requirements from code. Full route: see
+  § Escalation route (below).
 
 ## PO seat resolution (po_mode)
 

@@ -78,7 +78,7 @@ When assigned→run `smoke-test` skill:
 - **No work before Sprint start.** No code until status enters `in_progress_impl`. During Planning→estimation + clarification only.
 - **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree.
 - **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
-- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>`. A wrong-branch state means the worktree was tampered with — stop and report. Raw `git commit -a` / `git add -A` would stage the `.scrum -> ../../../.scrum` symlink that `create-pbi-worktree.sh` installs and leak it onto `main` at merge time; `commit-pbi.sh` excludes the symlink and is the only safe path.
+- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report.
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
 ## Status Ownership (12-value status SSOT)
@@ -86,12 +86,10 @@ When assigned→run `smoke-test` skill:
 Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-12-value-enum-actor-split).
 
 Developer owns these `backlog.json.items[].status` values:
-
-- `in_progress_design` — design Round active (pbi-designer + codex-design-reviewer)
-- `in_progress_impl` — implementation Round active (pbi-implementer)
-- `in_progress_pbi_review` — impl review active (codex-impl-reviewer); FAIL→back to `in_progress_impl`
-- `in_progress_ut_run` — UT execution + coverage gate active; FAIL→back to `in_progress_impl`
-- `in_progress_merge` — Developer signaled ready; SM picks up merge
+`in_progress_design`, `in_progress_impl`, `in_progress_pbi_review`,
+`in_progress_ut_run`, `in_progress_merge`. Per-status semantics
+(sub-agents, FAIL edges) are in the linked data-model § State
+Transitions.
 
 **Transition rule:** on every Developer-owned status change, call
 `.scrum/scripts/update-backlog-status.sh "$PBI" <new_status>`.
@@ -100,7 +98,7 @@ This is the SSOT write — `backlog.json` is the only place status lives.
 `.scrum/scripts/update-pbi-state.sh` is for **internal pipeline state only**:
 `design_status`, `impl_status`, `ut_status`, `coverage_status`,
 round counters, `escalation_reason`, `merge_failure`, etc.
-It does NOT update the high-level status (no `phase` field exists).
+It does NOT update the high-level status.
 
 **Escalation:** termination-gate trip (stagnation / divergence /
 max_rounds / budget_exhausted / coverage_tool_* / requirements_unclear /
@@ -108,10 +106,9 @@ catalog_lock_timeout / reviewer_unavailable / stale_review_snapshot) →
 `update-backlog-status.sh "$PBI" escalated` +
 `update-pbi-state.sh "$PBI" escalation_reason <kind>` →
 notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
-`pbi-escalation-handler`. (Merge-side reasons —
-`merge_conflict`, `merge_artifact_missing`, `merge_regression` — are
-SM-owned and set by `mark-pbi-merge-failure.sh`; Developer never
-writes those.)
+`pbi-escalation-handler`. (Merge-side reasons are SM-owned, set by
+`mark-pbi-merge-failure.sh`; Developer never writes those — see
+`skills/pbi-merge/SKILL.md`.)
 
 ## Communication
 

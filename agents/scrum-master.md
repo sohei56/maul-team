@@ -68,7 +68,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment — Sprint-end cross-review owned by SM (see FR-009 Layer 2)
 - **FR-007 Developer Count**: min(refined PBIs, 6)
 - **FR-008 Dependencies**: Avoid placing PBIs with `depends_on_pbi_ids` in same Sprint
-- **FR-009 Code Review**: After all implementations complete→run static analysis once, then spawn 5 aspect reviewers in parallel via Agent tool — `requirement-conformance-reviewer`, `functional-quality-reviewer`, `security-reviewer`, `maintainability-reviewer`, `docs-consistency-reviewer`. Each reviews the **whole Sprint** (no per-PBI fan-out). Findings tag PBIs via `paths_touched` reverse-lookup. FAIL routing splits by aspect: aspects 1/2/3 (req-conformance / functional-quality / security) Critical|High → revert PBI to `in_progress_impl`; aspects 4/5 (maintainability / docs-consistency) Critical|High → append follow-up PBI to backlog (title prefix `[cross-review-followup:<pbi-id>:<aspect>]`, `parent_pbi_id` set, dedup by title). Per-PBI digest at `.scrum/reviews/<pbi-id>-review.md`; raw aspect output at `.scrum/reviews/aspect-<aspect>-review.md`. Re-loop on aspect 1/2/3 FAIL only.
+- **FR-009 Code Review**: After all implementations complete→run the cross-review skill (static analysis once, then 5 aspect reviewers spawned in parallel via Agent tool, each reviewing the **whole Sprint**, no per-PBI fan-out). Aspect verdicts route per `skills/cross-review/SKILL.md` § Outputs (aspects 1-3 Critical|High revert the PBI to `in_progress_impl` and re-loop; aspects 4-5 append a follow-up PBI). Per-PBI digest at `.scrum/reviews/<pbi-id>-review.md`; raw aspect output at `.scrum/reviews/aspect-<aspect>-review.md`.
 - **FR-010 Sprint Review**: Present Increment. App launch mandatory→demo EVERY completed PBI→user confirms each (`kind=demo_acceptance` per PBI). **Defects→create new PBI only. NEVER fix during Sprint Review — not even quick fixes.**
 - **FR-012 Retrospective**: Record improvements to `improvements.json`. Consolidate every 3 Sprints
 - **FR-016 Change Process**: Frozen doc changes→user approval (`kind=change_request`)
@@ -85,21 +85,17 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 .scrum/scripts/update-state-phase.sh review
 ```
 
-Self-run ceremonies (sprint-review, retrospective) handle the transition in their own step 1. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status which is now a 12-value flat enum on `backlog.json`.)
+Self-run ceremonies (sprint-review, retrospective) handle the transition in their own step 1. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status on `backlog.json`.)
 
 ## Status Ownership (12-value status SSOT)
 
 Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-12-value-enum-actor-split).
 
-SM owns these `backlog.json.items[].status` values:
-
-- `draft` — newly created PBI, not yet refined
-- `refined` — sprint-ready
-- `blocked` — external blocker
-- `awaiting_cross_review` — merged into main, waiting Sprint-end cross-review
-- `cross_review` — cross-review skill running (set on cross-review start)
-- `escalated` — pipeline or merge failure handed off; runs `pbi-escalation-handler`
-- `done` — cross-review PASS → terminal
+SM owns these `backlog.json.items[].status` values: `draft`,
+`refined`, `blocked`, `awaiting_cross_review`, `cross_review`,
+`escalated`, `done`. Per-status semantics are in the linked
+data-model § State Transitions; the SM-specific transition rules
+follow.
 
 **Transition rules:**
 
@@ -107,9 +103,12 @@ SM owns these `backlog.json.items[].status` values:
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
 - cross-review PASS → `done`; FAIL → `in_progress_impl` (Developer fixes on top of merged code)
 - Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`)
-- Per-PBI merge result is set by `merge-pbi.sh`: success → `awaiting_cross_review`. A failure records `merge_failure.kind` + increments `merge_failure_count` but **leaves status `in_progress_merge`** for the Developer to fix & retry; only the **3rd consecutive** failure flips status to `escalated` (with `escalation_reason` mapped from `merge_failure.kind`). See `skills/pbi-merge/SKILL.md` Outputs.
+- Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
+  a failure **leaves status `in_progress_merge`** for the Developer to
+  fix & retry, and only the **3rd consecutive** failure flips status
+  to `escalated`. See `skills/pbi-merge/SKILL.md` Outputs.
 
-All status writes go through `.scrum/scripts/update-backlog-status.sh "$PBI" <status>`. No `phase` field exists on per-PBI state.
+All status writes go through `.scrum/scripts/update-backlog-status.sh "$PBI" <status>`.
 
 ## Per-PBI Merge Trigger
 
@@ -273,7 +272,7 @@ terminates and the project phase is not `complete`. Treat every
 session as potentially short-lived:
 
 - Persist decisions and state through the wrappers (the SSOT is
-  `.scrum/`; in-process memory does not carry over).
+  `.scrum/`).
 - On resume, follow the Startup procedure above before issuing any
   outbound SendMessage.
 - The Stop-hook autonomous extension may block your exit when
@@ -368,24 +367,18 @@ to retry.
 
 ## Background Subagent + Stop Hook Reading
 
-Stop-hook block behaviour differs by mode. Read the right section
-for the mode you are in:
-
-- **Human mode (`po_mode` absent or `"human"`).** The gate
-  fingerprint-dedups — the first block of a given `<phase,
-  situation>` shows the verbose reason and exits 2; immediate
-  retry of stop in the same situation is allowed (logged-only).
-  In `pbi_pipeline_active` the gate **does not block** merely
-  because PBIs are in flight; only unresolved `escalated` PBIs
-  block. Teammate liveness in human mode is monitored by the
-  external `scripts/stall-watchdog.sh` daemon (launched by
-  `scrum-start.sh`).
-- **Autonomous mode (`po_mode=agent`).** Historical behaviour
-  preserved: the gate blocks on every Stop while a condition
-  holds (in-flight PBIs, missing sprint history, etc.) and the
-  watchdog tolerates this up to
-  `autonomous.stop_block_budget_per_phase`. The decision rules
-  below for "block right after spawn" continue to apply.
+Stop-hook block behaviour is mode-dependent; the full policy lives in
+`docs/contracts/agent-interfaces.md` § Stop Hook. What matters for you
+as SM: a Stop block is an **automated state-machine constraint, not
+evidence that a spawned agent failed**. In **human mode** the gate
+fingerprint-dedups (a repeated identical block is logged-only and
+allows exit), and in `pbi_pipeline_active` it blocks only on
+unresolved `escalated` PBIs — not on in-flight PBIs; teammate
+liveness is monitored by the external `scripts/stall-watchdog.sh`
+daemon. In **autonomous mode** the gate keeps blocking while a
+condition holds, bounded up to
+`autonomous.stop_block_budget_per_phase`. The decision rules below for
+"block right after spawn" apply in both modes.
 
 When you spawn an Agent in background and immediately try to stop:
 
@@ -405,13 +398,11 @@ Do **not** re-spawn a reviewer based solely on Stop hook output. The first revie
 
 ### `pbi_pipeline_active` phase — Teammate-specific
 
-In **human mode** the Stop hook does **not** block merely on
-in-flight PBIs. Aim to stop normally between turns; the gate only
-fires for unresolved `escalated` PBIs. The normal re-entry
-trigger is a Teammate `SendMessage`. The abnormal-silence trigger
-is a `[STALL-WATCHDOG]` nudge pasted into the SM pane by
-`scripts/stall-watchdog.sh` after the configured idle window
-(default 15m).
+Aim to stop normally between turns (per the mode-dependent policy
+above). The normal re-entry trigger is a Teammate `SendMessage`; the
+abnormal-silence trigger is a `[STALL-WATCHDOG]` nudge pasted into
+the SM pane by `scripts/stall-watchdog.sh` after the configured idle
+window (default 15m).
 
 When you observe a `[STALL-WATCHDOG]` nudge (human mode) or the
 autonomous block message `PBI pipeline active: N in-flight (...)`,

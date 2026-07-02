@@ -48,7 +48,8 @@ Agent Teams using the `spawn-teammates` Skill (R6) for reproducibility.
 - Agent definition format: Markdown with YAML frontmatter.
 - Agent Teams display: **in-process** (cycle with Shift+Down) or
   **split panes** (tmux/iTerm2).
-- Requires: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set process-scoped by `scrum-start.sh`; no global export needed).
+- Requires: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set by
+  `scrum-start.sh`; see R5).
 - Team lead persists across Sprints; teammates are per-Sprint.
 
 ---
@@ -181,9 +182,7 @@ agent.
   9. On resume: append system prompt includes current state summary.
 - All stderr messages MUST be actionable: clearly state what went wrong
   and what to do next.
-- Exit codes: `0` (normal), `1` (Claude Code not found), `2` (reserved —
-  Agent Teams is set process-scoped by `scrum-start.sh`), `3` (Python 3.9+
-  or TUI packages not found). See R2 for full exit code table.
+- Exit codes: see R2 for the full exit code table.
 
 **Python / pip Guidance** (`setup-user.sh`):
 - MUST check for `pip`/`pip3`. If missing, print actionable guidance

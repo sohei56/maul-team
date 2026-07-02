@@ -217,8 +217,7 @@ State descriptions:
 | `status` | enum | `"active"` or `"failed"` (the dashboard renders `"unknown"` when no entry exists; not a writable value) |
 | `sub_agents` | string[] | Names of specialist sub-agents actually invoked via the Task tool (runtime-populated, not candidates) |
 
-> **Note**: The legacy `current_pbi_phase` field was removed in v2. The
-> Developer's current PBI status is derived from
+> **Note**: The Developer's current PBI status is derived from
 > `backlog.json.items[<current_pbi>].status` (12-value enum) — single
 > source of truth, no mirror field to drift.
 
@@ -875,8 +874,8 @@ allow exit. Phase change or fingerprint change resets
 ### Rules
 
 - **Human mode only.** In autonomous mode the Stop hook bypasses
-  the ledger entirely so the Ralph-Loop watchdog's "block on every
-  Stop while condition holds" contract is preserved.
+  the ledger entirely (no dedup is wanted there), so the file is
+  never created in that mode.
 - **No wrapper script.** Like `autonomy.json`, writes go through
   a hook-side library (`stop_gate_check_and_bump` in
   `hooks/lib/stop-gate-state.sh`) — there is no
@@ -888,11 +887,11 @@ allow exit. Phase change or fingerprint change resets
 - **Fail-open toward block.** Any I/O / JSON failure path emits
   `FIRST` (verbose block) rather than `REPEAT` so the gate is
   never silently muted by a corrupted ledger.
-- **In `pbi_pipeline_active` (human mode)** the gate only blocks
-  on unresolved `escalated` PBIs. In-flight `in_progress_*` PBIs
-  do not trigger a block at all — teammate liveness is monitored
-  by `scripts/stall-watchdog.sh` instead.
 - Schema: `docs/contracts/scrum-state/stop-gate.schema.json`.
+- The Stop-hook block policy this ledger implements (human-mode
+  fingerprint-dedup vs the autonomous circuit breaker, and the
+  `pbi_pipeline_active` escalated-only rule) is specified in
+  [agent-interfaces.md](contracts/agent-interfaces.md) § Stop Hook.
 
 ---
 

@@ -34,7 +34,7 @@ skills/                  # 18 Skills (Scrum ceremonies + pipeline/merge/orchestr
   cleanup-audit/         # 8-axis multi-agent repo hygiene audit (read-only)
 hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, stop-dispatch single-entry → dashboard + completion-gate, quality + stop-failure gates, session context, autonomy lib)
   stop-dispatch.sh       # Single Stop entry: forwards payload to dashboard-event then completion-gate (replaces the 2-hook Stop registration)
-  completion-gate.sh     # Stop gate; human mode dedups repeated blocks via .scrum/stop-gate.json + only blocks unresolved `escalated` in pbi_pipeline_active
+  completion-gate.sh     # Stop gate; mode-dependent block policy (see docs/contracts/agent-interfaces.md § Stop Hook)
   lib/                   # Shared hook helpers (validate, dashboard, autonomy, stop-gate-state)
 rules/                   # Cross-cutting context auto-loaded by every Scrum agent (deployed by setup-user.sh to .claude/rules/)
   scrum-context.md       # Team map, SSOT locations, communication protocol, PO seat resolution, uncertainty handling
@@ -105,12 +105,18 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
 - All state persisted to `.scrum/` JSON files for resume capability
 - Design documents governed by `docs/design/catalog.md` (read-only type reference) + `docs/design/catalog-config.json` (editable enabled list)
 - Developer teammates named with Sprint suffix: `dev-001-s{N}`
-- PBI status flow (12 values, actor-split; status is sole SSOT, pipeline `phase` removed):
-  - SM-managed: `draft → refined → … → awaiting_cross_review → cross_review → done` (happy path); plus escalation recovery `escalated → in_progress_design` (retry) or `escalated → blocked → in_progress_design` (parked on external dep, then resumed)
+- PBI status flow (12 values, actor-split; status is sole SSOT):
+  - SM-managed: `draft → refined → … → awaiting_cross_review → cross_review → done` (happy path)
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
   - Full graph (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
-- On a **new project (both modes)**, `scrum-start.sh` co-authors a product brief (`docs/product/brief.md`, create-brief skill) as an interactive pre-flight step **before** Requirement Definition — the brief anchors the interview and the Requirements Analyst reconciles any brief↔requirements conflict by amending one side (PO-seat decision). The pre-flight fires only when the brief is absent and stdin is a TTY; exiting without writing a brief aborts the launch. The brief is a pre-ceremony input, not a `state.json.phase` value.
+- On a **new project (both modes)**, `scrum-start.sh` co-authors a
+  product brief (`docs/product/brief.md`) as an interactive pre-flight
+  **before** Requirement Definition — the brief anchors the interview
+  (the Requirements Analyst reconciles any brief↔requirements conflict
+  per a PO-seat decision) and is a pre-ceremony input, not a
+  `state.json.phase` value. TTY / abort rules + full flow:
+  [`skills/create-brief/SKILL.md`](skills/create-brief/SKILL.md).
 - Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode); in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint.
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
@@ -129,24 +135,15 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   tooling (C0/C1 100% by default; partial-C1 languages declare relaxed
   threshold in `.scrum/config.json`).
 - `backlog.json items[].kind ∈ {code, docs}` (default `code`) splits
-  the pipeline into two paths. **kind=code** runs the full pipeline
-  above. **kind=docs** (paths_touched ⊆ `**/*.md`) skips the Design
-  stage and the entire UT pipeline (UT author, UT reviewer, UT Run,
-  coverage gate, AC coverage gate) — only `pbi-implementer` +
-  `codex-impl-reviewer` run. Sprint-end cross-review evaluates docs
-  PBIs against aspect 1 (req-conformance, semantic AC check — not
-  grep hit counts) and aspect 5 (docs-consistency) only; aspects
-  2/3/4 reviewers are not spawned when the Sprint contains no
-  kind=code PBI. `kind` is determined by `backlog-refinement` (Opus
-  3-axis OR rule) and machine-enforced at ready-to-merge via
-  `paths_touched ⊆ *.md`. Violation → `escalated(kind_mismatch)`.
-  Stages skipped by a kind=docs PBI carry the status value `skipped`
-  on `pbi-state.json {design_status, coverage_status}`; `ut_status`
-  stays `pending` (the UT author/run/coverage gate are skipped, not
-  the status value — `begin-impl-round.sh` resets `ut_status` to
-  `pending` every impl round regardless of `kind`).
-  Full flow: `skills/pbi-pipeline/SKILL.md` § Stages; rationale +
-  detailed branches: `docs/superpowers/plans/2026-06-13-doc-only-pbi-flow.md`.
+  the pipeline. **kind=code** runs the full pipeline above.
+  **kind=docs** (paths_touched ⊆ `**/*.md`) skips Design and the
+  entire UT pipeline — only `pbi-implementer` + `codex-impl-reviewer`
+  run — and Sprint-end cross-review evaluates it against aspects 1
+  (req-conformance) and 5 (docs-consistency) only. `kind` is set by
+  `backlog-refinement` and machine-enforced at ready-to-merge
+  (violation → `escalated(kind_mismatch)`). Full flow:
+  `skills/pbi-pipeline/SKILL.md` § Stages + `docs/data-model.md`
+  § kind=docs override.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user
   (default). `"agent"` → the `product-owner` teammate (FR-023).
   Skills do not branch on mode; every "ask the user" prompt resolves
@@ -172,34 +169,20 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   `.scrum/reports/autonomous-run-<run_id>.md`. PO decisions are
   audit-logged to `.scrum/po/decisions.json` (append-only) via
   `append-po-decision.sh`. Full operator guide: `docs/autonomous-mode.md`.
-- **Stop-hook block policy diverges by mode.** The Stop hook is
-  registered as a single entry (`hooks/stop-dispatch.sh`) that
-  forwards the payload to `dashboard-event.sh` (best-effort) and
-  then to `completion-gate.sh`. In **autonomous mode with a live
-  watchdog** (`autonomy_loop_active` = `autonomy_enabled` AND
-  `kill -0 watchdog_pid`) block-every-turn-end is preserved only for
-  the **unbounded** in-flight inner loop (`pipeline_in_flight`, which
-  always `exit 2`s); **bounded** exit-criteria-miss blocks (the
-  default `block_stop` mode, incl. `escalated_unresolved`) now route
-  through a per-phase circuit breaker (`autonomy_breaker_step`,
-  budget `autonomous.stop_block_budget_per_phase`) and **allow exit
-  (`exit 0`) once the budget trips**, so the watchdog can surface a
-  stuck run instead of storming it forever (the Ralph-Loop watchdog
-  contract depends on the in-flight loop; `.scrum/stop-gate.json` is
-  neither read nor written). With no live watchdog the gate degrades
-  to the human-mode behaviour below
-  (storming a session nothing will re-launch is pointless). In
-  **human mode** the gate
-  fingerprint-dedups: the first block of a `<phase, situation>`
-  tuple emits the verbose reason + exit 2; subsequent identical
-  blocks are logged-only and allow exit. `pbi_pipeline_active` in
-  human mode no longer blocks merely because PBIs are in flight —
-  only unresolved `escalated` PBIs still block. Teammate liveness
-  in human mode is monitored by the external
-  `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`;
-  it sends a `[STALL-WATCHDOG]` nudge to the SM tmux pane when no
-  filesystem activity is observed within
-  `stall_watchdog.idle_threshold_minutes` (default 15).
+- **Stop-hook block policy diverges by mode.** One Stop entry
+  (`hooks/stop-dispatch.sh` → `dashboard-event.sh` best-effort →
+  `completion-gate.sh`). *Autonomous mode + live watchdog*: the
+  unbounded in-flight inner loop (`pipeline_in_flight`) keeps
+  blocking every turn-end, while bounded exit-criteria-miss blocks
+  (incl. `escalated_unresolved`) route through a per-phase circuit
+  breaker (`autonomous.stop_block_budget_per_phase`) that allows exit
+  once the budget trips, so the watchdog can surface a stuck run (no
+  live watchdog → degrades to human mode). *Human mode*:
+  fingerprint-dedup (first block of a `<phase, situation>` exits 2,
+  identical repeats allow exit); `pbi_pipeline_active` blocks only on
+  unresolved `escalated` PBIs, and teammate liveness is handled by
+  the external `scripts/stall-watchdog.sh` daemon. See
+  `docs/contracts/agent-interfaces.md` § Stop Hook.
 
 ## State management
 
@@ -223,14 +206,12 @@ script), so the guard never intercepts them; agents editing these
 files via Bash are blocked as usual. The PBI state schema
 gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
 `head_sha`, `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
-`merge_failure`, `merge_failure_count`); the legacy `phase` field
-was removed in v2, with all PBI lifecycle now driven by the 12-value
-`backlog.json.items[].status` enum. Merge-failure detail is preserved
-via `pbi-state.json.merge_failure.kind ∈ {conflict, artifact_missing,
-regression}` plus `escalation_reason ∈ {merge_conflict,
-merge_artifact_missing, merge_regression}` when 3 consecutive failures
-flip status to `escalated`. The sprint
-schema gained `base_sha` and `base_sha_captured_at`.
+`merge_failure`, `merge_failure_count`); all PBI lifecycle is driven
+by the 12-value `backlog.json.items[].status` enum. Merge-failure
+detail is preserved in `pbi-state.json.merge_failure` /
+`escalation_reason`; see `skills/pbi-merge/SKILL.md` for the
+`merge_failure.kind → escalation_reason` mapping and the 3-strike
+rule. The sprint schema gained `base_sha` and `base_sha_captured_at`.
 
 ## Git workflow
 

@@ -34,8 +34,8 @@ acceptance decisions, and the release call.
 
 ## Role
 
-- Agent Teams teammate. The SM spawns and re-spawns the PO as
-  in-process Teammates do not survive across sessions.
+- Agent Teams teammate. The SM spawns and re-spawns the PO each
+  session (see § Context restoration).
 - Final authority on **what** the product should do — backlog
   priorities, Sprint Goal approval, escalation rulings, demo
   acceptance, UAT verdicts, and the release decision.

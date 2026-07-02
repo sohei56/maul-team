@@ -61,7 +61,7 @@ responsibilities (what it owns).
 | FR-006 | Assign implementers (one per PBI). Sprint-end review is owned by SM via cross-review (FR-009 Layer 2) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Orchestrate cross-review at Sprint end: SM runs static analysis once, then spawns 5 aspect reviewers in parallel over the whole Sprint — `requirement-conformance-reviewer`, `functional-quality-reviewer`, `security-reviewer`, `maintainability-reviewer`, `docs-consistency-reviewer`. Aspect 1/2/3 Critical\|High → PBI reverts to `in_progress_impl`; aspect 4/5 Critical\|High → append follow-up PBI (title prefix `[cross-review-followup:<pbi-id>:<aspect>]`). Loop until every Sprint PBI reaches `status: done`. |
+| FR-009 | Orchestrate Sprint-end cross-review: run static analysis once, then spawn 5 aspect reviewers in parallel over the whole Sprint. Aspect verdicts route per `skills/cross-review/SKILL.md` § Outputs (aspects 1-3 revert the PBI to `in_progress_impl`; aspects 4-5 append a follow-up PBI). Loop until every Sprint PBI reaches `status: done`. |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -98,30 +98,31 @@ responsibilities (what it owns).
 
 ### Skill Inputs/Outputs Reference
 
-Every Skill MUST declare `## Inputs` and `## Outputs` at the top of its
-body. Below is the reference for the deployed Skills (SM ceremonies +
-1 PO-owned `po-acceptance` + 1 interactive `create-brief` pre-flight):
+Every Skill declares `## Inputs` and `## Outputs` at the top of its body,
+and **those sections are the SSOT** (mandatory per `docs/architecture.md`
+§ R6). This table is a one-line index only — purpose + pointer; read the
+named SKILL.md for the exact required state and files/keys written.
 
-| Skill | Inputs (required state) | Outputs (files/keys updated) |
-|-------|------------------------|------------------------------|
-| `create-brief` | Human dialogue (interactive); existing `docs/product/brief.md` if any | `docs/product/brief.md` (1–2 page product brief). Pre-flight for autonomous launch when no brief exists; also usable standalone via `/create-brief`. No `.scrum/` state writes. |
-| `requirement-definition` | `state.json` → `phase: new` | `requirements.md`, `docs/requirements-benchmark.md`, `CLAUDE.md` (authored by `requirements-analyst`); `state.json` → `phase: requirements_sprint → backlog_created` |
-| `backlog-refinement` | `backlog.json` → `items[]` with `status: draft`; `requirements.md`; count of existing `refined` PBIs (WIP check) | `backlog.json` → `items[].status: refined`, `acceptance_criteria`, `ux_change`, `design_doc_paths` (refined WIP capped at 6-12) |
-| `sprint-planning` | `state.json` → `phase: backlog_created \| retrospective`; `backlog.json` → refined PBIs | `sprint.json` (created); `backlog.json` → `items[].sprint_id`, `implementer_id`; oversized PBIs split into child PBIs with `parent_pbi_id` set; `state.json` → `phase: sprint_planning` |
-| `spawn-teammates` | `sprint.json` → `id`; `backlog.json` → items where `sprint_id == sprint.id` (Sprint PBIs are derived, not stored) | `sprint.json` → `developers[]` (populated, `assigned_work.implement`), `status: "active"`; Agent Teams teammates spawned |
-| `install-subagents` | PBI assignment (task context); project-managed agent definitions | `.claude/agents/*.md` (installed); `sprint.json` → `developers[].sub_agents` (at runtime) |
-| `pbi-pipeline` | `state.json` → `phase: sprint_planning \| pbi_pipeline_active`; `sprint.json` → `developers[]`; `docs/design/catalog.md`; existing `docs/design/specs/**/*.md`; `requirements.md`; `.scrum/config.json` (coverage thresholds) | Source code; test files; `docs/design/specs/{category}/*.md` (catalog spec updates as side-effect); `.scrum/pbi/<pbi-id>/{state,design,impl,ut,metrics,feedback,pipeline.log}` (see `data-model.md` § PbiPipelineState); `backlog.json` → `items[].status` walks the Developer-managed slice (`in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`); on termination-gate trip flips to `escalated`; `state.json` → `phase: pbi_pipeline_active` |
-| `pbi-merge` | Developer notification `[<pbi-id>] PBI_READY_TO_MERGE`; `backlog.json` → `items[].status: in_progress_merge`; `.scrum/pbi/<pbi-id>/state.json` (head_sha, paths_touched, ready_at, merge_failure_count); `.scrum/sprint.json` (developer assignment) | `backlog.json` → `items[].status: in_progress_merge → awaiting_cross_review` (success) or unchanged (recoverable failure, status remains `in_progress_merge` while count < 3) or `escalated` (3rd failure); `items[].merged_sha`; `.scrum/pbi/<pbi-id>/state.json` (`merged_sha`, `merged_at`, or `merge_failure.{kind,paths}` + `merge_failure_count` ++); merge commit on `main`; worktree `.scrum/worktrees/<pbi-id>` removed on success; SendMessage to Developer with success/conflict/escalation status |
-| `pbi-escalation-handler` | Developer notification `[<pbi-id>] ESCALATED reason=<reason>`; `.scrum/pbi/<pbi-id>/state.json`; `.scrum/pbi/<pbi-id>/pipeline.log` | `.scrum/pbi/<pbi-id>/escalation-resolution.md`; SM decision (retry / split / hold / human-escalate) |
-| `cross-review` | `state.json` → `phase: pbi_pipeline_active \| review`; `backlog.json` → all Sprint PBIs at `status ∈ {awaiting_cross_review, escalated}` (incl. `paths_touched`); `requirements.md`; relevant `docs/design/specs/**/*.md`; `sprint.json.base_sha`; per-PBI pipeline final reviews at `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` (read for context, not re-evaluated) | `sprint.json` → `status: "cross_review"`; `.scrum/reviews/static-analysis-r{n}.json` (per-round tool output for `maintainability-reviewer`); `.scrum/reviews/sprint-impl-diff.txt` (non-doc diff for `docs-consistency-reviewer`); `.scrum/reviews/aspect-<aspect>-review.md` (5 raw aspect outputs); `.scrum/reviews/<pbi-id>-review.md` (per-PBI digest); `backlog.json` → `items[].status: awaiting_cross_review → cross_review → done` on aspect-1/2/3 PASS, or `cross_review → in_progress_impl` on aspect-1/2/3 FAIL; aspect-4/5 FAIL → new draft PBI appended (title prefix `[cross-review-followup:<pbi-id>:<aspect>]`, `parent_pbi_id` set, dedup); `items[].review_doc_path`; `state.json` → `phase: review` |
-| `sprint-review` | `state.json` → `phase: review`; `sprint.json`; `backlog.json` | `sprint.json` → `status: "sprint_review"`; `sprint-history.json` → `sprints[]` (appended); `state.json` → `phase: sprint_review` |
-| `retrospective` | `state.json` → `phase: sprint_review`; `improvements.json` (existing improvements and `last_consolidation_sprint`); `sprint.json` → `id` (for consolidation check) | `improvements.json` → `entries[]` (appended), stale entries archived every 3 Sprints (`status: archived`, `archived_at` set, `last_consolidation_sprint` updated); `sprint.json` → `status: "complete"`; `state.json` → `phase: retrospective` |
-| `integration-sprint` | `state.json` → `phase: retrospective`; user confirmation | `.scrum/test-results.json` (structured test results from automated testing); `state.json` → `phase: integration_sprint → complete` |
-| `change-process` | Frozen document path; proposed change description; user approval | Updated document with new `revision_history` entry (incl. `pbis`); `backlog.json` updates if needed |
-| `scaffold-design-spec` | `docs/design/catalog.md` (newly enabled entries); `sprint.json` → `id` (current Sprint); `backlog.json` → PBI IDs for `related_pbis` | `docs/design/specs/{category}/{id}-{slug}.md` (stub files with frontmatter + placeholders) |
-| `smoke-test` | `state.json` → `phase: "integration_sprint"`; `requirements.md` (endpoint/workflow discovery); project source code with existing tests | Test execution results; `.scrum/test-results.json` (populated with test category results) |
-| `design-completeness-check` | `docs/design/catalog-config.json.enabled`; enabled `docs/design/specs/**`; `.scrum/test-results.json` (from `smoke-test`); `sprint.json.id` | `.scrum/design-verification-<sprint-id>.md`; `.scrum/test-results.json` (`design_completeness` TestCategory appended, `overall_status` recomputed); gap report `SendMessage` to SM |
-| `po-acceptance` | `.scrum/config.json.po_mode == "agent"`; `mode ∈ {demo, uat}` (from `PO_DECISION_REQUEST`); `.scrum/sprint.json.id`; demo: completed PBI list (from `backlog.json` `status: done|awaiting_cross_review` + `sprint.developers[].current_pbi`) and per-PBI `acceptance_criteria`; uat: `docs/requirements.md`, `docs/product/vision.md` (release criteria), `.scrum/test-results.json` (`overall_status ∈ {passed, passed_with_skips}`) | `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` (demo, one per PBI) or `.scrum/po/uat-<sprint-id>.md` (uat, one per Sprint); one `kind=demo_acceptance` or `kind=uat_item` PoDecision per AC via `.scrum/scripts/append-po-decision.sh`; aggregated `PO_ACCEPTANCE_REPORT` SendMessage to SM (`mode=<mode> results=[<id>:<verdict>:<dec_id>,...]`); the app process is stopped before the skill exits. |
+| Skill | Purpose | I/O contract (SSOT) |
+|-------|---------|---------------------|
+| `create-brief` | Co-author `docs/product/brief.md` (interactive pre-flight; no `.scrum/` writes) | `skills/create-brief/SKILL.md` § Inputs/Outputs |
+| `requirement-definition` | Elicit requirements → requirements.md + benchmark + CLAUDE.md | `skills/requirement-definition/SKILL.md` § Inputs/Outputs |
+| `backlog-refinement` | Refine draft PBIs to sprint-ready | `skills/backlog-refinement/SKILL.md` § Inputs/Outputs |
+| `sprint-planning` | Plan Sprint, assign PBIs, split oversized | `skills/sprint-planning/SKILL.md` § Inputs/Outputs |
+| `spawn-teammates` | Spawn Developer teammates for the Sprint | `skills/spawn-teammates/SKILL.md` § Inputs/Outputs |
+| `install-subagents` | Install PBI Pipeline sub-agents from catalog | `skills/install-subagents/SKILL.md` § Inputs/Outputs |
+| `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
+| `pbi-merge` | SM-side per-PBI merge into main (rollback / 3-strike escalation) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
+| `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
+| `cross-review` | Sprint-end 5-aspect cross-cutting quality gate | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
+| `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
+| `integration-sprint` | Product-wide QA + integration testing | `skills/integration-sprint/SKILL.md` § Inputs/Outputs |
+| `change-process` | Manage changes to frozen design docs | `skills/change-process/SKILL.md` § Inputs/Outputs |
+| `scaffold-design-spec` | Create design-doc stubs from catalog | `skills/scaffold-design-spec/SKILL.md` § Inputs/Outputs |
+| `smoke-test` | Automated test execution + HTTP smoke testing | `skills/smoke-test/SKILL.md` § Inputs/Outputs |
+| `design-completeness-check` | Design-doc functional completeness verification | `skills/design-completeness-check/SKILL.md` § Inputs/Outputs |
+| `po-acceptance` | PO-owned demo/UAT acceptance (autonomous mode) | `skills/po-acceptance/SKILL.md` § Inputs/Outputs |
 
 ### Lifecycle
 1. On new project: create `state.json` with `phase: "new"`, start Requirement Definition
@@ -176,9 +177,8 @@ body. Below is the reference for the deployed Skills (SM ceremonies +
 
 **Definition file**: `agents/product-owner.md`
 **Launch**: Spawned by the Scrum Master via Agent Teams when
-  `.scrum/config.json.po_mode == "agent"`. In-process teammates do
-  not survive session restarts; the SM re-spawns the PO on every
-  iteration (autonomy watchdog tears down sessions between rounds).
+  `.scrum/config.json.po_mode == "agent"`; re-spawned every autonomy
+  iteration (see *Lifecycle* below).
 **Role**: Agent Teams teammate — final decision-maker on product
   value (vision, backlog priorities, Sprint Goal approval,
   escalation rulings, demo / UAT verdicts, release decision).

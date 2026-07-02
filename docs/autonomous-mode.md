@@ -47,8 +47,8 @@ Two co-operating loops:
    intermediate work but allows exit at deterministic checkpoints
    (retrospective complete / integration_sprint passed / circuit
    breaker tripped / `phase == complete`). Between iterations,
-   memory survives only via `.scrum/` SSOT files — in-process
-   teammates do not persist across sessions.
+   memory survives only via `.scrum/` SSOT files (see § Known
+   constraints and fallbacks).
 
 ## Prerequisites
 
@@ -65,13 +65,9 @@ overlay:
   `--brief <file>` on first run. The autonomous PO expands the
   brief into `docs/product/vision.md` during the Requirements
   Sprint; without a brief there is nothing to anchor YAGNI
-  decisions against. **If no brief exists and you launch on a TTY,
-  `scrum-start.sh` runs the [`create-brief`](../skills/create-brief/SKILL.md)
-  skill first** — an interactive pre-flight session that co-authors
-  `docs/product/brief.md` with you, then chains straight into the
-  watchdog when you exit. On a non-TTY run (e.g. `--no-attach`, piped
-  stdin) there is no human to interview, so a missing brief is still a
-  hard error — supply `--brief <file>`.
+  decisions against. If no brief exists, launch behaviour depends on
+  whether stdin is a TTY — see
+  [§ Brief co-authoring pre-flight](#brief-co-authoring-pre-flight-create-brief).
 - `.scrum/config.json.po_mode == "agent"` (set automatically by
   `scrum-start.sh --autonomous`).
 
@@ -106,7 +102,7 @@ Flags accepted by `scrum-start.sh`:
 | Flag | Effect |
 |---|---|
 | `--autonomous` | Launches `scripts/autonomous/watchdog.sh` in the main pane instead of an interactive Claude session. Sets `po_mode = "agent"` and merges defaults into `.scrum/config.json.autonomous`. |
-| `--brief <file>` | Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. **Required on a new non-TTY run**; on a TTY, omitting it triggers the interactive `create-brief` pre-flight instead of erroring. |
+| `--brief <file>` | Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. Required on a new non-TTY run; TTY behaviour → [§ Brief co-authoring pre-flight](#brief-co-authoring-pre-flight-create-brief). |
 | `--max-sprints N` | Overrides `.scrum/config.json.autonomous.max_sprints`. |
 | `--max-hours H` | Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`. |
 | `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
@@ -202,7 +198,7 @@ in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
 | `autonomous.max_wall_clock_hours` | `8` | Hard wall-clock budget for the whole run. Exceeded → exit 2. |
 | `autonomous.max_sprints` | `8` | Number of Sprints to run **this launch**, counted from the `sprint-history.json.sprints` length captured at watchdog startup (the *baseline*, persisted as `autonomy.json.sprint_baseline`) — **not** a cumulative cap. The watchdog stops once history reaches `baseline + max_sprints`. Example: a project with 10 Sprints in history launched with `max_sprints=8` runs through Sprint 18. Exit 2. |
 | `autonomous.max_consecutive_failures` | `3` | Number of consecutive zero-progress iterations (or non-zero Claude exit codes, or tripped circuit breakers) before the watchdog gives up. Exit 1. |
-| `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. In **human mode** the gate ignores this key and instead fingerprint-dedups blocks via `.scrum/stop-gate.json` (first identical block exits 2, repeats allow exit); teammate liveness is monitored by the external `scripts/stall-watchdog.sh` daemon. |
+| `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. Human mode ignores this key — see [`contracts/agent-interfaces.md`](contracts/agent-interfaces.md) § Stop Hook. |
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
 | `autonomous.notify_command` | `null` | Shell command run at the end of the run with `WATCHDOG_EXIT=<exit-code>` in env. Useful for desktop notification / Slack ping. Failures are swallowed. |
 | `autonomous.fallback_model` | `null` | Passed to `claude -p --fallback-model` when set. The CLI falls back to this model when the primary model is unavailable. |
@@ -301,15 +297,16 @@ becomes the wait-and-resume trigger described below).
 One more guard for the inner loop:
 
 - `stop_block_budget_per_phase` — **autonomous mode only.**
-  `completion-gate.sh` increments a counter every time it blocks
-  exit in the same phase. On the N+1-th block in the same phase it
+  `completion-gate.sh` increments a counter on each *bounded*
+  exit-criteria-miss block in the same phase (the unbounded
+  `pipeline_in_flight` inner loop blocks without consuming the
+  budget). On the N+1-th counted block in the same phase it
   records `.circuit_breaker_tripped = {phase, at}` in
   `autonomy.json` and allows exit. The watchdog reads the breaker
-  and treats the iteration as a no-progress failure. In human
-  mode this counter is not maintained: `completion-gate.sh`
-  fingerprint-dedups identical blocks via `.scrum/stop-gate.json`
-  and an external `scripts/stall-watchdog.sh` daemon handles
-  teammate liveness.
+  and treats the iteration as a no-progress failure. Human mode does
+  not maintain this counter — see
+  [`contracts/agent-interfaces.md`](contracts/agent-interfaces.md)
+  § Stop Hook.
 
 ### Rate-limit / usage-limit handling
 
@@ -462,7 +459,7 @@ next section before trying again on the real project.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `watchdog: .scrum/autonomy.json missing — run scrum-start.sh --autonomous first.` (exit 3) | Watchdog ran without `scrum-start.sh --autonomous` bootstrap. | Run `scrum-start.sh --autonomous` once to set `po_mode=agent`, default `autonomous.*` keys, and initialize `.scrum/autonomy.json`. |
-| `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief, on a **non-TTY** invocation (no human to interview). | Provide `--brief docs/product/brief.md` (or any path), or re-run on a TTY to co-author one via the `create-brief` pre-flight. |
+| `Error: --autonomous on a new project requires --brief <file>.` (exit 2) | First run with no `.scrum/state.json` and no brief, on a **non-TTY** invocation (no human to interview). | Provide `--brief docs/product/brief.md` (or any path), or re-run on a TTY — see [§ Brief co-authoring pre-flight](#brief-co-authoring-pre-flight-create-brief). |
 | `watchdog: rate-limit detected; sleeping <N>s until reset` / `... no reset time parsed — sleeping <N>s` | Inner session hit the API rate limit / usage limit / overload error. Watchdog is waiting until the limit resets (advertised reset time + 60s jitter, capped at 6h) or `DEFAULT_RATE_LIMIT_WAIT_SECS` (1h) when no reset time was parseable. | Wait. The iteration counter is not advanced; `max_wall_clock_hours` is the only runaway protection. To resume sooner, kill the watchdog and rerun `scrum-start.sh --autonomous` once your subscription quota refills. |
 | `watchdog: K consecutive failures — giving up.` (exit 1) | Three consecutive iterations made no progress (no phase/PBI status change), or the inner Claude session kept failing, or the circuit breaker tripped K times. | Inspect `.scrum/autonomous/iter-<N>.json`, `iter-<N>.err`, and `.scrum/autonomy.json.last_failure`. Common causes: missing PO context (no `docs/product/brief.md`), a deadlocked Stop hook (check `completion-gate.sh` logs in `.scrum/hooks.log`), or persistent CLI errors that aren't rate-limits (those would have triggered the wait branch instead). |
 | `watchdog: max_sprints (N) reached` (exit 2) | The watchdog ran `N` Sprints this launch (history reached `baseline + N`). | This is "successful park", not a failure — review the morning report and either declare the product done manually or relaunch to grant another `N`-Sprint budget from the new baseline. |

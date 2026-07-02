@@ -9,8 +9,8 @@ parent, and tool sandbox. Distributed to `.claude/agents/` by
 
 5 aspect-specialized reviewers spawned in parallel over the whole
 Sprint (no per-PBI fan-out). Findings tag PBIs via `paths_touched`
-reverse-lookup. Aspect 1/2/3 FAIL → revert PBI to `in_progress_impl`;
-aspect 4/5 FAIL → append follow-up PBI to backlog.
+reverse-lookup. FAIL routing is aspect-specific — see
+`skills/cross-review/SKILL.md` § Outputs.
 
 | # | Aspect | Agent | Role | Tools |
 |---|---|---|---|---|

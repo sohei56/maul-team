@@ -38,15 +38,8 @@ The 7 SM-managed status values (see [docs/data-model.md § State Transitions: st
 ```
 
 `escalation_reason` enum (only set when backlog status is
-`escalated`):
-
-```text
-stagnation | divergence | max_rounds | budget_exhausted |
-requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
-catalog_lock_timeout |
-reviewer_unavailable | stale_review_snapshot |
-merge_conflict | merge_artifact_missing | merge_regression
-```
+`escalated`): canonical value list in
+[docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate).
 
 The merge-* values are written by SM-side `mark-pbi-merge-failure.sh`,
 not by this skill. `reviewer_unavailable` and `stale_review_snapshot`
@@ -112,8 +105,7 @@ Review revert (Round counter displayed in the dashboard regressed to 1
 even though the PBI had already completed Rounds 1..N internally).
 
 `update-pbi-state.sh`:
-- validates against `docs/contracts/scrum-state/pbi-state.schema.json`
-  (no `phase` field accepted),
+- validates against `docs/contracts/scrum-state/pbi-state.schema.json`,
 - takes a per-file `mkdir` lock for race safety,
 - atomically writes via `tmp + mv`,
 - auto-stamps `.updated_at = now`.
