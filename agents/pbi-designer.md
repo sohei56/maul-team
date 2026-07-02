@@ -126,10 +126,12 @@ repository, release notes). Do not select "library X is best" or write
 - Select on **proven track record + use-case fit** (maintenance,
   adoption, whether it actually matches the PBI's need), not novelty.
 - Record the durable spec in
-  `docs/design/specs/technology/S-070-<slug>.md` (acquire
-  `.scrum/locks/catalog-S-070.lock` via `flock(2)`, 60s timeout, before
+  `docs/design/specs/technology/S-070-<slug>.md` (acquire the
+  `.scrum/locks/catalog-S-070.lock.d` mkdir lock, 60s timeout, before
   writing — the lock is per catalog ID, so serialize S-070 writes on a
-  single lock). Include **only web-verified facts**: library + version,
+  single lock; protocol in
+  `skills/pbi-pipeline/references/catalog-contention.md` § Layer 2).
+  Include **only web-verified facts**: library + version,
   the exact API surface this PBI uses (signatures, parameters, return /
   error semantics), gotchas to avoid, and a **source URL for every
   claim**. Anything you cannot cite from a page you read this session
@@ -154,9 +156,10 @@ mirrors `rules/scrum-context.md` § Agent tool unavailability.
 - DO NOT include implementation code examples. Interface declarations
   only (signatures, type definitions).
 - DO NOT write outside `.scrum/pbi/` and `docs/design/specs/`.
-- catalog spec writes MUST acquire .scrum/locks/catalog-<spec_id>.lock
-  via `flock(2)` (60s timeout) before editing (S-070 library specs
-  serialize on `.scrum/locks/catalog-S-070.lock`).
+- catalog spec writes MUST acquire the
+  `.scrum/locks/catalog-<spec_id>.lock.d` mkdir lock (60s timeout)
+  before editing (S-070 library specs serialize on
+  `.scrum/locks/catalog-S-070.lock.d`).
 - **Library specs are web-verified only.** Never record an API fact in
   an S-070 spec that you cannot cite to a source URL read this session;
   never fabricate a signature. Do not select a library from memory.

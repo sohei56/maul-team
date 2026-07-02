@@ -101,11 +101,15 @@ n=$(.scrum/scripts/begin-impl-round.sh "$PBI_ID")
   `{in_progress_design, in_progress_pbi_review, in_progress_ut_run,
   cross_review, in_progress_impl}`.
 
-Conductors MUST NOT write `impl_round` via `update-pbi-state.sh`.
-Owning the counter in one place removes the failure mode where an
-agent resets `n` to 1 after a Cross Review revert (Round counter
-displayed in the dashboard regressed to 1 even though the PBI had
-already completed Rounds 1..N internally).
+Within the impl / PBI-review / UT-run cycle, conductors MUST NOT write
+`impl_round` via `update-pbi-state.sh` — `begin-impl-round.sh` is the
+sole incrementer. The one sanctioned exception is the Design-success
+reset to 0: `design-stage.md` Step 3 sets `design_status pass
+impl_round 0` as it hands off to impl, seeding the counter before the
+first `begin-impl-round.sh` call. Owning the counter in one place
+removes the failure mode where an agent resets `n` to 1 after a Cross
+Review revert (Round counter displayed in the dashboard regressed to 1
+even though the PBI had already completed Rounds 1..N internally).
 
 `update-pbi-state.sh`:
 - validates against `docs/contracts/scrum-state/pbi-state.schema.json`
@@ -130,9 +134,11 @@ Unknown fields or out-of-enum values are rejected with
 
 ## pipeline.log format
 
-One line per stage event, append-only. The first column is the stage
-identifier (matches the `in_progress_*` status segment, plus `init`
-for setup events):
+One line per stage event, append-only. The first column is a coarse
+stage identifier drawn from the fixed set
+`init | design | pbi_review | ut_run | complete | escalated` (enforced
+by `append-pbi-log.sh`); it is NOT the `in_progress_*` backlog-status
+segment. Impl-round events are logged under `pbi_review` or `ut_run`:
 
 ```text
 <ISO8601>\t<stage>\t<round>\t<event>\t<detail>
@@ -145,7 +151,7 @@ Examples:
 2026-05-02T12:01:00+09:00	design	1	spawn	pbi-designer
 2026-05-02T12:05:00+09:00	design	1	spawn	codex-design-reviewer
 2026-05-02T12:06:00+09:00	design	1	gate	success → impl
-2026-05-02T12:06:30+09:00	impl	1	spawn	pbi-implementer + pbi-ut-author
+2026-05-02T12:06:30+09:00	pbi_review	1	spawn	pbi-implementer + pbi-ut-author
 2026-05-02T12:20:00+09:00	ut_run	1	measure	coverage c0=87 c1=72
 2026-05-02T12:25:00+09:00	pbi_review	1	gate	fail → impl round 2 (test_failures=2)
 ```

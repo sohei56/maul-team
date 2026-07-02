@@ -100,9 +100,12 @@ Rules:
   artifact: the conductor gates the Round on it and re-spawns you if
   it is missing or has any empty `tests` array (Step-1b guard in
   `skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
-  run `jq -e '.criteria | length > 0 and all(.tests | length > 0)'`
-  against the file and fix it if the check fails. Do not return with
-  the tests written but this map absent.
+  re-open the emitted `ac-coverage-r{n}.json` with the Read tool and
+  visually confirm: (1) the file exists, (2) `criteria` is a non-empty
+  array, (3) every entry's `tests` array is non-empty. Fix it if any
+  check fails. Do not return with the tests written but this map absent.
+  (You have no Bash tool; the conductor's Step-1b guard runs the
+  machine-readable `jq` equivalent.)
 
 ## Output Envelope
 

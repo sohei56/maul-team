@@ -24,8 +24,8 @@ only.
 | Bash | bats | bashcov | partial |
 
 For partial-C1 languages, `.scrum/config.json` MUST declare relaxed
-threshold (e.g., `"c1_threshold": 0.95`); ad-hoc relaxation is
-forbidden.
+threshold (e.g., `"c1_threshold": 95` — percent scale, compared against
+`.totals.c1.percent`); ad-hoc relaxation is forbidden.
 
 ## Measurement sequence (Phase 2 Step 2)
 

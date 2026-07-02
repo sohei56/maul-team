@@ -96,19 +96,6 @@ is_duplicate_comms() {
   return 1
 }
 
-# Determine the change type for a file operation
-determine_change_type() {
-  # Always returns "modified".
-  #
-  # Cleanup-audit T1-9 (2026-06): the prior implementation distinguished
-  # Write→"created" from Write→"modified" by `[ -f $file_path ]`. But this
-  # is a PostToolUse hook — by the time it runs, the tool has already
-  # completed, so the file always exists and the "created" branch is
-  # unreachable. Edit / Bash / * already returned "modified" verbatim.
-  # Collapsed to one literal to make the contract explicit.
-  echo "modified"
-}
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -142,10 +129,14 @@ case "$hook_type" in
     tool_input="$(echo "$hook_event" | jq -c '.tool_input // {}')"
 
     case "$tool_name" in
-      Write|Edit)
+      Write|Edit|MultiEdit)
         file_path="$(echo "$tool_input" | jq -r '.file_path // empty')"
         if [ -n "$file_path" ]; then
-          change_type="$(determine_change_type "$tool_name" "$file_path")"
+          # Always "modified": this is a PostToolUse hook, so by the time it
+          # runs the tool has already completed and the file always exists —
+          # a "created" vs "modified" distinction (Cleanup-audit T1-9) is
+          # unreachable here.
+          change_type="modified"
           detail="${tool_name} on ${file_path}"
 
           event_json="$(jq -n \
@@ -161,29 +152,6 @@ case "$hook_type" in
               "agent_id": $agent,
               "file_path": $fp,
               "change_type": $ct,
-              "detail": $detail
-            }')"
-
-          append_dashboard_event "$event_json"
-        fi
-        ;;
-      Bash)
-        # For Bash tool, extract a summary but do not try to determine file paths
-        command="$(echo "$tool_input" | jq -r '.command // empty' | head -c 200)"
-        if [ -n "$command" ]; then
-          detail="Bash: ${command}"
-
-          event_json="$(jq -n \
-            --arg ts "$timestamp" \
-            --arg type "file_changed" \
-            --arg agent "$agent_id" \
-            --arg detail "$detail" \
-            '{
-              "timestamp": $ts,
-              "type": $type,
-              "agent_id": $agent,
-              "file_path": null,
-              "change_type": null,
               "detail": $detail
             }')"
 
@@ -360,34 +328,6 @@ case "$hook_type" in
         "agent_id": $agent,
         "file_path": null,
         "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
-    ;;
-
-  FileChanged|file_changed)
-    # Claude Code FileChanged event: a watched file changed (often from
-    # an external editor). Mirror to the dashboard so users see it
-    # alongside tool-driven file_changed events emitted from PostToolUse.
-    file_path="$(echo "$hook_event" | jq -r '.file_path // .path // empty')"
-    change_type="$(echo "$hook_event" | jq -r '.change_type // "modified"')"
-    [ -n "$file_path" ] || exit 0
-
-    detail="External ${change_type} on ${file_path}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg fp "$file_path" \
-      --arg ct "$change_type" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "file_changed",
-        "agent_id": $agent,
-        "file_path": $fp,
-        "change_type": $ct,
         "detail": $detail
       }')"
 

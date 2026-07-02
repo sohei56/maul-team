@@ -647,7 +647,7 @@ merge_conflict | merge_artifact_missing | merge_regression
 
 | Path | Purpose |
 |------|---------|
-| `.scrum/locks/catalog-<spec_id>.lock` | `flock(2)` target used by `pbi-designer` to serialize catalog spec writes across parallel PBIs (Layer 2 of `catalog-contention` defense). 60s timeout → `escalation_reason: catalog_lock_timeout`. |
+| `.scrum/locks/catalog-<spec_id>.lock.d` | `mkdir` lock directory used by `pbi-designer` to serialize catalog spec writes across parallel PBIs (Layer 2 of `catalog-contention` defense). 60s timeout → `escalation_reason: catalog_lock_timeout`. |
 
 ### Rules
 

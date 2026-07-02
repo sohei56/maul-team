@@ -19,30 +19,45 @@ own pipeline run via:
 my_pbi_targets="$(jq -r --arg id "$PBI_ID" '.items[] | select(.id == $id) | .catalog_targets[]?' .scrum/backlog.json)"
 ```
 
-## Layer 2: Runtime exclusion via flock (backstop)
+## Layer 2: Runtime exclusion via mkdir lock (backstop)
 
-Before writing to a catalog spec, acquire a flock on a per-spec lock
-file. The pbi-designer agent does this; the conductor enforces by
-inspecting designer's reported actions.
+Before writing to a catalog spec, acquire a per-spec directory lock.
+The pbi-designer agent does this; the conductor enforces by inspecting
+designer's reported actions.
+
+`mkdir` is atomic on POSIX filesystems and needs no `flock` — this
+mirrors the framework's portable lock idiom (`scripts/scrum/lib/atomic.sh`
+`_acquire_lock`, and merge-pbi's `.scrum/.locks/merge.lock.d`). `flock`
+and the Bash-4.1 `exec {FD}>` redirect are unavailable on stock macOS,
+so this protocol uses `mkdir` and runs on Bash 3.2:
 
 ```bash
+_catalog_lock_dir() {
+  local spec_path="$1" lock_id
+  lock_id="$(echo "$spec_path" | sed 's|/|_|g')"
+  printf '%s\n' ".scrum/locks/catalog-${lock_id}.lock.d"
+}
 acquire_catalog_lock() {
-  local spec_path="$1"
-  local lock_id; lock_id="$(echo "$spec_path" | sed 's|/|_|g')"
-  local lock_file=".scrum/locks/catalog-${lock_id}.lock"
+  local lock_dir; lock_dir="$(_catalog_lock_dir "$1")"
   mkdir -p .scrum/locks
-  exec {LOCK_FD}>"$lock_file"
-  if ! flock -w 60 "$LOCK_FD"; then
-    return 124  # timeout
-  fi
+  local deadline=$(( $(date +%s) + 60 ))   # 60s timeout
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      return 124  # timeout
+    fi
+    sleep 0.2
+  done
   return 0
 }
 release_catalog_lock() {
-  exec {LOCK_FD}>&-
+  rmdir "$(_catalog_lock_dir "$1")" 2>/dev/null || true
 }
 ```
 
 Timeout (60s) → escalate with `escalation_reason: catalog_lock_timeout`.
+Unlike `flock`, a `mkdir` lock does NOT auto-release on process death —
+a Developer that dies mid-write leaves the `.lock.d` directory behind
+(a stale lock). See § Stale lock cleanup.
 
 ## Layer 3: Conflict detection via mtime (last resort)
 
@@ -62,7 +77,12 @@ second conflict: escalate `catalog_lock_timeout`.
 
 ## Stale lock cleanup
 
-If a Developer dies mid-write, the flock auto-releases on process exit
-(file descriptor closure). The lock file itself is left behind but is
-harmless — flock attaches to FDs, not file existence. SM may sweep
-`.scrum/locks/` periodically.
+A `mkdir` lock does NOT auto-release on process exit (unlike `flock`).
+If a Developer dies mid-write, its
+`.scrum/locks/catalog-<spec_id>.lock.d` directory survives and blocks
+the next writer until the 60s timeout, which escalates as
+`catalog_lock_timeout`. On that escalation the SM force-releases by
+`rmdir`-ing the stale lock dir (see
+`skills/pbi-escalation-handler/SKILL.md` § Response Matrix
+`catalog_lock_timeout` row) and retries. The SM may also sweep
+`.scrum/locks/` for orphaned `*.lock.d` directories periodically.

@@ -38,8 +38,10 @@ For each uncovered branch in `coverage-r{n}.json.files[].uncovered_branches`:
 
 When the technical-error-recurrence gate fired this Round (see
 `termination-gates.md` § Technical-error recurrence — i.e. the conductor
-just set `websearch_attempted true`), prepend the following section to
-`feedback/impl-r{n+1}.md` **and** `feedback/ut-r{n+1}.md`. Omit it
+just set `websearch_attempted true`), the **conductor** runs the web
+search itself (it has the `WebSearch` tool; the impl / UT sub-agents do
+not) and prepends the following section — filled in with what it found —
+to `feedback/impl-r{n+1}.md` **and** `feedback/ut-r{n+1}.md`. Omit it
 entirely on every other Round. List only the recurring web-searchable
 technical error(s) — the verbatim error `type` + `message` (and
 `stack_trace` first frame if present), or the `:error_handling` finding
@@ -49,13 +51,15 @@ text. Do NOT list assertion failures or spec/style findings here.
 ## Web-search remediation (REQUIRED this round)
 
 The following technical error has recurred unresolved across the last
-two Rounds. Before editing any code, use the `WebSearch` tool to
-research it (error text, library name + version, framework). Cite what
-you found and apply a fix grounded in it — do not retry the previous
-approach unchanged.
+two Rounds. The conductor researched it via web search; apply the
+findings below and do not retry the previous approach unchanged.
 
 - {type}: {message}
   {first stack frame, if any}
+
+Root cause (from web research): {conductor's finding}
+Verified fix guidance: {conductor's finding}
+Sources: {source URL(s)}
 ````
 
 ## Feedback file template — `feedback/impl-r{n+1}.md`

@@ -424,7 +424,7 @@ Decision rule:
 1. Read `.scrum/communications.json` latest `agent_spawn` / `progress_update` / `message` to confirm Teammates alive (sub-agent lifecycle lives in `.scrum/dashboard.json` `subagent_start` / `subagent_stop` events).
 2. `TaskGet` works only for Teammates spawned **in this session**. Cross-session: use `SendMessage` probe (no reply within ~120s = possibly stuck, not necessarily failed).
 3. Do NOT re-spawn just because the Stop hook fired or a stall nudge arrived.
-4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) expected artifact (e.g. `.scrum/pbi/<id>/round-*/`) missing.
+4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) no recent pipeline progress — the `.scrum/pbi/<id>/pipeline.log` tail is stale (mtime not advancing) AND no newer stage review (`.scrum/pbi/<id>/{design,impl,ut}/review-r{n}.md`) has appeared.
 
 Note: Teammates (Agent tool) do NOT fire `SubagentStart` / `SubagentStop` hooks — only sub-agents (Task tool) do. The `in_flight_hint` augmentation that decorates cross-review block messages is therefore inactive in `pbi_pipeline_active`. In autonomous mode the block message's PBI in-flight count is the source of truth; in human mode use `.scrum/backlog.json` mtime, `.scrum/dashboard.json` mtime, and the deepest mtime inside `.scrum/pbi/` (recursive walk) — `scripts/stall-watchdog.sh` reads all three, so manual SM diagnosis should consider the same set.
 

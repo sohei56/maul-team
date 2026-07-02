@@ -28,8 +28,12 @@ Critical UT reviewer via OpenAI Codex CLI.
 - .scrum/pbi/<pbi-id>/design/design.md
 - Design doc SHA-256 pin (`{design_hash}`)
 - Test file paths (impl paths NOT included)
-- .scrum/pbi/<pbi-id>/metrics/coverage-r{n}.json
-- .scrum/pbi/<pbi-id>/metrics/pragma-audit-r{n}.json
+- .scrum/pbi/<pbi-id>/metrics/coverage-r{n-1}.json (prior round;
+  absent in Round 1 — absence is NOT a finding. This Round's coverage
+  is produced by the conductor's UT Run step AFTER this review, so it
+  does not exist yet.)
+- .scrum/pbi/<pbi-id>/metrics/pragma-audit-r{n-1}.json (prior round;
+  absent in Round 1 — absence is NOT a finding)
 - .scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json (AC → test map
   written by pbi-ut-author this Round)
 - requirements.md path
@@ -59,11 +63,18 @@ Implementation source code, .scrum/ state, PBI dev communications.
    Missing AC entry, empty `tests`, dangling test id, or implausible
    mapping → `missing_test_for_acceptance` Critical finding + verdict
    FAIL.
-3. **Pragma audit** — every pragma exclusion in pragma-audit-r{n}.json
-   has a justified reason (reason_source != "missing"). MISSING reason
-   = automatic FAIL.
-4. **Coverage gap interpretation** — branches in coverage.uncovered_*
-   that are NOT obvious dead code → flag as "missing_branch_coverage"
+3. **Pragma / coverage gating is NOT yours** — this Round's coverage
+   and pragma-audit reports do not exist yet (they are produced by the
+   conductor's UT Run step AFTER this review). Pragma justification and
+   coverage-threshold gating are owned by the conductor's Step-3/4
+   coverage gate (see `skills/pbi-pipeline/references/coverage-gate.md`
+   § Pass criteria). Do NOT auto-FAIL on a missing or absent
+   coverage/pragma report.
+4. **Coverage gap interpretation (advisory, prior round only)** — if a
+   `coverage-r{n-1}.json` is present, branches in `coverage.uncovered_*`
+   that are NOT obvious dead code MAY be flagged as
+   "missing_branch_coverage" as guidance for the UT author. Absence of
+   the prior-round report is not a finding.
 5. **Test quality** — AAA pattern, single assertion focus, no mock
    overuse, no magic numbers, descriptive test names.
 

@@ -156,6 +156,24 @@ EOF
   [ ! -f ".scrum/communications.json" ]
 }
 
+@test "dashboard-event.sh handles MultiEdit like Write/Edit (DH-F4)" {
+  mkdir -p .scrum
+
+  # PostToolUse matcher includes MultiEdit; the inner tool_name case must
+  # route it through the same file_changed branch as Write/Edit.
+  local event_json
+  event_json='{"hook_type":"PostToolUse","agent_id":"dev-001","tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
+
+  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/dashboard-event.sh'"
+  assert_success
+
+  [ -f ".scrum/dashboard.json" ]
+  jq -e '.events[-1].type == "file_changed"' .scrum/dashboard.json
+  jq -e '.events[-1].file_path == "src/main.py"' .scrum/dashboard.json
+  jq -e '.events[-1].change_type == "modified"' .scrum/dashboard.json
+  jq -e '.events[-1].detail == "MultiEdit on src/main.py"' .scrum/dashboard.json
+}
+
 @test "dashboard-event.sh creates communications.json if missing" {
   mkdir -p .scrum
 
@@ -887,7 +905,14 @@ EOF
   assert_success
 }
 
-@test "setup-user.sh settings.json template includes FileChanged hook" {
-  run grep -q '"FileChanged"' "$PROJECT_ROOT/scripts/setup-user.sh"
+@test "setup-user.sh settings.json template registers only stop-failure.sh for StopFailure (RC#9: dashboard-event.sh had no StopFailure branch, was a no-op)" {
+  run awk '/"StopFailure": \[/,/^    \]/' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
+  [[ "$output" == *"stop-failure.sh"* ]]
+  [[ "$output" != *"dashboard-event.sh"* ]]
+}
+
+@test "setup-user.sh settings.json template excludes the dead FileChanged registration (T1-3: no matcher/watchPaths means the watcher never starts)" {
+  run grep -q '"FileChanged"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
 }

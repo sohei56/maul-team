@@ -25,7 +25,10 @@ disable-model-invocation: false
   `update-backlog-status.sh`:
   - **retry** → `in_progress_design` (round counters, per-stage
     `*_status` flags, and `merge_failure_count` reset on `state.json`;
-    worktree preserved)
+    worktree preserved). **kind=docs PBIs retry to `in_progress_impl`
+    instead** — design was never run — with `design_status` and
+    `coverage_status` reset to `skipped` (not `pending`) and
+    `ut_status` left at `pending`. See § Steps step 4.
   - **hold** / **human-escalate** → stays at `escalated` (until the
     blocking condition clears, at which point SM moves it to
     `in_progress_design` to resume; worktree preserved for inspection)
@@ -48,10 +51,10 @@ disable-model-invocation: false
 | `requirements_unclear` | SM consults PO via clarification ticket; on PO answer, retry (status → `in_progress_design`) and re-spawn Developer to resume PBI |
 | `coverage_tool_unavailable` | Surface install instruction (e.g. `pip install coverage`) to user; PBI on hold (status stays `escalated`, or move to `blocked`) until installed |
 | `coverage_tool_error` | Inspect last pipeline.log entries for the tool error; surface to user; hold |
-| `catalog_lock_timeout` | Check `.scrum/.locks/` for stale lock holders. If holder Developer is dead, force-release and retry (status → `in_progress_design`). Else human-escalate. |
+| `catalog_lock_timeout` | Check `.scrum/locks/` for a stale `catalog-<spec_id>.lock.d` directory. If the holder Developer is dead, force-release (`rmdir` the stale lock dir) and retry (status → `in_progress_design`). Else human-escalate. |
 | `reviewer_unavailable` | The conductor already attempted a single Explore-agent retry inside the pipeline. Re-spawn the reviewer sub-agent with the conductor's `codex_is_available` preflight forced to the alternate model path (codex→opus or vice versa) and retry (status → `in_progress_design`). If the alternate path also fails, human-escalate. |
 | `stale_review_snapshot` | Reviewer signed off against an out-of-date SHA. Refresh the pinned `base_sha` / `head_sha` on the affected pipeline.log entry and retry the same Round (status → `in_progress_design`). No human needed unless the snapshot drift recurs ≥ 2 times — then human-escalate. |
-| `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). **Before re-notifying, run the Step 4 reset** (`merge_failure_count → 0`, `merge_failure → null`) — otherwise `mark-pbi-merge-failure.sh` increments from the stale ≥3 count and the PBI re-escalates on the very next merge failure. For structural conflicts, human-escalate. |
+| `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). **Before re-notifying, run the partial merge-failure reset only** — `.scrum/scripts/update-pbi-state.sh "$PBI" merge_failure_count 0 merge_failure null` (do NOT run the Step 4 full reset; it zeroes round counters and flips status to `in_progress_design`). Otherwise `mark-pbi-merge-failure.sh` increments from the stale ≥3 count and the PBI re-escalates on the very next merge failure. For structural conflicts, human-escalate. |
 | `merge_artifact_missing` | Confirm whether files were intentionally removed. If unintentional, ask Developer to re-add. If intentional, human-escalate to update `paths_touched`. |
 | `merge_regression` | Read `.scrum/pbi/<pbi-id>/merge-regression.log` to identify the failing test(s). If the failure is in the PBI's own scope, present user with options [split / redesign / hold]. If it crosses PBI boundaries (regression in unrelated code), human-escalate — likely needs PO decision on park vs. revert. |
 
@@ -123,6 +126,21 @@ Rules common to every row above:
      merge_failure null
    .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_design
    ```
+   **kind=docs PBIs** (`backlog.json items[].kind == "docs"`) reset and
+   resume differently — design and coverage never ran, so their
+   `*_status` carry `skipped`, `ut_status` stays `pending`, and the
+   resume status is `in_progress_impl` (design is not the failed stage).
+   Canonical: `docs/data-model.md` § kind=docs status semantics.
+   ```bash
+   .scrum/scripts/update-pbi-state.sh "$PBI_ID" \
+     escalation_reason null \
+     design_round 0 impl_round 0 \
+     design_status skipped impl_status pending \
+     ut_status pending coverage_status skipped \
+     merge_failure_count 0 \
+     merge_failure null
+   .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl
+   ```
    The existing worktree at `.scrum/worktrees/<pbi-id>/` is preserved —
    the fresh Developer resumes on the same branch (no `cleanup-pbi-worktree.sh`).
 5. **For hold or human-escalate**: prepare summary message (PBI id, last
@@ -143,6 +161,7 @@ Rules common to every row above:
 
 - `escalation-resolution.md` exists for the PBI
 - backlog.json `items[].status` reflects decision
-  (`in_progress_design` for retry, `escalated` for hold,
-  `blocked` for parked-on-external-dependency)
+  (`in_progress_design` for retry — `in_progress_impl` for a kind=docs
+  retry, `escalated` for hold, `blocked` for
+  parked-on-external-dependency)
 - User informed (when human-escalate or hold)

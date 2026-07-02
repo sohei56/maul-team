@@ -147,4 +147,5 @@ writes those.)
   branch (`pbi/<pbi-id>`). Read/write within. Has a `.scrum`
   symlink back to the main repo's SSOT. Created by SM via
   `create-pbi-worktree.sh`; removed after merge.
-- `.scrum/locks/` — catalog write contention via flock.
+- `.scrum/locks/` — catalog write contention via per-spec `mkdir` lock
+  directories (`catalog-<spec_id>.lock.d`).

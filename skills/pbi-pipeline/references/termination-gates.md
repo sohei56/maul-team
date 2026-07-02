@@ -17,7 +17,7 @@ Deterministic — no fuzzy heuristics.
 | Gate | Condition | Outcome |
 |---|---|---|
 | Success | (stage-specific success criteria all true) | STOP success |
-| Tech-error recurrence | Same root web-searchable technical error in 2 consecutive Rounds AND `websearch_attempted` unset | Set latch; redirect ONE next Round to web-search remediation (no escalate). See § Technical-error recurrence |
+| Tech-error recurrence | Same root web-searchable technical error in 2 consecutive Rounds AND `websearch_attempted` unset | Set latch; conductor runs the web search and folds findings into the next Round's feedback (no escalate). See § Technical-error recurrence |
 | Stagnation | Same `signature` repeats in 2 consecutive Rounds (Critical/High only) | STOP escalate (`stagnation`) |
 | Divergence | (CRITICAL+HIGH count) increases Round n → n+1 | STOP escalate (`divergence`) |
 | Hard cap | `round_n >= 5` | STOP escalate (`max_rounds`) |
@@ -67,9 +67,11 @@ When `backlog.json items[].kind == "docs"`:
 
 Purpose: when a Developer keeps producing ineffective fixes against the
 **same web-searchable technical error** (build/compile failure, runtime
-exception, library/API misuse, test-tooling failure), give the
-implementer ONE early shot at researching it via `WebSearch` instead of
-letting the error churn silently to the hard cap. Latched to at most one
+exception, library/API misuse, test-tooling failure), have the
+**conductor** research it once via `WebSearch` and hand the verified
+findings to the implementer, instead of letting the error churn silently
+to the hard cap. Only the conductor (Developer) has the `WebSearch`
+tool; the impl / UT sub-agents do not. Latched to at most one
 remediation Round per PBI.
 
 Evaluated only when control is about to loop into the next impl Round
@@ -113,16 +115,26 @@ reviewer *prose* is incomparable there).
 
 ### Outcome
 
+When recurrence is "yes" and the latch is unset, the **conductor**
+performs the web search itself and records the findings into the next
+Round's feedback file. The `websearch_attempted` latch records that the
+**conductor performed the search** for this PBI (at most once). The
+impl / UT sub-agents never call `WebSearch` — they only apply the
+findings the conductor pasted into their feedback.
+
 ```bash
 # recurrence == "yes":
 if [ "$(jq -r '.websearch_attempted // false' "$STATE_FILE")" != "true" ]; then
   .scrum/scripts/update-pbi-state.sh "$PBI_ID" websearch_attempted true
   .scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate \
     "web-search remediation → next round"
-  # Do NOT escalate. Fall through to the normal FAIL → next-round path.
-  # The next round's feedback MUST carry the WebSearch directive — see
-  # feedback-routing.md § Web-search remediation and
-  # sub-agent-prompts.md (implementer obeys it).
+  # Conductor-side action: run WebSearch NOW on the recurring error
+  # (error text + library name/version + framework), then paste the
+  # findings — root cause, verified fix guidance, and source URLs —
+  # into the `## Web-search remediation` section of the next Round's
+  # feedback file(s). See feedback-routing.md § Web-search remediation.
+  # Do NOT escalate. Fall through to the normal FAIL → next-round path;
+  # the sub-agent applies the pasted findings (it cannot search itself).
 fi
 # If websearch_attempted is already true, the single remediation Round
 # was already spent: take NO special action here and let the Stagnation
@@ -213,9 +225,10 @@ cycle, Stagnation detection resumes normally for subsequent Rounds.
 1. If success criteria met → STOP success (no further checks)
 2. If technical-error recurrence (same root web-searchable error in 2
    consecutive Rounds) AND `websearch_attempted` is unset → set the
-   latch and redirect the next Round to web-search remediation (no
-   escalate); skip the escalation checks below for this Round. If the
-   latch is already set, continue to step 3.
+   latch, have the conductor run the web search, and fold its findings
+   into the next Round's feedback (no escalate); skip the escalation
+   checks below for this Round. If the latch is already set, continue to
+   step 3.
 3. If stagnation → STOP escalate (stagnation)
 4. If divergence → STOP escalate (divergence)
 5. If hard cap → STOP escalate (max_rounds)

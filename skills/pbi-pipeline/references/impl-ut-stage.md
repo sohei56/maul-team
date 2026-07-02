@@ -269,9 +269,9 @@ round re-runs pbi-implementer ONLY.
 ### Step 3: UT Run (test execution + coverage measurement)
 
 **kind=docs: this step is skipped entirely.** When the single
-impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` and
-`coverage_status` at `skipped`, and jump straight to "Success branch
-(hand off to SM)" below. Do NOT call `update-backlog-status.sh
+impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` at
+`pending` and `coverage_status` at `skipped`, and jump straight to
+"Success branch (hand off to SM)" below. Do NOT call `update-backlog-status.sh
 in_progress_ut_run`. Continue reading the kind=code branch only if
 your PBI is kind=code.
 
@@ -430,7 +430,9 @@ technical-error recurrence: if the same web-searchable technical error
 `:error_handling` reviewer finding) recurred across the last two Rounds
 AND `websearch_attempted` is unset, set the latch and route this FAIL to
 the normal next-round path with a `## Web-search remediation` section in
-the feedback (see `feedback-routing.md`) — do NOT escalate this Round:
+the feedback — which the conductor fills by running `WebSearch` itself
+(the sub-agents have no WebSearch tool; see `feedback-routing.md`) — do
+NOT escalate this Round:
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" websearch_attempted true

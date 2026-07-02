@@ -146,10 +146,12 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
-  - If that file contains a `## Web-search remediation` section, you
-    MUST use the WebSearch tool to research the named error BEFORE
-    editing code, and base your fix on what you find — do not repeat
-    the previous approach unchanged.
+  - If that file contains a `## Web-search remediation` section, the
+    conductor has already researched the recurring error and included
+    the findings (root cause + verified fix guidance + source URLs)
+    there. Apply those web-research findings — do not repeat the
+    previous approach unchanged. (You have no WebSearch tool; the
+    research is provided in the feedback.)
 
 Write source code to project's normal implementation paths (e.g., src/).
 
@@ -207,9 +209,11 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/ut-r{n}.md
-  - If that file contains a `## Web-search remediation` section, you
-    MUST use the WebSearch tool to research the named error BEFORE
-    editing tests, and base your change on what you find.
+  - If that file contains a `## Web-search remediation` section, the
+    conductor has already researched the recurring error and included
+    the findings there. Apply those web-research findings to your
+    change. (You have no WebSearch tool; the research is provided in
+    the feedback.)
 - Prior coverage report (gap reference):
   - .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
 
@@ -227,11 +231,13 @@ map" for full rules): one entry per AC from the design doc's
 `text` (verbatim), and `tests` (non-empty array of
 "<file>::<test-name>" ids written this Round).
 
-FINAL SELF-CHECK before returning (do not skip): confirm the file
-exists and every `criteria[].tests` array is non-empty —
-`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
-.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json`. If it fails, write/fix
-the map before you finish. List the file in the envelope `artifacts`.
+FINAL SELF-CHECK before returning (do not skip): re-open
+`.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` with the Read tool and
+visually confirm the file exists, `criteria` is a non-empty array, and
+every `criteria[].tests` array is non-empty. If any is wrong, write/fix
+the map before you finish. (You have no Bash tool; the conductor's
+Step-1b guard runs the machine `jq` check.) List the file in the
+envelope `artifacts`.
 
 {common envelope reminder}
 ```
@@ -262,10 +268,11 @@ exercise that AC). If an AC genuinely has no test, that is a UT gap —
 do NOT invent an id; instead state the gap in your envelope summary so
 the Round fails honestly rather than with a fabricated map.
 
-FINAL SELF-CHECK before returning:
-`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
-.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` must succeed. List the
-file in the envelope `artifacts`.
+FINAL SELF-CHECK before returning: re-open
+`.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` with the Read tool and
+confirm `criteria` is a non-empty array and every `criteria[].tests`
+array is non-empty. (No Bash tool — the conductor's Step-1b guard runs
+the machine `jq` check.) List the file in the envelope `artifacts`.
 
 {common envelope reminder}
 ```
@@ -377,8 +384,11 @@ Inputs:
 - Design doc SHA-256: {design_hash}
 - Test files (paths are relative to the worktree root):
   - <path1>
-- Coverage report: .scrum/pbi/{pbi_id}/metrics/coverage-r{n}.json
-- Pragma audit: .scrum/pbi/{pbi_id}/metrics/pragma-audit-r{n}.json
+- Prior coverage report (optional): .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
+  (absent in Round 1 — absence is NOT a finding; this Round's coverage
+  is produced AFTER this review by the UT Run step)
+- Prior pragma audit (optional): .scrum/pbi/{pbi_id}/metrics/pragma-audit-r{n-1}.json
+  (absent in Round 1 — absence is NOT a finding)
 - AC coverage map: .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
 - requirements.md: <path>
 

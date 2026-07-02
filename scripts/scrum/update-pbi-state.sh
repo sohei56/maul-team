@@ -21,10 +21,13 @@
 #                     merge_conflict|merge_artifact_missing|merge_regression|
 #                     kind_mismatch
 #
-# skipped is the canonical value for stages a kind=docs PBI never runs
-# (design / UT author / UT execution / coverage). kind_mismatch is the
-# escalation reason emitted by mark-pbi-ready-to-merge.sh when a
-# kind=docs PBI has paths_touched outside *.md.
+# skipped is the canonical value for the two *_status fields a kind=docs
+# PBI never exercises: design_status and coverage_status. ut_status
+# stays pending (the UT author/run is skipped, not the status value —
+# begin-impl-round.sh resets ut_status to pending each impl round
+# regardless of kind). kind_mismatch is the escalation reason emitted by
+# mark-pbi-ready-to-merge.sh when a kind=docs PBI has paths_touched
+# outside *.md.
 #   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
 #   worktree          .scrum/worktrees/pbi-NNN (validated)
 #   base_sha          hex sha, 7..40 chars
