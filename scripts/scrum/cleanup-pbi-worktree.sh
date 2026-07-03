@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/scrum/cleanup-pbi-worktree.sh — remove worktree + branch after merge or escalation.
+# scripts/scrum/cleanup-pbi-worktree.sh — remove worktree + branch after cross-review done or escalation.
 # Idempotent. Refuses for non-terminal status to prevent accidental work loss.
 # Terminal status (cleanup allowed): awaiting_cross_review, cross_review, escalated, done.
 set -euo pipefail

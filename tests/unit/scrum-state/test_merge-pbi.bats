@@ -27,14 +27,20 @@ EOF
 }
 teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP"; }
 
-@test "merge-pbi: success path — merges, verifies, sets awaiting_cross_review, cleans up" {
+@test "merge-pbi: success path — merges, verifies, sets awaiting_cross_review" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
   [ "$status" -eq 0 ]
   run jq -r '.items[0].status' .scrum/backlog.json
   [ "$output" = "awaiting_cross_review" ]
   run git log --oneline main
   echo "$output" | grep -q "merge: pbi-001"
-  [ ! -d .scrum/worktrees/pbi-001 ]
+  # Worktree and branch are preserved after merge — cleanup is deferred to
+  # cross-review (Step 13, when the PBI reaches done). Cross-review FAIL
+  # (aspect 1/2/3) reverts the PBI to in_progress_impl and the Developer
+  # must fix code in the same worktree and re-merge.
+  [ -d .scrum/worktrees/pbi-001 ]
+  run git show-ref --verify --quiet refs/heads/pbi/pbi-001
+  [ "$status" -eq 0 ]
 }
 
 @test "merge-pbi: artifact_missing — paths_touched contains a file deleted in branch" {
