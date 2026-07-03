@@ -114,7 +114,14 @@ fi
 MERGED_SHA="$(git rev-parse HEAD)"
 "$HERE/mark-pbi-merged.sh" "$PBI" "$MERGED_SHA"
 
-# Cleanup the worktree + branch (status is now awaiting_cross_review — cleanup will succeed)
-"$HERE/cleanup-pbi-worktree.sh" "$PBI"
+# NOTE: Worktree + branch cleanup is intentionally deferred to the cross-review
+# skill (Step 13, when the PBI reaches status=done). The previous code called
+# cleanup-pbi-worktree.sh here immediately after merge, which destroyed the
+# worktree before cross-review could run. When cross-review aspect 1/2/3 FAIL
+# reverts the PBI to in_progress_impl, the Developer must fix code in that
+# same worktree and re-merge — an impossible operation if the worktree no
+# longer exists. The cleanup-pbi-worktree.sh wrapper already accepts
+# awaiting_cross_review as a valid status for removal, so the cross-review
+# skill can call it at the right time.
 
 printf '[merge-pbi] %s merged at %s\n' "$PBI" "$MERGED_SHA"

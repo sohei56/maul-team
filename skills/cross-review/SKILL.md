@@ -441,7 +441,13 @@ reverse-lookup against `paths_touched`.
     .scrum/scripts/update-backlog-status.sh "$PBI_ID" done
     .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" review_doc_path \
       ".scrum/reviews/${PBI_ID}-review.md"
+    .scrum/scripts/cleanup-pbi-worktree.sh "$PBI_ID"
     ```
+    The cleanup call removes the PBI's git worktree and branch now that
+    the PBI is terminal (`done`). This is the correct cleanup point —
+    not merge time — because cross-review aspect 1/2/3 FAIL reverts the
+    PBI to `in_progress_impl`, requiring the Developer to fix code in
+    the same worktree and re-merge.
 
 Ref: FR-009
 
