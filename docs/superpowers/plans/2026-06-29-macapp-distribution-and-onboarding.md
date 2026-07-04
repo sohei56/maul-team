@@ -8,6 +8,36 @@
 
 ---
 
+## 実装状況 (2026-07-04 更新 — リセット後はここを最初に読む)
+
+| Phase | 内容 | 状態 |
+|---|---|---|
+| 0 | Apple Developer 登録・証明書・notary キー・ライセンス判断 | **未着手（あなた担当・全署名をブロック）** |
+| 1 | universal2 化 + Hardened Runtime + entitlements | **✅ 完了・検証済**（native+lipo、`entitlements.plist`、`make-app.sh`） |
+| 2 | sign + notarize + staple スクリプト | **未着手**（Phase0 の証明書待ち。CI 側は条件署名で配線済） |
+| 3a | Framework を `.app` へ同梱 | **✅ 完了・検証済**（`make-app.sh` git archive、1.3M） |
+| 3b | 起動時 `~/Library/Application Support/...` へ展開・解決 | **✅ 完了・実機起動で展開確認済**（`FrameworkLocator`/`AppState`） |
+| 3c | ローカル改変の pristine 差分同期 UI（上書き/保持/マージ） | **未着手** |
+| 4 | DMG 生成 | **✅ 完了・検証済**（`make-dmg.sh`、hdiutil、4.7M） |
+| 5 | Release CI（`release: published` トリガー・条件署名） | **✅ 実装済**（`.github/workflows/release.yml`。**GH Actions 実走は未検証**） |
+| 6 | Homebrew 個人 tap（`sohei56/homebrew-tap`）+ cask | **未着手** |
+| 7 | 紹介ページ（GitHub Pages 1枚）+ ルート README の Mac App 章 + スクショ/GIF | **未着手** |
+| 8 | 法務（利用規約/プライバシー）+ クリーン環境 QA + サポート + 任意 Sparkle | **未着手** |
+
+**コミット済 (branch `fix/cleanup-audit-20260702`, 未push)**: `6815b0b`
+(Phase1/3/4/5 + Settings UX)。関連メモリ: `project_macapp_phase3_cicd` /
+`project_macapp_release_plan`。
+
+**次セッションの着手候補**: Phase 6（tap/cask）または Phase 7（紹介ページ+README）。
+どちらも Phase 0 非依存で進められる。Phase 0 完了後は Secrets 7件投入 →
+Phase 2 署名検証。
+
+**未検証で残る確認**: ① `release.yml` の GH Actions 実走（actionlint/実行未）。
+② 実機で新規プロジェクトを開き SM ペインが同梱 framework から起動するか
+（展開までは確認済、起動の目視は未）。
+
+---
+
 ## 1. 確定事項（覆さない）
 
 承認済の方針判断（前提計画より）:
