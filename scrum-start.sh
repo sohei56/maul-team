@@ -152,6 +152,9 @@ check_claude_cli
 # Version warning lives only in scrum-start.sh (not setup-user.sh) so the
 # operator sees the upgrade prompt once per launch rather than twice.
 check_claude_cli_version
+# Codex is optional; recommend it (non-fatal) so operators know the PBI
+# pipeline's cross-model reviewers degrade to a Claude fallback without it.
+check_codex_cli
 check_python_prereqs
 
 # --- Wizard helpers --------------------------------------------------------

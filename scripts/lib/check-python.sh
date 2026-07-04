@@ -5,6 +5,7 @@
 # Provides:
 #   check_claude_cli         — Verify Claude Code CLI on PATH (exits 1 on failure)
 #   check_claude_cli_version — Warn (do not exit) when below MIN_CLAUDE_VERSION
+#   check_codex_cli          — Recommend (do not exit) the optional Codex CLI
 #   check_python_prereqs     — Verify Python 3.9+ and TUI packages (exits 3 on failure)
 #
 # On success: exports PYTHON_VERSION (e.g. "3.12").
@@ -65,6 +66,32 @@ Warning: Claude Code $version is older than the recommended $MIN_CLAUDE_VERSION.
 
   Continuing — Requirement Definition and ceremonies that do not spawn
   sub-agents will still run.
+EOF
+}
+
+# Recommend (do not require) the Codex CLI. The PBI pipeline's
+# codex-design-reviewer / codex-impl-reviewer / codex-ut-reviewer sub-agents
+# use `codex exec` as an independent, cross-model second opinion on design,
+# implementation, and unit tests. When codex is absent the pipeline still
+# runs — every review degrades to a Claude-only pass (see
+# scripts/lib/codex-invoke.sh codex_review_or_fallback) — but loses that
+# cross-check, which is what catches API-misuse and blind-spot defects.
+# Non-fatal: prints a one-time recommendation and returns.
+check_codex_cli() {
+  if command -v codex >/dev/null 2>&1; then
+    return 0
+  fi
+  cat >&2 <<'EOF'
+Note: Codex CLI not found on PATH — optional, but recommended.
+  The PBI pipeline's codex-*-reviewer sub-agents (design / impl / unit-test)
+  use Codex as an independent cross-model reviewer. Without it the pipeline
+  still runs, but each review falls back to a Claude-only pass and loses the
+  second-opinion cross-check that catches API-misuse and blind-spot defects.
+
+  Install it:
+    npm i -g @openai/codex && codex login
+
+  Continuing without Codex — reviews will use the Claude fallback.
 EOF
 }
 

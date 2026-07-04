@@ -19,10 +19,30 @@ enum ProcessLauncher {
     /// watchdog instead of an interactive Scrum Master. The framework's own
     /// pre-flight (in the no-tmux branch) co-authors a product brief in this
     /// same pane when none exists, then launches the watchdog.
+    ///
+    /// We deliberately do NOT `exec` the script: scrum-start.sh aborts with a
+    /// non-zero exit (missing `claude`, Python < 3.9, brief-builder abort, a
+    /// bad project path, …) *before* it hands the pane to Claude, and under
+    /// `exec` the pane process would just die — the terminal blanks with no
+    /// hint of why. Instead we keep the login shell as the pane's parent so it
+    /// can catch a non-zero exit, print the exit code + a "see the reason
+    /// above" footer, and hold the pane on `read` until the user dismisses it.
+    /// A clean exit (Claude session ended normally, code 0) closes the pane as
+    /// before.
     static func scrumMaster(project: Project, frameworkPath: String, mode: LaunchMode = .normal) -> Command {
         let start = shellQuote((frameworkPath as NSString).appendingPathComponent("scrum-start.sh"))
         let flags = mode == .autonomous ? " --autonomous" : ""
-        let inner = "cd \(shellQuote(project.path)) && SCRUM_NO_TMUX=1 exec sh \(start)\(flags)"
+        let rule = "────────────────────────────────────────────"
+        let inner = "cd \(shellQuote(project.path)) && SCRUM_NO_TMUX=1 sh \(start)\(flags)"
+            + "; code=$?; if [ \"$code\" -ne 0 ]; then"
+            + " echo;"
+            + " echo '\(rule)';"
+            + " echo \"scrum-start.sh exited (code $code) — 起動を中止しました\";"
+            + " echo '終了理由は上のメッセージを参照してください。 / See the message above for why.';"
+            + " echo 'Enter を押すと閉じます。 / Press Enter to close.';"
+            + " echo '\(rule)';"
+            + " read -r _;"
+            + " fi"
         return Command(executable: loginShell, args: ["-lc", inner])
     }
 
