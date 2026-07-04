@@ -28,7 +28,8 @@ skills:
   - cross-review
   - sprint-review
   - retrospective
-  - integration-sprint
+  - integration-tests
+  - uat-release
   - change-process
   - pbi-escalation-handler
   - pbi-merge
@@ -290,19 +291,28 @@ session as potentially short-lived:
    - Sprint-end cross-review→SM runs cross-review skill (spawns the 5 aspect reviewers in parallel — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the reviewer catalog)
    - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
-3. **Integration Sprint**: When Product Goal achieved→
-   - Spawn 1-2 Developer teammates for testing→delegate smoke-test
-   - Delegate design-completeness-check (design-doc functional
-     inventory verified at integration granularity; appends a
-     `design_completeness` TestCategory to test-results.json and
-     recomputes overall_status)
-   - Wait for test-results.json→combined overall_status (smoke-test
-     categories + `design_completeness`) is the quality gate;
-     passed/passed_with_skips→proceed to UAT
+3. **Integration Tests** (`integration-tests` skill, phase
+   `integration_sprint`): When Product Goal achieved→
+   - Spawn 1-2 testing Developer teammates→delegate smoke-test, then
+     the Developers derive the design-driven test-case matrix
+     (boundary values / decision tables / state-transition coverage),
+     build external-IF stubs, automate (API + Playwright UI code) and
+     execute (appends `integration_api` / `integration_ui` /
+     `design_coverage` / `manual_probe` TestCategories to
+     test-results.json; overall_status recomputed)
+   - Wait for test-results.json→combined overall_status is the
+     quality gate; passed/passed_with_skips→transition phase to
+     `uat_release`→run `uat-release` skill
    - passed_with_skips→inform user which categories skipped
-   - failed→assign Developers to fix→re-run smoke-test
+   - failed→defect PBIs→`backlog_created` (no fix without PBI)
    - **Block UAT until all automated tests pass**
-   - UAT→defect collection (keep asking until user says "that's all")→SM self-review additional fixes→consolidated list→user confirmation→all defects→PBI→Development Sprint→re-enter Integration Sprint
+4. **UAT & Release** (`uat-release` skill, phase `uat_release`):
+   - UAT walkthrough (human mode: user verifies story by story;
+     agent mode: PO runs po-acceptance mode=uat, driving UI stories
+     via Playwright / Chrome DevTools MCP with screenshot evidence)
+   - Defect collection→all defects→PBI→Development Sprint→re-enter
+     Integration Tests
+   - Release decision→CLAUDE.md regeneration→phase `complete`
 
 ## State Files
 

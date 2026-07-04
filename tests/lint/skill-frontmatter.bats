@@ -19,12 +19,12 @@ setup() {
     sprint-review
     retrospective
     requirement-definition
-    integration-sprint
+    integration-tests
+    uat-release
     backlog-refinement
     change-process
     scaffold-design-spec
     smoke-test
-    design-completeness-check
     po-acceptance
     create-brief
   )

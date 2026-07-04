@@ -24,7 +24,7 @@ skills:
   - pbi-pipeline
   - install-subagents
   - smoke-test
-  - design-completeness-check
+  - integration-tests
 ---
 
 # Developer Agent
@@ -64,21 +64,25 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 
 ### Integration Sprint Testing
 
-When assigned→run `smoke-test` skill:
-1. Detect test runners
-2. Run all tests, record results
-3. Start app→HTTP smoke test endpoints
-4. Playwright MCP available→browser E2E
-5. Write `.scrum/test-results.json`
-6. Report to SM
+When assigned→execute Steps 3–6 of the `integration-tests` skill:
+1. Run `smoke-test` skill (regression of existing test assets)
+2. Derive the test-case matrix from the enabled design specs —
+   boundary values, decision tables, state-transition coverage
+   (`skills/integration-tests/references/test-case-design.md`)
+3. Build stubs for non-reproducible external IFs (`tests/stubs/`)
+4. Automate: API cases→`tests/integration/`, UI cases→Playwright
+   code in `tests/e2e/`; only non-automatable cases fall back to
+   MCP-driven probes, then to a human-manual checklist
+5. Record categories via `record-test-result.sh`→report to SM with
+   the automation rate
 
 ## Strict Rules
 
-- **No implementation without PBI.** No code write/edit/fix without assigned PBI. Includes Integration Sprint. Defect found→report to SM only.
+- **No implementation without PBI.** No code write/edit/fix without assigned PBI. Includes Integration Sprint. Defect found→report to SM only. *Exception*: test assets under `tests/integration/`, `tests/e2e/`, and `tests/stubs/` written while executing the `integration-tests` skill are that skill's sanctioned deliverables, not a fix. Product source and design specs remain off-limits without a PBI.
 - **No work before Sprint start.** No code until status enters `in_progress_impl`. During Planning→estimation + clarification only.
-- **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree.
+- **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree. *Exception*: Integration Tests has no PBI worktree — the testing Developer writes `tests/integration/`, `tests/e2e/`, `tests/stubs/` (and `.scrum/` state via wrappers) in the main worktree. Product source stays untouched there too.
 - **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
-- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report.
+- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report. Integration Tests test assets are the one exception: commit them via `commit-integration-tests.sh` (stages `tests/` paths only; refuses product source).
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
 ## Status Ownership (12-value status SSOT)
@@ -134,6 +138,9 @@ notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
   after Sprint-end cross-review FAIL. **Written by Scrum Master via the
   `cross-review` skill, not by Developer.**
 - `.scrum/test-results.json` — write during Integration Sprint
+- `tests/integration/`, `tests/e2e/`, `tests/stubs/` (main worktree) —
+  write during Integration Tests only; committed via
+  `commit-integration-tests.sh`
 - `.scrum/pbi/<pbi-id>/` — PBI working area (state.json, design/,
   impl/, ut/, metrics/, feedback/, pipeline.log). Created and managed
   by the pbi-pipeline skill. New fields populated by the worktree /
