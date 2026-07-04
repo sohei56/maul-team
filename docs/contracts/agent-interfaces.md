@@ -16,17 +16,20 @@ responsibilities (what it owns).
   implementation work; can only manage tasks, communicate with teammates,
   and review output). Enforced via agent definition instruction +
   Shift+Tab toggle at runtime.
-**Skills**: The SM preloads 12 ceremony Skills via its `skills:` field
+**Skills**: The SM preloads 13 ceremony Skills via its `skills:` field
   (see `agents/scrum-master.md`). The repo ships 18 Skills total; the
   remainder are preloaded by other agents — 4 by the Developer
   (`pbi-pipeline`, `install-subagents`, `smoke-test`,
-  `design-completeness-check`), `po-acceptance` by the `product-owner`
+  `integration-tests`), `po-acceptance` by the `product-owner`
   teammate (SM only invokes it indirectly by sending
   `PO_DECISION_REQUEST kind=demo_acceptance | uat_item` to the PO in
   autonomous mode), and `create-brief` by no agent (the `scrum-start.sh`
   launcher runs it as an interactive pre-flight). Note
   `requirement-definition` is preloaded by both the SM and the
-  `requirements-analyst`.
+  `requirements-analyst`, and `integration-tests` by both the SM (it
+  orchestrates entry, spawn, and the quality gate) and the Developer
+  (the testing teammate executes the test-design / stub / automation
+  steps).
 
 ### Inputs
 - User natural language (direct conversation)
@@ -90,11 +93,11 @@ responsibilities (what it owns).
 | `cross-review` | Cross-review process | FR-009 |
 | `sprint-review` | Sprint Review | FR-010, FR-011 |
 | `retrospective` | Retrospective | FR-012 |
-| `integration-sprint` | Integration Sprint | FR-013 |
+| `integration-tests` | Integration Tests: design-driven systematic testing | FR-013 |
+| `uat-release` | UAT & Release: user-story-driven UAT + release decision | FR-013 |
 | `change-process` | Change Process | FR-016 |
 | `scaffold-design-spec` | Design stub creation on catalog enable | FR-004 |
 | `smoke-test` | Automated test execution and HTTP smoke testing | FR-013, FR-017 |
-| `design-completeness-check` | Design-doc functional completeness verification (Integration Sprint) | FR-013 |
 
 ### Skill Inputs/Outputs Reference
 
@@ -117,11 +120,11 @@ named SKILL.md for the exact required state and files/keys written.
 | `cross-review` | Sprint-end 5-aspect cross-cutting quality gate | `skills/cross-review/SKILL.md` § Inputs/Outputs |
 | `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
 | `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
-| `integration-sprint` | Product-wide QA + integration testing | `skills/integration-sprint/SKILL.md` § Inputs/Outputs |
+| `integration-tests` | Design-driven systematic integration testing (boundary values, flow/pattern-branch coverage, external-interface stubs) | `skills/integration-tests/SKILL.md` § Inputs/Outputs |
+| `uat-release` | UAT walkthrough, defect→PBI routing, and the go/no-go release decision | `skills/uat-release/SKILL.md` § Inputs/Outputs |
 | `change-process` | Manage changes to frozen design docs | `skills/change-process/SKILL.md` § Inputs/Outputs |
 | `scaffold-design-spec` | Create design-doc stubs from catalog | `skills/scaffold-design-spec/SKILL.md` § Inputs/Outputs |
 | `smoke-test` | Automated test execution + HTTP smoke testing | `skills/smoke-test/SKILL.md` § Inputs/Outputs |
-| `design-completeness-check` | Design-doc functional completeness verification | `skills/design-completeness-check/SKILL.md` § Inputs/Outputs |
 | `po-acceptance` | PO-owned demo/UAT acceptance (autonomous mode) | `skills/po-acceptance/SKILL.md` § Inputs/Outputs |
 
 ### Lifecycle
@@ -510,6 +513,16 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
     `escalated` PBIs — Teammate liveness is monitored by the
     external `scripts/stall-watchdog.sh` daemon launched by
     `scrum-start.sh`.
+- **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
+  blocks until `.scrum/test-results.json.overall_status` is `"passed"`
+  or `"passed_with_skips"` (`"failed"` blocks naming the failed
+  categories; `"pending"`/`"running"` blocks to wait for `smoke-test` /
+  `integration-tests` to finish). In `uat_release`, blocks if
+  `overall_status` has regressed back to `"failed"` since entry
+  (instructing a return to `integration_sprint`), then blocks until
+  `.scrum/po/uat-stories-<sprint-id>.md` exists (instructing the
+  `uat-release` skill to run); once both hold, allows exit as a
+  checkpoint.
 - **Graceful degradation**: Allows stop (with warning) if state files are missing
 
 ### TaskCompleted Hook

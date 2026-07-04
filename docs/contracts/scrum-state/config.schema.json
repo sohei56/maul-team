@@ -62,7 +62,7 @@
           "minimum": 0
         },
         "max_integration_cycles": {
-          "description": "Maximum number of integration-sprint defect-fix cycles before releasing as-is or aborting.",
+          "description": "Maximum number of integration→development defect-fix cycles (Integration Tests / UAT & Release loop) before releasing as-is or aborting.",
           "type": "integer",
           "minimum": 0
         }

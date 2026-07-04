@@ -15,10 +15,10 @@ Each schema corresponds to one file under `.scrum/` and is the single source of 
 | `.scrum/po/decisions.json`          | `po-decisions.schema.json`            | `append-po-decision.sh` only. Append-only; ids auto-assigned (`dec-NNNN`). Wrapper enforces evidence requirement for `kind ∈ {demo_acceptance, uat_item, release_decision}` and the green-tests gate for `release_decision=go`. |
 | `.scrum/improvements.json`          | `improvements.schema.json`            | `append-improvement.sh` only (append; auto-assigned `imp-NNNN`; optional `dec_id` links to a `po-decisions.json` record). 3-Sprint consolidation (`status: archived`, `archived_at`, `last_consolidation_sprint` bump) is wrapper-less for now; tracked in `MIGRATION-scrum-state-tools.md` § Known gaps. |
 | `.scrum/sprint-history.json`        | `sprint-history.schema.json`          | `append-sprint-history.sh` only (append; `--id`/`--goal` required, optional `--type`/`--pbis-completed`/`--pbis-total`/`--started-at`/`--completed-at`). Idempotent on `--id` so a retried Sprint Review never double-counts a Sprint in the watchdog `max_sprints` tally. Read by `completion-gate.sh` (sprint_review exit criterion), `watchdog.sh`, the dashboard, and `statusline.sh`. |
-| `.scrum/test-results.json`          | `test-results.schema.json`            | `record-test-result.sh` only (`--name`/`--status` required, optional `--total`/`--passed`/`--failed`/`--skipped`/`--runner-command`/`--executed-at`/repeatable `--error 'NAME::msg'`). Upsert by `--name` (a suite re-run replaces its category, so the release gate sees fresh counts); creates the file on first call and recomputes `overall_status` on every call. Written by the `smoke-test` and `design-completeness-check` skills; read by `completion-gate.sh` (integration_sprint exit), `append-po-decision.sh` (`release_decision=go` gate), the `po-acceptance` skill (UAT gate), and the dashboard. |
+| `.scrum/test-results.json`          | `test-results.schema.json`            | `record-test-result.sh` only (`--name`/`--status` required, optional `--total`/`--passed`/`--failed`/`--skipped`/`--runner-command`/`--executed-at`/repeatable `--error 'NAME::msg'`). Upsert by `--name` (a suite re-run replaces its category, so the release gate sees fresh counts); creates the file on first call and recomputes `overall_status` on every call. Written by the `smoke-test` and `integration-tests` skills; read by `completion-gate.sh` (`integration_sprint` exit + `uat_release` regression check), `append-po-decision.sh` (`release_decision=go` gate), the `uat-release` skill's precondition check, the `po-acceptance` skill (UAT gate), and the dashboard. |
 | `.scrum/stop-gate.json`             | `stop-gate.schema.json`               | `hooks/lib/stop-gate-state.sh` (`stop_gate_check_and_bump`), sourced by `hooks/completion-gate.sh`. **Human-mode only** dedup ledger — absent under autonomous mode. **No `.scrum/scripts/*.sh` wrapper** — the hook process runs outside the `pre-tool-use-scrum-state-guard.sh` intercept. Atomic tmp + mv writes; fail-open toward block on any I/O failure. |
 
-Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh`, `cleanup-pbi-worktree.sh`, `migrate-legacy.sh`) drive git operations and the writers above; they do not bypass the schema-validated writes.
+Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh`, `cleanup-pbi-worktree.sh`, `migrate-legacy.sh`) drive git operations and the writers above; they do not bypass the schema-validated writes. `commit-integration-tests.sh` (used by the `integration-tests` skill) is a git-only commit wrapper for the target project's test assets — it writes no `.scrum/*.json` file, so it has no row above; see `MIGRATION-scrum-state-tools.md` § Worktree / merge governance wrappers.
 
 ## Design choices
 
@@ -44,7 +44,8 @@ Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh
   `.scrum/improvements.json`, `.scrum/sprint-history.json`, and
   `.scrum/test-results.json` were all in this list until
   autonomous-mode ceremonies surfaced that the retrospective,
-  sprint-review, smoke-test, and design-completeness-check skills
+  sprint-review, smoke-test, and design-completeness-check (now
+  integration-tests) skills
   write them via the agent tool surface and *are* intercepted by the
   guard — an unblocked Integration Sprint could not persist test
   results. Each now has a schema + a wrapper per the table above.)

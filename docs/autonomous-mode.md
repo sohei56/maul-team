@@ -29,8 +29,8 @@ This document covers operation only. Normative contracts live in:
               │ Stop hook releases when phase                │ PO decisions persist to
               │ advances or a checkpoint is hit              │ .scrum/po/decisions.json
               │ (retrospective / integration_sprint          │ (append-only, dec-NNNN)
-              │  passed / complete / breaker)                ▼
-              │                                       .scrum/state.json
+              │  passed / uat_release filed / complete /     ▼
+              │  breaker)                             .scrum/state.json
               │                                       .scrum/backlog.json
               └────── morning report → .scrum/reports/autonomous-run-<run_id>.md
 ```
@@ -45,8 +45,9 @@ Two co-operating loops:
 2. **Inner (Claude session).** Each session is short-lived. The
    Stop hook (`completion-gate.sh`) keeps the session alive across
    intermediate work but allows exit at deterministic checkpoints
-   (retrospective complete / integration_sprint passed / circuit
-   breaker tripped / `phase == complete`). Between iterations,
+   (retrospective complete / integration_sprint tests passed /
+   uat_release stories filed / circuit breaker tripped /
+   `phase == complete`). Between iterations,
    memory survives only via `.scrum/` SSOT files (see § Known
    constraints and fallbacks).
 
@@ -78,9 +79,12 @@ Optional but recommended:
 - `codex` CLI for Layer-1 cross-model PBI review (the
   `codex-{design,impl,ut}-reviewer` sub-agents fall back to a
   Claude-based review without it).
-- Playwright MCP (configured by `setup-user.sh` when `npx` is
-  available) for browser-driven UAT in the
-  [`po-acceptance`](../skills/po-acceptance/SKILL.md) skill.
+- Playwright MCP and Chrome DevTools MCP (both configured by
+  `setup-user.sh` when `npx` is available) for browser-driven UAT
+  in the [`po-acceptance`](../skills/po-acceptance/SKILL.md) skill
+  and for browser-driven cases in the `integration-tests` skill;
+  Chrome DevTools MCP additionally covers console/network
+  inspection and performance traces.
 
 ## Starting an autonomous run
 
@@ -360,14 +364,23 @@ permission prompts:
   disposable worktree / container. The Scrum-state guard and
   path-guard hooks still apply; everything else (raw Bash, Web
   fetches, MCP servers) is allowed. **Warning:** combined with
-  Playwright MCP this means the PO teammate can drive a real
-  browser and make outbound network calls without any prompt.
+  Playwright MCP or Chrome DevTools MCP this means the PO
+  teammate can drive a real browser and make outbound network
+  calls without any prompt.
 
-`setup-user.sh` registers `mcp__playwright` in the project's
-permission allowlist by default. The PO teammate is exempt from
-the `Bash`-block branch of the path-guard hook (it must launch
-the app under test for `po-acceptance`). All other PO writes are
-fenced to `docs/product/**` and `.scrum/po/**`.
+`setup-user.sh` registers `mcp__playwright` and
+`mcp__chrome-devtools` in the project's permission allowlist by
+default. Playwright MCP is the primary UI-driving path for
+`integration-tests` (Claude-driven browser probes) and for the
+PO's UAT walkthrough (`uat-release` / `po-acceptance`); Chrome
+DevTools MCP is the secondary, invoked when a case additionally
+needs console/network inspection or a performance trace. Either
+degrades gracefully (fallback to runnable-command verification /
+a human-manual checklist) when the corresponding MCP server is
+absent. The PO teammate is exempt from the `Bash`-block branch of
+the path-guard hook (it must launch the app under test for
+`po-acceptance`). All other PO writes are fenced to
+`docs/product/**` and `.scrum/po/**`.
 
 ## Smoke spike before first real run
 
@@ -420,8 +433,8 @@ next section before trying again on the real project.
   human in the tmux pane to navigate split panes. The interactive
   entry point still passes it.
 - **Stop-hook checkpoint coverage.** Today the hook allows exit at
-  `retrospective`, `integration_sprint`, `complete`, and a
-  **rollover `backlog_created`** (one that follows a completed Sprint,
+  `retrospective`, `integration_sprint`, `uat_release`, `complete`,
+  and a **rollover `backlog_created`** (one that follows a completed Sprint,
   i.e. `sprint-history.json` is non-empty — the recycle point created
   by the Retrospective's sprint-continuation handshake), plus when
   the circuit breaker trips. The *initial* `backlog_created`

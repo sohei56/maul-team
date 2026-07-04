@@ -147,6 +147,7 @@ The current wrapper set covers the pbi-pipeline migration, the four migrated ski
 | `freeze-sprint-base.sh` | `sprint.base_sha`, `sprint.base_sha_captured_at` (once per Sprint) |
 | `create-pbi-worktree.sh` | `pbi/<id>/state.json` `branch`, `worktree`, `base_sha`; creates git worktree + `.scrum` symlink |
 | `commit-pbi.sh` | git commit on `pbi/<id>` branch + `pbi/<id>/state.json.head_sha` |
+| `commit-integration-tests.sh` | git commit of test assets (`tests/integration/`, `tests/e2e/`, `tests/stubs/`, plus `--allow` exceptions) on the current non-`pbi/*` branch when phase is `integration_sprint`; no `.scrum` state write (git-only; used by the `integration-tests` skill) |
 | `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `head_sha`, `paths_touched`, `ready_at`; backlog item `status=in_progress_merge` |
 | `mark-pbi-merged.sh` | `pbi/<id>/state.json` `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at`, `status=awaiting_cross_review` |
 | `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing, regression}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing, merge_regression}` and backlog `status=escalated` |

@@ -16,12 +16,12 @@ skills/                  # 18 Skills (Scrum ceremonies + pipeline/merge/orchestr
   create-brief/          # Co-author docs/product/brief.md with the human (interactive); pre-flight for autonomous launch when no brief exists
   change-process/        # Manage changes to frozen design docs
   cross-review/          # Sprint-end cross-cutting quality gate
-  design-completeness-check/ # Design-doc functional completeness at integration granularity
   pbi-pipeline/          # PBI conductor pipeline (orchestrator + references/)
   pbi-escalation-handler/ # SM-side escalation handler
   pbi-merge/             # SM-side per-PBI merge orchestration
   install-subagents/     # Install specialist sub-agents for PBI work
-  integration-sprint/    # Product-wide QA and integration testing
+  integration-tests/     # Design-driven systematic integration testing (Integration Sprint)
+  uat-release/           # UAT walkthrough, defect routing, and the release decision
   po-acceptance/         # PO-owned demo/UAT verification (autonomous mode)
   requirement-definition/   # Elicit requirements from user
   retrospective/         # Sprint retrospective ceremony
@@ -117,7 +117,7 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
   per a PO-seat decision) and is a pre-ceremony input, not a
   `state.json.phase` value. TTY / abort rules + full flow:
   [`skills/create-brief/SKILL.md`](skills/create-brief/SKILL.md).
-- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → backlog_created (defect-fix loop) | complete`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode); in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint.
+- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → uat_release → complete`. From `integration_sprint`, failing tests route to `backlog_created` (defect-fix loop) instead of advancing; from `uat_release`, UAT defects also route back to `backlog_created`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode) — the decision's `choice:integration_sprint` label is unchanged even though the phase graph beyond it now runs through `uat_release`; in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint. `integration_sprint` runs the `integration-tests` skill (design-driven systematic testing); `uat_release` runs the `uat-release` skill (UAT walkthrough + release decision).
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
@@ -226,6 +226,16 @@ Developers commit only via `.scrum/scripts/commit-pbi.sh` (which
 refuses if the checked-out branch is not `pbi/<id>`). On PBI
 completion they run `.scrum/scripts/mark-pbi-ready-to-merge.sh`
 and notify SM `[<pbi-id>] PBI_READY_TO_MERGE`.
+
+During the Integration Sprint, test assets written to the target
+project's main worktree (`tests/integration/`, `tests/e2e/`,
+`tests/stubs/`) are committed via
+`.scrum/scripts/commit-integration-tests.sh` — the sole sanctioned
+path, which refuses unless phase is `integration_sprint` and the
+current branch is not a `pbi/*` worktree branch, stages only the
+test-asset directories (plus repeatable `--allow <path>` exceptions
+for runner config), and blocks the commit if any product-source path
+is staged.
 
 SM merges per-PBI immediately by running the `pbi-merge` skill
 (see [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md) for

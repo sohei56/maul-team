@@ -221,7 +221,8 @@ execute.
     sprint-review/SKILL.md           # Sprint Review ceremony
     retrospective/SKILL.md           # Retrospective ceremony
     requirement-definition/SKILL.md  # Requirement Definition ceremony
-    integration-sprint/SKILL.md      # Integration Sprint ceremony
+    integration-tests/SKILL.md       # Integration Tests: design-driven testing
+    uat-release/SKILL.md             # UAT & Release: UAT walkthrough + release decision
     backlog-refinement/SKILL.md      # PBI refinement process
     change-process/SKILL.md          # FR-016 Change Process
     scaffold-design-spec/SKILL.md    # Template stub creation on catalog enable
@@ -263,7 +264,7 @@ execute.
 
 - The Scrum Master preloads ceremony skills via its `skills:` frontmatter
   (see `agents/scrum-master.md`). The Developer loads `pbi-pipeline`,
-  `install-subagents`, `smoke-test`, and `design-completeness-check`.
+  `install-subagents`, `smoke-test`, and `integration-tests`.
   The Requirement Definition ceremony is run by the SM plus the
   `requirements-analyst` agent, not the Developer.
 

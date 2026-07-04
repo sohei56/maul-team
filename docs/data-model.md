@@ -27,9 +27,10 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 ```
 new -> requirements_sprint -> backlog_created -> sprint_planning
   -> pbi_pipeline_active -> review -> sprint_review -> retrospective
-retrospective -> backlog_created (next Sprint) -> sprint_planning
-             -> integration_sprint -> backlog_created (defect-fix loop)
-             -> complete
+retrospective      -> backlog_created (next Sprint) -> sprint_planning
+retrospective      -> integration_sprint -> uat_release -> complete
+integration_sprint -> backlog_created (defect-fix loop)
+uat_release        -> backlog_created (UAT defect loop)
 ```
 
 Valid phases:
@@ -45,7 +46,16 @@ Valid phases:
 - `review` — Sprint-end cross-review phase (`cross-review` skill)
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
-- `integration_sprint` — Integration Sprint in progress
+- `integration_sprint` — Integration Tests in progress: design-driven
+  systematic testing (boundary values, flow-branch and pattern-branch
+  coverage, external-interface stubs) via the `integration-tests`
+  skill. On passing tests the Scrum Master advances to `uat_release`;
+  on failures it returns to `backlog_created` (defect-fix loop).
+- `uat_release` — UAT & Release in progress: user-story-driven UAT
+  and the go/no-go release decision via the `uat-release` skill.
+  Entered only after `integration_sprint` tests pass. Advances to
+  `complete` on a release go, or back to `backlog_created` when UAT
+  surfaces defects.
 - `complete` — product released
 
 ---
@@ -519,20 +529,25 @@ Levels: `INFO`, `WARN`, `ERROR`.
 ## Entity: TestResults
 
 **File**: `.scrum/test-results.json`
-**Owner**: Developer teammates (write during Integration Sprint via
+**Owner**: Developer teammates (write during Integration Tests via
   `record-test-result.sh`)
 **Readers**: Scrum Master (quality gate), completion-gate.sh, Textual dashboard app
 **Schema**: `docs/contracts/scrum-state/test-results.schema.json`
 
-Tracks automated test execution results during the Integration Sprint.
+Tracks automated test execution results during Integration Tests.
 Written by Developer teammates running the `smoke-test` skill and then
-the `design-completeness-check` skill (which appends a
-`design_completeness` TestCategory and recomputes `overall_status`).
-All writes go through `record-test-result.sh`, which upserts by category
-`name` (a suite re-run replaces its same-named category, so the release
-gate sees fresh counts), creates the file on first call, and recomputes
-`overall_status` on every call. The Scrum Master blocks UAT until the
-combined `overall_status` is `"passed"` or `"passed_with_skips"`.
+the `integration-tests` skill (which appends `integration_api` /
+`integration_ui` / `design_coverage` / `manual_probe` TestCategories
+and recomputes `overall_status`). All writes go through
+`record-test-result.sh`, which upserts by category `name` (a suite
+re-run replaces its same-named category, so the release gate sees
+fresh counts), creates the file on first call, and recomputes
+`overall_status` on every call. The `completion-gate.sh` hook blocks
+the `integration_sprint` phase until the combined `overall_status` is
+`"passed"` or `"passed_with_skips"`; it re-checks the same field on
+`uat_release` exit to catch a regression introduced by a defect-fix
+Sprint, and separately requires the `uat-release` skill's per-Sprint
+UAT stories file before allowing that phase to end.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -545,7 +560,7 @@ combined `overall_status` is `"passed"` or `"passed_with_skips"`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"design_completeness"` |
+| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"integration_api"`, `"integration_ui"`, `"design_coverage"`, `"manual_probe"` |
 | `status` | enum | `"passed"`, `"failed"`, `"skipped"` |
 | `total` | integer | Total number of tests |
 | `passed` | integer | Tests that passed |
@@ -563,13 +578,18 @@ combined `overall_status` is `"passed"` or `"passed_with_skips"`.
 | `message` | string | Error message or failure reason |
 
 ### Rules
-- Created by Developer teammates during the Integration Sprint via the
-  `smoke-test` skill, then extended by the `design-completeness-check`
-  skill which appends a `design_completeness` TestCategory and
-  recomputes `overall_status` in place.
-- The `completion-gate.sh` hook blocks session stop during `integration_sprint` phase unless `overall_status` is `"passed"` or `"passed_with_skips"`.
-- The Scrum Master reads this file and gates UAT on the combined
-  `overall_status` (smoke-test categories + `design_completeness`).
+- Created by Developer teammates during Integration Tests via the
+  `smoke-test` skill, then extended by the `integration-tests` skill,
+  which appends `integration_api` / `integration_ui` / `design_coverage`
+  / `manual_probe` TestCategories and recomputes `overall_status` in
+  place.
+- The `completion-gate.sh` hook blocks session stop during the
+  `integration_sprint` phase unless `overall_status` is `"passed"` or
+  `"passed_with_skips"`, and blocks `uat_release` if a later re-run has
+  regressed `overall_status` back to `"failed"`.
+- The Scrum Master reads this file and gates the transition to
+  `uat_release` on the combined `overall_status` (smoke-test +
+  integration-tests categories).
 - Categories with `status: "skipped"` do not block the overall status.
 
 ---

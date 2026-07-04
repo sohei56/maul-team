@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Integration-sprint test results",
-  "description": "Summary at .scrum/test-results.json. Records one TestCategory per test suite run during an Integration Sprint (smoke-test skill) plus the design_completeness category (design-completeness-check skill), and a recomputed overall_status. Writes go exclusively through scripts/scrum/record-test-result.sh; direct edits are blocked by pre-tool-use-scrum-state-guard.sh. Read by completion-gate.sh (integration_sprint exit criterion), append-po-decision.sh (release_decision=go gate), the po-acceptance skill (UAT gate), and the Textual dashboard.",
+  "description": "Summary at .scrum/test-results.json. Records one TestCategory per test suite run during the Integration Sprint: the smoke-test skill writes the regression categories, and the integration-tests skill writes integration_api / integration_ui / design_coverage / manual_probe, plus a recomputed overall_status. Writes go exclusively through scripts/scrum/record-test-result.sh; direct edits are blocked by pre-tool-use-scrum-state-guard.sh. Read by completion-gate.sh (integration_sprint exit criterion + uat_release regression check), append-po-decision.sh (release_decision=go gate), the po-acceptance skill (UAT gate), and the Textual dashboard.",
   "type": "object",
   "required": ["categories", "overall_status"],
   "additionalProperties": true,
@@ -14,7 +14,7 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "TestCategory name (e.g. unit, e2e, integration, smoke, browser, design_completeness). Unique within categories; a re-run replaces the same-named entry.",
+            "description": "TestCategory name (e.g. unit, e2e, integration, smoke, browser, integration_api, integration_ui, design_coverage, manual_probe). Unique within categories; a re-run replaces the same-named entry.",
             "type": "string",
             "minLength": 1
           },

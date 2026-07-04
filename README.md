@@ -56,18 +56,18 @@ One command sets up agents, skills, and hooks — then launches Claude Code with
 5. **Cross-Review** — once all PBIs are merged, the SM spawns 5 aspect-specialized reviewer sub-agents (requirement-conformance, functional-quality, security, maintainability, docs-consistency) in parallel over the whole Sprint Increment
 6. **Sprint Review** — the SM launches the app and demos every completed PBI; you confirm each works
 7. **Retrospective** — the team reflects and records improvements for the next Sprint
-8. **Repeat** until the Product Goal is achieved, then an **Integration Sprint** runs smoke tests, design-completeness verification, and a final user-story-driven UAT
+8. **Repeat** until the Product Goal is achieved, then **Integration Tests** derives boundary-value and branch-coverage test cases from the design specs and runs them (smoke + API/UI automation), followed by **UAT & Release** — a final user-story-driven UAT and the go/no-go release decision
 
 ## Features
 
-- **18 Skills** (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, and integration testing
+- **18 Skills** (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, integration testing, and UAT & release
 - **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint (1 Developer per PBI, capped at 6)
 - **Autonomous PO mode** (`--autonomous`) — runs the team end-to-end with an AI Product Owner (`po_mode=agent`). An outer Ralph-Loop watchdog (`scripts/autonomous/watchdog.sh`) re-launches headless Claude sessions, enforces safety valves (iterations / wall clock / Sprints / consecutive failures / per-phase Stop-block budget) and writes a morning report to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
 - **Real-time TUI dashboard** — Textual-based three-panel display (Sprint Overview, PBI Progress Board, unified Work Log of agent messages + work events) with watchdog filesystem monitoring
 - **Design document governance** — immutable catalog (`catalog.md`) with editable enablement config (`catalog-config.json`) enforced by status-gate hooks, controlling the documents AI agents are allowed to create
 - **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow enforcement (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates (Definition of Done), session context restoration, plus an external stall watchdog (`scripts/stall-watchdog.sh`) in human mode — turning the behaviors you want agents to follow into mechanisms
 - **State persistence** — all state in `.scrum/` JSON files for full session resume capability
-- **Automated testing** — Integration Sprints run smoke tests (unit + e2e), design-completeness verification, optional browser E2E via Playwright MCP, and a story-driven UAT
+- **Automated testing** — Integration Tests runs smoke tests (unit + e2e) plus design-driven test cases covering boundary values and flow/pattern branches, automated as committed API + Playwright UI tests; UAT & Release then runs a story-driven UAT (Playwright MCP / Chrome DevTools MCP-assisted) and the release decision
 - **Retrospective-driven improvement** — improvements from past Sprints are applied automatically
 
 ### AI-Specific Adaptations
@@ -124,9 +124,9 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
             │                          │
             ▼                          ▼
      Next Sprint N+1   ┌───────────────────────────────────────┐
-                       │  Integration Sprint                   │
-                       │  Smoke ──▶ Design-Completeness ──▶    │
-                       │  Story-driven UAT ──▶ Release         │
+                       │  Integration Tests ──▶ UAT & Release  │
+                       │  Smoke ──▶ Design-Driven Cases ──▶    │
+                       │  Stub/Automate ──▶ UAT ──▶ Release    │
                        └───────────────────────────────────────┘
 ```
 
@@ -147,6 +147,8 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
 ```
 
 The script validates prerequisites (auto-installing `textual` and `watchdog` if missing), copies agent definitions, Skills, hooks, shared rules, and the design catalog to your project's `.claude/` directory, and launches a tmux session with Claude Code (Scrum Master) and the TUI dashboard.
+
+> Already deployed this framework to a project before? Re-run `scrum-start.sh` to refresh `.claude/` — it is a copied snapshot, not a live link, so Skill renames/additions (e.g. the Integration Sprint split into `integration-tests` + `uat-release`) only reach an existing project after a re-run.
 
 For detailed setup instructions, see [quickstart.md](docs/quickstart.md). For autonomous-mode operation (safety valves, Stop-block budgets, morning report), see [docs/autonomous-mode.md](docs/autonomous-mode.md).
 
