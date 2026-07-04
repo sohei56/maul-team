@@ -34,7 +34,7 @@ struct WorkspaceView: View {
             }
         }
         .onAppear {
-            _ = sessions.session(for: project, frameworkPath: state.frameworkPath, mode: state.pendingLaunchMode)
+            _ = sessions.session(for: project, frameworkPath: state.resolvedFrameworkPath, mode: state.pendingLaunchMode)
         }
         .task {
             // Poll .scrum/ state for the native dashboard + work log while shown.

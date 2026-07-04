@@ -27,8 +27,9 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(advancedUnlocked, forKey: Keys.advancedUnlocked) }
     }
 
-    /// Absolute path to the claude-scrum-team framework checkout (the repo that
-    /// owns scrum-start.sh + dashboard/app.py).
+    /// User **override** for the framework checkout (Advanced Settings). Empty
+    /// means "use the app's built-in framework"; set it only to run your own
+    /// fork/checkout. The actual path the app runs is `resolvedFrameworkPath`.
     @Published var frameworkPath: String {
         didSet { UserDefaults.standard.set(frameworkPath, forKey: Keys.frameworkPath) }
     }
@@ -41,8 +42,13 @@ final class AppState: ObservableObject {
     init() {
         self.recents = RecentProjectsStore.load()
         self.advancedUnlocked = UserDefaults.standard.bool(forKey: Keys.advancedUnlocked)
-        let stored = UserDefaults.standard.string(forKey: Keys.frameworkPath)
-        self.frameworkPath = (stored?.isEmpty == false ? stored! : FrameworkLocator.defaultGuess())
+        // The override is empty by default (= use the built-in framework). We do
+        // NOT pre-fill a checkout guess here — resolvedFrameworkPath handles the
+        // built-in and dev-fallback cases.
+        self.frameworkPath = UserDefaults.standard.string(forKey: Keys.frameworkPath) ?? ""
+        // Warm the built-in framework extraction so the first project opens
+        // without a copy delay (no-op for dev builds with no bundle).
+        FrameworkLocator.ensureExtracted()
     }
 
     func open(_ project: Project, mode: LaunchMode = .normal) {
@@ -63,8 +69,21 @@ final class AppState: ObservableObject {
         RecentProjectsStore.save(recents)
     }
 
-    /// True when frameworkPath points at a usable checkout.
+    /// The framework the app actually runs: a valid override, else the
+    /// extracted built-in copy, else a conventional local checkout.
+    var resolvedFrameworkPath: String {
+        FrameworkLocator.resolved(override: frameworkPath)
+    }
+
+    /// True when the resolved framework (override / built-in / fallback) is
+    /// usable — i.e. the app can actually launch.
     var frameworkIsValid: Bool {
-        FrameworkLocator.isValid(frameworkPath)
+        FrameworkLocator.isValid(resolvedFrameworkPath)
+    }
+
+    /// True when a non-empty override is set but does not point at a valid
+    /// checkout — the only case the Settings UI should flag as an error.
+    var overrideIsInvalid: Bool {
+        !frameworkPath.isEmpty && !FrameworkLocator.isValid(frameworkPath)
     }
 }

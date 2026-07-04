@@ -227,7 +227,7 @@ struct ProjectPickerView: View {
         busyMessage = "Setting up project…"
         Task {
             let result = await ShellRunner.run(
-                ProcessLauncher.deploy(project: project, frameworkPath: state.frameworkPath)
+                ProcessLauncher.deploy(project: project, frameworkPath: state.resolvedFrameworkPath)
             )
             await MainActor.run {
                 busyMessage = nil

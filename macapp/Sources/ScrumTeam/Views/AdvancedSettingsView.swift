@@ -4,25 +4,41 @@ import AppKit
 /// Settings window. Hosts the framework-path configuration and the Advanced
 /// edit-unlock toggle that exposes framework sources for editing.
 struct AdvancedSettingsView: View {
+    /// Canonical framework repository — shown in Settings for contributors who
+    /// want to run a fork/local checkout and send improvements back as PRs.
+    static let repoURL = "https://github.com/sohei56/claude-scrum-team"
+
     @EnvironmentObject var state: AppState
     @State private var confirmUnlock = false
 
     var body: some View {
         Form {
-            Section("Framework") {
+            Section("Using your own framework (contributors & advanced users)") {
+                Text("By default the app runs its **built-in copy** of the framework — most people never need to set a path here.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("To hack on the framework itself, point the app at your own checkout instead: fork the repository, clone and edit it locally, then select that folder below. The Scrum Master and dashboard will then run from your checkout rather than the built-in copy, so your changes to agents, skills, hooks, and scripts take effect immediately.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("github.com/sohei56/claude-scrum-team",
+                     destination: URL(string: Self.repoURL)!)
+                    .font(.caption)
                 HStack {
-                    TextField("claude-scrum-team checkout", text: $state.frameworkPath)
+                    TextField("Built-in (override with your own checkout)", text: $state.frameworkPath)
                         .textFieldStyle(.roundedBorder)
                     Button("Browse…") { browseFramework() }
                 }
                 HStack(spacing: 6) {
-                    Image(systemName: state.frameworkIsValid ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                        .foregroundStyle(state.frameworkIsValid ? .green : .red)
-                    Text(state.frameworkIsValid
-                         ? "Valid — scrum-start.sh and dashboard/app.py found"
-                         : "Not a framework checkout (missing scrum-start.sh / dashboard/app.py)")
+                    let ok = !state.overrideIsInvalid
+                    Image(systemName: ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                        .foregroundStyle(ok ? .green : .red)
+                    Text(state.frameworkPath.isEmpty
+                         ? "Using the built-in framework"
+                         : (state.overrideIsInvalid
+                            ? "Not a framework checkout (missing scrum-start.sh / dashboard/app.py)"
+                            : "Valid override — scrum-start.sh and dashboard/app.py found"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                Text("Built an improvement? Please send it back as a pull request to \(Self.repoURL) — contributions are very welcome. 🙌")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Advanced") {
@@ -33,8 +49,8 @@ struct AdvancedSettingsView: View {
                     }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Allow editing framework sources")
-                        Text("Unlocks agents/, skills/, rules/, hooks/, scripts/, dashboard/ in the file tree. Off by default to prevent accidental changes.")
+                        Text("Allow editing framework sources in the open project")
+                        Text("Removes the read-only lock on framework-owned files (.claude/agents, skills, hooks, rules, and .scrum) in the currently open project's file tree, so you can edit them in place from here. This is per-project and temporary — those deployed copies are overwritten from the framework on the next setup. It is different from \"use your own framework\" above, which changes the framework the app actually runs for every project.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -43,7 +59,7 @@ struct AdvancedSettingsView: View {
             Section("Notes") {
                 Text("The Scrum Master pane is a full terminal; the Dashboard and Work Log are native views. The read-only guard applies only to the file tree — it does not block edits made from the Scrum Master shell.")
                     .font(.caption).foregroundStyle(.secondary)
-                Text("To change the framework itself (agents, skills, hooks/harness), edit the framework checkout directly at the Framework path above. A project's deployed copies under .claude/ are overwritten from the checkout on setup, so the checkout is the source of truth — edit there, not in the project.")
+                Text("A project's deployed copies under .claude/ are overwritten from the framework on setup, so the framework (built-in or your override checkout) is the source of truth — edit there, not in the project.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

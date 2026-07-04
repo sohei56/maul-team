@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened Runtime entitlements for ScrumTeam.app (Developer ID distribution).
+
+  Hardened Runtime itself is enabled by `codesign --options runtime`
+  (see scripts/make-app.sh). This file lists the *exceptions* to its
+  default restrictions.
+
+  POLICY: start with the minimum and add an exception ONLY after a
+  notarization run or runtime test proves it is required (Phase 2).
+  Over-broad entitlements weaken security and draw reviewer scrutiny.
+
+  This app is intentionally NOT sandboxed (it embeds a login shell that
+  spawns `claude`/`tmux`/`git`/`python3` and reads/writes arbitrary
+  files), so there is no `com.apple.security.app-sandbox` key. Child
+  processes are exec'd as separate processes, not loaded into this
+  process, so library validation is expected to pass without
+  `disable-library-validation`.
+
+  CANDIDATE exceptions to evaluate during Phase 2 (add only if proven):
+    - com.apple.security.cs.disable-library-validation
+        (only if the bundled toolchain dlopens unsigned dylibs INTO
+         this process — unlikely, since interpreters run as children)
+    - com.apple.security.cs.allow-jit
+        (only if a future native chat UI uses a JIT)
+    - com.apple.security.cs.allow-dyld-environment-variables
+        (only if we must pass DYLD_* into child processes)
+-->
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

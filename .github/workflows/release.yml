@@ -1,0 +1,101 @@
+name: Release macapp
+
+# Fires ONLY when a GitHub Release is published (not on a bare tag push), so
+# shipping the Mac app is an explicit, opt-in action: cut a Release to ship.
+# Set `types: [released]` instead of `[published]` to exclude pre-releases.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write   # upload assets to the release
+
+jobs:
+  build:
+    name: Build, (sign), package DMG
+    runs-on: macos-14
+
+    # Signing + notarization activate ONLY when the corresponding secrets are
+    # set. Until then the job still runs and produces an UNSIGNED dmg (usable
+    # for testing; Gatekeeper will warn end users). Add the secrets once the
+    # Apple Developer enrollment (Phase 0) is done and it lights up automatically.
+    env:
+      DEVELOPER_ID_APP: ${{ secrets.DEVELOPER_ID_APP }}
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # make-app.sh needs tags (git describe) + git archive HEAD
+
+      - name: Show toolchain
+        run: swift --version
+
+      # Import the Developer ID signing certificate into a temporary keychain,
+      # so codesign (invoked by make-app.sh / make-dmg.sh) finds the identity.
+      # Skipped entirely when the signing secrets are absent.
+      - name: Import signing certificate
+        if: env.DEVELOPER_ID_APP != '' && env.DEVELOPER_ID_P12 != ''
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KPW="${KEYCHAIN_PASSWORD:-$(uuidgen)}"
+          echo "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      # Builds universal2 (per-arch native + lipo — no Metal Toolchain needed)
+      # and bundles the framework. Signs with Hardened Runtime iff
+      # DEVELOPER_ID_APP is set; otherwise ad-hoc.
+      - name: Build .app (universal2 + bundled framework)
+        run: sh macapp/scripts/make-app.sh release
+
+      - name: Package DMG
+        run: sh macapp/scripts/make-dmg.sh
+
+      # Notarize + staple the DMG. Skipped when the notary API key is absent.
+      - name: Notarize DMG
+        if: env.NOTARY_KEY_P8 != ''
+        run: |
+          set -euo pipefail
+          DMG=$(ls macapp/build/ScrumTeam-*.dmg | head -1)
+          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool submit "$DMG" \
+            --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          rm -f "$RUNNER_TEMP/notary.p8"
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd macapp/build
+          DMG=$(ls ScrumTeam-*.dmg | head -1)
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          cat "$DMG.sha256"
+
+      # Attach the DMG + checksum to the Release that triggered this run.
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" \
+            macapp/build/ScrumTeam-*.dmg \
+            macapp/build/ScrumTeam-*.dmg.sha256 \
+            --clobber
