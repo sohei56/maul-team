@@ -139,8 +139,8 @@ PHASE_FLOW = [
     ("requirements_sprint", "Requirement Definition"),
     ("backlog_created", "Backlog Created"),
     ("sprint_planning", "Sprint Planning"),
-    ("pbi_pipeline_active", "PBI Pipelines Running"),
-    ("review", "Review"),
+    ("pbi_pipeline_active", "PBI Development"),
+    ("review", "Cross Review"),
     ("sprint_review", "Sprint Review"),
     ("retrospective", "Retrospective"),
     ("integration_sprint", "Integration Tests"),
@@ -159,6 +159,24 @@ def format_phase(current_phase: str) -> str:
         if phase_key == current_phase:
             return f"[bold]Phase:[/bold] [bold white on blue] {phase_label} [/]"
     return f"[bold]Phase:[/bold] [bold white on red] {current_phase} [/]"
+
+
+# Semantic colors for a raw `sprint.json.status` value. Replaces a plain
+# unmapped print, which gave `complete`/`failed` no visual distinction.
+_SPRINT_STATUS_COLORS = {
+    "complete": "green",
+    "failed": "red",
+    "planning": "grey62",
+    "active": "blue",
+    "cross_review": "blue",
+    "sprint_review": "blue",
+}
+
+
+def format_sprint_status(status: str) -> str:
+    """Render a `sprint.json.status` value with a semantic color."""
+    color = _SPRINT_STATUS_COLORS.get(status)
+    return f"[{color}]{status}[/{color}]" if color else status
 
 
 def format_status(status: str) -> str:
@@ -275,6 +293,13 @@ class SprintOverview(Static):
         lines = [f"[bold]Product Goal:[/bold] {product_goal}"]
         lines.append(format_phase(phase))
 
+        # Integration Sprint / UAT & Release are post-development stages: the
+        # last dev Sprint is already `complete`, so the *phase* is the
+        # protagonist and the closed Sprint recedes to a context line. Without
+        # this, the panel reads "Sprint-N | Status: complete" next to
+        # "Phase: Integration Tests", which looks self-contradictory.
+        release_stage = phase in ("integration_sprint", "uat_release")
+
         if sprint and isinstance(sprint, dict):
             sprint_id = sprint.get("id", "?")
             goal = sprint.get("goal") or "No goal"
@@ -294,25 +319,36 @@ class SprintOverview(Static):
             devs = sprint.get("developers") or []
             dev_count = len(devs)
 
-            lines.append(
-                f"[bold]Sprint:[/bold] {sprint_id}"
-                f" | [bold]Status:[/bold] {sprint_status}"
-                f" | [bold]Goal:[/bold] {goal}"
-            )
+            if release_stage:
+                stage_label = dict(PHASE_FLOW).get(phase, phase)
+                lines.append(
+                    f"[bold white on dark_orange] {stage_label} · ACTIVE [/]"
+                    f"  [dim]following {sprint_id} · closed[/dim]"
+                )
+                lines.append(
+                    f"[bold]Delivered:[/bold] {done_count}/{pbi_count} PBIs"
+                    f" | [bold]Goal:[/bold] {goal}"
+                )
+            else:
+                lines.append(
+                    f"[bold]Sprint:[/bold] {sprint_id}"
+                    f" | [bold]Status:[/bold] {format_sprint_status(sprint_status)}"
+                    f" | [bold]Goal:[/bold] {goal}"
+                )
 
-            lines.append(
-                f"[bold]PBIs:[/bold] {done_count}/{pbi_count} done"
-                f" | [bold]Developers:[/bold] {dev_count}"
-            )
+                lines.append(
+                    f"[bold]PBIs:[/bold] {done_count}/{pbi_count} done"
+                    f" | [bold]Developers:[/bold] {dev_count}"
+                )
 
-            if devs:
-                dev_parts = []
-                for d in devs:
-                    did = d.get("id", "?")
-                    status = d.get("status", "?")
-                    impl = d.get("assigned_work", {}).get("implement", [])
-                    dev_parts.append(f"{did}:{status}({','.join(impl)})")
-                lines.append(f"[bold]Agents:[/bold] {' | '.join(dev_parts)}")
+                if devs:
+                    dev_parts = []
+                    for d in devs:
+                        did = d.get("id", "?")
+                        status = d.get("status", "?")
+                        impl = d.get("assigned_work", {}).get("implement", [])
+                        dev_parts.append(f"{did}:{status}({','.join(impl)})")
+                    lines.append(f"[bold]Agents:[/bold] {' | '.join(dev_parts)}")
         else:
             lines.append("[dim]No active Sprint — waiting for Sprint Planning[/dim]")
 

@@ -25,7 +25,10 @@ struct DashboardView: View {
                 projectCard
                 sprintCard
                 pbiBoard
-                if model.testResults != nil { integrationCard }
+                // Release-stage phases fold these results into sprintCard;
+                // show the standalone card only outside those phases (e.g. a
+                // backlog_created defect-fix loop after a failed run).
+                if model.testResults != nil && !releaseStage { integrationCard }
             }
             .padding(12)
         }
@@ -46,61 +49,135 @@ struct DashboardView: View {
 
     // MARK: Sprint
 
+    /// True while the project is in a post-development release stage
+    /// (Integration Sprint / UAT & Release). In these phases the last dev
+    /// Sprint is already `complete` and the **phase** is the protagonist —
+    /// so the Sprint panel flips to a stage view and the standalone
+    /// Integration results card is folded into it.
+    private var releaseStage: Bool {
+        let phase = model.state?.phase
+        return phase == "integration_sprint" || phase == "uat_release"
+    }
+
     private var sprintCard: some View {
-        SectionCard(title: "Sprint", systemImage: "flag.checkered") {
-            if let sprint = model.sprint {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Text(sprint.id ?? "—").font(.headline)
-                        if let st = sprint.status {
-                            Text(st).font(.caption.weight(.semibold))
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(.green.opacity(0.15), in: Capsule())
-                                .foregroundStyle(.green)
-                        }
-                        if let phase = model.state?.phase {
-                            HStack(spacing: 4) {
-                                Text("Phase").font(.caption2).foregroundStyle(.secondary)
-                                Text(phaseLabel(phase))
-                                    .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 7).padding(.vertical, 2)
-                                    .background(.blue.opacity(0.15), in: Capsule())
-                                    .foregroundStyle(.blue)
-                            }
-                        }
-                        Spacer()
-                    }
-                    Text(sprint.goal ?? "No goal").font(.subheadline).foregroundStyle(.secondary)
+        let phase = model.state?.phase
+        return SectionCard(
+            title: releaseStage ? stageTitle(phase) : "Sprint",
+            systemImage: releaseStage ? stageIcon(phase) : "flag.checkered"
+        ) {
+            if releaseStage, let phase {
+                releaseStageBody(phase: phase)
+            } else if let sprint = model.sprint {
+                developmentSprintBody(sprint)
+            } else {
+                noSprintBody
+            }
+        }
+    }
 
-                    let total = model.sprintItems.count
-                    let done = model.doneCount
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text("\(done)/\(total) PBIs done").font(.caption)
-                            Spacer()
-                        }
-                        ProgressView(value: total > 0 ? Double(done) / Double(total) : 0)
-                    }
+    private func stageTitle(_ phase: String?) -> String {
+        phase == "uat_release" ? "UAT & Release" : "Integration Sprint"
+    }
 
-                    if let devs = sprint.developers, !devs.isEmpty {
-                        let names = devs.map { $0.id }.joined(separator: ", ")
-                        Label(names, systemImage: "person.2")
-                            .font(.caption).foregroundStyle(.secondary)
+    private func stageIcon(_ phase: String?) -> String {
+        phase == "uat_release" ? "shippingbox" : "testtube.2"
+    }
+
+    /// Semantic color for a raw `sprint.status` value. Replaces the previous
+    /// hardcoded green, which mislabeled `failed` and `planning`.
+    private func statusColor(_ status: String) -> Color {
+        switch status {
+        case "complete": return .green
+        case "failed": return .red
+        case "planning": return .gray
+        default: return .blue  // active, cross_review, sprint_review
+        }
+    }
+
+    /// Release-stage view: the phase is the headline; the closed dev Sprint
+    /// recedes to a context line; the Integration test results are inlined.
+    @ViewBuilder
+    private func releaseStageBody(phase: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text(phaseLabel(phase)).font(.headline)
+                Text("ACTIVE").font(.caption.weight(.bold))
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(.orange.opacity(0.18), in: Capsule())
+                    .foregroundStyle(.orange)
+                Spacer()
+            }
+            if let sid = model.sprint?.id {
+                Text("following \(sid) · closed")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            let total = model.sprintItems.count
+            if total > 0 {
+                Text("\(model.doneCount)/\(total) PBIs delivered")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if model.testResults != nil {
+                Divider()
+                integrationResults
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func developmentSprintBody(_ sprint: Sprint) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text(sprint.id ?? "—").font(.headline)
+                if let st = sprint.status {
+                    Text(st).font(.caption.weight(.semibold))
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(statusColor(st).opacity(0.15), in: Capsule())
+                        .foregroundStyle(statusColor(st))
+                }
+                if let phase = model.state?.phase {
+                    HStack(spacing: 4) {
+                        Text("Phase").font(.caption2).foregroundStyle(.secondary)
+                        Text(phaseLabel(phase))
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(.blue.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.blue)
                     }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("No active sprint").foregroundStyle(.secondary).font(.subheadline)
-                    if let phase = model.state?.phase {
-                        HStack(spacing: 4) {
-                            Text("Phase").font(.caption2).foregroundStyle(.secondary)
-                            Text(phaseLabel(phase))
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(.blue.opacity(0.15), in: Capsule())
-                                .foregroundStyle(.blue)
-                        }
-                    }
+                Spacer()
+            }
+            Text(sprint.goal ?? "No goal").font(.subheadline).foregroundStyle(.secondary)
+
+            let total = model.sprintItems.count
+            let done = model.doneCount
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text("\(done)/\(total) PBIs done").font(.caption)
+                    Spacer()
+                }
+                ProgressView(value: total > 0 ? Double(done) / Double(total) : 0)
+            }
+
+            if let devs = sprint.developers, !devs.isEmpty {
+                let names = devs.map { $0.id }.joined(separator: ", ")
+                Label(names, systemImage: "person.2")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var noSprintBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No active sprint").foregroundStyle(.secondary).font(.subheadline)
+            if let phase = model.state?.phase {
+                HStack(spacing: 4) {
+                    Text("Phase").font(.caption2).foregroundStyle(.secondary)
+                    Text(phaseLabel(phase))
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(.blue.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.blue)
                 }
             }
         }
@@ -191,8 +268,16 @@ struct DashboardView: View {
 
     private var integrationCard: some View {
         SectionCard(title: "Integration Sprint", systemImage: "testtube.2") {
-            let tr = model.testResults
-            VStack(alignment: .leading, spacing: 8) {
+            integrationResults
+        }
+    }
+
+    /// Integration test results body, shared by the standalone
+    /// `integrationCard` and the folded-in release-stage `sprintCard`.
+    @ViewBuilder
+    private var integrationResults: some View {
+        let tr = model.testResults
+        VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Overall").font(.caption).foregroundStyle(.secondary)
                     ResultBadge(status: tr?.overall_status ?? "—")
@@ -221,14 +306,13 @@ struct DashboardView: View {
                     if cat.id != tr?.categories?.last?.id { Divider() }
                 }
             }
-        }
     }
 
     private func phaseLabel(_ phase: String) -> String {
         [
             "new": "New", "requirements_sprint": "Requirement Definition",
             "backlog_created": "Backlog Created", "sprint_planning": "Sprint Planning",
-            "pbi_pipeline_active": "Parallel Development for Each PBI", "review": "Cross Review",
+            "pbi_pipeline_active": "PBI Development", "review": "Cross Review",
             "sprint_review": "Sprint Review", "retrospective": "Retrospective",
             "integration_sprint": "Integration Tests", "uat_release": "UAT & Release",
             "complete": "Complete",
