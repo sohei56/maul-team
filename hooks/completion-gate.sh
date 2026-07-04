@@ -244,6 +244,7 @@ allow_stop() {
 #   complete                          → allow (watchdog observes terminal)
 #   retrospective (criteria passed)   → allow (recycle session for next sprint)
 #   integration_sprint (passed)       → allow (recycle session for next loop)
+#   uat_release (stories file present)→ allow (recycle session for release)
 #   backlog_created (Sprint rollover: → allow (recycle session before next
 #     sprint-history non-empty)              Sprint Planning)
 #   backlog_created (initial backlog) → block + "run sprint-planning"
@@ -271,7 +272,7 @@ autonomous_intercept_or_allow() {
   fi
 
   case "$phase" in
-    complete|retrospective|integration_sprint)
+    complete|retrospective|integration_sprint|uat_release)
       # Checkpoint phases — exit criteria has been met; let the watchdog
       # take over the next phase (or terminate on `complete`).
       return 0
@@ -518,6 +519,38 @@ EOF
           ""
         ;;
     esac
+    ;;
+
+  uat_release)
+    # UAT & Release phase (follows integration_sprint once its tests pass).
+    # Two gates, in order:
+    #   1) Regression guard — if integration tests have flipped back to
+    #      `failed` (a defect-fix Sprint re-ran them and broke red), do not
+    #      release: bounce the phase back to integration_sprint.
+    #   2) The uat-release skill must have produced the per-Sprint UAT
+    #      stories file. Per-story verdict completeness is the skill's Exit
+    #      Criteria responsibility, NOT this hook's — the gate only checks
+    #      the file exists.
+    if [ -f "$TEST_RESULTS_FILE" ]; then
+      overall_status="$(jq -r '.overall_status // "unknown"' "$TEST_RESULTS_FILE" 2>/dev/null || echo "unknown")"
+      if [ "$overall_status" = "failed" ]; then
+        failed_cats="$(jq -r '[.categories[]? | select(.status == "failed") | .name] | join(", ")' "$TEST_RESULTS_FILE" 2>/dev/null || echo "unknown")"
+        block_stop \
+          "UAT & Release: integration tests regressed to failed (categories: ${failed_cats}). Transition phase back to integration_sprint and re-run integration-tests before stopping." \
+          "tests_failed" \
+          "$failed_cats"
+      fi
+    fi
+
+    uat_stories_file=".scrum/po/uat-stories-${current_sprint_id}.md"
+    if [ ! -f "$uat_stories_file" ]; then
+      block_stop \
+        "UAT & Release: ${uat_stories_file} does not exist. Run the uat-release skill (UAT walkthrough + release decision) before stopping." \
+        "uat_missing" \
+        "$current_sprint_id"
+    fi
+
+    allow_stop
     ;;
 
   pbi_pipeline_active)

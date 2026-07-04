@@ -349,7 +349,10 @@ build_prompt() {
       tail='Finish the Retrospective if not already recorded (improvements + sprint-history). Then run the sprint-continuation handshake: send the product-owner teammate a PO_DECISION_REQUEST kind=sprint_continuation options=[next_sprint,integration_sprint,complete] and advance the phase per the reply — next_sprint → backlog_created, integration_sprint → integration_sprint, complete → complete. Do NOT end the turn with phase still `retrospective`.'
       ;;
     integration_sprint)
-      tail='Drive the Integration Sprint. Run product-wide QA / smoke tests. On defects, transition back to `backlog_created` (defect-fix loop). On pass, transition to `complete`.'
+      tail='Run the integration-tests skill (systematic design-driven testing: boundary values, flow/pattern branches, external-IF stubs, automation-first). On pass, transition to `uat_release`. On defects, create defect PBIs and transition back to `backlog_created` (defect-fix loop).'
+      ;;
+    uat_release)
+      tail='Run the uat-release skill: UAT walkthrough with the product-owner teammate (browser MCP for UI stories), defect collection, and the release decision. On release go → `complete`. On UAT defects / no_go → create defect PBIs and transition back to `backlog_created`.'
       ;;
     complete)
       tail='Workflow is complete. Verify .scrum/state.json reflects this and stop.'

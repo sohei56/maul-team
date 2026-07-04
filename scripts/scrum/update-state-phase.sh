@@ -12,7 +12,7 @@ source "$HERE/lib/atomic.sh"
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: update-state-phase.sh <phase>"
 PHASE="$1"
 case "$PHASE" in
-  new|requirements_sprint|backlog_created|sprint_planning|pbi_pipeline_active|review|sprint_review|retrospective|integration_sprint|complete) ;;
+  new|requirements_sprint|backlog_created|sprint_planning|pbi_pipeline_active|review|sprint_review|retrospective|integration_sprint|uat_release|complete) ;;
   *) fail E_INVALID_ARG "bad phase: $PHASE" ;;
 esac
 

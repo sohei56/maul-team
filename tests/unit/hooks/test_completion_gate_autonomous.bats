@@ -210,6 +210,56 @@ stdin_session() {
 }
 
 # ------------------------------------------------------------------
+# (d2) uat_release gate branch (Integration Tests → UAT & Release split).
+#   * human mode: stories file present → allow; absent → block(uat_missing);
+#     integration tests regressed to failed → block(tests_failed).
+#   * agent mode lead + stories file present → checkpoint allow.
+# ------------------------------------------------------------------
+
+@test "human mode: uat_release with stories file present allows stop" {
+  write_config_human
+  write_state_phase uat_release sprint-001
+  mkdir -p .scrum/po
+  printf '# UAT stories\n' > .scrum/po/uat-stories-sprint-001.md
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+}
+
+@test "human mode: uat_release without stories file blocks (uat_missing)" {
+  write_config_human
+  write_state_phase uat_release sprint-001
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"uat-stories-sprint-001.md"* ]]
+  [[ "$output" == *"uat-release skill"* ]]
+}
+
+@test "human mode: uat_release with integration tests regressed to failed blocks (back to integration_sprint)" {
+  write_config_human
+  write_state_phase uat_release sprint-001
+  mkdir -p .scrum/po
+  printf '# UAT stories\n' > .scrum/po/uat-stories-sprint-001.md
+  jq -n '{overall_status: "failed", categories: [{name: "integration_api", status: "failed"}]}' > .scrum/test-results.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"regressed to failed"* ]]
+  [[ "$output" == *"integration_sprint"* ]]
+}
+
+@test "agent mode lead session: uat_release with stories file present allows stop (checkpoint)" {
+  write_config_agent
+  write_autonomy sess-lead uat_release 0
+  write_state_phase uat_release sprint-001
+  mkdir -p .scrum/po
+  printf '# UAT stories\n' > .scrum/po/uat-stories-sprint-001.md
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
+  [ "$status" -eq 0 ]
+  # Checkpoint must NOT bump the stop-block counter.
+  run jq -r '.stop_blocks.count' .scrum/autonomy.json
+  [ "$output" = "0" ]
+}
+
+# ------------------------------------------------------------------
 # (e) Agent mode lead session + complete → allow.
 # ------------------------------------------------------------------
 

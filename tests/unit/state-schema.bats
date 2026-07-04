@@ -36,9 +36,21 @@ load '../test_helper/common-setup'
     .phase as $p |
     ["new","requirements_sprint","backlog_created","sprint_planning",
      "pbi_pipeline_active","review","sprint_review",
-     "retrospective","integration_sprint","complete"] |
+     "retrospective","integration_sprint","uat_release","complete"] |
     index($p) != null
   ' "$file"
+  assert_success
+}
+
+@test "state.schema.json phase enum includes uat_release after integration_sprint" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/state.schema.json"
+
+  # uat_release must be present and sit directly after integration_sprint
+  # (Integration Tests → UAT & Release ordering).
+  run jq -e '
+    .properties.phase.enum as $e |
+    ($e | index("uat_release")) == ($e | index("integration_sprint")) + 1
+  ' "$schema"
   assert_success
 }
 
