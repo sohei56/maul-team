@@ -27,6 +27,9 @@ jobs:
       NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
       NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+      # PAT with push access to the Homebrew tap repo (channel ③). When absent,
+      # the tap-bump step is skipped and only the DMG + Release are produced.
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -61,24 +64,21 @@ jobs:
       - name: Build .app (universal2 + bundled framework)
         run: sh macapp/scripts/make-app.sh release
 
+      # Notarize + staple the .app BEFORE packaging, so the app dragged out of
+      # the DMG passes Gatekeeper OFFLINE (a ticket stapled only to the dmg does
+      # not travel with the copied-out app). Needs Developer ID signing + the
+      # notary key; when either secret is absent this is skipped and an UNSIGNED
+      # dmg is still produced for testing.
+      - name: Notarize + staple app
+        if: env.DEVELOPER_ID_APP != '' && env.NOTARY_KEY_P8 != ''
+        run: sh macapp/scripts/sign-and-notarize.sh app
+
       - name: Package DMG
         run: sh macapp/scripts/make-dmg.sh
 
-      # Notarize + staple the DMG. Skipped when the notary API key is absent.
-      - name: Notarize DMG
-        if: env.NOTARY_KEY_P8 != ''
-        run: |
-          set -euo pipefail
-          DMG=$(ls macapp/build/ScrumTeam-*.dmg | head -1)
-          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
-          xcrun notarytool submit "$DMG" \
-            --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$NOTARY_KEY_ID" \
-            --issuer "$NOTARY_ISSUER_ID" \
-            --wait
-          xcrun stapler staple "$DMG"
-          xcrun stapler validate "$DMG"
-          rm -f "$RUNNER_TEMP/notary.p8"
+      - name: Notarize + staple DMG
+        if: env.DEVELOPER_ID_APP != '' && env.NOTARY_KEY_P8 != ''
+        run: sh macapp/scripts/sign-and-notarize.sh dmg
 
       - name: Checksums
         run: |
@@ -99,3 +99,11 @@ jobs:
             macapp/build/ScrumTeam-*.dmg \
             macapp/build/ScrumTeam-*.dmg.sha256 \
             --clobber
+
+      # Channel ③ (Homebrew): render Casks/scrum-team.rb for this version and
+      # push it to the personal tap. Skipped when HOMEBREW_TAP_TOKEN is absent.
+      - name: Bump Homebrew tap
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: sh macapp/scripts/bump-tap.sh

@@ -14,13 +14,13 @@
 |---|---|---|
 | 0 | Apple Developer 登録・証明書・notary キー・ライセンス判断 | **未着手（あなた担当・全署名をブロック）** |
 | 1 | universal2 化 + Hardened Runtime + entitlements | **✅ 完了・検証済**（native+lipo、`entitlements.plist`、`make-app.sh`） |
-| 2 | sign + notarize + staple スクリプト | **未着手**（Phase0 の証明書待ち。CI 側は条件署名で配線済） |
+| 2 | sign + notarize + staple スクリプト | **✅ スクリプト実装済**（`sign-and-notarize.sh` = app+dmg 両方を notarize+staple、keychain-profile/API-key 両対応。release.yml も app ステープルを追加。**実署名検証は Phase0 の証明書待ち**。手順は `docs/macapp-distribution-setup.md`） |
 | 3a | Framework を `.app` へ同梱 | **✅ 完了・検証済**（`make-app.sh` git archive、1.3M） |
 | 3b | 起動時 `~/Library/Application Support/...` へ展開・解決 | **✅ 完了・実機起動で展開確認済**（`FrameworkLocator`/`AppState`） |
 | 3c | ローカル改変の pristine 差分同期 UI（上書き/保持/マージ） | **未着手** |
 | 4 | DMG 生成 | **✅ 完了・検証済**（`make-dmg.sh`、hdiutil、4.7M） |
 | 5 | Release CI（`release: published` トリガー・条件署名） | **✅ 実装済**（`.github/workflows/release.yml`。**GH Actions 実走は未検証**） |
-| 6 | Homebrew 個人 tap（`sohei56/homebrew-tap`）+ cask | **未着手** |
+| 6 | Homebrew 個人 tap（`sohei56/homebrew-tap`）+ cask | **✅ 実装済**（`macapp/homebrew/scrum-team.rb` cask テンプレ + `bump-tap.sh` [version/sha256 レンダ→tap へ push] + release.yml の `Bump Homebrew tap` step[`HOMEBREW_TAP_TOKEN` gate]。**tap リポジトリ作成 + PAT 投入は setup 待ち**） |
 | 7a | ルート README / README_ja を **Mac-App-first に全面再構成** + macapp/README 配布節更新 | **✅ 完了**（2026-07-04、未コミット。Fable レビュー反映済） |
 | 7b-i | Mac App ヒーロー画像 + デモ動画 | **✅ 完了**（`images/macapp-hero.png` 0.6M をコミット。デモは **mp4 → GitHub attachment → README に URL 埋め込み**方式に変更（gif は不採用）。source `demo_macapp.mov` / 派生 `macapp-demo.mp4` は `.gitignore`(`*.mov`/`*.mp4`) で除外し GitHub ホスト。README Demo 節に hero + attachment URL 配線済） |
 | 7b-ii | 紹介ページ（`site/` 1枚 + pages.yml デプロイ） | **✅ 実装済・未コミット**（2026-07-04。`site/index.html` = dark mission-control LP、シグネチャ=PBIボード移動アニメ[FLIP]・タイプライタ端末・エージェント編成図、macOS標準フォント・完全自己完結・SEO全タグ[OG/Twitter/JSON-LD SoftwareApplication]。`site/assets/macapp-hero.png` / `robots.txt` / `sitemap.xml` / `.github/workflows/pages.yml`[site/** push でPages公開]。Fable ビルド→事実監査済[demo長さ90秒・build時間・偽DLリンク不在を修正/確認]。**ユーザーのデザインレビュー待ち + GH Actions Pages 実走未検証**） |
@@ -30,8 +30,15 @@
 (Phase1/3/4/5 + Settings UX)。関連メモリ: `project_macapp_phase3_cicd` /
 `project_macapp_release_plan`。
 
-**次セッションの着手候補**: Phase 6（tap/cask 雛形、ただし Release 資産が出るまで
-実検証不可）、または Phase 8（法務/QA/サポート）。Phase 7b-ii の LP は実装済で
+**2026-07-04 追記 (CICD やり切り)**: Phase 2 スクリプト（`sign-and-notarize.sh`）
+と Phase 6（cask テンプレ + `bump-tap.sh` + release.yml tap bump）を実装。release.yml
+は app もステープルするよう修正（従来 dmg のみ→copy-out した app が offline で
+Gatekeeper を通らない穴を解消）。**3 チャネル全部がコード上は配線完了**、残るは
+あなたの Phase 0（Apple 登録）+ Secrets 8 件 + tap リポジトリ作成 + Pages 有効化
+のみ。運用手順は **`docs/macapp-distribution-setup.md`**（Part A–E）に集約。
+
+**次セッションの着手候補**: Phase 8（法務/QA/サポート）、または Phase 3c
+（ローカル改変の pristine 差分同期 UI）。Phase 7b-ii の LP は実装済で
 **ユーザーのデザインレビュー + コミット判断待ち**（本番デプロイは main へ push 後
 `pages.yml` が発火、GitHub Pages を repo Settings で有効化する必要あり）。
 Phase 0 完了後は Secrets 7件投入 → Phase 2 署名検証。
