@@ -47,7 +47,7 @@ Vibe coding's speed is attractive, but order erodes as a project runs longer. Sp
   <img alt="ScrumTeam.app — the three-pane workspace" src="images/macapp-hero.png" width="900">
 </p>
 
-https://github.com/user-attachments/assets/db41e2ff-3a18-494b-aead-2b367229c031
+https://github.com/user-attachments/assets/cb40730c-4b58-42a5-9310-e73864860c1e
 
 **ScrumTeam.app** puts the whole team in one window: pick or create a project, then watch the Scrum Master run the Sprint in an embedded terminal while a native dashboard tracks the PBI board and a tabbed editor lets you read the code as it lands.
 

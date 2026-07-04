@@ -234,8 +234,8 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 /* ---------- demo ---------- */
 .video-shell{position:relative; margin-top:44px; border-radius:14px; overflow:hidden;
   border:1px solid var(--line-strong); background:#111113;
-  box-shadow:0 30px 70px -24px rgba(0,0,0,.7); aspect-ratio:16/9.6}
-.video-shell video{width:100%; height:100%; object-fit:cover; display:block; background:#0d0d0f}
+  box-shadow:0 30px 70px -24px rgba(0,0,0,.7); aspect-ratio:16/9}
+.video-shell video{width:100%; height:100%; object-fit:contain; display:block; background:#0d0d0f}
 .video-cover{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
   justify-content:center; gap:18px; cursor:pointer; border:0; width:100%;
   background:
@@ -588,16 +588,16 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <div class="video-shell reveal" style="--d:.1s">
       <video id="demoVideo" controls preload="none" playsinline
              aria-label="Screen recording of ScrumTeam.app running a Sprint">
-        <source src="https://github.com/user-attachments/assets/db41e2ff-3a18-494b-aead-2b367229c031" type="video/mp4">
+        <source src="https://github.com/user-attachments/assets/cb40730c-4b58-42a5-9310-e73864860c1e" type="video/mp4">
       </video>
       <button class="video-cover" id="videoCover" type="button" aria-label="Play the ScrumTeam.app demo video">
         <div class="fake-panes" aria-hidden="true"><span></span><span></span><span></span></div>
         <span class="play-pill"><span class="tri" aria-hidden="true"></span>Play the demo</span>
-        <small>90-second screen recording · real session</small>
+        <small>2-minute screen recording · real session</small>
       </button>
     </div>
     <p class="reveal" style="--d:.16s">
-      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/db41e2ff-3a18-494b-aead-2b367229c031"
+      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/cb40730c-4b58-42a5-9310-e73864860c1e"
          target="_blank" rel="noopener">Video not loading? Watch the demo on GitHub ↗</a>
     </p>
 
