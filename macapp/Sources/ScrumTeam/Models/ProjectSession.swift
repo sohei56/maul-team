@@ -39,7 +39,7 @@ final class ProjectSession: NSObject, ObservableObject, LocalProcessTerminalView
     init(project: Project, frameworkPath: String, mode: LaunchMode = .normal) {
         self.project = project
         self.mode = mode
-        self.smTerminal = LocalProcessTerminalView(frame: .zero)
+        self.smTerminal = ComposingTerminalView(frame: .zero)
         super.init()
 
         smTerminal.processDelegate = self
