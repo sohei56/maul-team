@@ -214,7 +214,8 @@ cat > "$settings_file" << 'SETTINGS_EOF'
       "WebSearch",
       "Bash(codex *)",
       "mcp__context7",
-      "mcp__playwright"
+      "mcp__playwright",
+      "mcp__chrome-devtools"
     ]
   },
   "hooks": {
@@ -356,19 +357,22 @@ cat > "$settings_file" << 'SETTINGS_EOF'
 SETTINGS_EOF
 echo "  Written settings.json with hook configuration."
 
-# --- Configure standard MCP servers (context7 + Playwright) ---
-# These are the Claude Scrum Team standard MCP servers. Both are added
+# --- Configure standard MCP servers (context7 + Playwright + Chrome DevTools) ---
+# These are the Claude Scrum Team standard MCP servers. All three are added
 # unconditionally if npx is available:
 #   - context7: fetches up-to-date library/framework docs (needs no
 #     credentials; useful across every ceremony).
 #   - playwright: browser E2E in Integration Sprint. The smoke-test and
 #     po-acceptance skills gracefully skip browser flows when it is absent,
 #     so adding it is safe — it only activates when a running app is detected.
+#   - chrome-devtools: console/network inspection and performance traces for
+#     UAT / claude-manual testing. Same as playwright, the relevant skills
+#     gracefully skip when it is absent.
 # Existing entries are preserved (//=); only missing servers are added.
 
 if command -v npx >/dev/null 2>&1; then
   echo ""
-  echo "Configuring standard MCP servers (context7, Playwright)..."
+  echo "Configuring standard MCP servers (context7, Playwright, Chrome DevTools)..."
   mcp_file="$TARGET_DIR/.mcp.json"
 
   if [ -f "$mcp_file" ]; then
@@ -381,9 +385,10 @@ if command -v npx >/dev/null 2>&1; then
     if jq '
       .mcpServers.context7 //= {"type": "stdio", "command": "npx", "args": ["-y", "@upstash/context7-mcp"]}
       | .mcpServers.playwright //= {"type": "stdio", "command": "npx", "args": ["@anthropic-ai/mcp-playwright"]}
+      | .mcpServers["chrome-devtools"] //= {"type": "stdio", "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]}
     ' "$mcp_file" > "$tmp_mcp" 2>/dev/null; then
       mv "$tmp_mcp" "$mcp_file"
-      echo "  Ensured context7 + Playwright MCP in existing .mcp.json"
+      echo "  Ensured context7 + Playwright + Chrome DevTools MCP in existing .mcp.json"
     else
       rm -f "$tmp_mcp"
       echo "  WARN: could not update existing .mcp.json (jq missing or invalid JSON)"
@@ -401,11 +406,16 @@ if command -v npx >/dev/null 2>&1; then
       "type": "stdio",
       "command": "npx",
       "args": ["@anthropic-ai/mcp-playwright"]
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
     }
   }
 }
 MCP_EOF
-    echo "  Created .mcp.json with context7 + Playwright MCP"
+    echo "  Created .mcp.json with context7 + Playwright + Chrome DevTools MCP"
   fi
 else
   echo ""
