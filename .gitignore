@@ -33,3 +33,9 @@ Thumbs.db
 # Temporary
 *.tmp
 *.log
+
+# Source screen recordings + the demo video (hosted on GitHub, embedded in the
+# README by URL — not committed). Deliverables are the derived .png in images/.
+# These files are large (tens–hundreds of MB) and must not be committed.
+*.mov
+*.mp4

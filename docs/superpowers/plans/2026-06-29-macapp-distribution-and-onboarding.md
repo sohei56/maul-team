@@ -21,16 +21,41 @@
 | 4 | DMG 生成 | **✅ 完了・検証済**（`make-dmg.sh`、hdiutil、4.7M） |
 | 5 | Release CI（`release: published` トリガー・条件署名） | **✅ 実装済**（`.github/workflows/release.yml`。**GH Actions 実走は未検証**） |
 | 6 | Homebrew 個人 tap（`sohei56/homebrew-tap`）+ cask | **未着手** |
-| 7 | 紹介ページ（GitHub Pages 1枚）+ ルート README の Mac App 章 + スクショ/GIF | **未着手** |
+| 7a | ルート README / README_ja を **Mac-App-first に全面再構成** + macapp/README 配布節更新 | **✅ 完了**（2026-07-04、未コミット。Fable レビュー反映済） |
+| 7b-i | Mac App ヒーロー画像 + デモ動画 | **✅ 完了**（`images/macapp-hero.png` 0.6M をコミット。デモは **mp4 → GitHub attachment → README に URL 埋め込み**方式に変更（gif は不採用）。source `demo_macapp.mov` / 派生 `macapp-demo.mp4` は `.gitignore`(`*.mov`/`*.mp4`) で除外し GitHub ホスト。README Demo 節に hero + attachment URL 配線済） |
+| 7b-ii | 紹介ページ（`site/` 1枚 + pages.yml デプロイ） | **未着手** |
 | 8 | 法務（利用規約/プライバシー）+ クリーン環境 QA + サポート + 任意 Sparkle | **未着手** |
 
 **コミット済 (branch `fix/cleanup-audit-20260702`, 未push)**: `6815b0b`
 (Phase1/3/4/5 + Settings UX)。関連メモリ: `project_macapp_phase3_cicd` /
 `project_macapp_release_plan`。
 
-**次セッションの着手候補**: Phase 6（tap/cask）または Phase 7（紹介ページ+README）。
-どちらも Phase 0 非依存で進められる。Phase 0 完了後は Secrets 7件投入 →
-Phase 2 署名検証。
+**次セッションの着手候補**: Phase 7b（`site/` 紹介ページ + `pages.yml` + macapp
+スクショ/GIF 撮影）または Phase 6（tap/cask、ただし Release 資産が出るまで検証不可）。
+Phase 0 完了後は Secrets 7件投入 → Phase 2 署名検証。
+
+**Phase 7a 完了メモ (2026-07-04、Fable レビュー2巡目反映)**: `README.md` /
+`README_ja.md` を **Mac-App-first に全面再構成**。セクション順 = Why → Demo(Mac App
+ヒーロー) → **Get Started(Mac App: install/first-run/Sprint 流れ)** → PO 役割 →
+Features(先頭に native Mac app) → **Command line(上級: 旧 Quick Start / autonomous
+/ CLI demo.gif / Claude Code バージョン詳細を降格)** → Architecture(macapp/ 追加)。
+ヒーローのタグライン/バッジも Mac 前面化。`macapp/README.md` の Distribution 節を
+実装済ツール(universal2/DMG/Release CI)+ Phase 0 待ちに書換、Status の native/Textual
+矛盾も修正。
+
+**Fable レビュー由来の修正 (事実裏取り済)**: ①brew token 誤り(`sohei56/homebrew-tap/
+scrum-team` → Homebrew は `homebrew-` を剥がすため二重化して不在)→ コマンドごと削除。
+②「gated only on credentials」は release.yml GH Actions 実走未検証なので過大 → 緩和。
+③Claude Code ≥2.1.172 は GUI/CLI 両経路で必須(app も scrum-start.sh を呼ぶ)→ Get
+Started の必要要件に明記。④Python 3.9+ も Mac App 経由で必要(scrum-start.sh:155
+check_python_prereqs が SCRUM_NO_TMUX 分岐より前で無条件実行)→ 明記。
+
+**Demo 資産は配線済み**（プレースホルダではない）。`images/macapp-hero.png`
+（3ペイン全体・Retina）はコミット対象。デモ動画は GitHub の user-attachments に
+アップロード済みで、README Demo 節に生の attachment URL を埋め込み済み（gif の
+ような巨大バイナリをリポジトリにコミットしない）。source `.mov` / 派生 `.mp4` は
+`.gitignore` で除外。撮影自体はユーザー手作業（GUI 実行が要る、Claude は不可）。
+**現状すべて未 push なので public 露出リスクは無い。**
 
 **未検証で残る確認**: ① `release.yml` の GH Actions 実走（actionlint/実行未）。
 ② 実機で新規プロジェクトを開き SM ペインが同梱 framework から起動するか

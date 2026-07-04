@@ -109,12 +109,38 @@ isn't auto-detected. The app looks for `scrum-start.sh` + `dashboard/app.py`;
 it probes `$CLAUDE_SCRUM_TEAM_DIR` and `~/work/claude-scrum-team` (and a few
 other common locations) by default.
 
-## Distribution (not in MVP)
+## Distribution
 
-Shipping a runnable `.app` outside your own machine requires an Xcode app
-target with an `Info.plist`, a **Developer ID** signature, and **notarization**
-(Apple Developer Program, $99/yr). `swift run` / `swift build` produce an
-unsigned binary suitable for local development only.
+The distribution tooling is **built and wired, but not yet signed** — the first
+public release is gated on Apple Developer enrollment (Developer ID certificate
++ notarization credentials). What already works today:
+
+- **universal2 build** — `sh macapp/scripts/make-app.sh release` builds a fat
+  (arm64 + x86_64) binary via per-arch native builds + `lipo`, applies Hardened
+  Runtime with the minimal entitlements in `macapp/entitlements.plist`, and
+  bundles the framework into `.app/Contents/Resources/framework/` (extracted at
+  launch to `~/Library/Application Support/ScrumTeam/framework-<ver>/`).
+- **DMG** — `sh macapp/scripts/make-dmg.sh` produces
+  `build/ScrumTeam-<ver>.dmg` (zero deps, `hdiutil`) with an `/Applications`
+  drag-install symlink; it also signs the DMG when `DEVELOPER_ID_APP` is set.
+- **Release CI** — `.github/workflows/release.yml` fires on
+  `release: published` (a bare tag push does **not** trigger it — cutting a
+  Release is an explicit opt-in): it builds universal2, packages the DMG,
+  generates sha256 checksums, and uploads them to the GitHub Release. Code
+  signing → `notarytool` → `stapler staple` activate automatically once the
+  signing Secrets are present; otherwise the job ships an **unsigned** DMG
+  (usable for testing, but Gatekeeper warns end users).
+
+Still pending (blocked on Apple Developer Program enrollment, $99/yr):
+
+- Developer ID signing + notarization + stapling of the `.app`, its bundled
+  `.sh` / `python3` / `dylib`, and the DMG (an unsigned `.app` is rejected by
+  Gatekeeper on other machines; `swift run` / `swift build` are local-dev only).
+- Homebrew tap (`sohei56/homebrew-tap`) + cask referencing the Release DMG.
+- Landing page and root-README onboarding links.
+
+Full plan and phase status:
+`docs/superpowers/plans/2026-06-29-macapp-distribution-and-onboarding.md`.
 
 ## CI
 
@@ -124,5 +150,9 @@ unrelated commits).
 
 ## Status
 
-Builds and runs locally (verified via `scripts/make-app.sh`). Center/right
-panes embed the live SM session and Textual dashboard.
+Builds and runs locally (verified via `scripts/make-app.sh`, debug and
+`release`/universal2). The center pane embeds the live SM session (SwiftTerm);
+the dashboard and Work Log are native SwiftUI views (no Python dashboard process
+runs). Distribution tooling (universal2, framework bundling, DMG, Release CI) is
+in place; signing/notarization is pending Apple Developer enrollment (see
+[Distribution](#distribution)).
