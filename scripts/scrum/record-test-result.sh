@@ -23,9 +23,10 @@
 #   else any category skipped   -> "passed_with_skips"
 #   else                        -> "passed"
 # Both the smoke-test skill (one call per detected suite) and the
-# design-completeness-check skill (one call for the design_completeness
-# category) write through this wrapper; direct edits to .scrum/test-results.json
-# are blocked by pre-tool-use-scrum-state-guard.sh.
+# integration-tests skill (one call per category: integration_api /
+# integration_ui / design_coverage / manual_probe) write through this
+# wrapper; direct edits to .scrum/test-results.json are blocked by
+# pre-tool-use-scrum-state-guard.sh.
 #
 # Schema: docs/contracts/scrum-state/test-results.schema.json.
 #
