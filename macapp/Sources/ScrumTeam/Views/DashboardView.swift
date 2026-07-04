@@ -6,6 +6,7 @@ struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @State private var selected: BacklogItem?
     @State private var pbiScope: PBIScope = .current
+    @State private var showScrumBoard = false
 
     enum PBIScope: String, CaseIterable, Identifiable {
         case current = "Current", all = "All"
@@ -196,6 +197,16 @@ struct DashboardView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
 
+                Button {
+                    showScrumBoard = true
+                } label: {
+                    Label("Open Scrum Board", systemImage: "rectangle.split.3x1")
+                        .font(.caption.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.small)
+                .help("Live pipeline board — watch the current sprint's PBIs move across stages in real time")
+
                 if items.isEmpty {
                     Text(pbiScope == .current ? "No PBIs in the current sprint" : "No PBIs")
                         .foregroundStyle(.secondary).font(.subheadline)
@@ -208,6 +219,9 @@ struct DashboardView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showScrumBoard) {
+            ScrumBoardView(model: model)
         }
     }
 
