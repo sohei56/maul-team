@@ -151,6 +151,7 @@ struct DashboardView: View {
                     }
                 }
                 Text(item.title ?? "(untitled)").font(.callout).lineLimit(1)
+                    .textSelection(.disabled)   // list row navigates on tap; don't select the title text
                 if let updated = updatedText(item, st) {
                     Text("updated \(updated)")
                         .font(.caption2.monospaced()).foregroundStyle(.secondary)
