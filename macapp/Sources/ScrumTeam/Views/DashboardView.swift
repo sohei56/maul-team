@@ -229,7 +229,8 @@ struct DashboardView: View {
             "backlog_created": "Backlog Created", "sprint_planning": "Sprint Planning",
             "pbi_pipeline_active": "Parallel Development for Each PBI", "review": "Cross Review",
             "sprint_review": "Sprint Review", "retrospective": "Retrospective",
-            "integration_sprint": "Integration Tests & UAT", "complete": "Complete",
+            "integration_sprint": "Integration Tests", "uat_release": "UAT & Release",
+            "complete": "Complete",
         ][phase] ?? phase
     }
 }

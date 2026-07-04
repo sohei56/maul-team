@@ -143,7 +143,8 @@ PHASE_FLOW = [
     ("review", "Review"),
     ("sprint_review", "Sprint Review"),
     ("retrospective", "Retrospective"),
-    ("integration_sprint", "Integration"),
+    ("integration_sprint", "Integration Tests"),
+    ("uat_release", "UAT & Release"),
     ("complete", "Complete"),
 ]
 
