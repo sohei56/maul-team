@@ -23,15 +23,17 @@
 | 6 | Homebrew 個人 tap（`sohei56/homebrew-tap`）+ cask | **未着手** |
 | 7a | ルート README / README_ja を **Mac-App-first に全面再構成** + macapp/README 配布節更新 | **✅ 完了**（2026-07-04、未コミット。Fable レビュー反映済） |
 | 7b-i | Mac App ヒーロー画像 + デモ動画 | **✅ 完了**（`images/macapp-hero.png` 0.6M をコミット。デモは **mp4 → GitHub attachment → README に URL 埋め込み**方式に変更（gif は不採用）。source `demo_macapp.mov` / 派生 `macapp-demo.mp4` は `.gitignore`(`*.mov`/`*.mp4`) で除外し GitHub ホスト。README Demo 節に hero + attachment URL 配線済） |
-| 7b-ii | 紹介ページ（`site/` 1枚 + pages.yml デプロイ） | **未着手** |
+| 7b-ii | 紹介ページ（`site/` 1枚 + pages.yml デプロイ） | **✅ 実装済・未コミット**（2026-07-04。`site/index.html` = dark mission-control LP、シグネチャ=PBIボード移動アニメ[FLIP]・タイプライタ端末・エージェント編成図、macOS標準フォント・完全自己完結・SEO全タグ[OG/Twitter/JSON-LD SoftwareApplication]。`site/assets/macapp-hero.png` / `robots.txt` / `sitemap.xml` / `.github/workflows/pages.yml`[site/** push でPages公開]。Fable ビルド→事実監査済[demo長さ90秒・build時間・偽DLリンク不在を修正/確認]。**ユーザーのデザインレビュー待ち + GH Actions Pages 実走未検証**） |
 | 8 | 法務（利用規約/プライバシー）+ クリーン環境 QA + サポート + 任意 Sparkle | **未着手** |
 
 **コミット済 (branch `fix/cleanup-audit-20260702`, 未push)**: `6815b0b`
 (Phase1/3/4/5 + Settings UX)。関連メモリ: `project_macapp_phase3_cicd` /
 `project_macapp_release_plan`。
 
-**次セッションの着手候補**: Phase 7b（`site/` 紹介ページ + `pages.yml` + macapp
-スクショ/GIF 撮影）または Phase 6（tap/cask、ただし Release 資産が出るまで検証不可）。
+**次セッションの着手候補**: Phase 6（tap/cask 雛形、ただし Release 資産が出るまで
+実検証不可）、または Phase 8（法務/QA/サポート）。Phase 7b-ii の LP は実装済で
+**ユーザーのデザインレビュー + コミット判断待ち**（本番デプロイは main へ push 後
+`pages.yml` が発火、GitHub Pages を repo Settings で有効化する必要あり）。
 Phase 0 完了後は Secrets 7件投入 → Phase 2 署名検証。
 
 **Phase 7a 完了メモ (2026-07-04、Fable レビュー2巡目反映)**: `README.md` /

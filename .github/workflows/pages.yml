@@ -1,0 +1,48 @@
+name: Deploy landing page
+
+# Publishes the marketing landing page in `site/` to GitHub Pages. Fires on
+# pushes to `main` that touch `site/**` (so unrelated commits don't redeploy)
+# and can be run on demand from the Actions tab. The site is a static,
+# self-contained one-pager — no build step, just upload the directory.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Least-privilege token: read the repo, write the Pages deployment, and mint
+# the OIDC token that `actions/deploy-pages` exchanges for the deploy.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one in-flight Pages deploy at a time; let a newer push supersede an
+# older run rather than queueing (do not cancel a run mid-deploy).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Upload site/ and deploy to Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site/ artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
