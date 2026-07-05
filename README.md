@@ -47,7 +47,7 @@ Vibe coding's speed is attractive, but order erodes as a project runs longer. Sp
   <img alt="ScrumTeam.app — the three-pane workspace" src="images/macapp-hero.png" width="900">
 </p>
 
-https://github.com/user-attachments/assets/cb40730c-4b58-42a5-9310-e73864860c1e
+https://github.com/user-attachments/assets/859cb18f-91a0-4248-8417-e148b5629cc9
 
 **ScrumTeam.app** brings the information and controls you need for Scrum development into a single window.
 
