@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sohei56/claude-scrum-team/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sohei56/claude-scrum-team?style=flat-square&color=blue" alt="License"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
@@ -244,4 +244,15 @@ claude-scrum-team/
 
 ## License
 
-[MIT](LICENSE)
+本リポジトリはライセンスが分かれています。
+
+- **フレームワーク**（`macapp/` 以外のすべて）は
+  [MIT License](LICENSE) のオープンソースです。
+- `macapp/` 配下の **Mac アプリ**はソース公開型の商用ライセンス
+  [`macapp/LICENSE`](macapp/LICENSE) です。ソースからのビルドと、
+  個人利用・社内利用は自由ですが、再配布・転売・派生ビルドの配布は
+  禁止されています。
+
+コントリビューションには一度きりの
+[Contributor License Agreement](docs/CLA.md) への署名が必要です。詳細は
+[CONTRIBUTING.md](CONTRIBUTING.md#licensing-and-cla) を参照してください。

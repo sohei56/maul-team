@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sohei56/claude-scrum-team/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sohei56/claude-scrum-team?style=flat-square&color=blue" alt="License"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
@@ -241,4 +241,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
 
 ## License
 
-[MIT](LICENSE)
+This repository is split:
+
+- The **framework** — everything outside `macapp/` — is open source
+  under the [MIT License](LICENSE).
+- The **Mac app** under `macapp/` is source-available under a
+  commercial license, [`macapp/LICENSE`](macapp/LICENSE). You are free
+  to build it from source and use it personally or within your own
+  organization; redistribution, resale, and distributing derivative
+  builds are not permitted.
+
+Contributions require a one-time [Contributor License
+Agreement](docs/CLA.md) signature — see
+[CONTRIBUTING.md](CONTRIBUTING.md#licensing-and-cla).

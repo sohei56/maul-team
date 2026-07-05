@@ -1,5 +1,30 @@
 # Contributing to claude-scrum-team
 
+## Licensing and CLA
+
+This repository uses a split license:
+
+- The **framework** — everything outside `macapp/` — is open source
+  under the [MIT License](LICENSE).
+- The **Mac app** — everything under `macapp/` — is source-available
+  under a commercial license, [`macapp/LICENSE`](macapp/LICENSE). You
+  may build and use it personally or internally, but you may not
+  redistribute or resell it.
+
+All contributions, to either part of the repository, require a
+one-time signature of the [Contributor License Agreement](docs/CLA.md).
+A bot prompts you on your first pull request; to sign, post this
+comment, exactly as written, on that pull request:
+
+```
+I have read the CLA Document and I hereby sign the CLA
+```
+
+The signature is recorded once and covers your future contributions.
+Contributions to `macapp/` are released to end users under the terms
+of [`macapp/LICENSE`](macapp/LICENSE); see the CLA for the full rights
+you grant.
+
 ## Development Setup
 
 ```bash
