@@ -1,3 +1,14 @@
+LICENSE SCOPE
+-------------
+
+The MIT License below applies to all files in this repository EXCEPT
+the `macapp/` directory. Everything under `macapp/` (the ScrumTeam
+macOS application) is licensed separately under a source-available
+commercial license; see `macapp/LICENSE`. Nothing in this file grants
+any rights to the contents of `macapp/`.
+
+-------------
+
 MIT License
 
 Copyright (c) 2026 sohei56
