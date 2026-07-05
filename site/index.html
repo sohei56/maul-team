@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0a0b">
 <link rel="icon" type="image/png" href="./assets/app-icon.png">
-<title>ScrumTeam.app — Hand your project to an AI Scrum team</title>
-<meta name="description" content="ScrumTeam.app is the native Mac app that hands your project to a full AI Scrum team powered by Claude Code Agent Teams — autonomous Sprints, you stay Product Owner.">
+<title>ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
+<meta name="description" content="An open-source AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command. You stay Product Owner.">
 <link rel="canonical" href="https://sohei56.github.io/claude-scrum-team/">
-<meta property="og:title" content="ScrumTeam.app — Hand your project to an AI Scrum team">
-<meta property="og:description" content="A native Mac app — or one shell command — hands your project to a full AI Scrum team, powered by Claude Code Agent Teams. You stay in the Product Owner seat.">
+<meta property="og:title" content="ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<meta property="og:description" content="An open-source AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command. You stay Product Owner.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://sohei56.github.io/claude-scrum-team/">
 <meta property="og:image" content="https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ScrumTeam.app — Hand your project to an AI Scrum team">
-<meta name="twitter:description" content="A native Mac app — or one shell command — hands your project to a full AI Scrum team, powered by Claude Code Agent Teams. You stay in the Product Owner seat.">
+<meta name="twitter:title" content="ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<meta name="twitter:description" content="An open-source AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command. You stay Product Owner.">
 <meta name="twitter:image" content="https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png">
 <script type="application/ld+json">
 {
@@ -31,12 +31,70 @@
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "license": "https://opensource.org/licenses/MIT",
       "author": { "@type": "Person", "name": "sohei56", "url": "https://github.com/sohei56" },
-      "downloadUrl": "https://github.com/sohei56/claude-scrum-team"
+      "downloadUrl": "https://github.com/sohei56/claude-scrum-team",
+      "alternateName": ["claude-scrum-team", "Claude Scrum Team"],
+      "applicationSubCategory": "AI Agent Orchestration",
+      "keywords": "AI scrum team, Claude Code multi-agent, autonomous AI development team, AI dev team Mac app, open-source AI agents",
+      "screenshot": "https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png",
+      "sameAs": ["https://github.com/sohei56/claude-scrum-team"],
+      "featureList": [
+        "Multi-agent Scrum Master + Developer orchestration on Claude Code",
+        "Full Sprint lifecycle: requirements, planning, PBI pipeline, cross-review, retrospective, UAT",
+        "Native SwiftUI Mac app with live Sprint board",
+        "Autonomous PO mode",
+        "Cross-model (Codex) review of every artifact"
+      ]
     },
     {
       "@type": "WebSite",
       "name": "ScrumTeam.app",
+      "alternateName": "Claude Scrum Team",
       "url": "https://sohei56.github.io/claude-scrum-team/"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do AI agents actually run a Scrum sprint?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree, with a different model family reviewing every artifact. Merges are gated by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a prompt chain."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is this autonomous AI development, or am I babysitting prompts?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sprint execution is hands-off; you make Product-Owner decisions at the gates. --autonomous mode runs fully unattended."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is ScrumTeam.app open source and self-hosted?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "MIT-licensed, runs entirely on your Mac against your own Claude Code install. No SaaS; no code leaves your machine except to the Claude API you already use."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need the Mac app, or can I use the terminal?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "One shell command runs the identical pipeline in tmux. The Mac app is the friendly front door, not a requirement."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is this different from Devin or other AI software engineers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; open source, not closed SaaS; and you hold the Product Owner seat."
+          }
+        }
+      ]
     }
   ]
 }
@@ -512,7 +570,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · open source</p>
     <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
     <p class="hero-sub hload d3">
-      A native Mac app — or one shell command — puts a full AI Scrum team on your project,
+      A native Mac app — or one shell command — puts a full, autonomous AI Scrum team on your project,
       powered by Claude Code Agent Teams. A Scrum&nbsp;Master coordinates Developer agents
       through Sprint cycles. You stay in the <strong>Product&nbsp;Owner</strong> seat.
     </p>
@@ -733,7 +791,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <h3>One command. Same team.</h3>
         <p>The Mac app wraps the open-source <span class="mono">claude-scrum-team</span> framework —
            launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
-           identical pipeline in tmux.</p>
+           identical pipeline in tmux. Everything runs on your machine, on your Claude
+           subscription — self-hosted by construction.</p>
         <p>Agents report facts, not vibes: status transitions, coverage numbers, merge results.
            When something is genuinely unclear, the team escalates to you instead of guessing.</p>
       </div>
@@ -795,7 +854,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
       <!-- orchestration diagram -->
       <article class="feature orch reveal" style="--d:.03s">
-        <h3>Multi-agent coordination</h3>
+        <h3>Multi-agent orchestration, native to Claude Code</h3>
         <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
            orchestrating up to 6 parallel Developer agents, one per PBI. Each Developer is
            itself a conductor, spawning per-round specialist sub-agents.</p>
@@ -857,7 +916,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">⌘</span>
         <h3>Native Mac app</h3>
-        <p>The whole team in one window — editor, Scrum Master terminal, Work Log,
+        <p>Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
            and dashboard. SwiftUI, not Electron.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
@@ -916,7 +975,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="kicker reveal">Get started</p>
     <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
     <p class="lede reveal" style="--d:.12s">
-      ScrumTeam.app is open source and pre-notarization. Today the working path is a
+      ScrumTeam.app is MIT-licensed, open source, and pre-notarization. Today the working path is a
       source build — four commands, no surprises.
     </p>
 
@@ -957,6 +1016,51 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask scrumteam</div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <p class="kicker reveal">Questions</p>
+    <h2 id="faq-h" class="reveal" style="--d:.06s">The parts people<br>ask about twice.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Short answers to what a "team of AI agents running Scrum" actually means in practice.
+    </p>
+
+    <div class="feature-grid">
+      <article class="feature reveal" style="--d:.03s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>How do AI agents actually run a Scrum sprint?</h3>
+        <p>A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
+           item. Each Developer designs, implements, and writes black-box unit tests in its own
+           git worktree, with a different model family reviewing every artifact. Merges are gated
+           by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a
+           prompt chain.</p>
+      </article>
+      <article class="feature reveal" style="--d:.06s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Is this autonomous AI development, or am I babysitting prompts?</h3>
+        <p>Sprint execution is hands-off; you make Product-Owner decisions at the gates.
+           <span class="f-mono">--autonomous</span> mode runs fully unattended.</p>
+      </article>
+      <article class="feature reveal" style="--d:.09s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Is ScrumTeam.app open source and self-hosted?</h3>
+        <p>MIT-licensed, runs entirely on your Mac against your own Claude Code install.
+           No SaaS; no code leaves your machine except to the Claude API you already use.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Do I need the Mac app, or can I use the terminal?</h3>
+        <p>One shell command runs the identical pipeline in tmux. The Mac app is the friendly
+           front door, not a requirement.</p>
+      </article>
+      <article class="feature reveal" style="--d:.15s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>How is this different from Devin or other AI software engineers?</h3>
+        <p>A whole team of agents with real Scrum gates, not a single autonomous engineer;
+           open source, not closed SaaS; and you hold the Product Owner seat.</p>
+      </article>
     </div>
   </section>
 

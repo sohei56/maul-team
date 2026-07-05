@@ -211,6 +211,17 @@ sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/b
 
 `scrum-start.sh` は Claude Code が **2.1.172** より前のバージョンの場合に警告を表示します。**サブエージェントがさらにサブエージェントを spawn する機能は Claude Code 2.1.172 で解禁されました** ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md))。
 
+アップグレード方法:
+
+- **Homebrew** — 標準の `claude-code` cask は 2.1.153 で固定されているため、rolling-release cask に切り替える:
+  ```bash
+  brew uninstall --cask claude-code
+  brew install --cask claude-code@latest
+  ```
+- **ネイティブインストーラ** — `curl -fsSL https://claude.ai/install.sh | bash`
+
+`~/.claude/` 配下のセッション・メモリ・設定は、どちらのアップグレードでも保持されます。
+
 ## アーキテクチャ
 
 ```text

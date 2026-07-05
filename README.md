@@ -5,7 +5,7 @@
 <h1 align="center">claude-scrum-team</h1>
 
 <p align="center">
-  <strong>A native Mac app — or one shell command — hands your project to a full AI Scrum team, powered by Claude Code Agent Teams</strong>
+  <strong>An AI Scrum team for Claude Code — multi-agent coordination via Agent Teams drives your entire Scrum workflow</strong>
 </p>
 
 <p align="center">
@@ -49,50 +49,43 @@ Vibe coding's speed is attractive, but order erodes as a project runs longer. Sp
 
 https://github.com/user-attachments/assets/cb40730c-4b58-42a5-9310-e73864860c1e
 
-**ScrumTeam.app** puts the whole team in one window: pick or create a project, then watch the Scrum Master run the Sprint in an embedded terminal while a native dashboard tracks the PBI board and a tabbed editor lets you read the code as it lands.
+**ScrumTeam.app** brings the information and controls you need for Scrum development into a single window.
+
+Pick or create a project, then talk to the Scrum Master in the embedded terminal. A native dashboard shows Product and Sprint status, the PBI list, and progress — and you can watch agent activity and the code being generated.
 
 ## Get Started
 
-The easiest way in is the **Mac App** — a native macOS window that wraps the whole framework (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard). Prefer a terminal, or on Linux? Jump to [Command line](#command-line-advanced).
+The easiest way in is the **Mac App** — a native macOS app that wraps the whole framework. On Linux, or if you prefer a terminal, you can also use the [command line](#command-line-advanced).
 
 ### Install (early access — build from source)
 
-> **Early access.** ScrumTeam.app currently builds locally with Xcode 15+ (one script, ~2 min after the first dependency fetch). A signed, notarized `.dmg` and a Homebrew tap will ship with the first notarized release, which is pending Apple Developer enrollment. Until then, build it locally:
-
-```bash
-git clone git@github.com:sohei56/claude-scrum-team.git
-cd claude-scrum-team
-sh macapp/scripts/make-app.sh          # build build/ScrumTeam.app (add `release` for a universal2 build)
-open macapp/build/ScrumTeam.app
-```
+> TODO: enumerate the Mac App install methods (.dmg, Homebrew, GitHub release)
 
 **Requirements:**
 
-- **macOS 13+** and **Xcode 15+** (Swift 5.9+) for the source build, plus network access on the first build (to fetch [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm))
-- **Claude Code CLI** on PATH, **2.1.172 or later** — the app runs `scrum-start.sh`, whose PBI pipeline relies on sub-agents spawning further sub-agents (unlocked in 2.1.172). See [Claude Code version](#claude-code-version)
-- **Python 3.9+** — `scrum-start.sh` validates it at launch and installs `textual` + `watchdog` if missing (the Mac App's own dashboard is native SwiftUI, but the launcher still checks these)
+> TODO: a local build shouldn't be required — narrow this to the OS/library prerequisites for *running* the Mac App. List Codex as optional-but-recommended.
 
-### First run
-
-- **Point it at the framework** — the app auto-detects your `claude-scrum-team` checkout; set it in **Settings (⌘,)** if it isn't found.
-- **Pick or create a project** — open an existing folder, or **New Project** deploys the framework (agents, skills, hooks, rules) into a fresh one — the same setup `scrum-start.sh` performs.
-- **One window, the whole team** — left: a file tree + tabbed editor (syntax highlighting, detachable windows, framework files lock-marked); center: the Scrum Master terminal + a native Work Log of agent activity; right: a native dashboard — sprint overview, PBI board (click any PBI for details), integration test results.
-- **Run the Sprint** — talk to the Scrum Master in the terminal: describe your product, answer the requirements interview, approve Sprint Goals, watch PBIs move across the board, and review each demo. You are the Product Owner; the team does the rest.
-- **Edit alongside the run** — open the code the team is writing in tabs while the Sprint progresses.
-- **Step away** — back in the picker, choose **Keep Running** and the session keeps working in the background (green **Running** lamp), re-attaching with full scrollback when you return. (Sessions end when you quit the app.)
+| Requirement | Version | Purpose / notes |
+|------|-----------|-----------|
+| **macOS + Xcode** | macOS 13+ / Xcode 15+ (Swift 5.9+) | For the source build; the first build needs network access to fetch [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) |
+| **Claude Code CLI** | 2.1.172 or later (on PATH) | The app runs `scrum-start.sh`, whose PBI pipeline relies on sub-agents spawning further sub-agents (unlocked in 2.1.172). See [Claude Code version](#claude-code-version) |
+| **Python** | 3.9+ | `scrum-start.sh` validates it at launch and installs `textual` + `watchdog` if missing (the Mac App's dashboard is native SwiftUI, but the launcher still checks these) |
 
 See [macapp/README.md](macapp/README.md) for the full architecture — editor, background sessions, bundled-framework resolution, and distribution status.
 
 ### What a Sprint looks like
 
-1. **You describe your project** — the Scrum Master spawns a Requirements Analyst to elicit requirements, research similar products via web search, and write `requirements.md`
-2. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
-3. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
-4. **PBI Pipeline (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage measurement. On PBI completion the SM merges that PBI immediately (`--no-ff` + per-merge regression gate, 3-strike escalation).
-5. **Cross-Review** — once all PBIs are merged, the SM spawns 5 aspect-specialized reviewer sub-agents (requirement-conformance, functional-quality, security, maintainability, docs-consistency) in parallel over the whole Sprint Increment
-6. **Sprint Review** — the SM launches the app and demos every completed PBI; you confirm each works
-7. **Retrospective** — the team reflects and records improvements for the next Sprint
-8. **Repeat** until the Product Goal is achieved, then **Integration Tests** derives boundary-value and branch-coverage test cases from the design specs and runs them (smoke + API/UI automation), followed by **UAT & Release** — a final user-story-driven UAT and the go/no-go release decision
+1. **Co-author a product brief** — for a new project, `docs/product/brief.md` is co-written interactively; the brief becomes the foundation for everything that follows
+2. **Requirement Definition** — the Scrum Master spawns a Requirements Analyst to elicit requirements and write `requirements.md`
+3. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
+4. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
+5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage. The SM merges each PBI on completion.
+6. **Cross-Review** — once all PBIs are merged, the SM spawns 5 aspect-specialized reviewer sub-agents (requirement-conformance, functional-quality, security, maintainability, docs-consistency) in parallel over the whole Sprint Increment
+7. **Sprint Review** — the SM launches the app and demos each completed PBI in turn; you confirm each works
+8. **Retrospective** — the team reflects and records improvements for future Sprints
+9. **Repeat** from step 3 until the Product Goal is achieved; then advance to the two closing phases:
+10. **Integration Tests** — derive boundary-value and branch-coverage test cases from the design specs and run them (smoke + API/UI automation)
+11. **UAT & Release** — a user-story-driven UAT and the go/no-go release decision
 
 ## Your role as Product Owner
 
@@ -100,23 +93,23 @@ See [macapp/README.md](macapp/README.md) for the full architecture — editor, b
 |--------|-----------------|
 | Describe what you want to build | Elicit and write detailed requirements |
 | Approve Sprint Goals | Plan Sprints and assign PBIs |
-| Review demos in the running app | Design, implement, and run cross-review on the Increment |
-| Report defects during UAT | Fix defects and re-test automatically |
+| Review demos in the running app | Design and implement the Increment, and run cross-review |
+| Report defects during UAT | Fix defects and re-test |
 | Make release decisions | Run automated test suites |
 
-> The PO seat can also be delegated to the `product-owner` agent via `po_mode=agent` (autonomous mode); decisions are persisted to `.scrum/po/decisions.json`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
+> The PO seat can also be delegated to the `product-owner` agent via `po_mode=agent` (autonomous mode). See [docs/autonomous-mode.md](docs/autonomous-mode.md).
 
 ## Features
 
-- **Native Mac app** — ScrumTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard). It wraps the same framework, so Sprints, agents, and `.scrum/` state are identical to the command line. See [Get Started](#get-started).
-- **18 Skills** (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI pipeline (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, integration testing, and UAT & release
-- **Multi-agent coordination** — Scrum Master (Delegate mode) orchestrates up to 6 parallel Developer agents per Sprint (1 Developer per PBI, capped at 6)
-- **Autonomous PO mode** (`--autonomous`, command line) — runs the team end-to-end with an AI Product Owner (`po_mode=agent`). An outer Ralph-Loop watchdog (`scripts/autonomous/watchdog.sh`) re-launches headless Claude sessions, enforces safety valves (iterations / wall clock / Sprints / consecutive failures / per-phase Stop-block budget) and writes a morning report to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
-- **Design document governance** — immutable catalog (`catalog.md`) with editable enablement config (`catalog-config.json`) enforced by status-gate hooks, controlling the documents AI agents are allowed to create
+- **Native Mac app** — ScrumTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
+- **18 Skills** covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI Development (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, integration testing, and UAT & release
+- **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
+- **Autonomous PO mode** — replace even the PO with an AI Product Owner to drive development end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
+- **Design document governance** — an immutable catalog (`catalog.md`) plus an editable enablement config (`catalog-config.json`), enforced by status-gate hooks, control the documents AI agents are allowed to create
 - **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow enforcement (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates (Definition of Done), session context restoration, plus an external stall watchdog (`scripts/stall-watchdog.sh`) in human mode — turning the behaviors you want agents to follow into mechanisms
-- **State persistence** — all state in `.scrum/` JSON files for full session resume capability
-- **Automated testing** — Integration Tests runs smoke tests (unit + e2e) plus design-driven test cases covering boundary values and flow/pattern branches, automated as committed API + Playwright UI tests; UAT & Release then runs a story-driven UAT (Playwright MCP / Chrome DevTools MCP-assisted) and the release decision
+- **State persistence** — all state is saved to `.scrum/` JSON files; sessions resume
 - **Retrospective-driven improvement** — improvements from past Sprints are applied automatically
+- **Automated testing** — Integration Tests derives design-driven test cases covering boundary values and flow/pattern branches on top of smoke tests (unit + e2e), automated as committable API + Playwright UI tests; UAT & Release then runs a story-driven UAT (Playwright MCP / Chrome DevTools MCP-assisted) and the release decision
 
 ### AI-Specific Adaptations
 
@@ -171,16 +164,16 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  └──────────┬──────────────────────────┬───────────────────────┘
             │                          │
             ▼                          ▼
-     Next Sprint N+1   ┌───────────────────────────────────────┐
-                       │  Integration Tests ──▶ UAT & Release  │
-                       │  Smoke ──▶ Design-Driven Cases ──▶    │
-                       │  Stub/Automate ──▶ UAT ──▶ Release    │
-                       └───────────────────────────────────────┘
+     Next Sprint N+1   ┌──────────────────────────────┐   ┌──────────────────────────┐
+                       │  Integration Tests           │──▶│  UAT & Release           │
+                       │  Smoke ──▶ Design-Driven     │   │  Story-Driven UAT ──▶    │
+                       │  Cases ──▶ Stub/Automate     │   │  Release Decision        │
+                       └──────────────────────────────┘   └──────────────────────────┘
 ```
 
 ## Command line (advanced)
 
-Prefer a terminal — or running headless, remote, or on Linux? The same framework runs from the shell, and this path is required for **autonomous mode**.
+Prefer a terminal, or want to run headless, remote, or on Linux? The same framework runs from the shell.
 
 ```bash
 # Clone the repository
@@ -196,24 +189,24 @@ sh /path/to/claude-scrum-team/scrum-start.sh
 sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 
-The script validates prerequisites (auto-installing `textual` and `watchdog` if missing), copies agent definitions, Skills, hooks, shared rules, and the design catalog to your project's `.claude/` directory, and launches a tmux session with Claude Code (Scrum Master) and the TUI dashboard.
+The script launches a tmux session with Claude Code (the Scrum Master) and the TUI dashboard.
 
 <p align="center">
   <img alt="scrum-start.sh demo" src="images/demo.gif" width="800">
 </p>
 
-> Already deployed this framework to a project before? Re-run `scrum-start.sh` to refresh `.claude/` — it is a copied snapshot, not a live link, so Skill renames/additions (e.g. the Integration Sprint split into `integration-tests` + `uat-release`) only reach an existing project after a re-run.
+> Already deployed this framework to a project before? Re-run `scrum-start.sh` to refresh `.claude/` — it is a copied snapshot, not a live link, so changes to Skills and the like only take effect after a re-run.
 
-For detailed setup instructions, see [quickstart.md](docs/quickstart.md). For autonomous-mode operation (safety valves, Stop-block budgets, morning report), see [docs/autonomous-mode.md](docs/autonomous-mode.md).
+For detailed setup, see [quickstart.md](docs/quickstart.md); for autonomous-mode operation (safety valves, Stop-block budgets, morning report), see [docs/autonomous-mode.md](docs/autonomous-mode.md).
 
 ### Command-line prerequisites
 
-- **Claude Code CLI** ≥ **2.1.172** and **Python 3.9+** — the shared prerequisites above under [Get Started](#install-early-access--build-from-source)
+- **Claude Code CLI** ≥ **2.1.172** and **Python 3.9+** — see the shared prerequisites under [Get Started](#install-early-access--build-from-source)
 - **tmux** (recommended) for the side-by-side dashboard layout
 
 #### Claude Code version
 
-`scrum-start.sh` emits a warning when Claude Code is older than **2.1.172**. The PBI pipeline (the `pbi-pipeline` skill) relies on the Developer sub-agent spawning further specialist sub-agents — `pbi-designer`, `pbi-implementer`, `pbi-ut-author`, and the `codex-{design,impl,ut}-reviewer` trio. **Sub-agents spawning further sub-agents was unlocked upstream in Claude Code 2.1.172** ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)). On older versions the Developer's tool surface lacks `Agent` / `Task` and the pipeline halts at the design stage.
+`scrum-start.sh` emits a warning when Claude Code is older than **2.1.172**. **Sub-agents spawning further sub-agents was unlocked in Claude Code 2.1.172** ([changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)).
 
 Upgrade paths:
 
@@ -228,18 +221,19 @@ Sessions, memory, and settings under `~/.claude/` are preserved across either up
 
 ## Architecture
 
-- **`scrum-start.sh`** — Entry point: validates prereqs, runs `scripts/setup-user.sh` internally to copy agents/skills/hooks/rules into the target project, then launches tmux. Supports `--autonomous --brief <file> --max-sprints <N>`.
-- **`macapp/`** — Native macOS shell (SwiftUI + SwiftTerm): project picker, tabbed editor, embedded Scrum Master terminal, and a native dashboard, all driving the same `scrum-start.sh`. See [macapp/README.md](macapp/README.md).
-- **`agents/`** — 4 top-level agents (Scrum Master in Delegate mode, Developer, Product Owner, Requirements Analyst) plus 11 specialist sub-agents (5 cross-review reviewers + 6 PBI Pipeline sub-agents, including the Codex-CLI cross-model reviewers). Catalog: [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
-- **`skills/`** — 18 Skills (16 Scrum ceremonies + 1 PO acceptance + 1 brief authoring) with mandatory Inputs/Outputs
-- **`hooks/`** — Status gates, path guards, branch-ops guard, single Stop entry (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates, session context. Plus `scripts/stall-watchdog.sh` (external teammate-stall monitor in human mode).
-- **`rules/`** — Cross-cutting Scrum context (team map, SSOT locations, communication protocol) auto-loaded by every agent via `.claude/rules/`
-- **`dashboard/app.py`** — Textual TUI with real-time panels (Sprint Overview, PBI Board, Work Log) for the command-line path
-- **`scripts/`** — Status line, user setup, contributor setup, autonomous-mode watchdog (`scripts/autonomous/`)
-- **`.scrum/`** — Runtime state (JSON, gitignored)
-- **`docs/design/`** — Design documents governed by `catalog.md` (read-only) + `catalog-config.json` (enabled list)
-
-Per-PBI cross-model review is performed by the `codex-{design,impl,ut}-reviewer` sub-agents, which shell out to the OpenAI Codex CLI (`codex`). No bundled MCP-server bridge is required.
+```text
+claude-scrum-team/
+├── scrum-start.sh    # Entry point; supports --autonomous --brief <file> --max-sprints <N>
+├── macapp/           # Native macOS shell (SwiftUI + SwiftTerm): project picker, tabbed editor, terminal, dashboard
+├── agents/           # Agents
+├── skills/           # Skills
+├── hooks/            # Behavior and quality-enforcement gates
+├── rules/            # Cross-cutting Scrum context (team map, SSOT locations, comms protocol)
+├── dashboard/app.py  # Textual TUI (Sprint Overview / PBI Board / Work Log; CLI path)
+├── scripts/          # Status line, user/contributor setup, autonomous-mode watchdog
+├── docs/design/      # catalog.md (read-only) + catalog-config.json (enabled list)
+└── .scrum/           # Runtime state (JSON, gitignored)
+```
 
 ## Development
 
