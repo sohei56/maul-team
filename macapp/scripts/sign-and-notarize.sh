@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ScrumTeam for Mac
+# Copyright (c) 2026 sohei56. All rights reserved.
+#
+# Source-available; NOT covered by this repository's MIT License.
+# See macapp/LICENSE for terms.
+#
 # sign-and-notarize.sh — notarize + staple a Developer-ID-signed ScrumTeam build.
 #
 # make-app.sh already CODESIGNS the .app (Developer ID + Hardened Runtime) and

@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ScrumTeam for Mac
+# Copyright (c) 2026 sohei56. All rights reserved.
+#
+# Source-available; NOT covered by this repository's MIT License.
+# See macapp/LICENSE for terms.
+#
 # make-dmg.sh — package build/ScrumTeam.app into a distributable .dmg.
 #
 # Zero external dependencies: uses hdiutil (always present on macOS), not

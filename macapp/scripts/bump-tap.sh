@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ScrumTeam for Mac
+# Copyright (c) 2026 sohei56. All rights reserved.
+#
+# Source-available; NOT covered by this repository's MIT License.
+# See macapp/LICENSE for terms.
+#
 # bump-tap.sh — render the Homebrew cask for the current Release and push it to
 # the personal tap (distribution channel ③). Runs in release.yml AFTER the DMG
 # and its .sha256 are built and uploaded.

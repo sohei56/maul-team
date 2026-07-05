@@ -1,3 +1,11 @@
+//
+// ScrumTeam for Mac
+// Copyright (c) 2026 sohei56. All rights reserved.
+//
+// Source-available; NOT covered by this repository's MIT License.
+// See macapp/LICENSE for terms.
+//
+
 import Foundation
 
 /// How the Scrum team is launched for a project. Chosen in the picker before a

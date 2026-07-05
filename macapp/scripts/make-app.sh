@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ScrumTeam for Mac
+# Copyright (c) 2026 sohei56. All rights reserved.
+#
+# Source-available; NOT covered by this repository's MIT License.
+# See macapp/LICENSE for terms.
+#
 # make-app.sh — build ScrumTeam and assemble a runnable .app bundle.
 #
 # Produces build/ScrumTeam.app with an Info.plist and an app icon. Signing

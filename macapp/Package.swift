@@ -1,4 +1,13 @@
 // swift-tools-version: 5.9
+
+//
+// ScrumTeam for Mac
+// Copyright (c) 2026 sohei56. All rights reserved.
+//
+// Source-available; NOT covered by this repository's MIT License.
+// See macapp/LICENSE for terms.
+//
+
 import PackageDescription
 
 // ScrumTeam — native macOS shell for the claude-scrum-team framework.

@@ -1,3 +1,11 @@
+//
+// ScrumTeam for Mac
+// Copyright (c) 2026 sohei56. All rights reserved.
+//
+// Source-available; NOT covered by this repository's MIT License.
+// See macapp/LICENSE for terms.
+//
+
 import SwiftUI
 
 /// Center editor area: a tab strip over the open files plus the active editor.
