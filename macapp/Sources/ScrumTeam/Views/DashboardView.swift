@@ -1,3 +1,11 @@
+//
+// ScrumTeam for Mac
+// Copyright (c) 2026 sohei56. All rights reserved.
+//
+// Source-available; NOT covered by this repository's MIT License.
+// See macapp/LICENSE for terms.
+//
+
 import SwiftUI
 
 /// Native project dashboard (right pane): project/sprint overview, the PBI
@@ -6,7 +14,6 @@ struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @State private var selected: BacklogItem?
     @State private var pbiScope: PBIScope = .current
-    @State private var showScrumBoard = false
 
     enum PBIScope: String, CaseIterable, Identifiable {
         case current = "Current", all = "All"
@@ -14,25 +21,27 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if let r = model.lastRefresh {
-                    HStack {
-                        Spacer()
-                        Text("as of \(Self.clock.string(from: r))")
-                            .font(.caption2.monospaced()).foregroundStyle(.secondary)
-                    }
+        // Project/sprint stay pinned; only the PBI board (and the
+        // integration card that trails it) scroll below them.
+        VStack(alignment: .leading, spacing: 12) {
+            if let r = model.lastRefresh {
+                HStack {
+                    Spacer()
+                    Text("as of \(Self.clock.string(from: r))")
+                        .font(.caption2.monospaced()).foregroundStyle(.secondary)
                 }
-                projectCard
-                sprintCard
-                pbiBoard
-                // Release-stage phases fold these results into sprintCard;
-                // show the standalone card only outside those phases (e.g. a
-                // backlog_created defect-fix loop after a failed run).
-                if model.testResults != nil && !releaseStage { integrationCard }
             }
-            .padding(12)
+            projectCard
+            sprintCard
+            // PBI board fills the remaining height; its picker + buttons are a
+            // fixed header and only the PBI rows scroll (see `pbiBoard`).
+            pbiBoard
+            // Release-stage phases fold these results into sprintCard;
+            // show the standalone card only outside those phases (e.g. a
+            // backlog_created defect-fix loop after a failed run).
+            if model.testResults != nil && !releaseStage { integrationCard }
         }
+        .padding(12)
         .textSelection(.enabled)
         .sheet(item: $selected) { item in
             PBIDetailView(item: item, pbiState: model.pbiStates[item.id])
@@ -198,7 +207,7 @@ struct DashboardView: View {
                 .labelsHidden()
 
                 Button {
-                    showScrumBoard = true
+                    ScrumBoardWindowController.shared.open(model: model)
                 } label: {
                     Label("Open Scrum Board", systemImage: "rectangle.split.3x1")
                         .font(.caption.weight(.medium))
@@ -211,17 +220,17 @@ struct DashboardView: View {
                     Text(pbiScope == .current ? "No PBIs in the current sprint" : "No PBIs")
                         .foregroundStyle(.secondary).font(.subheadline)
                 } else {
-                    VStack(spacing: 0) {
-                        ForEach(items) { item in
-                            pbiRow(item)
-                            if item.id != items.last?.id { Divider() }
+                    // Only the rows scroll; the picker + buttons above stay put.
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(items) { item in
+                                pbiRow(item)
+                                if item.id != items.last?.id { Divider() }
+                            }
                         }
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showScrumBoard) {
-            ScrumBoardView(model: model)
         }
     }
 

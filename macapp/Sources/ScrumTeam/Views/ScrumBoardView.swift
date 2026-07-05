@@ -1,3 +1,11 @@
+//
+// ScrumTeam for Mac
+// Copyright (c) 2026 sohei56. All rights reserved.
+//
+// Source-available; NOT covered by this repository's MIT License.
+// See macapp/LICENSE for terms.
+//
+
 import SwiftUI
 
 /// A live Kanban of the current Sprint's PBIs across the real PBI-pipeline
@@ -12,7 +20,10 @@ import SwiftUI
 /// app.
 struct ScrumBoardView: View {
     @ObservedObject var model: DashboardModel
-    @Environment(\.dismiss) private var dismiss
+    /// Closes the host window. Injected because the board now lives in a
+    /// standalone `NSWindow` (see `ScrumBoardWindowController`), where
+    /// SwiftUI's `@Environment(\.dismiss)` has nothing to dismiss.
+    var onClose: () -> Void
     @Namespace private var cardNS
 
     private var items: [BacklogItem] { model.sprintItems }
@@ -59,7 +70,7 @@ struct ScrumBoardView: View {
                 Text("updated \(Self.clock.string(from: r))")
                     .font(.caption2.monospaced()).foregroundStyle(.secondary)
             }
-            Button("Done") { dismiss() }
+            Button("Done") { onClose() }
                 .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
