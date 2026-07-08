@@ -1,9 +1,9 @@
-# Architecture: AI-Powered Scrum Team
+# Architecture: Maul Team
 
 ## Overview
 
 This document records the nine key architecture decisions (R1-R9) that
-shape the claude-scrum-team system. R1 establishes Agent Teams with
+shape the maul-team system. R1 establishes Agent Teams with
 Delegate mode as the orchestration model. R2-R3 define the TUI dashboard
 and testing strategy. R4-R5 cover state persistence and the shell script
 entry point. R6-R7 introduce Skills for ceremony execution and Hooks for

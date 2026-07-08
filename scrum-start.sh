@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scrum-start.sh — Entry point for the AI-Powered Scrum Team
+# scrum-start.sh — Entry point for Maul Team (AI-powered Scrum team)
 #
 # Usage (interactive / human-PO mode):
 #   sh scrum-start.sh

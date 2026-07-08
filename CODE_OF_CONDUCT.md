@@ -20,7 +20,7 @@ We expect all participants to:
 ## Enforcement
 
 Instances of unacceptable behavior may be reported to the project maintainers
-via [GitHub Security Advisories](https://github.com/sohei56/claude-scrum-team/security/advisories/new)
+via [GitHub Security Advisories](https://github.com/sohei56/maul-team/security/advisories/new)
 or by contacting the project team.
 
 All complaints will be reviewed and investigated and will result in a response

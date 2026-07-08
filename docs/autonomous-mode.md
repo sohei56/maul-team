@@ -90,15 +90,15 @@ Optional but recommended:
 
 ```bash
 # Bootstrap a brand-new project (no .scrum/state.json yet):
-sh /path/to/claude-scrum-team/scrum-start.sh --autonomous \
+sh /path/to/maul-team/scrum-start.sh --autonomous \
   --brief docs/product/brief.md \
   --max-sprints 3 --max-hours 12
 
 # Resume an existing autonomous run:
-sh /path/to/claude-scrum-team/scrum-start.sh --autonomous
+sh /path/to/maul-team/scrum-start.sh --autonomous
 
 # Overnight unattended run:
-sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --no-attach
+sh /path/to/maul-team/scrum-start.sh --autonomous --no-attach
 ```
 
 Flags accepted by `scrum-start.sh`:
@@ -403,7 +403,7 @@ Suggested smoke procedure (run once, in a throwaway directory):
 1. `mkdir -p ~/tmp/scrum-spike && cd ~/tmp/scrum-spike`
 2. `cat > brief.md <<'EOF'` ... a 30-line product brief for a
    trivial app (e.g., a CLI todo with one feature) ... `EOF`
-3. `sh /path/to/claude-scrum-team/scrum-start.sh --autonomous \`
+3. `sh /path/to/maul-team/scrum-start.sh --autonomous \`
    `  --brief brief.md --max-sprints 1 --max-hours 1 \`
    `  --max-sprints 1 --no-attach`
 4. Tail `tmux capture-pane -t scrum-team-... -p` and

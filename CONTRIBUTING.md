@@ -1,4 +1,4 @@
-# Contributing to claude-scrum-team
+# Contributing to Maul Team
 
 ## Licensing and CLA
 
@@ -29,8 +29,8 @@ you grant.
 
 ```bash
 # Clone the repository
-git clone https://github.com/sohei56/claude-scrum-team.git
-cd claude-scrum-team
+git clone https://github.com/sohei56/maul-team.git
+cd maul-team
 
 # Run the contributor setup script (installs dev deps + user setup)
 sh scripts/setup-dev.sh

@@ -57,7 +57,7 @@
   <text x="94" y="144" text-anchor="middle" fill="white" font-family="monospace" font-size="16" font-weight="bold">&lt;/&gt;</text>
 
   <!-- Title -->
-  <text x="140" y="72" fill="#0F172A" font-family="system-ui,sans-serif" font-size="36" font-weight="800" letter-spacing="-0.5">claude-scrum-team</text>
+  <text x="140" y="72" fill="#0F172A" font-family="system-ui,sans-serif" font-size="36" font-weight="800" letter-spacing="-0.5">Maul Team</text>
 
   <!-- Subtitle -->
   <text x="140" y="100" fill="#475569" font-family="system-ui,sans-serif" font-size="16" font-weight="400">AI-powered Scrum team for Claude Code</text>

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# ScrumTeam for Mac
+# MaulTeam for Mac
 # Copyright (c) 2026 sohei56. All rights reserved.
 #
 # Source-available; NOT covered by this repository's MIT License.
 # See macapp/LICENSE for terms.
 #
-# sign-and-notarize.sh — notarize + staple a Developer-ID-signed ScrumTeam build.
+# sign-and-notarize.sh — notarize + staple a Developer-ID-signed MaulTeam build.
 #
 # make-app.sh already CODESIGNS the .app (Developer ID + Hardened Runtime) and
 # make-dmg.sh signs the .dmg. This script does the remaining, Apple-online part:
@@ -22,8 +22,8 @@
 #
 # Usage:
 #   sign-and-notarize.sh [app|dmg|all]   # default: all
-#     app  — notarize + staple build/ScrumTeam.app
-#     dmg  — notarize + staple the newest build/ScrumTeam-*.dmg
+#     app  — notarize + staple build/MaulTeam.app
+#     dmg  — notarize + staple the newest build/MaulTeam-*.dmg
 #     all  — app, then run make-dmg.sh, then dmg (local one-shot)
 #
 # Auth (pick ONE; keychain profile is easiest locally):
@@ -35,7 +35,7 @@
 set -euo pipefail
 
 MODE="${1:-all}"
-APP_NAME="ScrumTeam"
+APP_NAME="MaulTeam"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$ROOT/build"
 APP="$BUILD/${APP_NAME}.app"
@@ -114,7 +114,7 @@ notarize_app() {
 
 newest_dmg() {
   # The *.dmg glob already excludes the *.dmg.sha256 sidecars; -t = newest first.
-  # shellcheck disable=SC2012  # filenames are ours (ScrumTeam-<ver>.dmg), no newlines
+  # shellcheck disable=SC2012  # filenames are ours (MaulTeam-<ver>.dmg), no newlines
   ls -t "$BUILD"/"${APP_NAME}"-*.dmg 2>/dev/null | head -1
 }
 

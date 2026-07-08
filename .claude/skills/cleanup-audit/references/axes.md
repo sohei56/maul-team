@@ -78,7 +78,7 @@ Sub-agents run in parallel and may all write into
 ## stale-refs (run FIRST, sequential)
 
 ```
-You are auditing the claude-scrum-team repo at `[REPO_PATH]` for
+You are auditing the maul-team repo at `[REPO_PATH]` for
 stale references to removed concepts. READ-ONLY. Do not modify any
 file.
 

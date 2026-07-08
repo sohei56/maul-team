@@ -1,6 +1,6 @@
 # Individual Contributor License Agreement
 
-Thank you for your interest in contributing to the `claude-scrum-team`
+Thank you for your interest in contributing to the `maul-team`
 project (the "Project"). This Individual Contributor License Agreement
 ("Agreement") documents the rights granted by contributors to the
 Project Owner. This Agreement is for your protection as a contributor

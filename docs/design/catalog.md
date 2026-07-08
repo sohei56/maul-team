@@ -34,7 +34,7 @@ The following rules are mandatory and enforceable:
 
 4. **No undocumented specs.** Do not create, request, or reference any
    specification document that is not listed in this catalog. If a new
-   spec type is needed, add it to this catalog in `claude-scrum-team` first.
+   spec type is needed, add it to this catalog in `maul-team` first.
 
 5. **Category directories.** Spec files are organized by category:
    `decision-records/`, `system-wide/`, `data/`, `interface/`, `ui/`,
@@ -47,7 +47,7 @@ The following rules are mandatory and enforceable:
    `related_pbis`, `frozen`, `revision_history`) and placeholder sections.
 
 7. **Catalog is read-only in working directories.** This file is the single
-   source of truth managed in `claude-scrum-team`. Do not modify it in
+   source of truth managed in `maul-team`. Do not modify it in
    project working directories. Only `docs/design/catalog-config.json` may be
    edited to control which entries are active.
 

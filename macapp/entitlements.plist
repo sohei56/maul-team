@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Hardened Runtime entitlements for ScrumTeam.app (Developer ID distribution).
+  Hardened Runtime entitlements for MaulTeam.app (Developer ID distribution).
 
   Hardened Runtime itself is enabled by `codesign --options runtime`
   (see scripts/make-app.sh). This file lists the *exceptions* to its

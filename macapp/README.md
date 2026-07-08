@@ -1,6 +1,6 @@
-# ScrumTeam.app (macOS)
+# MaulTeam.app (macOS)
 
-A native macOS shell for the `claude-scrum-team` framework. MVP scope:
+A native macOS shell for the `maul-team` framework. MVP scope:
 a **project picker** plus an editor-like workspace:
 
 ```
@@ -90,8 +90,8 @@ SwiftTerm on first build.
 Launch as a user would see it (proper Dock icon + front window):
 
 ```bash
-sh macapp/scripts/make-app.sh    # build + assemble build/ScrumTeam.app (pass `release` for a release build)
-open macapp/build/ScrumTeam.app
+sh macapp/scripts/make-app.sh    # build + assemble build/MaulTeam.app (pass `release` for a release build)
+open macapp/build/MaulTeam.app
 ```
 
 `swift run` builds and runs the bare binary, but it has **no `.app` bundle**
@@ -106,7 +106,7 @@ open Package.swift   # or open in Xcode
 
 On first launch, set the **framework checkout path** in Settings (⌘,) if it
 isn't auto-detected. The app looks for `scrum-start.sh` + `dashboard/app.py`;
-it probes `$CLAUDE_SCRUM_TEAM_DIR` and `~/work/claude-scrum-team` (and a few
+it probes `$MAUL_TEAM_DIR` and `~/work/maul-team` (and a few
 other common locations) by default.
 
 ## Distribution
@@ -119,9 +119,9 @@ public release is gated on Apple Developer enrollment (Developer ID certificate
   (arm64 + x86_64) binary via per-arch native builds + `lipo`, applies Hardened
   Runtime with the minimal entitlements in `macapp/entitlements.plist`, and
   bundles the framework into `.app/Contents/Resources/framework/` (extracted at
-  launch to `~/Library/Application Support/ScrumTeam/framework-<ver>/`).
+  launch to `~/Library/Application Support/MaulTeam/framework-<ver>/`).
 - **DMG** — `sh macapp/scripts/make-dmg.sh` produces
-  `build/ScrumTeam-<ver>.dmg` (zero deps, `hdiutil`) with an `/Applications`
+  `build/MaulTeam-<ver>.dmg` (zero deps, `hdiutil`) with an `/Applications`
   drag-install symlink; it also signs the DMG when `DEVELOPER_ID_APP` is set.
 - **Release CI** — `.github/workflows/release.yml` fires on
   `release: published` (a bare tag push does **not** trigger it — cutting a
@@ -160,7 +160,7 @@ in place; signing/notarization is pending Apple Developer enrollment (see
 ## License
 
 Everything under `macapp/` is **source-available**, not open source, and
-is governed by [`macapp/LICENSE`](LICENSE) — the "ScrumTeam for Mac —
+is governed by [`macapp/LICENSE`](LICENSE) — the "MaulTeam for Mac —
 Source-Available Commercial License". You may view the source, build it,
 and use it for your own personal or internal business use; redistribution,
 resale, and distributing derivative builds are not permitted. The

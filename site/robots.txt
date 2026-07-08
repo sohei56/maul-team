@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sohei56.github.io/claude-scrum-team/sitemap.xml
+Sitemap: https://sohei56.github.io/maul-team/sitemap.xml

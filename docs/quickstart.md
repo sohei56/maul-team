@@ -1,4 +1,4 @@
-# Quickstart: AI-Powered Scrum Team Development
+# Quickstart: Maul Team Development
 
 
 ## For End Users
@@ -14,7 +14,7 @@
 
 ```bash
 # 1. Clone the repository (once)
-git clone git@github.com:sohei56/claude-scrum-team.git ~/claude-scrum-team
+git clone git@github.com:sohei56/maul-team.git ~/maul-team
 
 # 2. In your project directory:
 cd /path/to/your/project
@@ -32,11 +32,11 @@ pip install textual watchdog
 # 4. Launch the Scrum team (opens tmux with Claude Code + dashboard).
 #    This invokes setup-user.sh internally — no separate setup step
 #    is required.
-sh ~/claude-scrum-team/scrum-start.sh
+sh ~/maul-team/scrum-start.sh
 
 # (Optional) Run setup without launching the team, e.g. to inspect
 # what the framework copies into .claude/ before going live:
-#   sh ~/claude-scrum-team/scripts/setup-user.sh
+#   sh ~/maul-team/scripts/setup-user.sh
 ```
 
 The setup script copies agent definitions and Skills to your project's
@@ -48,7 +48,7 @@ hooks. It NEVER modifies your global `~/.claude/` settings.
 When you do not want a human at the keyboard, launch with `--autonomous`:
 
 ```bash
-sh ~/claude-scrum-team/scrum-start.sh \
+sh ~/maul-team/scrum-start.sh \
    --autonomous --brief docs/product/brief.md --max-sprints 3
 ```
 
@@ -93,7 +93,7 @@ Without tmux, the compact status line dashboard (3 lines) is used instead.
 
 ## For Contributors / Developers
 
-Guide for developers contributing to the claude-scrum-team project itself.
+Guide for developers contributing to the maul-team project itself.
 
 ### Prerequisites
 
@@ -111,8 +111,8 @@ Guide for developers contributing to the claude-scrum-team project itself.
 
 ```bash
 # Clone the repository
-git clone git@github.com:sohei56/claude-scrum-team.git
-cd claude-scrum-team
+git clone git@github.com:sohei56/maul-team.git
+cd maul-team
 
 # Run the contributor setup script (installs dev deps + user setup)
 sh scripts/setup-dev.sh
@@ -183,8 +183,8 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install textual watchdog
 
 # Run the setup and launch
-sh /path/to/claude-scrum-team/scripts/setup-user.sh
-sh /path/to/claude-scrum-team/scrum-start.sh
+sh /path/to/maul-team/scripts/setup-user.sh
+sh /path/to/maul-team/scrum-start.sh
 
 # Interact with the Scrum team, then verify:
 # - .scrum/ directory exists with state files

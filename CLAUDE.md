@@ -1,4 +1,4 @@
-# claude-scrum-team Development Guidelines
+# Maul Team Development Guidelines
 
 ## Project Structure
 
@@ -85,10 +85,10 @@ ruff format dashboard/
 sh scripts/setup-dev.sh
 
 # Launch the Scrum team (in target project directory)
-sh /path/to/claude-scrum-team/scrum-start.sh
+sh /path/to/maul-team/scrum-start.sh
 
 # Launch in autonomous-PO mode (Ralph Loop; see docs/autonomous-mode.md)
-sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/brief.md --max-sprints 3
+sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md --max-sprints 3
 ```
 
 ## Code Style

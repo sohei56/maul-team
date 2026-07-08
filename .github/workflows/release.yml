@@ -84,7 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           cd macapp/build
-          DMG=$(ls ScrumTeam-*.dmg | head -1)
+          DMG=$(ls MaulTeam-*.dmg | head -1)
           shasum -a 256 "$DMG" > "$DMG.sha256"
           cat "$DMG.sha256"
 
@@ -96,11 +96,11 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "$TAG" \
-            macapp/build/ScrumTeam-*.dmg \
-            macapp/build/ScrumTeam-*.dmg.sha256 \
+            macapp/build/MaulTeam-*.dmg \
+            macapp/build/MaulTeam-*.dmg.sha256 \
             --clobber
 
-      # Channel ③ (Homebrew): render Casks/scrum-team.rb for this version and
+      # Channel ③ (Homebrew): render Casks/maul-team.rb for this version and
       # push it to the personal tap. Skipped when HOMEBREW_TAP_TOKEN is absent.
       - name: Bump Homebrew tap
         if: env.HOMEBREW_TAP_TOKEN != ''

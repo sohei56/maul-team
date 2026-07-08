@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# ScrumTeam for Mac
+# MaulTeam for Mac
 # Copyright (c) 2026 sohei56. All rights reserved.
 #
 # Source-available; NOT covered by this repository's MIT License.
 # See macapp/LICENSE for terms.
 #
-# make-dmg.sh — package build/ScrumTeam.app into a distributable .dmg.
+# make-dmg.sh — package build/MaulTeam.app into a distributable .dmg.
 #
 # Zero external dependencies: uses hdiutil (always present on macOS), not
-# create-dmg. Produces build/ScrumTeam-<version>.dmg containing the app plus an
+# create-dmg. Produces build/MaulTeam-<version>.dmg containing the app plus an
 # /Applications symlink so the user can drag-install. Run make-app.sh first.
 #
 # Signing: if DEVELOPER_ID_APP is set the .app is expected to be already signed
@@ -17,7 +17,7 @@
 # identity is available (a notarization prerequisite). Unsigned otherwise.
 set -euo pipefail
 
-APP_NAME="ScrumTeam"
+APP_NAME="MaulTeam"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/build/${APP_NAME}.app"
 SIGN_ID="${DEVELOPER_ID_APP:-}"

@@ -1,5 +1,5 @@
 [project]
-name = "claude-scrum-team"
+name = "maul-team"
 requires-python = ">=3.9"
 
 [project.optional-dependencies]

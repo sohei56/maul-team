@@ -83,9 +83,9 @@ Sanity check afterwards: `gh secret list` should show all 8.
 1. **Create the Homebrew tap repo** (channel ③):
    ```sh
    gh repo create sohei56/homebrew-tap --public \
-     --description "Homebrew tap for ScrumTeam.app"
+     --description "Homebrew tap for MaulTeam.app"
    ```
-   `bump-tap.sh` creates `Casks/scrum-team.rb` on the first Release; the repo
+   `bump-tap.sh` creates `Casks/maul-team.rb` on the first Release; the repo
    can start empty. (Override the target with `TAP_REPO=owner/repo` if you rename it.)
 
 2. **Enable GitHub Pages** for the landing page (channel ⓪, already deployed by
@@ -133,13 +133,13 @@ gh release create v1.4.3 --title "v1.4.3" --notes "…"
 ```
 
 `release.yml` then: builds universal2 → notarizes+staples the app → packages +
-signs + notarizes+staples the DMG → uploads `ScrumTeam-1.4.3.dmg` + `.sha256`
+signs + notarizes+staples the DMG → uploads `MaulTeam-1.4.3.dmg` + `.sha256`
 to the Release (channels ①②) → renders and pushes the cask to the tap
 (channel ③). End users install via any of:
 
 - **① Direct**: download the `.dmg` from the Release page.
 - **② Release**: same asset, linked from the landing page / README.
-- **③ Homebrew**: `brew tap sohei56/homebrew-tap && brew install --cask scrum-team`.
+- **③ Homebrew**: `brew tap sohei56/homebrew-tap && brew install --cask maul-team`.
 
 Until the secrets exist, the pipeline still runs and produces an **unsigned**
 dmg (useful for testing; Gatekeeper warns end users) — signing/notarization and

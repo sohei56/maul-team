@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path-to-signatures: signatures/version1/cla.json
-          path-to-document: https://github.com/sohei56/claude-scrum-team/blob/main/docs/CLA.md
+          path-to-document: https://github.com/sohei56/maul-team/blob/main/docs/CLA.md
           branch: cla-signatures
           # Enumerated bots only — no *[bot] wildcard: anyone can register a
           # GitHub App whose login ends in [bot], so a wildcard would let

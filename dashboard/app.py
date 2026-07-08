@@ -1,4 +1,4 @@
-"""Textual TUI Dashboard for AI-Powered Scrum Team.
+"""Textual TUI Dashboard for Maul Team.
 
 Three-panel real-time dashboard that monitors .scrum/ JSON files via
 watchdog filesystem events. Designed to run in a tmux side pane alongside
@@ -857,7 +857,7 @@ class ScrumDashboard(App):
     # do not use here. Requires textual >= 0.80.
     ansi_color = True
 
-    TITLE = "Scrum Team Dashboard"
+    TITLE = "Maul Team Dashboard"
     CSS = """
     Screen {
         layout: grid;

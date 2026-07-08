@@ -1,8 +1,8 @@
-# Requirements: AI-Powered Scrum Team
+# Requirements: Maul Team
 
 ## Overview
 
-claude-scrum-team is a shell-script-launched AI-powered Scrum development
+maul-team is a shell-script-launched AI-powered Scrum development
 team for Claude Code. It assembles a Scrum Master and Developer agents that
 coordinate through Agent Teams to deliver iterative Development Sprints,
 with the user acting as Product Owner.
@@ -11,7 +11,7 @@ with the user acting as Product Owner.
 
 ### User Story 1 - Launch Scrum Team and Requirements Elicitation (Priority: P1)
 
-The user runs `sh ./claude-scrum-team/scrum-start.sh` from the
+The user runs `sh ./maul-team/scrum-start.sh` from the
 CLI and an AI Scrum team is assembled automatically. The user is
 guided through a Requirement Definition where a Requirements Analyst
 asks structured questions and researches similar products via
@@ -21,7 +21,7 @@ parties agree on the requirements document. After the Requirements
 Sprint, the Scrum Master creates the initial Product Backlog with
 coarse-grained PBIs.
 
-**Verification**: Run `sh ./claude-scrum-team/scrum-start.sh`,
+**Verification**: Run `sh ./maul-team/scrum-start.sh`,
 answer the Developer's questions, and confirm the requirements
 document is produced, saved, and the initial Product Backlog is
 created with coarse-grained PBIs.
@@ -29,7 +29,7 @@ created with coarse-grained PBIs.
 **Acceptance Scenarios**:
 
 1. **Given** the shell script is available and no project is active,
-   **When** the user runs `sh ./claude-scrum-team/scrum-start.sh`,
+   **When** the user runs `sh ./maul-team/scrum-start.sh`,
    **Then** a Scrum Master and a Requirements Analyst are created, and
    the Requirements Analyst begins asking requirements questions.
 
@@ -51,7 +51,7 @@ created with coarse-grained PBIs.
    Processing", "CI/CD Setup").
 
 5. **Given** a project already exists on disk,
-   **When** the user runs `sh ./claude-scrum-team/scrum-start.sh`,
+   **When** the user runs `sh ./maul-team/scrum-start.sh`,
    **Then** the system resumes the existing project from the exact
    point where it was last interrupted.
 
@@ -626,7 +626,7 @@ Observe implementation and verify Developers use support sub-agents.
 ## Success Criteria
 
 - **SC-001**: The user can go from zero to a running Scrum team
-  with a single shell command (`sh ./claude-scrum-team/scrum-start.sh`)
+  with a single shell command (`sh ./maul-team/scrum-start.sh`)
   after installing prerequisites (Claude Code, Python 3.9+, TUI
   packages). The script checks prerequisites and provides actionable
   error messages if any are missing.
@@ -686,7 +686,7 @@ Observe implementation and verify Developers use support sub-agents.
   setup overhead, as stated in the Claude Code Agent Teams
   documentation. The Scrum Master (team lead) session persists
   across Sprints; Developer teammates are spawned per Sprint.
-- The user clones or downloads the claude-scrum-team repository
+- The user clones or downloads the maul-team repository
   and runs the shell script from within or alongside their
   project directory.
 

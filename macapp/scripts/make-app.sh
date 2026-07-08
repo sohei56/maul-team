@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# ScrumTeam for Mac
+# MaulTeam for Mac
 # Copyright (c) 2026 sohei56. All rights reserved.
 #
 # Source-available; NOT covered by this repository's MIT License.
 # See macapp/LICENSE for terms.
 #
-# make-app.sh — build ScrumTeam and assemble a runnable .app bundle.
+# make-app.sh — build MaulTeam and assemble a runnable .app bundle.
 #
-# Produces build/ScrumTeam.app with an Info.plist and an app icon. Signing
+# Produces build/MaulTeam.app with an Info.plist and an app icon. Signing
 # depends on the environment:
 #
 #   DEVELOPER_ID_APP unset  -> ad-hoc signature (LOCAL dev only, not
@@ -26,7 +26,7 @@
 set -euo pipefail
 
 CONFIG="${1:-debug}"   # debug | release
-APP_NAME="ScrumTeam"
+APP_NAME="MaulTeam"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/build/${APP_NAME}.app"
 ICON_SRC="$ROOT/../images/macos_icon.png"
@@ -99,8 +99,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>            <string>${APP_NAME}</string>
-  <key>CFBundleDisplayName</key>     <string>Scrum Team for Claude Code</string>
-  <key>CFBundleIdentifier</key>      <string>com.claude-scrum-team.${APP_NAME}</string>
+  <key>CFBundleDisplayName</key>     <string>Maul Team for Claude Code</string>
+  <key>CFBundleIdentifier</key>      <string>com.maul-team.${APP_NAME}</string>
   <key>CFBundleExecutable</key>      <string>${APP_NAME}</string>
   <key>CFBundlePackageType</key>     <string>APPL</string>
   <key>CFBundleShortVersionString</key> <string>${VERSION}</string>
@@ -116,7 +116,7 @@ PLIST
 # distributed .app is self-contained — no git clone required. We use
 # `git archive HEAD` (tracked files at the built commit; for a release that is
 # the tag) and drop dev-only trees. FrameworkLocator extracts this to
-# ~/Library/Application Support/ScrumTeam/framework-<version>/ at first launch.
+# ~/Library/Application Support/MaulTeam/framework-<version>/ at first launch.
 FW="$APP/Contents/Resources/framework"
 echo "==> bundling framework into $FW"
 rm -rf "$FW"; mkdir -p "$FW"

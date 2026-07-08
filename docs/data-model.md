@@ -1,4 +1,4 @@
-# Data Model: AI-Powered Scrum Team
+# Data Model: Maul Team
 
 State persists as JSON files in `.scrum/`, one per concern. Owners write
 through `.scrum/scripts/*.sh` wrappers (raw `Write`/`Edit` is blocked by
@@ -323,7 +323,7 @@ survive across machine/clone boundaries.
 
 Controls which design spec types are active for the project. The full list
 of recognized document types lives in `docs/design/catalog.md` (read-only,
-managed in claude-scrum-team). This config file is the only editable part.
+managed in maul-team). This config file is the only editable part.
 
 | Field | Type | Description |
 |-------|------|-------------|

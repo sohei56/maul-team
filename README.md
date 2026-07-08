@@ -1,8 +1,8 @@
 <p align="center">
-  <img alt="claude-scrum-team" src="images/claude-scrum-team.png" width="700">
+  <img alt="Maul Team" src="images/maul-team.png" width="700">
 </p>
 
-<h1 align="center">claude-scrum-team</h1>
+<h1 align="center">Maul Team</h1>
 
 <p align="center">
   <strong>An AI Scrum team for Claude Code — multi-agent coordination via Agent Teams drives your entire Scrum workflow</strong>
@@ -33,23 +33,23 @@
 
 ---
 
-Open a project in **ScrumTeam.app** (or run `scrum-start.sh` from a terminal) and a full AI Scrum team takes over — a **Scrum Master** coordinates **Developer** agents through Sprint cycles while you act as the **Product Owner**, approving goals and reviewing the working product.
+Open a project in **MaulTeam.app** (or run `scrum-start.sh` from a terminal) and a full AI Scrum team takes over — a **Scrum Master** coordinates **Developer** agents through Sprint cycles while you act as the **Product Owner**, approving goals and reviewing the working product.
 
 ## Why?
 
 Vibe coding's speed is attractive, but order erodes as a project runs longer. Spec-Driven Development (SDD) keeps order well, but demands defining a lot upfront. Most real projects live in between — not everything is decided on day one, yet you still need to maintain order as you go.
 
-**claude-scrum-team** brings Scrum's inspect-and-adapt loop to Claude Code, giving you structured iteration without requiring a complete specification on day one. You stay in the Product Owner seat — describing what you want, approving Sprint Goals, and reviewing working software each Sprint — while a team of AI agents handles the rest.
+**Maul Team** brings Scrum's inspect-and-adapt loop to Claude Code, giving you structured iteration without requiring a complete specification on day one. You stay in the Product Owner seat — describing what you want, approving Sprint Goals, and reviewing working software each Sprint — while a team of AI agents handles the rest.
 
 ## Demo
 
 <p align="center">
-  <img alt="ScrumTeam.app — the three-pane workspace" src="images/macapp-hero.png" width="900">
+  <img alt="MaulTeam.app — the three-pane workspace" src="images/macapp-hero.png" width="900">
 </p>
 
-https://github.com/user-attachments/assets/859cb18f-91a0-4248-8417-e148b5629cc9
+https://github.com/user-attachments/assets/550ae9d2-f936-4087-838e-ba683b684aae
 
-**ScrumTeam.app** brings the information and controls you need for Scrum development into a single window.
+**MaulTeam.app** brings the information and controls you need for Scrum development into a single window.
 
 Pick or create a project, then talk to the Scrum Master in the embedded terminal. A native dashboard shows Product and Sprint status, the PBI list, and progress — and you can watch agent activity and the code being generated.
 
@@ -101,7 +101,7 @@ See [macapp/README.md](macapp/README.md) for the full architecture — editor, b
 
 ## Features
 
-- **Native Mac app** — ScrumTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
+- **Native Mac app** — MaulTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
 - **18 Skills** covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI Development (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, integration testing, and UAT & release
 - **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
 - **Autonomous PO mode** — replace even the PO with an AI Product Owner to drive development end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
@@ -177,16 +177,16 @@ Prefer a terminal, or want to run headless, remote, or on Linux? The same framew
 
 ```bash
 # Clone the repository
-git clone git@github.com:sohei56/claude-scrum-team.git
+git clone git@github.com:sohei56/maul-team.git
 
 # In your project directory:
 cd /path/to/your/project
 
 # Launch the Scrum team (auto-installs Python dependencies if needed)
-sh /path/to/claude-scrum-team/scrum-start.sh
+sh /path/to/maul-team/scrum-start.sh
 
 # Or: launch in autonomous PO mode (no human at the keyboard)
-sh /path/to/claude-scrum-team/scrum-start.sh --autonomous --brief docs/product/brief.md
+sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 
 The script launches a tmux session with Claude Code (the Scrum Master) and the TUI dashboard.
@@ -222,7 +222,7 @@ Sessions, memory, and settings under `~/.claude/` are preserved across either up
 ## Architecture
 
 ```text
-claude-scrum-team/
+maul-team/
 ├── scrum-start.sh    # Entry point; supports --autonomous --brief <file> --max-sprints <N>
 ├── macapp/           # Native macOS shell (SwiftUI + SwiftTerm): project picker, tabbed editor, terminal, dashboard
 ├── agents/           # Agents

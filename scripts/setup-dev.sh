@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "=== claude-scrum-team: Contributor Setup ==="
+echo "=== Maul Team: Contributor Setup ==="
 echo ""
 
 # --- Install dev dependencies ---
@@ -60,7 +60,7 @@ sh "$SCRIPT_DIR/setup-user.sh"
 # --- Remove hook registration from settings.json for development ---
 # setup-user.sh registers hooks in .claude/settings.json, but those hooks
 # are meant for target projects running under scrum-start.sh.  When
-# developing claude-scrum-team itself there is no .scrum/state.json and the
+# developing Maul Team itself there is no .scrum/state.json and the
 # hooks would error on every tool use.  Keep the hook *files* symlinked for
 # testing, but strip the hook registrations so they don't fire.
 echo ""

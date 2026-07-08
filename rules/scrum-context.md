@@ -13,7 +13,7 @@ description: >
 
 # Scrum Team Context (read this first)
 
-You are running inside the **claude-scrum-team** framework. Multiple
+You are running inside the **Maul Team** framework. Multiple
 Claude sessions cooperate as a Scrum team. This file gives you the
 shared mental model every agent needs **before acting**.
 

@@ -5,38 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0a0b">
 <link rel="icon" type="image/png" href="./assets/app-icon.png">
-<title>ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
+<title>MaulTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
 <meta name="description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
-<link rel="canonical" href="https://sohei56.github.io/claude-scrum-team/">
-<meta property="og:title" content="ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<link rel="canonical" href="https://sohei56.github.io/maul-team/">
+<meta property="og:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
 <meta property="og:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://sohei56.github.io/claude-scrum-team/">
-<meta property="og:image" content="https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png">
+<meta property="og:url" content="https://sohei56.github.io/maul-team/">
+<meta property="og:image" content="https://sohei56.github.io/maul-team/assets/macapp-hero.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ScrumTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<meta name="twitter:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
 <meta name="twitter:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
-<meta name="twitter:image" content="https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png">
+<meta name="twitter:image" content="https://sohei56.github.io/maul-team/assets/macapp-hero.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "SoftwareApplication",
-      "name": "ScrumTeam.app",
+      "name": "MaulTeam.app",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "macOS 13+",
-      "url": "https://sohei56.github.io/claude-scrum-team/",
+      "url": "https://sohei56.github.io/maul-team/",
       "description": "Native Mac app that hands your project to a full AI Scrum team powered by Claude Code Agent Teams. A Scrum Master coordinates Developer agents through Sprint cycles while you act as Product Owner.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "license": "https://github.com/sohei56/claude-scrum-team/blob/main/macapp/LICENSE",
+      "license": "https://github.com/sohei56/maul-team/blob/main/macapp/LICENSE",
       "author": { "@type": "Person", "name": "sohei56", "url": "https://github.com/sohei56" },
-      "downloadUrl": "https://github.com/sohei56/claude-scrum-team",
+      "downloadUrl": "https://github.com/sohei56/maul-team",
       "alternateName": ["claude-scrum-team", "Claude Scrum Team"],
       "applicationSubCategory": "AI Agent Orchestration",
       "keywords": "AI scrum team, Claude Code multi-agent, autonomous AI development team, AI dev team Mac app, open-source AI framework",
-      "screenshot": "https://sohei56.github.io/claude-scrum-team/assets/macapp-hero.png",
-      "sameAs": ["https://github.com/sohei56/claude-scrum-team"],
+      "screenshot": "https://sohei56.github.io/maul-team/assets/macapp-hero.png",
+      "sameAs": ["https://github.com/sohei56/maul-team"],
       "featureList": [
         "Multi-agent Scrum Master + Developer orchestration on Claude Code",
         "Full Sprint lifecycle: requirements, planning, PBI pipeline, cross-review, retrospective, UAT",
@@ -47,9 +47,9 @@
     },
     {
       "@type": "WebSite",
-      "name": "ScrumTeam.app",
+      "name": "MaulTeam.app",
       "alternateName": "Claude Scrum Team",
-      "url": "https://sohei56.github.io/claude-scrum-team/"
+      "url": "https://sohei56.github.io/maul-team/"
     },
     {
       "@type": "FAQPage",
@@ -72,10 +72,10 @@
         },
         {
           "@type": "Question",
-          "name": "Is ScrumTeam.app free and self-hosted?",
+          "name": "Is MaulTeam.app free and self-hosted?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Free and source-available, built on the MIT-licensed claude-scrum-team framework, and it runs entirely on your Mac against your own Claude Code install. No SaaS; no code leaves your machine except to the Claude API you already use."
+            "text": "Free and source-available, built on the MIT-licensed maul-team framework, and it runs entirely on your Mac against your own Claude Code install. No SaaS; no code leaves your machine except to the Claude API you already use."
           }
         },
         {
@@ -101,7 +101,7 @@
 </script>
 <style>
 /* ============================================================
-   ScrumTeam.app — mission-control landing
+   MaulTeam.app — mission-control landing
    Palette matched to the app: graphite panels, amber #d97706
    "active/impl" accent, desaturated blue #4a90d9 phase accent,
    terminal green as a status-dot only.
@@ -271,6 +271,148 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .hload.d1{animation-delay:.05s}.hload.d2{animation-delay:.15s}.hload.d3{animation-delay:.28s}
 .hload.d4{animation-delay:.42s}.hload.d5{animation-delay:.55s}.hload.d6{animation-delay:.75s}
 @keyframes hin{to{opacity:1; transform:none}}
+
+/* ---------- hero app (animated reproduction of the Mac app screen) ---------- */
+.hero-app{display:flex; flex-direction:column; min-height:472px; background:#0d0d0f;
+  border-radius:0 0 13px 13px; overflow:hidden; text-align:left}
+/* window toolbar (Projects · project · path · info) */
+.ha-toolbar{display:flex; align-items:center; gap:13px; height:36px; padding:0 14px; flex:none;
+  background:#151518; border-bottom:1px solid var(--line); font-family:var(--font-mono);
+  font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden}
+.ha-tb-back{color:var(--text-2)}
+.ha-tb-proj{color:var(--text); font-weight:600; display:inline-flex; align-items:center; gap:6px}
+.ha-tb-proj i{color:var(--blue)}
+.ha-tb-path{color:var(--text-3); overflow:hidden; text-overflow:ellipsis; min-width:0}
+.ha-tb-info{margin-left:auto; color:var(--text-3)}
+/* three-pane body */
+.ha-body{flex:1 1 auto; display:grid; grid-template-columns:170px 1fr 274px; min-height:0}
+@media (max-width:1000px){ .ha-body{grid-template-columns:1fr 262px} .ha-explorer{display:none} }
+@media (max-width:720px){ .ha-body{display:flex; flex-direction:column} .ha-explorer{display:none}
+  .ha-center{border-right:0; border-bottom:1px solid var(--line)} }
+/* shared column head (aligned across the three panes) */
+.ha-colhead{display:flex; align-items:center; gap:7px; height:34px; padding:0 13px; flex:none;
+  background:#141417; border-bottom:1px solid var(--line);
+  font-family:var(--font-mono); font-size:11px; color:var(--text-2)}
+.ha-colhead .ha-ico{color:var(--amber-hi)}
+
+/* --- left: Explorer + editor --- */
+.ha-explorer{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#0f0f11}
+.ha-ex-head{letter-spacing:.12em; text-transform:uppercase; font-size:10px; color:var(--text-3)}
+.ha-tree{padding:8px 5px; flex:none; display:flex; flex-direction:column; gap:2px;
+  font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
+.ha-row{display:flex; align-items:center; gap:5px; padding:2px 6px; border-radius:5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ha-row .ha-tw{color:var(--text-3); width:9px; display:inline-block; flex:none}
+.ha-row .ha-fi{flex:none}
+.ha-row.fold .ha-fi{color:var(--blue)} .ha-row .ha-fi{color:var(--text-3)}
+.ha-row.active{background:var(--amber-soft); color:var(--text)}
+.ha-i1{padding-left:14px} .ha-i2{padding-left:26px} .ha-i3{padding-left:38px}
+.ha-editor{flex:1 1 auto; min-height:0; border-top:1px solid var(--line); display:flex; flex-direction:column}
+.ha-ed-tab{display:flex; align-items:center; justify-content:space-between; padding:7px 11px; flex:none;
+  border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
+.ha-save{font-size:9px; color:var(--text-3); border:1px solid var(--line-strong); background:var(--panel-2);
+  border-radius:5px; padding:2px 9px}
+.ha-ed-body{padding:9px 11px; overflow:hidden; font-family:var(--font-mono); font-size:9.5px;
+  line-height:1.62; color:var(--text-3); white-space:pre-wrap}
+.ha-ed-body b{color:var(--text-2); font-weight:600}
+
+/* --- center: Scrum Master terminal + Work Log --- */
+.ha-center{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#0b0b0d}
+.ha-term{flex:none; height:150px; overflow:hidden; padding:11px 15px 9px;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  font-family:var(--font-mono); font-size:11.4px; line-height:1.55; color:var(--text-2)}
+@media (max-width:720px){ .ha-term{height:132px} }
+.ha-line{margin-bottom:8px; white-space:pre-wrap; word-break:break-word}
+.ha-line.he{opacity:0; transform:translateY(4px)}
+.ha-line.show{opacity:1; transform:none; transition:opacity .3s var(--ease-out), transform .3s var(--ease-out)}
+.ha-term .t-p{color:var(--text-3)} .ha-term .t-cmd{color:var(--text)}
+.ha-term .t-ok{color:var(--green)} .ha-term .t-dim{color:var(--text-3)}
+.ha-term .t-amber{color:var(--amber-hi)} .ha-term .t-blue{color:#8ab8e8}
+.ha-term .t-hot{color:var(--amber-hi); font-weight:600}
+.hc-tcursor{display:inline-block; width:7px; height:13px; background:var(--amber-hi);
+  vertical-align:-2px; margin-left:1px; animation:curblink 1s steps(1) infinite}
+.ha-term-input{flex:none; display:flex; align-items:center; gap:8px; padding:8px 14px;
+  border-top:1px solid var(--line); background:#0e0e11; font-family:var(--font-mono); font-size:11px}
+.hc-caret{color:var(--amber-hi)}
+.ha-ph{flex:1; min-width:0; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ha-owner{font-size:9.5px; color:var(--text-3); border:1px solid var(--line-strong);
+  background:var(--panel-2); padding:2px 8px; border-radius:6px; flex:none}
+.ha-term-status{flex:none; display:flex; align-items:center; gap:13px; padding:6px 14px;
+  border-top:1px solid var(--line); background:#0b0b0d; font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.hc-am{color:var(--amber-hi)}
+.ha-br{display:inline-flex; align-items:center; gap:6px}
+.ha-br i{width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.85)}
+.ha-tok{margin-left:auto}
+/* work log */
+.ha-worklog{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; border-top:1px solid var(--line); background:#0d0d0f}
+.ha-wl-head{display:flex; align-items:center; gap:10px; padding:8px 14px; flex:none;
+  font-family:var(--font-mono); font-size:10.5px; color:var(--text-2); border-bottom:1px solid var(--line)}
+.ha-wl-tabs{margin-left:auto; display:inline-flex; gap:4px; font-size:9px}
+.ha-wl-tabs i{font-style:normal; padding:2px 8px; border-radius:6px; color:var(--text-3)}
+.ha-wl-tabs i.on{color:#dfe7ef; background:var(--blue); }
+.ha-wl-list{flex:1 1 auto; overflow:hidden}
+.ha-wl-row{display:flex; gap:10px; padding:6px 14px; border-bottom:1px solid rgba(255,255,255,.045); align-items:flex-start}
+.ha-wl-row.enter{animation:wlin .42s var(--ease-out)}
+@keyframes wlin{from{opacity:0; transform:translateY(-7px)} to{opacity:1; transform:none}}
+.ha-wl-time{flex:none; width:52px; font-family:var(--font-mono); font-size:9px; color:var(--text-3); padding-top:1px}
+.ha-wl-body{min-width:0; flex:1}
+.ha-wl-tagline{display:flex; align-items:center; gap:8px; margin-bottom:3px}
+.ha-wl-tag{font-family:var(--font-mono); font-size:8.5px; padding:1.5px 7px; border-radius:5px; border:1px solid; white-space:nowrap}
+.wl-prog{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.wl-spawn{color:#5eead4; border-color:rgba(45,212,191,.45); background:rgba(45,212,191,.1)}
+.wl-stop{color:var(--amber-hi); border-color:rgba(217,119,6,.45); background:var(--amber-soft)}
+.wl-file{color:var(--text-3); border-color:var(--line-strong); background:rgba(255,255,255,.04)}
+.wl-merge{color:#c4b5fd; border-color:rgba(167,139,250,.45); background:rgba(167,139,250,.12)}
+.ha-wl-who{font-family:var(--font-mono); font-size:9px; color:var(--text-2)}
+.ha-wl-msg{font-size:10px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+/* --- right: Dashboard --- */
+.ha-dash{display:flex; flex-direction:column; min-width:0; background:#0f0f11}
+.ha-dash-head{justify-content:space-between; font-family:var(--font-display); font-size:13px; font-weight:650; color:var(--text)}
+.hc-asof{font-family:var(--font-mono); font-size:9.5px; font-weight:400; color:var(--text-3)}
+.ha-scroll{flex:1 1 auto; overflow:hidden; padding:9px 11px 9px; display:flex; flex-direction:column; gap:8px}
+.ha-card{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:9px 12px}
+.ha-card-h{display:flex; align-items:center; gap:7px; margin-bottom:6px;
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; color:var(--text-2)}
+.ha-card-h .ha-ico{color:var(--amber-hi)}
+.ha-proj{font-size:10.3px; line-height:1.5; color:var(--text-2)}
+.hc-sprint-top{display:flex; align-items:center; gap:9px}
+.hc-sprint-id{font-family:var(--font-mono); font-size:12.5px; font-weight:600; color:var(--text)}
+.hc-pill{font-family:var(--font-mono); font-size:9px; letter-spacing:.02em; padding:2px 8px; border-radius:999px;
+  border:1px solid; white-space:nowrap}
+.hc-pill-active{color:var(--green); border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.1)}
+.hc-pill-phase{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.ha-phase-row{margin:7px 0; display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  font-family:var(--font-mono); font-size:9px; color:var(--text-3)}
+.hc-progress{height:6px; border-radius:999px; background:rgba(255,255,255,.07); overflow:hidden}
+.hc-progress i{display:block; height:100%; border-radius:999px; width:0;
+  background:linear-gradient(90deg, var(--amber), var(--amber-hi));
+  box-shadow:0 0 10px rgba(217,119,6,.5); transition:width .7s var(--ease-out)}
+.hc-done-count{margin-bottom:7px; font-family:var(--font-mono); font-size:10px; color:var(--text-3)}
+.hc-done-count b{color:var(--amber-hi)}
+.ha-member{margin-top:7px; font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.ha-pbicard{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+.ha-pb-h{justify-content:space-between; margin-bottom:8px}
+.hc-pb-tabs{display:inline-flex; gap:5px; font-family:var(--font-mono); font-size:9px}
+.hc-pb-tabs span{padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--text-3)}
+.hc-pb-tabs span.on{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.hc-pbi-list{display:flex; flex-direction:column; gap:6px}
+.hc-pbi{display:flex; align-items:flex-start; gap:8px; padding:7px 9px; border-radius:9px;
+  border:1px solid var(--line); background:var(--panel-2);
+  transition:border-color .3s var(--ease-out), background .3s var(--ease-out)}
+.hc-pbi.hc-active{border-color:rgba(217,119,6,.5); background:#1c1a17}
+.hc-pbi-main{min-width:0; flex:1}
+.hc-pbi-meta{display:flex; align-items:center; gap:7px; margin-bottom:2px}
+.hc-pbi-id{font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.hc-pbi-scope{font-family:var(--font-mono); font-size:9px; color:#8ab8e8}
+.hc-pbi-scope.hc-scope-bl{color:var(--text-3)}
+.hc-pbi-title{font-size:11px; line-height:1.32; color:var(--text); font-weight:500}
+.hc-pbi-upd{font-family:var(--font-mono); font-size:8.5px; color:var(--text-3); margin-top:2px}
+.hc-pbi-right{display:flex; align-items:center; gap:6px; flex:none; align-self:center}
+.hc-iter{font-family:var(--font-mono); font-size:8.5px; color:var(--text-3)}
+.hc-badge{flex:none; font-size:8.5px; padding:2px 7px; letter-spacing:.02em}
+.hc-badge.flip{animation:hcbadge .5s var(--ease-out)}
+@keyframes hcbadge{0%{transform:scale(.82); opacity:.4} 60%{transform:scale(1.08)} 100%{transform:none; opacity:1}}
 
 /* ---------- why ---------- */
 .why-grid{display:grid; grid-template-columns:1fr 1fr 1.15fr; gap:16px; margin-top:44px}
@@ -527,7 +669,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
   .aurora, .hero-badge .dot, .bt-live i, .cursor, .po-arrow .flow,
+  .hc-tcursor, .ha-br i, .hc-badge.flip, .ha-wl-row.enter,
   .orch .wire-hot, .orch .wire-cool, .orch .sm-pulse{animation:none !important}
+  .ha-line{opacity:1; transform:none}
+  .hc-progress i{transition:none}
   .hload{animation:none; opacity:1; transform:none}
   .reveal{opacity:1; transform:none; transition:none}
   .mac-window{transition:none}
@@ -547,9 +692,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
 <header class="nav">
   <div class="nav-inner">
-    <a class="wordmark" href="#top" aria-label="ScrumTeam.app home">
+    <a class="wordmark" href="#top" aria-label="MaulTeam.app home">
       <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
-      ScrumTeam<span class="tld">.app</span>
+      MaulTeam<span class="tld">.app</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
       <a href="#why">Why</a>
@@ -557,7 +702,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#install">Install</a>
-      <a class="nav-gh" href="https://github.com/sohei56/claude-scrum-team" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
+      <a class="nav-gh" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
     </nav>
   </div>
 </header>
@@ -566,7 +711,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ HERO ============ -->
   <section class="hero" aria-label="Introduction">
-    <img class="hero-appicon hload d1" src="./assets/app-icon.png" alt="ScrumTeam.app app icon" width="92" height="92">
+    <img class="hero-appicon hload d1" src="./assets/app-icon.png" alt="MaulTeam.app app icon" width="92" height="92">
     <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · source-available</p>
     <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
     <p class="hero-sub hload d3">
@@ -576,7 +721,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     </p>
     <div class="hero-ctas hload d4">
       <a class="btn btn-primary" href="#install">Get started</a>
-      <a class="btn btn-ghost" href="https://github.com/sohei56/claude-scrum-team" target="_blank" rel="noopener">View on GitHub ↗</a>
+      <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">View on GitHub ↗</a>
     </div>
     <div class="trust-row hload d5" aria-label="Technology requirements">
       <span class="chip">macOS 13+</span>
@@ -590,10 +735,122 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="mac-window" id="heroWindow">
         <div class="mac-titlebar" aria-hidden="true">
           <span class="tl-dot r"></span><span class="tl-dot y"></span><span class="tl-dot g"></span>
-          <span class="mac-title">ScrumTeam — test_demo</span>
+          <span class="mac-title">MaulTeam — test_demo</span>
         </div>
-        <img src="./assets/macapp-hero.png" width="1020" height="574"
-             alt="ScrumTeam.app three-pane workspace: file tree and code editor on the left, the Scrum Master terminal with a Work Log in the center, and the native Sprint dashboard with a PBI board on the right.">
+        <div class="hero-app" role="img"
+             aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: the Scrum Master terminal streaming status — design review PASS, in_progress_impl, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and a no-fast-forward merge to done — above a live Work Log of agent events. Right: the Dashboard, where the Sprint card's progress bar fills from 0 to 1 of 1 PBI done and pbi-001's status badge advances design → impl → pbi-review → merge → done as the terminal reports each step.">
+          <div class="ha-toolbar" aria-hidden="true">
+            <span class="ha-tb-back">‹ Projects</span>
+            <span class="ha-tb-proj"><i>▦</i> test_demo</span>
+            <span class="ha-tb-path">/Users/inouesouhei/work/test_demo</span>
+            <span class="ha-tb-info">ⓘ</span>
+          </div>
+          <div class="ha-body">
+            <!-- LEFT: Explorer + editor -->
+            <div class="ha-explorer" aria-hidden="true">
+              <div class="ha-colhead ha-ex-head">Explorer</div>
+              <div class="ha-tree">
+                <div class="ha-row fold"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>test_demo</div>
+                <div class="ha-row fold ha-i1"><span class="ha-tw">▸</span><span class="ha-fi">▸</span>.claude</div>
+                <div class="ha-row fold ha-i1"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>.scrum</div>
+                <div class="ha-row fold ha-i1"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>docs</div>
+                <div class="ha-row ha-i2"><span class="ha-tw"></span><span class="ha-fi">▸</span>contracts</div>
+                <div class="ha-row ha-i2"><span class="ha-tw"></span><span class="ha-fi">▸</span>design</div>
+                <div class="ha-row active ha-i2"><span class="ha-tw"></span><span class="ha-fi">▤</span>requirements.md</div>
+                <div class="ha-row fold ha-i1"><span class="ha-tw">▸</span><span class="ha-fi">▸</span>scripts</div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span>.gitignore</div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">{}</span>.mcp.json</div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span>CLAUDE.md</div>
+              </div>
+              <div class="ha-editor">
+                <div class="ha-ed-tab"><span>▤ requirements.md</span><span class="ha-save">Save</span></div>
+                <div class="ha-ed-body"><b># Snake — Requirements</b>
+
+<b>## Goals</b>
+- G1: A complete, playable Snake
+  game in a single index.html.
+- G2: Faithful 8-bit arcade feel.
+- G4: Lean MVP — ship the smallest
+  coherent playable game.</div>
+              </div>
+            </div>
+
+            <!-- CENTER: Scrum Master terminal + Work Log -->
+            <div class="ha-center">
+              <div class="ha-colhead" aria-hidden="true"><span class="ha-ico">▣</span>Scrum Master</div>
+              <div class="ha-term" id="heroTerm"></div>
+              <div class="ha-term-input" aria-hidden="true">
+                <span class="hc-caret">›</span>
+                <span class="ha-ph">Ping me when pbi-001 is ready to merge</span>
+                <span class="ha-owner">scrum-master</span>
+              </div>
+              <div class="ha-term-status" aria-hidden="true">
+                <span class="hc-am">▶▶ auto mode on</span>
+                <span>← for agents</span>
+                <span class="ha-br"><i></i>main</span>
+                <span class="ha-tok">↓ 212.0k tokens</span>
+              </div>
+              <div class="ha-worklog" aria-hidden="true">
+                <div class="ha-wl-head"><span>▤ Work Log</span>
+                  <span class="ha-wl-tabs"><i class="on">All</i><i>Messages</i><i>Events</i></span></div>
+                <div class="ha-wl-list" id="heroLog"></div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Dashboard -->
+            <div class="ha-dash" aria-hidden="true">
+              <div class="ha-colhead ha-dash-head"><span>Dashboard</span>
+                <span class="hc-asof">as of 15:05:38</span></div>
+              <div class="ha-scroll">
+                <div class="ha-card">
+                  <div class="ha-card-h"><span class="ha-ico">▤</span>Project</div>
+                  <p class="ha-proj">A retro 8-bit Snake game — HTML5 Canvas + vanilla JS, no build step. A playable Lean MVP with scoring, collisions, and pause/restart.</p>
+                </div>
+                <div class="ha-card">
+                  <div class="ha-card-h"><span class="ha-ico">▚</span>Sprint</div>
+                  <div class="hc-sprint-top">
+                    <span class="hc-sprint-id">sprint-001</span>
+                    <span class="hc-pill hc-pill-active">active</span>
+                  </div>
+                  <div class="ha-phase-row">Phase <span class="hc-pill hc-pill-phase">Parallel Development for Each PBI</span></div>
+                  <div class="hc-done-count"><b id="heroDone">0</b>/1 PBIs done</div>
+                  <div class="hc-progress"><i id="heroProgress" style="width:0%"></i></div>
+                  <div class="ha-member">👥 <span id="heroMembers">dev-001-s1</span></div>
+                </div>
+                <div class="ha-card ha-pbicard">
+                  <div class="ha-card-h ha-pb-h"><span><span class="ha-ico">▤</span> PBI Board</span>
+                    <span class="hc-pb-tabs"><span class="on">Current&nbsp;1</span><span>All&nbsp;5</span></span></div>
+                  <div class="hc-pbi-list" id="heroPbi">
+                    <div class="hc-pbi" data-pbi="1">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-001</span><span class="hc-pbi-scope">sprint-001</span></div>
+                        <div class="hc-pbi-title">Canvas grid, game loop, and snake rendering</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:54:44</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="hc-iter">i1</span><span class="pbi-badge b-design hc-badge">◈ design</span></div>
+                    </div>
+                    <div class="hc-pbi" data-pbi="2">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-002</span><span class="hc-pbi-scope hc-scope-bl">backlog</span></div>
+                        <div class="hc-pbi-title">Directional controls and no-reverse constraint</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:14:35</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                    </div>
+                    <div class="hc-pbi" data-pbi="3">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-003</span><span class="hc-pbi-scope hc-scope-bl">backlog</span></div>
+                        <div class="hc-pbi-title">Food spawn, eat, growth, and scoring</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:14:36</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="hero-glow" aria-hidden="true"></div>
       </div>
     </div>
@@ -604,7 +861,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="kicker reveal">The problem</p>
     <h2 id="why-h" class="reveal" style="--d:.06s">Vibe coding decays.<br>Spec-driven suffocates.</h2>
     <p class="lede reveal" style="--d:.12s">
-      Most real projects live between the two extremes. claude-scrum-team brings Scrum's
+      Most real projects live between the two extremes. Maul Team brings Scrum's
       inspect-and-adapt loop to Claude Code — structured iteration without a complete
       spec on day one.
     </p>
@@ -645,17 +902,17 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
     <div class="video-shell reveal" style="--d:.1s">
       <video id="demoVideo" controls preload="none" playsinline
-             aria-label="Screen recording of ScrumTeam.app running a Sprint">
-        <source src="https://github.com/user-attachments/assets/859cb18f-91a0-4248-8417-e148b5629cc9" type="video/mp4">
+             aria-label="Screen recording of MaulTeam.app running a Sprint">
+        <source src="https://github.com/user-attachments/assets/550ae9d2-f936-4087-838e-ba683b684aae" type="video/mp4">
       </video>
-      <button class="video-cover" id="videoCover" type="button" aria-label="Play the ScrumTeam.app demo video">
+      <button class="video-cover" id="videoCover" type="button" aria-label="Play the MaulTeam.app demo video">
         <div class="fake-panes" aria-hidden="true"><span></span><span></span><span></span></div>
         <span class="play-pill"><span class="tri" aria-hidden="true"></span>Play the demo</span>
         <small>2-minute screen recording · real session</small>
       </button>
     </div>
     <p class="reveal" style="--d:.16s">
-      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/859cb18f-91a0-4248-8417-e148b5629cc9"
+      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/550ae9d2-f936-4087-838e-ba683b684aae"
          target="_blank" rel="noopener">Video not loading? Watch the demo on GitHub ↗</a>
     </p>
 
@@ -789,7 +1046,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="term-copy reveal" style="--d:.14s">
         <p class="kicker">Or skip the GUI</p>
         <h3>One command. Same team.</h3>
-        <p>The Mac app wraps the open-source <span class="mono">claude-scrum-team</span> framework —
+        <p>The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
            launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
            identical pipeline in tmux. Everything runs on your machine, on your Claude
            subscription — self-hosted by construction.</p>
@@ -975,7 +1232,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="kicker reveal">Get started</p>
     <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
     <p class="lede reveal" style="--d:.12s">
-      ScrumTeam.app is free, source-available, and pre-notarization, built on the MIT-licensed
+      MaulTeam.app is free, source-available, and pre-notarization, built on the MIT-licensed
       open-source framework. Today the working path is a
       source build — four commands, no surprises.
     </p>
@@ -988,10 +1245,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <p>Clone, build, launch. <span class="mono" style="font-size:.9em">make-app.sh release</span> produces a universal2 build for Apple&nbsp;Silicon and Intel.</p>
           <div class="codeblock">
             <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
-            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/claude-scrum-team.git</span>
-<span class="c-p">$ </span><span class="c-cmd">cd claude-scrum-team</span>
+            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
+<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
 <span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span></span>
-<span class="c-p">$ </span><span class="c-cmd">open macapp/build/ScrumTeam.app</span></div>
+<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
           </div>
           <p class="install-note">First build fetches SwiftTerm from the network. Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
           <div class="reqs">
@@ -1014,7 +1271,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <span class="soon-pill">Coming soon</span>
           <h3>Homebrew tap</h3>
           <p>One-line cask install once the notarized build ships.</p>
-          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask scrumteam</div>
+          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask maul-team</div>
         </div>
       </div>
     </div>
@@ -1046,8 +1303,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       </article>
       <article class="feature reveal" style="--d:.09s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>Is ScrumTeam.app free and self-hosted?</h3>
-        <p>Free and source-available, built on the MIT-licensed <span class="mono">claude-scrum-team</span>
+        <h3>Is MaulTeam.app free and self-hosted?</h3>
+        <p>Free and source-available, built on the MIT-licensed <span class="mono">maul-team</span>
            framework, and it runs entirely on your Mac against your own Claude Code install.
            No SaaS; no code leaves your machine except to the Claude API you already use.</p>
       </article>
@@ -1072,24 +1329,24 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
-      <a class="wordmark" href="#top" aria-label="ScrumTeam.app home">
+      <a class="wordmark" href="#top" aria-label="MaulTeam.app home">
         <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
-        ScrumTeam<span class="tld">.app</span>
+        MaulTeam<span class="tld">.app</span>
       </a>
       <p style="color:var(--text-3); font-size:13px; max-width:320px">
-        The native Mac app of the open-source <span class="mono" style="font-size:.92em">claude-scrum-team</span> framework.
+        The native Mac app of the open-source <span class="mono" style="font-size:.92em">maul-team</span> framework.
       </p>
     </div>
     <nav class="footer-links" aria-label="Footer">
       <div>
         <h5>Project</h5>
-        <a href="https://github.com/sohei56/claude-scrum-team" target="_blank" rel="noopener">GitHub repository ↗</a>
-        <a href="https://github.com/sohei56/claude-scrum-team/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT + Commercial)</a>
+        <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub repository ↗</a>
+        <a href="https://github.com/sohei56/maul-team/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT + Commercial)</a>
       </div>
       <div>
         <h5>Docs</h5>
-        <a href="https://github.com/sohei56/claude-scrum-team#readme" target="_blank" rel="noopener">README (English)</a>
-        <a href="https://github.com/sohei56/claude-scrum-team/blob/main/README_ja.md" target="_blank" rel="noopener">README（日本語）</a>
+        <a href="https://github.com/sohei56/maul-team#readme" target="_blank" rel="noopener">README (English)</a>
+        <a href="https://github.com/sohei56/maul-team/blob/main/README_ja.md" target="_blank" rel="noopener">README（日本語）</a>
       </div>
       <div>
         <h5>On this page</h5>
@@ -1167,10 +1424,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   var copyBtn = document.getElementById("copyBtn");
   if (copyBtn) {
     var CMDS = [
-      "git clone git@github.com:sohei56/claude-scrum-team.git",
-      "cd claude-scrum-team",
+      "git clone git@github.com:sohei56/maul-team.git",
+      "cd maul-team",
       "sh macapp/scripts/make-app.sh",
-      "open macapp/build/ScrumTeam.app"
+      "open macapp/build/MaulTeam.app"
     ].join("\n");
     copyBtn.addEventListener("click", function(){
       function done(){
@@ -1422,6 +1679,142 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       } else { typeStep(); }
     }
   }
+
+  /* ==========================================================
+     Hero app: the real Mac app screen, animated. The Scrum Master
+     terminal streams status + Work Log events, driving the
+     Dashboard's Sprint bar and pbi-001's PBI Board status badge.
+     ========================================================== */
+  (function(){                               // own scope: avoid clashing with the faux terminal's LINES/cursor/li
+  var heroTerm = document.getElementById("heroTerm");
+  var heroPbi  = document.getElementById("heroPbi");
+  var heroLog  = document.getElementById("heroLog");
+  if (heroTerm && heroPbi && heroLog) {
+    // PBIStatus vocabulary → badge (mirrors the app's PBIStatus.label + color)
+    var HS = {
+      refined:      {cls:"b-backlog",   txt:"◇ refined",    dev:false},
+      design:       {cls:"b-design",    txt:"◈ design",     dev:true},
+      impl:         {cls:"b-impl",      txt:"◆ impl",       dev:true},
+      "pbi-review": {cls:"b-pbireview", txt:"◆ pbi-review", dev:true},
+      merge:        {cls:"b-merge",     txt:"◆ merge",      dev:true},
+      done:         {cls:"b-done",      txt:"✓ done",       dev:false}
+    };
+    var row1 = heroPbi.querySelector('.hc-pbi[data-pbi="1"]');
+    var progEl = document.getElementById("heroProgress");
+    var doneEl = document.getElementById("heroDone");
+
+    function setStatus(key){                         // only pbi-001 is in the current Sprint
+      var s = HS[key], b = row1.querySelector(".hc-badge");
+      b.className = "pbi-badge hc-badge " + s.cls;
+      b.textContent = s.txt;
+      row1.classList.toggle("hc-active", s.dev);
+      if (!REDUCED){ void b.offsetWidth; b.classList.add("flip"); }
+    }
+    function setProgress(done){
+      if (progEl) progEl.style.width = (done ? 100 : 0) + "%";
+      if (doneEl) doneEl.textContent = done;
+    }
+    function addLog(o, animate){
+      var r = document.createElement("div");
+      r.className = "ha-wl-row" + (animate ? " enter" : "");
+      r.innerHTML =
+        '<span class="ha-wl-time">' + o.time + '</span>' +
+        '<div class="ha-wl-body">' +
+          '<div class="ha-wl-tagline"><span class="ha-wl-tag ' + o.cls + '">' + o.tag + '</span>' +
+          '<span class="ha-wl-who">' + o.who + '</span></div>' +
+          '<div class="ha-wl-msg">' + o.msg + '</div>' +
+        '</div>';
+      heroLog.insertBefore(r, heroLog.firstChild);
+      while (heroLog.children.length > 6) heroLog.removeChild(heroLog.lastChild);
+    }
+    function startBoard(animate){
+      setStatus("design"); setProgress(0);
+      heroLog.textContent = "";
+      addLog({time:"15:04:10", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"design.md emitted (18KB)"}, animate);
+    }
+
+    // Scrum-Master-voice transcript; each line fires a Dashboard + Work Log update
+    var LINES = [
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"Confirmed: dev-001-s1 wrote ",c:""},{t:"design.md",c:"t-blue"},{t:" — codex-design-reviewer: ",c:""},{t:"PASS",c:"t-ok"},{t:", 0 findings.",c:"t-dim"}],
+        on:function(){ setStatus("impl"); },
+        log:{time:"15:04:22", tag:"subagent stop", cls:"wl-stop", who:"pbi-designer", msg:"finished work"}, gap:1500},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-001 now ",c:""},{t:"in_progress_impl",c:"t-blue"},{t:" — implementation + unit tests underway (Round 1).",c:""}],
+        log:{time:"15:04:31", tag:"agent spawn", cls:"wl-spawn", who:"dev-001-s1", msg:"spawned agent: Author pbi-001 unit tests"}, gap:1550},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"✅ ",c:"t-ok"},{t:"black-box UT green — C0/C1 ",c:""},{t:"100%",c:"t-ok"},{t:". Entering pbi-review.",c:""}],
+        on:function(){ setStatus("pbi-review"); },
+        log:{time:"15:04:52", tag:"file changed", cls:"wl-file", who:"pbi-ut-author", msg:"Write …/pbi-001/test/main.test.mjs"}, gap:1500},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" branch=pbi/PBI-001.",c:"t-dim"}],
+        on:function(){ setStatus("merge"); },
+        log:{time:"15:05:20", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"PBI_READY_TO_MERGE"}, gap:1500},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression gate ",c:""},{t:"green",c:"t-ok"},{t:" → pbi-001 ",c:""},{t:"done",c:"t-ok"},{t:".",c:""}],
+        on:function(){ setStatus("done"); setProgress(1); },
+        log:{time:"15:05:38", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-001 merged — done"}, gap:1600},
+      {seg:[{t:"Sprint 1 / pbi-001 complete — Increment ready. Standing by.",c:"t-dim"}], gap:3600}
+    ];
+
+    var cursor = document.createElement("span");
+    cursor.className = "hc-tcursor"; cursor.setAttribute("aria-hidden","true");
+
+    function showLine(i){
+      var L = LINES[i];
+      var div = document.createElement("div");
+      div.className = "ha-line he";
+      L.seg.forEach(function(s){
+        var sp = document.createElement("span");
+        if (s.c) sp.className = s.c;
+        sp.textContent = s.t;
+        div.appendChild(sp);
+      });
+      div.appendChild(cursor);
+      heroTerm.appendChild(div);
+      if (REDUCED){ div.classList.add("show"); }
+      else { requestAnimationFrame(function(){ div.classList.add("show"); }); }
+      if (L.on) L.on();
+      if (L.log) addLog(L.log, !REDUCED);
+      heroTerm.scrollTop = heroTerm.scrollHeight;
+    }
+
+    var li = 0, timers = [];
+    function later(fn, ms){ var t = setTimeout(fn, ms); timers.push(t); return t; }
+    function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+    function tick(){
+      if (li >= LINES.length){ later(resetRun, 500); return; }
+      var gap = LINES[li].gap || 1200;
+      showLine(li++);
+      later(tick, gap);
+    }
+    function resetRun(){
+      clearTimers();
+      heroTerm.textContent = "";
+      startBoard(false);
+      li = 0;
+      later(tick, 700);
+    }
+
+    if (REDUCED){
+      startBoard(false);
+      LINES.forEach(function(_, i){ showLine(i); });   // full transcript + final board state
+    } else {
+      var running = false, seeded = false;
+      function resume(){
+        if (running) return;
+        running = true;
+        if (!seeded){ seeded = true; startBoard(false); later(tick, 800); }
+        else { later(tick, 500); }
+      }
+      function freeze(){ running = false; clearTimers(); }
+      if ("IntersectionObserver" in window){
+        new IntersectionObserver(function(entries){
+          entries.forEach(function(e){ e.isIntersecting ? resume() : freeze(); });
+        }, {threshold: 0.2}).observe(heroTerm);
+      } else { resume(); }
+      document.addEventListener("visibilitychange", function(){
+        document.hidden ? freeze() : (heroTerm.getBoundingClientRect().top < window.innerHeight && resume());
+      });
+    }
+  }
+  })();
 })();
 </script>
 </body>

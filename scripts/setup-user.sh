@@ -36,7 +36,7 @@ copy_tree() {
 #   - Creates .gitignore if missing.
 ensure_gitignore_excludes_scrum() {
   local gitignore_file="$TARGET_DIR/.gitignore"
-  local header="# Claude Scrum Team runtime state (must stay untracked)"
+  local header="# Maul Team runtime state (must stay untracked)"
   local entries=('.scrum' '.scrum/')
   local missing=()
   local entry
@@ -72,7 +72,7 @@ ensure_gitignore_excludes_scrum() {
   echo "  Updated $gitignore_file: added ${missing[*]}"
 }
 
-echo "=== claude-scrum-team: Project Setup ==="
+echo "=== Maul Team: Project Setup ==="
 echo ""
 
 # --- Validate prerequisites ---
@@ -358,7 +358,7 @@ SETTINGS_EOF
 echo "  Written settings.json with hook configuration."
 
 # --- Configure standard MCP servers (context7 + Playwright + Chrome DevTools) ---
-# These are the Claude Scrum Team standard MCP servers. All three are added
+# These are the Maul Team standard MCP servers. All three are added
 # unconditionally if npx is available:
 #   - context7: fetches up-to-date library/framework docs (needs no
 #     credentials; useful across every ceremony).

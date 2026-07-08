@@ -26,7 +26,7 @@ repo and is **not** copied to downstream target projects by
 `setup-user.sh` (which only deploys `rules/*.md`). It governs only
 this repository's own published surfaces.
 
-This repository is the **published** `claude-scrum-team` framework.
+This repository is the **published** `maul-team` framework.
 The Scrum team it spawns runs inside **other** repositories ("target
 projects") whose identifiers, retrospective findings, and Sprint /
 PBI IDs are the user's private information. They must not appear in
