@@ -17,13 +17,17 @@ reverse-lookup. FAIL routing is aspect-specific — see
 | 1 | Requirement conformance | `requirement-conformance-reviewer` | Sprint-wide requirement coverage + scope drift vs. design specs | Read, Grep, Glob, Bash (read-only) |
 | 2 | Cross-PBI functional quality | `functional-quality-reviewer` | PBI-to-PBI seams: boundary values, error propagation, state transitions, data integrity | Read, Grep, Glob, Bash (read-only) |
 | 3 | Security | `security-reviewer` | OWASP Top 10 / vulnerability scan | Read, Grep, Glob, Bash (read-only) |
-| 4 | Maintainability | `maintainability-reviewer` | Abstraction, duplication, cohesion, god-class/function, dead code (static-analysis-grounded) | Read, Grep, Glob, Bash (read-only) |
+| 4 | Maintainability | `maintainability-reviewer` | Abstraction, duplication, cohesion, god-class/function, dead code + unused exports (static-analysis-grounded) | Read, Grep, Glob, Bash (read-only) |
 | 5 | Docs consistency | `docs-consistency-reviewer` | `docs/**` vs. implementation drift, stale wording, missing follow-up | Read, Grep, Glob, Bash (read-only) |
 
 Spawned by the `cross-review` skill. See FR-009 (requirements.md).
-The skill runs a static analysis pass (Python `ruff` / Shell
-`shellcheck`) before spawning the maintainability reviewer; results
-land at `.scrum/reviews/static-analysis-r{n}.json`.
+The skill runs a two-pass static analysis before spawning the
+maintainability reviewer: Pass A is intra-file lint on the Sprint diff
+(Python `ruff` / Shell `shellcheck`); Pass B is a whole-repo
+dead-export / reachability scan (built-in `vulture` for Python, or the
+per-language commands in `.scrum/config.json.static_analysis.commands[]`
+such as `knip` / `ts-prune` / `staticcheck` / `cargo-udeps`). Both
+passes aggregate into `.scrum/reviews/static-analysis-r{n}.json`.
 
 ## PBI Pipeline (spawned by Developer per Round)
 

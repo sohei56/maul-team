@@ -234,3 +234,38 @@ EOF
   run jq -e '.entries | type == "array"' "$file"
   assert_success
 }
+
+# ---------------------------------------------------------------------------
+# config.schema.json — static_analysis (cross-review dead-export pass)
+# ---------------------------------------------------------------------------
+
+@test "config schema declares static_analysis.commands as an array of {name, command}" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/config.schema.json"
+
+  run jq -e '
+    .properties.static_analysis.properties.commands as $c |
+    ($c.type == "array") and
+    ($c.items.properties.name.type == "string") and
+    ($c.items.properties.command.type == "string")
+  ' "$schema"
+  assert_success
+}
+
+@test "config schema top-level description lists static_analysis pipeline key" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/config.schema.json"
+
+  run jq -e '.description | test("static_analysis")' "$schema"
+  assert_success
+}
+
+@test "example config static_analysis matches the commands shape" {
+  local file="$PROJECT_ROOT/.scrum-config.example.json"
+
+  # commands[] is an array and every entry carries string name + command
+  run jq -e '
+    .static_analysis.commands as $c |
+    ($c | type == "array") and
+    ($c | all((.name | type == "string") and (.command | type == "string")))
+  ' "$file"
+  assert_success
+}

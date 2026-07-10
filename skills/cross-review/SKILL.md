@@ -126,20 +126,61 @@ reverse-lookup against `paths_touched`.
      | sort -n | tail -1)
    ROUND=$(( ${ROUND:-0} + 1 ))
    ```
-   Run language tools on the Sprint-wide source path union:
+   The analysis runs in **two passes** whose findings both land in the
+   single `.scrum/reviews/static-analysis-r${ROUND}.json` file (one
+   `tools[]` entry per tool invocation, from either pass).
+
+   **Pass A — intra-file lint (Sprint-diff scope).** Run on the
+   Sprint-wide source path union (files this Sprint touched):
    - Python sources → `ruff check --select F401,F841,ARG,B --output-format json`
    - Shell sources → `shellcheck -f json`
    - (Other languages: skip; reviewer degrades gracefully.)
 
-   Aggregate results into
-   `.scrum/reviews/static-analysis-r${ROUND}.json` matching the schema
-   in `agents/maintainability-reviewer.md` § Receives. On any tool
-   failure, set `tools[].exit_code` to the non-zero code AND keep going
-   — do NOT abort the skill.
+   These catch within-file unused imports / locals / arguments — a
+   symbol that is dead **inside** a file the Sprint edited.
 
-   If every tool fails OR no source files match a supported language,
-   set `skipped_reason` to a short string (e.g. `"no python/shell
-   sources in diff"`); the maintainability reviewer will degrade
+   **Pass B — dead-export / reachability scan (whole-repo scope).**
+   Run on the **entire project source tree, not the Sprint diff.**
+   Rationale: a symbol goes dead when its *last caller* changes in
+   this Sprint, but the now-unreachable definition (the corpse) lives
+   in a file the Sprint never touched — so a diff-scoped pass structurally
+   cannot see it. Only a whole-repo reachability scan surfaces
+   cross-PBI-boundary dead exports.
+
+   Tool selection for Pass B:
+   - If `.scrum/config.json.static_analysis.commands[]` is present and
+     non-empty, run **each** declared command via `bash -c` from the
+     repo root, capturing stdout + exit code. This is the path for
+     languages the built-in default does not cover — e.g. `knip` /
+     `ts-prune` (TypeScript), `staticcheck` (Go), `cargo-udeps`
+     (Rust). The project owns path scoping inside its command string.
+   - Otherwise (no declared commands), fall back to the built-in
+     Python default: if `command -v vulture` succeeds **and** the tree
+     has Python sources, run `vulture` over the project source
+     dir(s) (e.g. `vulture src/`). If `vulture` is not installed,
+     record a `tools[]` entry named `vulture` with a non-zero
+     `exit_code` and an empty `findings[]` (tool unavailable) and
+     degrade gracefully — do NOT abort.
+
+   **Aggregation / normalization.** Aggregate both passes into
+   `.scrum/reviews/static-analysis-r${ROUND}.json` matching the schema
+   in `agents/maintainability-reviewer.md` § Receives. `ruff` and
+   `shellcheck` already emit JSON. `vulture` (and most Pass-B tools)
+   emit **plain text lines** like
+   `path/to/file.py:42: unused function 'foo' (60% confidence)` — the
+   SM parses each line into a `findings[]` entry (`file`, `line`,
+   `message`, `kind`; set `code` to the tool name when the tool has no
+   rule code) and maps the phrase to `kind`: `unused function` /
+   `unused class` / `unused method` at module scope →
+   `unused_export`; `unused import` → `unused_import`; `unused
+   variable` → `unused_variable`; else `other`. On any tool failure,
+   set that `tools[].exit_code` to the non-zero code AND keep going —
+   do NOT abort the skill.
+
+   If **every** tool across both passes fails OR no source files match
+   any supported/declared tool, set `skipped_reason` to a short string
+   (e.g. `"no python/shell sources; no static_analysis.commands
+   configured"`); the maintainability reviewer will degrade
    accordingly.
 6. **Clear stale aspect outputs from prior Sprint.** Reviewer agents
    sometimes read existing `aspect-*.md` files before writing, and

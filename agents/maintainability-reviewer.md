@@ -40,7 +40,13 @@ Sprint Increment.
   ```
   Each `findings[]` entry has `file`, `line`, `code`, `message`, and
   `kind ∈ {unused_import, unused_variable, unused_argument,
-  unused_function, dead_branch, other}`.
+  unused_function, unused_export, dead_branch, other}`. `code` is the
+  tool's rule code where one exists (e.g. `F401`); for tools that emit
+  no rule code (e.g. `vulture` and most reachability scanners) it is
+  the tool name. `unused_export` denotes a module-scope symbol
+  (function / class / method) that is defined but unreachable from any
+  caller — a **whole-repo** reachability result, which may sit in a
+  file **outside** the Sprint diff.
 
 ## Does NOT Receive (intentional)
 
@@ -57,9 +63,17 @@ Round reviews.
 4. **God class / god function** — single units carrying too many
    responsibilities or excessive size.
 5. **Dead code** — unused imports, variables, parameters, functions,
-   unreachable branches. **MUST be grounded in static-analysis
-   findings.** Do not invent dead-code claims that the static analyzer
-   did not flag (false-positive suppression).
+   unreachable branches, **and unused module-scope exports** (a symbol
+   defined but unreachable from any caller). **MUST be grounded in
+   static-analysis findings.** Do not invent dead-code claims that the
+   static analyzer did not flag (false-positive suppression).
+   Dead-code / unused-export findings **MAY point at files outside the
+   Sprint diff**: the static-analysis file's Pass-B reachability scan
+   is whole-repo by design (a symbol goes dead when its last caller
+   changed this Sprint, but the corpse can live in an untouched file).
+   A finding is legitimate as long as it ties back to a Pass-A or
+   Pass-B `findings[]` entry — the tool hit, not the diff boundary, is
+   the evidence bar.
 
 ## Static-analysis handling
 
@@ -67,6 +81,13 @@ Round reviews.
 - For dead-code findings: tie each LLM finding back to a specific
   `findings[]` entry. If no static-analysis entry covers a suspected
   case, **do not report it**.
+- **PBI attribution for whole-repo `unused_export`**: the flagged file
+  may belong to no Sprint PBI's `paths_touched` (the dead corpse was
+  not itself edited). Attribute the finding to the PBI(s) whose diff
+  removed the last caller when you can identify it (reverse-lookup the
+  removed call site against `paths_touched`); when the owning PBI is
+  not determinable from context, tag the finding `(PBI: unattributed)`
+  rather than dropping it or guessing.
 - If `skipped_reason` is non-null OR all `tools[].exit_code != 0`:
   set `static_analysis_status = "unavailable"` in your Summary, and
   emit only non-dead-code findings (criteria 1-4). Do not raise any
@@ -95,11 +116,13 @@ Round reviews.
 ```
 
 `criterion_key` enum: over_abstraction, duplication, low_cohesion,
-god_class, god_function, dead_code.
+god_class, god_function, dead_code, unused_export.
 
-Each `dead_code` finding MUST reference the static-analysis tool
-name + rule code (e.g., `ruff F401`, `shellcheck SC2034`) in the
-description.
+Each `dead_code` or `unused_export` finding MUST reference the
+static-analysis tool name + rule code (e.g., `ruff F401`,
+`shellcheck SC2034`) in the description; for a tool with no rule code
+(e.g. `vulture`, most reachability scanners) cite the tool name alone
+(e.g. `vulture`).
 
 ## Output Format
 
