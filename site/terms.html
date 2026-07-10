@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0a0a0b">
+<meta name="theme-color" content="#020610">
 <link rel="icon" type="image/png" href="./assets/app-icon.png">
 <title>Terms of Use — MaulTeam.app</title>
 <meta name="description" content="Terms of use for MaulTeam.app and the maul-team framework.">
@@ -11,9 +11,9 @@
 <meta name="robots" content="index,follow">
 <style>
 :root{
-  --bg:#0a0a0b; --panel:#141416; --line:rgba(255,255,255,.07); --line-strong:rgba(255,255,255,.12);
-  --text:#ececea; --text-2:#b6b4ae; --text-3:#7c7a74;
-  --amber:#d97706; --amber-hi:#f59e0b;
+  --bg:#020610; --panel:#081226; --line:rgba(154,190,255,.13); --line-strong:rgba(154,190,255,.24);
+  --text:#f4f8ff; --text-2:#c7d2ea; --text-3:#8d9ac0;
+  --cyan:#1cb5da; --cyan-hi:#3edcf5;
   --font-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
   --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
   --font-mono:"SF Mono",ui-monospace,Menlo,Monaco,monospace;
@@ -21,30 +21,30 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg); color:var(--text); font-family:var(--font-body);
   font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased}
-::selection{background:rgba(217,119,6,.35); color:#fff}
-a{color:var(--amber-hi); text-decoration:none; border-bottom:1px dashed rgba(245,158,11,.4)}
+::selection{background:rgba(40,200,230,.30); color:#fff}
+a{color:var(--cyan-hi); text-decoration:none; border-bottom:1px dashed rgba(62,220,245,.4)}
 a:hover{border-bottom-style:solid}
-:focus-visible{outline:2px solid var(--amber-hi); outline-offset:3px; border-radius:4px}
+:focus-visible{outline:2px solid var(--cyan-hi); outline-offset:3px; border-radius:4px}
 
 .nav{position:sticky; top:0; z-index:60;
   backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
-  background:rgba(10,10,11,.72); border-bottom:1px solid var(--line)}
+  background:rgba(2,6,16,.78); border-bottom:1px solid var(--line)}
 .nav-inner{max-width:760px; margin:0 auto; padding:0 24px; height:56px;
   display:flex; align-items:center; justify-content:space-between}
 .wordmark{display:flex; align-items:center; gap:10px; text-decoration:none; border-bottom:0;
   font-family:var(--font-mono); font-size:14px; font-weight:600; letter-spacing:-.01em; color:var(--text)}
 .wordmark .tld{color:var(--text-3)}
 .wm-icon{width:22px;height:22px;border-radius:6px;flex:none;object-fit:cover;
-  box-shadow:0 0 10px rgba(217,119,6,.28), inset 0 1px 0 rgba(255,255,255,.15)}
+  box-shadow:0 0 10px rgba(40,200,230,.30), inset 0 1px 0 rgba(255,255,255,.15)}
 .nav-back{font-size:13px; font-family:var(--font-mono); color:var(--text-2); border-bottom:0;
-  border:1px solid var(--line-strong); background:#18181b; padding:7px 14px; border-radius:999px;
+  border:1px solid var(--line-strong); background:#121c34; padding:7px 14px; border-radius:999px;
   transition:border-color .18s, color .18s}
-.nav-back:hover{border-color:rgba(217,119,6,.55); color:var(--text)}
+.nav-back:hover{border-color:rgba(62,220,245,.55); color:var(--text)}
 
 main{max-width:760px; margin:0 auto; padding:72px 24px 96px}
 .kicker{font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--amber-hi); display:inline-flex; align-items:center; gap:10px}
-.kicker::before{content:""; width:26px; height:1px; background:linear-gradient(90deg,var(--amber),transparent)}
+  color:var(--cyan-hi); display:inline-flex; align-items:center; gap:10px}
+.kicker::before{content:""; width:26px; height:1px; background:linear-gradient(90deg,var(--cyan),transparent)}
 h1{font-family:var(--font-display); font-size:clamp(30px,5vw,42px); font-weight:700;
   letter-spacing:-.025em; line-height:1.12; margin:16px 0 10px}
 .effective{font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); margin-bottom:40px}
