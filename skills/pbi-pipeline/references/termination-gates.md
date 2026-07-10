@@ -89,7 +89,7 @@ A finding counts as a web-searchable technical error iff it is one of:
 - a reviewer finding whose `signature` ends in `:error_handling` — the
   sole `criterion_key` that maps to a library/API contract. Every other
   `criterion_key` (`incorrect_behavior`, `scope_creep`, `naming`,
-  `missing_validation`, `unclear_intent`, `dead_code`,
+  `missing_validation`, `unclear_intent`, `dead_code`, `duplication`,
   `missing_test_for_acceptance`, `missing_branch_coverage`,
   `redundant_test`, `mock_overuse`, `magic_number`, `bad_assertion`,
   `pragma_unjustified`) is spec/style and is NOT in this set.

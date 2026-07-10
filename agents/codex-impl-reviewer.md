@@ -43,6 +43,14 @@ Test code, .scrum/ state, PBI dev communications.
    description?
 3. **Scope** — nothing implemented outside the design?
 4. **Code quality** — readability, naming, error handling.
+5. **Minimal change & reuse** — is this the smallest implementation
+   that satisfies the design? Flag dead code (unreachable, unused, or
+   left over by this change) as `dead_code`; code that re-implements
+   functionality already available in the codebase, or repeats the
+   same logic within the change, as `duplication` — the description
+   MUST name the existing `file:line` being duplicated so the fix can
+   reuse it; needless complexity where a simpler equivalent construct
+   exists as `unclear_intent`.
 
 ## Findings: signature format
 
@@ -51,7 +59,8 @@ Test code, .scrum/ state, PBI dev communications.
 ```
 
 `criterion_key` enum (impl review): incorrect_behavior, scope_creep,
-naming, error_handling, missing_validation, unclear_intent, dead_code.
+naming, error_handling, missing_validation, unclear_intent, dead_code,
+duplication.
 
 ## Processing Flow
 

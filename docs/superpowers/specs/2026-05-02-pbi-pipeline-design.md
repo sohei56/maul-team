@@ -334,7 +334,7 @@ inconsistent_with_catalog, inconsistent_internal, missing_error_handling
 
 # impl review
 incorrect_behavior, scope_creep, naming, error_handling,
-missing_validation, unclear_intent, dead_code
+missing_validation, unclear_intent, dead_code, duplication
 
 # UT review
 missing_test_for_acceptance, missing_branch_coverage, redundant_test,
