@@ -79,6 +79,20 @@ wait for a reply.
    ```
    (No-op when already there on re-entry.)
 
+   **Codebase-audit pre-flight gate (mandatory).** Before any test
+   derivation, a whole-repo `codebase-audit` must have run and be
+   gate-clean for the current rollover. Check for
+   `.scrum/reviews/codebase-audit-s{N}.md` (`N` = numeric sprint number
+   from `sprint.json.id`); if it is missing or carries open
+   Critical/High findings, run the `codebase-audit` skill now and let
+   it resolve. If that audit trips its gate it creates defect PBIs and
+   sets the phase back to `backlog_created` — **stop here**; the
+   Integration Sprint resumes after the defect-fix loop. Proceed to
+   Step 2 only once the audit is gate-clean. Rationale: per-PBI and
+   Sprint-diff review cannot see whole-repo defects (dead code, silent
+   I/O failures, cross-spec conflicts, cross-PBI duplication); catching
+   them here is far cheaper than during integration testing.
+
 2. **Spawn the testing Developer teammate(s)** via the
    `spawn-teammates` skill (1–2 for testing). The Developer(s) run
    Steps 3–6.

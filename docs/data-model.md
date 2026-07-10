@@ -46,7 +46,10 @@ Valid phases:
 - `review` — Sprint-end cross-review phase (`cross-review` skill)
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
-- `integration_sprint` — Integration Tests in progress: design-driven
+- `integration_sprint` — Integration Tests in progress. Opens with a
+  mandatory `codebase-audit` pre-flight gate (whole-repo multi-agent
+  audit; Critical/High findings become defect PBIs and route back to
+  `backlog_created` before testing proceeds), then design-driven
   systematic testing (boundary values, flow-branch and pattern-branch
   coverage, external-interface stubs) via the `integration-tests`
   skill. On passing tests the Scrum Master advances to `uat_release`;

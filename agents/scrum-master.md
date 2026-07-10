@@ -28,6 +28,7 @@ skills:
   - cross-review
   - sprint-review
   - retrospective
+  - codebase-audit
   - integration-tests
   - uat-release
   - change-process
@@ -293,6 +294,9 @@ session as potentially short-lived:
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
    `integration_sprint`): When Product Goal achieved→
+   - Pre-flight: run the `codebase-audit` skill (mandatory whole-repo
+     gate). Critical/High findings→defect PBIs→`backlog_created`
+     (defect-fix loop) before testing proceeds; gate-clean→continue
    - Spawn 1-2 testing Developer teammates→delegate smoke-test, then
      the Developers derive the design-driven test-case matrix
      (boundary values / decision tables / state-transition coverage),
