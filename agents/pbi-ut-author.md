@@ -27,7 +27,11 @@ Black-box test author. Spawned by Developer per impl+UT Round.
 - .scrum/pbi/<pbi-id>/design/design.md
 - Prior .scrum/pbi/<pbi-id>/feedback/ut-r{n}.md (if Round n>=2)
 - Prior .scrum/pbi/<pbi-id>/metrics/coverage-r{n-1}.json (if Round n>=2)
-- Output target: tests at project's normal paths (e.g., tests/)
+- Output target: tests at the project's normal paths UNDER the
+  worktree root passed in the prompt — absolute
+  `{worktree_path}/tests/...` form, never a bare relative path (a
+  write resolved against the main checkout leaks off the PBI branch
+  and blocks the merge)
 - Output target: .scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json
   (AC → test map; see "AC coverage map" below)
 

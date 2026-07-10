@@ -69,9 +69,13 @@ impl/PBI-review/UT-run cycle.
 
 ### Step 1: Parallel spawn (pbi-implementer + pbi-ut-author)
 
-Backlog status is `in_progress_impl`. Issue both Agent calls in a
-single message (Claude Code parallel execution). Wait for both to
-return.
+Backlog status is `in_progress_impl`. First snapshot the
+main-checkout status (`MAIN_SNAP_BEFORE` — see
+`worktree-containment.md` § Procedure). Then issue both Agent calls
+in a single message (Claude Code parallel execution), **synchronous**
+(`run_in_background: false`), filling `{worktree_path}` in both
+prompts with the conductor's worktree absolute path (`$(pwd)`). Wait
+for both to return.
 
 ```text
 Agent(subagent_type="pbi-implementer", prompt=<from sub-agent-prompts.md § pbi-implementer>)
@@ -136,6 +140,17 @@ in-Round fix instead of a lost Round, without weakening the Step-4
 gate. **kind=docs PBIs skip this step entirely** (no UT author, no AC
 map — see the kind=docs branch above).
 
+### Step 1c: Worktree containment check
+
+Before committing, compare the main-checkout status against
+`MAIN_SNAP_BEFORE`. Any new entry is a producer write that leaked
+into the main checkout instead of the worktree (source under
+`<main>/src/...`, tests under `<main>/tests/...`) — relocate it into
+the worktree per `worktree-containment.md` § "On a non-empty LEAKED"
+before Step 2, or the leaked files will miss the Round commit and the
+merge will fail `artifact_missing`. Applies to kind=docs rounds too
+(single producer).
+
 ### Step 2: Move to PBI Review
 
 Once both sub-agents have produced source + tests for Round n, the
@@ -155,7 +170,8 @@ exactly the snapshot to review. Both `REVIEW_SHA` and `DESIGN_HASH`
 are passed into the two reviewer prompts as pin slots (see
 `sub-agent-prompts.md` § codex-impl-reviewer / codex-ut-reviewer).
 
-Then advance the status and spawn the two reviewers in parallel:
+Then advance the status and spawn the two reviewers in parallel
+(synchronous — `run_in_background: false`):
 
 ```bash
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_pbi_review
@@ -199,7 +215,7 @@ Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md § 
 ```
 
 Apply `reviewer-stall-fallback.md` per reviewer (2-min stall detect
-→ single Explore-agent retry → escalate as `reviewer_unavailable` if
+→ single general-purpose-agent retry → escalate as `reviewer_unavailable` if
 both fail). For kind=code the two reviewers are independent — fall
 back on either without affecting the other. For kind=docs there is
 only one reviewer.

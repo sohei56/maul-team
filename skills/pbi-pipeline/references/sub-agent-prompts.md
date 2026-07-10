@@ -48,6 +48,28 @@ incorrect. The stall-fallback protocol in
 `reviewer-stall-fallback.md` is independent: it handles `codex` that
 **hangs** after a successful preflight, not `codex` that is absent.
 
+## Producer worktree containment (designer / implementer / ut-author)
+
+The three producer prompts below carry a `Worktree root: {worktree_path}`
+slot and an absolute-path rule. The conductor fills `{worktree_path}`
+with the **absolute** path of the PBI worktree — `$(pwd)` for a
+conductor started per `spawn-teammates` (its cwd IS the worktree).
+
+This slot is not decoration. Task-spawned sub-agents resolve bare
+relative paths against whatever cwd the harness gives them, which can
+be the MAIN repo checkout — the file then misses the PBI branch,
+dirties main, and blocks the merge. Target-project retrospectives
+logged this leak across **11 Sprints**, and a generic "Working
+directory:" header alone did not stop it: one bare path token (even
+one embedded in pasted `catalog_targets` JSON) still leaks. Hence the
+per-prompt hard rule + the conductor-side post-round verification in
+`worktree-containment.md`.
+
+`.scrum/...` artifact paths are exempt: `.scrum` is a symlink shared
+between main and every worktree, so both resolutions land on the same
+SSOT directory. Only project-tree paths (source, tests,
+`docs/design/specs/`) can leak.
+
 ## Common envelope reminder (append to every prompt)
 
 ```text
@@ -77,6 +99,14 @@ End your response with a single JSON code block matching this schema:
 
 ```text
 You are pbi-designer for {pbi_id}. Author the PBI working design doc.
+
+Worktree root: {worktree_path}
+ALL project-tree writes MUST use absolute paths prefixed with
+{worktree_path} — catalog specs go to
+{worktree_path}/docs/design/specs/..., never a bare docs/design/...
+relative path. A path resolved against the main repo checkout is a
+worktree leak: it misses your PBI branch and blocks the merge.
+(.scrum/... paths are exempt — shared symlink.)
 
 PBI assignment:
 {paste backlog.json entry for {pbi_id}}
@@ -154,7 +184,13 @@ Inputs:
     previous approach unchanged. (You have no WebSearch tool; the
     research is provided in the feedback.)
 
-Write source code to project's normal implementation paths (e.g., src/).
+Worktree root: {worktree_path}
+Write source code to the project's normal implementation paths UNDER
+the worktree root, using absolute paths — e.g.
+{worktree_path}/src/.... ALL project-tree writes MUST resolve under
+{worktree_path}; a bare relative path resolved against the main repo
+checkout is a worktree leak that misses your PBI branch and blocks
+the merge. (.scrum/... paths are exempt — shared symlink.)
 
 {common envelope reminder}
 ```
@@ -171,6 +207,13 @@ PBI. There is no design doc; you read the parent PBI's review and
 apply the doc-shaped change directly. Touch only `*.md` files —
 mark-pbi-ready-to-merge.sh will escalate any non-.md path as
 kind_mismatch and the SM will reject the PBI.
+
+Worktree root: {worktree_path}
+ALL edits MUST use absolute paths prefixed with {worktree_path} —
+including the `Files to edit` below, even though they are listed
+relative. A path resolved against the main repo checkout is a
+worktree leak that misses your PBI branch and blocks the merge.
+(.scrum/... paths are exempt — shared symlink.)
 
 Inputs:
 - PBI acceptance_criteria (from backlog.json):
@@ -218,7 +261,13 @@ Inputs:
 - Prior coverage report (gap reference):
   - .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
 
-Write tests to project's normal test paths (e.g., tests/).
+Worktree root: {worktree_path}
+Write tests to the project's normal test paths UNDER the worktree
+root, using absolute paths — e.g. {worktree_path}/tests/.... ALL
+project-tree writes MUST resolve under {worktree_path}; a bare
+relative path resolved against the main repo checkout is a worktree
+leak that misses your PBI branch and blocks the merge. (.scrum/...
+paths are exempt — shared symlink.)
 
 You have TWO mandatory deliverables this Round. BOTH must exist before
 you return — a missing AC coverage map fails the Round:

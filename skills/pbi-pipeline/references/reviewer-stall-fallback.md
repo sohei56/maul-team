@@ -29,16 +29,21 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
 
 4. **Fallback action — single retry through a different surface.**
    - `TaskStop` the stalled `codex-<stage>-reviewer` task.
-   - Re-spawn the same review with the generic `Explore` agent (or
-     `general-purpose` if `Explore` is unavailable), passing the
-     **identical prompt** from `sub-agent-prompts.md` (same pin
-     slots: `{review_sha}`, `{design_hash}`, `{worktree_path}` where
-     applicable) but with the subagent_type swapped:
+   - Re-spawn the same review with the `general-purpose` agent,
+     passing the **identical prompt** from `sub-agent-prompts.md`
+     (same pin slots: `{review_sha}`, `{design_hash}`,
+     `{worktree_path}` where applicable) but with the subagent_type
+     swapped:
      ```text
-     Agent(subagent_type="Explore",
+     Agent(subagent_type="general-purpose",
            prompt=<same codex-<stage>-reviewer prompt verbatim>)
      ```
-   - The Explore-agent obeys the same FIRST-action pin verification
+     Do NOT use the `Explore` agent here: Explore is read-only (no
+     `Write` tool) and cannot persist `review-r{n}.md` — a target
+     project's fallback failed exactly this way and burned a second
+     retry discovering it. The fallback reviewer must be able to
+     write the review file.
+   - The fallback agent obeys the same FIRST-action pin verification
      described in the codex agent definitions and emits the same
      `stale_snapshot:` error envelope on mismatch.
    - The generic agent runs the same instructions under a Claude
@@ -47,7 +52,7 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
    - Log the fallback for diagnostic continuity:
      ```bash
      .scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" \
-       fallback "codex stall → Explore reviewer"
+       fallback "codex stall → general-purpose reviewer"
      ```
 
 5. **Verdict parsing.** Identical to the codex path — read
@@ -66,7 +71,7 @@ independent** timeout layers — do not conflate them:
 
 - **Conductor stall trigger (2 min, this document).** The conductor
   declares the reviewer stalled at 2 minutes with no output file and
-  switches to the Explore-agent retry (step 3–4 above). This is the
+  switches to the general-purpose-agent retry (step 3–4 above). This is the
   primary bound and normally fires FIRST.
 - **Helper hard timeout (`CODEX_TIMEOUT_SECS`, default 300 s, inside
   `codex-invoke.sh`).** The reviewer sub-agent runs codex through the
@@ -89,12 +94,12 @@ hand-rolled spin loop.
 ## Notes
 
 - The fallback is a **single retry**, not a polling loop. If the
-  Explore-based reviewer also fails to produce a verdict file within
+  fallback reviewer also fails to produce a verdict file within
   5 minutes, escalate via `pbi-escalation-handler` with
   `escalation_reason = "reviewer_unavailable"`. Do not chain further
   retries — repeated stalls indicate an environment problem, not a
   prompt problem.
-- Do NOT mix codex output and Explore output in the same
+- Do NOT mix codex output and fallback output in the same
   `review-r{n}.md`. The fallback overwrites the file; the codex
   partial output (if any) is discarded.
 - The Sprint-end aspect reviewers in `cross-review` are **not**

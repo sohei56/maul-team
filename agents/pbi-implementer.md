@@ -30,8 +30,11 @@ variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
 
 - .scrum/pbi/<pbi-id>/design/design.md
 - Prior .scrum/pbi/<pbi-id>/feedback/impl-r{n}.md (if Round n>=2)
-- Output target: implementation source at project's normal paths
-  (e.g., src/, lib/)
+- Output target: implementation source at the project's normal paths
+  UNDER the worktree root passed in the prompt — absolute
+  `{worktree_path}/src/...` form, never a bare relative path (a write
+  resolved against the main checkout leaks off the PBI branch and
+  blocks the merge)
 
 ## Receives (kind=docs)
 

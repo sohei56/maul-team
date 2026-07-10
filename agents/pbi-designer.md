@@ -157,6 +157,12 @@ mirrors `rules/scrum-context.md` § Agent tool unavailability.
 - DO NOT include implementation code examples. Interface declarations
   only (signatures, type definitions).
 - DO NOT write outside `.scrum/pbi/` and `docs/design/specs/`.
+- Catalog spec writes (`docs/design/specs/...`) MUST resolve under
+  the worktree root passed in your prompt (`{worktree_path}`) — use
+  the absolute `{worktree_path}/docs/design/specs/...` form, never a
+  bare relative path. A write resolved against the main repo checkout
+  leaks the spec off your PBI branch and blocks the merge.
+  (`.scrum/...` paths are exempt — shared symlink.)
 - catalog spec writes MUST acquire the
   `.scrum/locks/catalog-<spec_id>.lock.d` mkdir lock (60s timeout)
   before editing (S-070 library specs serialize on

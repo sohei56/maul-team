@@ -27,8 +27,13 @@ input. The implementer reads those directly.
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_round "$n" design_status pending`
    - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" start —`
 
-2. **Step 1: Spawn pbi-designer** (single Agent call)
-   - Build prompt from `sub-agent-prompts.md` § pbi-designer
+2. **Step 1: Spawn pbi-designer** (single Agent call, synchronous —
+   `run_in_background: false`)
+   - Snapshot main-checkout status first (see
+     `worktree-containment.md` § Procedure, `MAIN_SNAP_BEFORE`)
+   - Build prompt from `sub-agent-prompts.md` § pbi-designer, filling
+     `{worktree_path}` with the conductor's worktree absolute path
+     (`$(pwd)`)
    - The designer performs **mandatory library selection web search**
      and emits the design.md `Library Selection` section plus any
      `docs/design/specs/technology/S-070-<lib>.md` verified specs (see
@@ -38,10 +43,16 @@ input. The implementer reads those directly.
      WebSearch harness incident (status=error), escalate — do not let
      it fabricate specs.
    - Wait for completion
+   - **Containment check**: compare against `MAIN_SNAP_BEFORE`; a
+     leaked write into the main checkout (e.g. a catalog spec at
+     `<main>/docs/design/specs/...`) must be relocated into the
+     worktree before proceeding — full procedure in
+     `worktree-containment.md`.
    - Parse JSON envelope from output. If status=error → escalate.
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status in_review`
 
-3. **Step 2: Spawn codex-design-reviewer** (single Agent call)
+3. **Step 2: Spawn codex-design-reviewer** (single Agent call,
+   synchronous — `run_in_background: false`)
    - Capture the design-doc content hash before spawning so the
      reviewer can verify it is reading the same bytes the conductor
      intends to review (design.md lives under untracked `.scrum/`,
@@ -62,7 +73,7 @@ input. The implementer reads those directly.
      Codex absent → `Agent(subagent_type="codex-design-reviewer", model="opus", prompt=<...>)`.
    - Build prompt from `sub-agent-prompts.md` § codex-design-reviewer
    - Apply `reviewer-stall-fallback.md` (2-min stall detect →
-     single Explore-agent retry → escalate as `reviewer_unavailable`
+     single general-purpose-agent retry → escalate as `reviewer_unavailable`
      if both fail)
    - Read .scrum/pbi/<pbi-id>/design/review-r{n}.md → parse Verdict.
    - **Snapshot-pin verification.** The review file MUST begin with

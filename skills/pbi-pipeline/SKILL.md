@@ -143,9 +143,28 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
 - `pbi-implementer` ‖ `pbi-ut-author` — Impl Round Step 1 (parallel pair)
 - `codex-impl-reviewer` ‖ `codex-ut-reviewer` — PBI Review Stage (parallel pair)
 
+**Every Agent spawn in this pipeline is synchronous — pass
+`run_in_background: false`.** A background spawn parks the conductor:
+nothing re-invokes it when the sub-agent finishes, and the Round
+handoff sits until an SM nudge (a target project logged a >10-hour
+stall at an impl→UT handoff). "Wait for both to return" in the stage
+references means the synchronous call itself — never a hand-rolled
+poll loop (see `references/reviewer-stall-fallback.md` § Bounded
+waiting for why spinning is forbidden).
+
+**Producer containment.** The three producer prompts (designer /
+implementer / ut-author) each carry a `{worktree_path}` slot with an
+absolute-path write rule, and the conductor verifies after every
+producer round that the main checkout gained no new dirt — see
+`references/worktree-containment.md` for the snapshot/relocate
+procedure. Leaks recurred across 11 Sprints in a target project when
+this was prompt-discipline only.
+
 All three `codex-*-reviewer` spawns share the stall fallback protocol
 in `references/reviewer-stall-fallback.md` (2-min stall detect →
-single Explore-agent retry → escalate as `reviewer_unavailable`).
+single general-purpose-agent retry → escalate as `reviewer_unavailable`;
+Explore is unusable here — it has no `Write` tool to persist the
+review file).
 
 All three also share a snapshot-pin contract. The conductor captures
 pins immediately before spawn and passes them as input slots:
