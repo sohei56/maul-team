@@ -44,6 +44,11 @@
       "properties": {
         "enabled": {"type": "boolean"},
         "idle_threshold_minutes": {"type": "integer", "minimum": 1},
+        "pbi_idle_threshold_minutes": {
+          "description": "Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to idle_threshold_minutes.",
+          "type": "integer",
+          "minimum": 1
+        },
         "cooldown_minutes": {"type": "integer", "minimum": 1},
         "poll_interval_seconds": {"type": "integer", "minimum": 1}
       }

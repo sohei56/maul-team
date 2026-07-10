@@ -411,8 +411,16 @@ Do **not** re-spawn a reviewer based solely on Stop hook output. The first revie
 Aim to stop normally between turns (per the mode-dependent policy
 above). The normal re-entry trigger is a Teammate `SendMessage`; the
 abnormal-silence trigger is a `[STALL-WATCHDOG]` nudge pasted into
-the SM pane by `scripts/stall-watchdog.sh` after the configured idle
-window (default 15m).
+the SM pane by `scripts/stall-watchdog.sh`. The nudge comes in two
+forms (both default to a 15m window):
+
+- `no activity for Nm` — global: every signal quiet. The whole team
+  may be idle.
+- `per-PBI stall: <id>(Nm) ...` — that specific PBI's artifacts and
+  worktree have been quiet even though other teammates (or you) kept
+  global activity fresh. Probe the **owning Developer** first; this
+  fires exactly for the "one stalled conductor on a busy team" case
+  that global idle detection cannot see.
 
 When you observe a `[STALL-WATCHDOG]` nudge (human mode) or the
 autonomous block message `PBI pipeline active: N in-flight (...)`,

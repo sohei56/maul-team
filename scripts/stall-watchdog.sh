@@ -17,6 +17,17 @@
 #   .scrum/dashboard.json mtime        — hook event activity
 #   .scrum/pbi/<id>/ recursive mtime   — pipeline artifact activity
 #
+# Two independent stall detectors:
+#   Global   — no activity anywhere (max of the signals above) for
+#              idle_threshold_minutes. Catches a fully dead team.
+#   Per-PBI  — a single in-flight PBI whose own activity (its
+#              .scrum/pbi/<id>/ artifact tree, its worktree's last
+#              commit, and dirty/untracked worktree file mtimes) is
+#              older than pbi_idle_threshold_minutes, even while other
+#              teammates keep the global signals fresh. Catches the
+#              "one stalled conductor masked by an otherwise busy
+#              team" case, which the global detector cannot see.
+#
 # Nudge transport:
 #   tmux send-keys -t <sm_pane_id>     — single-line probe sent to the SM
 #                                        pane. The SM is idle waiting for
@@ -34,6 +45,7 @@
 #   {
 #     "enabled": true,
 #     "idle_threshold_minutes": 15,
+#     "pbi_idle_threshold_minutes": 15,   // default: idle_threshold_minutes
 #     "cooldown_minutes": 15,
 #     "poll_interval_seconds": 60
 #   }
@@ -227,6 +239,71 @@ in_flight_count() {
   ' "$BACKLOG_FILE" 2>/dev/null || printf '0\n'
 }
 
+# in_flight_ids — same filter, but emit the PBI ids one per line.
+in_flight_ids() {
+  if [ ! -f "$BACKLOG_FILE" ] || ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
+    return 0
+  fi
+  jq -r '
+    .items[]?
+      | select(.status | startswith("in_progress_"))
+      | select(.status != "in_progress_merge")
+      | .id // empty
+  ' "$BACKLOG_FILE" 2>/dev/null || true
+}
+
+# pbi_activity_epoch <pbi_id> — newest activity epoch attributable to ONE
+# PBI:
+#   - .scrum/pbi/<id>/ recursive mtime (state.json, pipeline.log, reviews,
+#     metrics — small, controlled tree)
+#   - the PBI worktree's last commit time (commit-pbi.sh commits)
+#   - dirty/untracked file mtimes from `git status --porcelain` in the
+#     worktree (live sub-agent edits between commits), capped at 200
+#     entries so a pathological worktree cannot stall the poll loop
+# Emits 0 when the PBI artifact dir does not exist yet (pipeline not
+# initialized) — callers must skip those rather than treat 0 as "stale
+# since epoch".
+pbi_activity_epoch() {
+  local id="$1"
+  local dir="$PBI_DIR/$id" wt="$SCRUM_DIR/worktrees/$id"
+  [ -d "$dir" ] || { printf '0\n'; return 0; }
+  local max m
+  max="$(max_mtime_recursive "$dir")"
+  if [ -d "$wt" ] && command -v git >/dev/null 2>&1; then
+    m="$(git -C "$wt" log -1 --format=%ct 2>/dev/null || true)"
+    case "$m" in ''|*[!0-9]*) m=0 ;; esac
+    [ "$m" -gt "$max" ] && max="$m"
+    # Porcelain lines are "XY path"; rename lines ("R  old -> new") yield a
+    # non-existent combined path, which mtime_of maps to 0 — harmless.
+    local p
+    while IFS= read -r p; do
+      [ -z "$p" ] && continue
+      m="$(mtime_of "$wt/$p")"
+      [ "$m" -gt "$max" ] && max="$m"
+    done <<EOF
+$(git -C "$wt" status --porcelain 2>/dev/null | head -n 200 | cut -c4-)
+EOF
+  fi
+  printf '%s\n' "$max"
+}
+
+# stale_pbi_list <now_epoch> <threshold_seconds> — emit "id(Nm)" tokens,
+# one per line, for every in-flight PBI whose per-PBI activity is older
+# than the threshold. PBIs without an artifact dir are skipped (the global
+# idle detector still covers a team that never started).
+stale_pbi_list() {
+  local now="$1" threshold="$2" id act idle
+  in_flight_ids | while IFS= read -r id; do
+    [ -z "$id" ] && continue
+    act="$(pbi_activity_epoch "$id")"
+    [ "$act" -eq 0 ] && continue
+    idle=$((now - act))
+    if [ "$idle" -gt "$threshold" ]; then
+      printf '%s(%sm)\n' "$id" "$((idle / 60))"
+    fi
+  done
+}
+
 # in_flight_summary — same filter, but grouped "N status" join.
 in_flight_summary() {
   if [ ! -f "$BACKLOG_FILE" ] || ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
@@ -243,17 +320,15 @@ in_flight_summary() {
   ' "$BACKLOG_FILE" 2>/dev/null || printf '\n'
 }
 
-# send_nudge <pane> <idle_minutes> <summary>
+# send_nudge <pane> <message>
 # Independent function so bats can stub tmux via a PATH shim. Returns 0 on
 # success regardless of tmux exit so the loop never crashes on transient
 # tmux errors.
 send_nudge() {
-  local pane="$1" idle_min="$2" summary="$3"
-  local nudge_msg
-  nudge_msg="[STALL-WATCHDOG] no activity for ${idle_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+  local pane="$1" nudge_msg="$2"
   if "$TMUX_BIN" send-keys -t "$pane" "$nudge_msg" 2>/dev/null; then
     "$TMUX_BIN" send-keys -t "$pane" Enter 2>/dev/null || true
-    log_msg INFO "nudge sent to pane=$pane idle_min=$idle_min summary=\"$summary\""
+    log_msg INFO "nudge sent to pane=$pane msg=\"$nudge_msg\""
     return 0
   fi
   log_msg WARN "tmux send-keys failed for pane=$pane (continuing)"
@@ -283,6 +358,14 @@ run_once() {
   esac
   case "$cooldown_min" in
     ''|*[!0-9]*) cooldown_min="$DEFAULT_COOLDOWN_MIN" ;;
+  esac
+
+  # Per-PBI threshold defaults to the global idle threshold — one knob
+  # unless the operator wants different sensitivities.
+  local pbi_idle_threshold_min
+  pbi_idle_threshold_min="$(read_cfg_or '.stall_watchdog.pbi_idle_threshold_minutes' "$idle_threshold_min")"
+  case "$pbi_idle_threshold_min" in
+    ''|*[!0-9]*) pbi_idle_threshold_min="$idle_threshold_min" ;;
   esac
 
   # Runtime read
@@ -333,9 +416,24 @@ run_once() {
   threshold_seconds=$((idle_threshold_min * 60))
   cooldown_seconds=$((cooldown_min * 60))
 
-  if [ "$idle_seconds" -le "$threshold_seconds" ]; then
-    log_msg INFO "active: idle=${idle_seconds}s threshold=${threshold_seconds}s in_flight=${in_flight}"
-    return 0
+  # Decide which detector (if any) fires. Global takes precedence; when
+  # global activity is fresh, look for individually stalled PBIs that the
+  # rest of the team's activity would otherwise mask.
+  local nudge_msg=""
+  if [ "$idle_seconds" -gt "$threshold_seconds" ]; then
+    local summary
+    summary="$(in_flight_summary)"
+    nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+  else
+    local stale_pbis
+    stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) | tr '\n' ' ')"
+    # Trim the trailing space from the join.
+    stale_pbis="${stale_pbis% }"
+    if [ -z "$stale_pbis" ]; then
+      log_msg INFO "active: idle=${idle_seconds}s threshold=${threshold_seconds}s in_flight=${in_flight}"
+      return 0
+    fi
+    nudge_msg="[STALL-WATCHDOG] per-PBI stall: ${stale_pbis} quiet over ${pbi_idle_threshold_min}m while other team activity continues. Probe the owning Developer via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
   fi
 
   # Cooldown check
@@ -348,9 +446,7 @@ run_once() {
   fi
 
   # Nudge
-  local summary
-  summary="$(in_flight_summary)"
-  send_nudge "$pane" "$idle_threshold_min" "$summary"
+  send_nudge "$pane" "$nudge_msg"
   write_last_nudge_epoch "$now"
   return 0
 }

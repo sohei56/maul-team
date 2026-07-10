@@ -45,7 +45,7 @@ scripts/                 # Setup and utility scripts
   setup-user.sh          # Copies agents/skills/hooks/rules to target project
   setup-dev.sh           # Installs dev dependencies (bats, shellcheck, etc.)
   statusline.sh          # Claude Code status line script
-  stall-watchdog.sh      # External teammate-stall monitor (non-autonomous mode); launched by scrum-start.sh, nudges SM via tmux when no activity for `stall_watchdog.idle_threshold_minutes`
+  stall-watchdog.sh      # External teammate-stall monitor (non-autonomous mode); launched by scrum-start.sh, nudges SM via tmux on global idle (`stall_watchdog.idle_threshold_minutes`) or when a single in-flight PBI's artifacts+worktree go quiet (`pbi_idle_threshold_minutes`) while the rest of the team stays active
   scrum/                 # SSOT state wrappers (deployed to .scrum/scripts/ by setup-user.sh)
   autonomous/            # Autonomous-PO watchdog (Ralph Loop): watchdog.sh + lib/report.sh
 tests/                   # Test suites

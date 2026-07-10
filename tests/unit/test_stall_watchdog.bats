@@ -197,6 +197,60 @@ set_mtime_ago() {
 }
 
 # --------------------------------------------------------------------------
+# (d2) per-PBI stall: global activity fresh but one PBI stale → nudge names it
+# --------------------------------------------------------------------------
+@test "stall-watchdog: fresh global activity but one stale PBI → per-PBI nudge" {
+  seed_backlog_inflight 2
+  # dashboard.json freshly touched → the GLOBAL detector stays quiet.
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+  mkdir -p .scrum/pbi/pbi-001 .scrum/pbi/pbi-002
+  # pbi-001 active, pbi-002 quiet for 10 minutes (> 1-min threshold).
+  set_mtime_ago .scrum/pbi/pbi-002 10
+
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+  grep -F 'per-PBI stall' "$TMUX_LOG" | grep -q 'pbi-002'
+  # The active PBI must NOT be named as stale.
+  run bash -c "grep -F 'per-PBI stall' '$TMUX_LOG' | grep 'pbi-001('"
+  [ "$status" -ne 0 ]
+}
+
+# --------------------------------------------------------------------------
+# (d3) per-PBI: stale artifact dir but fresh dirty file in the worktree
+#      → the worktree edit counts as activity, no nudge
+# --------------------------------------------------------------------------
+@test "stall-watchdog: stale PBI dir but fresh worktree edit → no nudge" {
+  command -v git >/dev/null 2>&1 || skip "git not available"
+  seed_backlog_inflight 1
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+  mkdir -p .scrum/pbi/pbi-001
+  set_mtime_ago .scrum/pbi/pbi-001 10
+
+  # Worktree with one fresh uncommitted file — a live sub-agent edit.
+  mkdir -p .scrum/worktrees/pbi-001
+  git -C .scrum/worktrees/pbi-001 init -q
+  echo "wip" > .scrum/worktrees/pbi-001/wip.txt
+
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 0 ]
+}
+
+# --------------------------------------------------------------------------
+# (d4) per-PBI: PBI dir missing entirely (pipeline not initialized) → skipped
+# --------------------------------------------------------------------------
+@test "stall-watchdog: in-flight PBI without artifact dir → per-PBI check skipped" {
+  seed_backlog_inflight 1
+  # Global activity fresh; .scrum/pbi/pbi-001 never created.
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 0 ]
+}
+
+# --------------------------------------------------------------------------
 # (e) config enabled=false → immediate exit, no nudge attempted
 # --------------------------------------------------------------------------
 @test "stall-watchdog: disabled in config → no-op exit" {
