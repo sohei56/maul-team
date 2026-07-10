@@ -132,6 +132,22 @@ if [ -f .scrum/config.json ]; then
 fi
 if [ -z "$REG_CMD" ] || [ "$REG_CMD" = "null" ]; then
   printf '[merge-pbi] WARN: no merge regression command configured — skipping regression gate\n'
+  # In autonomous mode a console WARN is read by nobody, so an
+  # unconfigured gate means every per-PBI merge lands ungated in
+  # silence (a target project shipped a broken test suite to main this
+  # way, Sprint after Sprint). Surface it to PO attention once per
+  # Sprint (deduped by a sprint-id marker line).
+  PO_MODE="$(jq -r '.po_mode // "human"' .scrum/config.json 2>/dev/null || echo human)"
+  if [ "$PO_MODE" = "agent" ] && [ -f .scrum/sprint.json ]; then
+    ATTN_SPRINT="$(jq -r '.id // ""' .scrum/sprint.json)"
+    ATTN_FILE=".scrum/po/attention.md"
+    ATTN_MARK="merge_regression.command unconfigured ($ATTN_SPRINT)"
+    if [ -n "$ATTN_SPRINT" ] && ! grep -qF "$ATTN_MARK" "$ATTN_FILE" 2>/dev/null; then
+      mkdir -p .scrum/po
+      printf -- '- [%s] %s: per-PBI merges land with the regression gate skipped; set .scrum/config.json.merge_regression.command\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ATTN_MARK" >> "$ATTN_FILE"
+    fi
+  fi
 else
   if ! bash -c "$REG_CMD" >"$REG_LOG" 2>&1; then
     # Record the failure BEFORE rolling back so state stays consistent

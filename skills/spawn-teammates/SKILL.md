@@ -28,7 +28,11 @@ disable-model-invocation: false
 0. **Freeze Sprint base.** Run
    `bash .scrum/scripts/freeze-sprint-base.sh`. This captures
    `sprint.json.base_sha = $(git rev-parse HEAD)` exactly once per
-   Sprint. PBI worktrees fork from this commit.
+   Sprint. PBI worktrees fork from this commit. The wrapper refuses
+   while `docs/design/` has uncommitted changes — scaffold stubs and
+   catalog-config enables must be committed first (sprint-planning
+   Step 13), or they will be missing from every worktree. If it
+   refuses, go back and commit; do not work around it.
 
 1. Read sprint.json→id (the current Sprint id is also at state.json.current_sprint_id)
 2. Derive Sprint PBIs from backlog.json:

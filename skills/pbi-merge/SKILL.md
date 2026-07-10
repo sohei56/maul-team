@@ -18,7 +18,11 @@ disable-model-invocation: false
   single shell string run via `bash -c` from the main repo root after
   the merge commit lands. Absent / empty / null → the regression gate
   is skipped and a `WARN: no merge regression command configured` line
-  is printed. Output (stdout+stderr) is captured to
+  is printed; in `po_mode=agent`, `merge-pbi.sh` additionally appends
+  a once-per-Sprint entry to `.scrum/po/attention.md` so the skipped
+  gate cannot stay silent across an autonomous run (a target project
+  merged a broken test suite to main repeatedly because the WARN had
+  no reader). Output (stdout+stderr) is captured to
   `.scrum/pbi/<pbi-id>/merge-regression.log` (overwritten per attempt).
 
 ## Outputs

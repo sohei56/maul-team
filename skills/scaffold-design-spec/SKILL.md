@@ -52,3 +52,11 @@ Ref: FR-004
 - All stubs: valid YAML frontmatter with all required fields
 - docs/ category→doc-oriented placeholders
 - No duplicate stubs
+
+## Handoff (commit before base freeze)
+
+This skill only writes stubs to the working tree. The caller
+(`sprint-planning` Step 13) MUST commit `docs/design/` to main before
+`spawn-teammates` runs `freeze-sprint-base.sh` — worktrees fork from
+committed HEAD, so an uncommitted stub reaches no PBI worktree.
+`freeze-sprint-base.sh` refuses while `docs/design/` is dirty.

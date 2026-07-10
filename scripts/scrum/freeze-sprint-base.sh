@@ -20,6 +20,20 @@ if jq -e 'has("base_sha") and .base_sha != null and .base_sha != ""' "$SPRINT" >
   fail E_INVALID_ARG "sprint.base_sha already frozen — call exactly once per Sprint"
 fi
 
+# Scaffold→commit→freeze ordering guard. base_sha captures committed HEAD
+# only; PBI worktrees fork from it. A scaffolded design-spec stub (or a
+# catalog-config enable) left uncommitted here is invisible to every
+# worktree — a target project shipped a PBI with NO design spec because
+# the stub never made it into the base. Refuse until docs/design/ is
+# committed (sprint-planning Step 13 owns the commit).
+# -uall expands untracked directories to individual files so the error
+# names the actual stubs, not a bare "docs/design/" line.
+DIRTY_DESIGN="$(git status --porcelain -uall -- docs/design/ 2>/dev/null || true)"
+if [ -n "$DIRTY_DESIGN" ]; then
+  DIRTY_CSV="$(printf '%s\n' "$DIRTY_DESIGN" | awk '{print $NF}' | tr '\n' ',' | sed 's/,$//')"
+  fail E_INVALID_ARG "freeze-sprint-base: uncommitted docs/design/ changes would be excluded from base_sha (worktrees fork from committed HEAD): $DIRTY_CSV — commit scaffold stubs + catalog-config first"
+fi
+
 SHA="$(git rev-parse HEAD)"
 NOW="$(_iso_utc_now)"
 

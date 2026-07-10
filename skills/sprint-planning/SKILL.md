@@ -225,6 +225,18 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     analysis. Record the decision visibly in the Sprint summary so the
     PO (po_mode=agent) or user can override at Step 12.
 
+11.5. **Merge regression gate check**: read
+    `.scrum/config.json.merge_regression.command`. If absent / empty /
+    null, every per-PBI merge this Sprint will land with the
+    regression gate skipped (`merge-pbi.sh` prints a WARN nobody acts
+    on — a target project shipped a broken test suite to main this
+    way across multiple Sprints). Include a visible WARN line in the
+    Step 12 Sprint summary recommending a command (e.g. the project's
+    test suite). Human mode: the user decides whether to configure it
+    before starting. Agent mode: proceed (do not block planning);
+    `merge-pbi.sh` will surface the skipped gate to
+    `.scrum/po/attention.md` once per Sprint.
+
 12. **Present Sprint summary + options**:
     - 1. Start Sprint
     - 2. Adjust Sprint Goal
@@ -233,7 +245,21 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     - 5. View backlog
     - 6. Other
     → Wait for user selection
-13. **On "Start Sprint"**: Enable catalog-config.json entries→run scaffold-design-spec→spawn-teammates
+13. **On "Start Sprint"**: Enable catalog-config.json entries→run
+    scaffold-design-spec→**commit the scaffold to main**→spawn-teammates.
+
+    The commit step is mandatory and ordered BEFORE spawn-teammates:
+    `spawn-teammates` Step 0 freezes `sprint.base_sha` from committed
+    HEAD, and every PBI worktree forks from that commit. An
+    uncommitted stub or catalog-config enable is invisible to all
+    worktrees — a target project shipped a PBI with no design spec
+    exactly this way. `freeze-sprint-base.sh` machine-enforces the
+    ordering (refuses while `docs/design/` has uncommitted changes):
+
+    ```bash
+    git add docs/design/
+    git commit -m "chore(sprint): enable catalog entries + scaffold design-spec stubs"
+    ```
 
 Ref: FR-004, FR-005, FR-006, FR-007, FR-008
 
