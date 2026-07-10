@@ -64,6 +64,51 @@ For every codex-\* reviewer spawn (design / impl / ut stages):
    single-respawn-then-escalate-`stale_review_snapshot` protocol in
    `design-stage.md` / `impl-ut-stage.md`.
 
+## Completed-but-unpersisted verdict
+
+A reviewer Task can also **complete normally yet leave no
+`review-r{n}.md`** — the reviewer returned its full verdict in its
+final message and deferred persistence to the conductor. (Historical
+cause: a "Read-only" ambiguity in the codex agent definitions; the
+definitions now mandate the write, but this branch stays defined
+defensively.) This is NOT a stall — do not wait out the 2-minute
+trigger; act as soon as the Task reports completed.
+
+When `TaskGet` shows `completed` AND `review-r{n}.md` is absent (or
+its mtime predates the spawn timestamp):
+
+1. **Inspect the reviewer's returned final message.** It is usable
+   only if ALL of the following are present:
+   - the pin header lines (`Reviewed-Head:` + `Reviewed-Design-Hash:`;
+     design stage: `Reviewed-Design-Hash:` only; kind=docs:
+     `Reviewed-Design-Hash: -`),
+   - a `**Verdict: PASS | FAIL**` line,
+   - the JSON envelope.
+2. **Complete → the conductor persists it.** Write the returned
+   message content **verbatim** to `review-r{n}.md` — copy; do not
+   summarize, reformat, re-order findings, or reconstruct any part.
+   Log the handoff for diagnostic continuity:
+
+   ```bash
+   .scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" \
+     fallback "reviewer returned verdict unpersisted → persisted_by=conductor"
+   ```
+
+3. **Incomplete → treat exactly as a stall.** Any missing element
+   (header, verdict, envelope) → do NOT persist a partial file and do
+   NOT fabricate the missing part; run the single general-purpose
+   retry (Protocol step 4). Fabricated pin headers defeat the
+   snapshot-pin contract — the headers are evidence that the reviewer
+   reviewed the pinned SHA, and only the reviewer may originate them.
+4. **Then gate as normal.** Verdict parsing and post-hoc header
+   verification (Protocol step 5) apply to the conductor-persisted
+   file unchanged.
+
+Never idle in this state: a completed reviewer Task with no review
+file is always resolved in the same turn, by either step 2
+(persist) or step 3 (retry). Waiting for "someone" to write the
+file is the historical failure mode this section eliminates.
+
 ## Bounded waiting only
 
 All waiting on a codex review MUST stay bounded. There are **two

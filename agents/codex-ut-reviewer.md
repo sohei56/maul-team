@@ -9,6 +9,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -130,7 +131,13 @@ codex preflight.
 
 ## Strict Rules
 
-- Read-only.
+- Read-only toward every project file (tests, design doc,
+  requirements, coverage reports) — with exactly ONE mandatory write:
+  you MUST persist your verdict to the output target
+  `ut/review-r{n}.md` yourself (Write tool). Returning the verdict
+  only in your final message without writing the file is a protocol
+  violation — the conductor gates on the file's existence.
+  "Read-only" never applies to your own review file.
 - DO NOT read implementation files (your input list excludes them; do
   not search for them).
 - Always try Codex first.

@@ -220,6 +220,13 @@ both fail). For kind=code the two reviewers are independent — fall
 back on either without affecting the other. For kind=docs there is
 only one reviewer.
 
+If a reviewer Task **completes** without writing its `review-r{n}.md`,
+apply `reviewer-stall-fallback.md` § Completed-but-unpersisted
+verdict in the same turn: persist the returned verdict verbatim if it
+is complete (pin headers + Verdict + envelope), otherwise run the
+single general-purpose retry — never fabricate, never idle waiting
+for the file to appear.
+
 Read review-r{n}.md from each, parse verdicts and findings.
 
 #### Snapshot-pin verification

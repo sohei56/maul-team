@@ -9,6 +9,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -94,7 +95,13 @@ codex preflight.
 
 ## Strict Rules
 
-- Read-only.
+- Read-only toward every project file (source, design doc,
+  requirements) — with exactly ONE mandatory write: you MUST persist
+  your verdict to the output target `impl/review-r{n}.md` yourself
+  (Write tool). Returning the verdict only in your final message
+  without writing the file is a protocol violation — the conductor
+  gates on the file's existence. "Read-only" never applies to your
+  own review file.
 - Describe problems only, not fixes.
 - Always try Codex first.
 - Snapshot pin contract: verify `{review_sha}` and `{design_hash}`

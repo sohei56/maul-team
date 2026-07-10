@@ -10,6 +10,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -159,7 +160,13 @@ codex preflight for the canonical spawn shape.
 
 ## Strict Rules
 
-- Read-only — DO NOT modify project files.
+- Read-only toward every project file (design docs, catalog specs,
+  requirements, source) — with exactly ONE mandatory write: you MUST
+  persist your verdict to the output target `review-r{n}.md` yourself
+  (Write tool). Returning the verdict only in your final message
+  without writing the file is a protocol violation — the conductor
+  gates on the file's existence. "Read-only" never applies to your
+  own review file.
 - DO NOT suggest fixes (describe problems only).
 - DO NOT assess on info not given.
 - ALWAYS try Codex first; fall back only on exit 1.

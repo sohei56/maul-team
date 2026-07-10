@@ -75,6 +75,12 @@ input. The implementer reads those directly.
    - Apply `reviewer-stall-fallback.md` (2-min stall detect →
      single general-purpose-agent retry → escalate as `reviewer_unavailable`
      if both fail)
+   - If the reviewer Task **completes** without writing
+     `review-r{n}.md`, apply `reviewer-stall-fallback.md`
+     § Completed-but-unpersisted verdict in the same turn: persist
+     the returned verdict verbatim if complete (header + Verdict +
+     envelope), else single general-purpose retry — never fabricate,
+     never idle waiting for the file.
    - Read .scrum/pbi/<pbi-id>/design/review-r{n}.md → parse Verdict.
    - **Snapshot-pin verification.** The review file MUST begin with
      `Reviewed-Design-Hash: <DESIGN_HASH>`. If the header is missing
