@@ -11,7 +11,7 @@
 # from this wrapper's perspective: ids are auto-assigned (imp-NNNN,
 # monotonically increasing) and existing entries are never rewritten. The
 # 3-Sprint consolidation pass (status: archived, archived_at, last_consolidation_sprint
-# bump) is a separate operation handled by consolidate-improvements.sh (TBD).
+# bump) is a separate operation handled by consolidate-improvements.sh.
 #
 # Schema: docs/contracts/scrum-state/improvements.schema.json.
 #

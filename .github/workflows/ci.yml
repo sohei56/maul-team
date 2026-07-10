@@ -32,6 +32,50 @@ jobs:
       - name: Ruff format check
         run: ruff format --check dashboard/
 
+  schema-migration-pairing:
+    name: Schema / migration pairing
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a migration wrapper (or explicit opt-out) alongside schema changes
+        # An SSOT schema tightened without a paired data-migration path
+        # bricked every append wrapper in a target project (whole-file
+        # re-validation rejects pre-existing entries; the guard blocks
+        # manual repair). Enforce the pairing at PR time: any change to
+        # docs/contracts/scrum-state/*.schema.json must ship with a
+        # migration/consolidation wrapper change, or declare
+        # "schema-migration: none-needed" in a commit message (for
+        # purely additive / relaxing / description-only changes).
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          BASE="origin/$BASE_REF"
+          git fetch -q origin "$BASE_REF"
+          SCHEMAS="$(git diff --name-only "$BASE"...HEAD -- 'docs/contracts/scrum-state/*.schema.json')"
+          if [ -z "$SCHEMAS" ]; then
+            echo "No scrum-state schema changes — pairing check not applicable."
+            exit 0
+          fi
+          echo "Changed schemas:"; echo "$SCHEMAS"
+          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh')"
+          if [ -n "$MIGRATIONS" ]; then
+            echo "Paired migration/consolidation wrapper changes found:"; echo "$MIGRATIONS"
+            exit 0
+          fi
+          if git log --format=%B "$BASE"..HEAD | grep -qi 'schema-migration: *none-needed'; then
+            echo "Commit declares 'schema-migration: none-needed' — accepted."
+            exit 0
+          fi
+          echo "::error::scrum-state schema changed without a paired migration wrapper." \
+            "Ship a scripts/scrum/migrate-*.sh change for existing .scrum data," \
+            "or add 'schema-migration: none-needed' to a commit message if the" \
+            "change is purely additive/relaxing."
+          exit 1
+
   bats:
     name: Bats Tests
     runs-on: ubuntu-latest

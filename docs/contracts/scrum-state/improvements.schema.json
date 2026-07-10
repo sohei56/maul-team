@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Retrospective improvement log",
-  "description": "Append + consolidate log at .scrum/improvements.json. Records every retrospective improvement item. Writes go exclusively through scripts/scrum/append-improvement.sh (and a future consolidate-improvements.sh for 3-Sprint archival). Direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
+  "description": "Append + consolidate log at .scrum/improvements.json. Records every retrospective improvement item. Writes go exclusively through scripts/scrum/append-improvement.sh and consolidate-improvements.sh (3-Sprint archival pass). Direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
   "type": "object",
   "required": ["entries"],
   "additionalProperties": true,

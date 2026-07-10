@@ -12,7 +12,8 @@ disable-model-invocation: false
 
 ## Outputs
 
-- improvements.json → entries[] appended (3-Sprint consolidation/archival is deferred — see Step 4)
+- improvements.json → entries[] appended; every 3 Sprints the
+  consolidation pass archives stale entries (see Step 4)
 - state.json → phase: retrospective
 - sprint.json → status: "complete"
 
@@ -70,17 +71,28 @@ Overrides in agent mode:
    ```
 2. Reflect on Sprint: what went well, what to improve (process, communication, tooling, code quality)
 3. Record ≥1 improvement → call `.scrum/scripts/append-improvement.sh --sprint <sprint-id> --description "<what to improve>"` for each item. The wrapper auto-assigns `id` (`imp-NNNN`), stamps `created_at`, sets `status: "active"`, and validates against `improvements.schema.json`. In `po_mode=agent`, when the entry derives from a `PO_DECISION_REQUEST` round-trip, pass `--dec-id dec-NNNN` to link the entry to the decision record. Direct edits to `.scrum/improvements.json` are blocked by `pre-tool-use-scrum-state-guard.sh`.
-4. **Consolidation check (deferred — currently a no-op)**: The
-   3-Sprint consolidation pass (archive stale entries → bump
-   `last_consolidation_sprint`) is **not yet implemented**: its
-   wrapper `consolidate-improvements.sh` does not exist, and direct
-   edits to `.scrum/improvements.json` are blocked by
-   `pre-tool-use-scrum-state-guard.sh`. Skip this step — do **not**
-   attempt a raw edit (the guard will reject it). Until the wrapper
-   lands, `improvements.json` simply accumulates entries. (Tracking:
-   `docs/MIGRATION-scrum-state-tools.md` § Known gaps.)
-5. Present retrospective report: went well, to improve (no "archived
-   items" section until the Step 4 consolidation pass lands)
+4. **Consolidation check (every 3 Sprints)**: read
+   `improvements.json.last_consolidation_sprint`. Consolidation is
+   DUE when it is `null` and entries span ≥3 Sprints, or when the
+   current Sprint number is ≥3 ahead of it. When due:
+   1. Review every `status: "active"` entry and decide which are
+      stale — addressed (the improvement landed), obsolete (the
+      process/tool it targets no longer exists), or superseded by a
+      newer entry. Left unconsolidated, the active list grows
+      unbounded and stops being readable (a target project reached
+      150+ entries with consolidation 20+ Sprints overdue).
+   2. Execute the decision in one atomic call:
+      ```bash
+      .scrum/scripts/consolidate-improvements.sh --sprint <sprint-id> \
+        --archive imp-NNNN --archive imp-NNNN
+      ```
+      Zero `--archive` flags is valid ("reviewed, nothing stale") and
+      still bumps `last_consolidation_sprint`. Direct edits to
+      `.scrum/improvements.json` remain blocked by
+      `pre-tool-use-scrum-state-guard.sh` — the wrapper is the only
+      sanctioned path.
+5. Present retrospective report: went well, to improve, and (when
+   Step 4 ran) the archived-items summary
 6. sprint.json → status: "complete":
    ```bash
    .scrum/scripts/update-sprint-status.sh complete
