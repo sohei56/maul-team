@@ -93,13 +93,21 @@ move HEAD mid-review).
 WT=".scrum/worktrees/$PBI_ID"
 REVIEW_SHA="$(git -C "$WT" rev-parse HEAD)"
 BASE_SHA="$(jq -r '.base_sha' .scrum/sprint.json)"
-PATHS_TOUCHED="$(jq -r --arg id "$PBI_ID" \
-  '.items[] | select(.id==$id) | .paths_touched[]?' .scrum/backlog.json)"
+# Diff-derived review scope. pbi-state.json.paths_touched is stamped
+# LATER by mark-pbi-ready-to-merge.sh, so derive it here from git with
+# the same idiom that wrapper uses (--diff-filter=AMR: Added/Modified/
+# Renamed only — Deleted paths have nothing left to review).
+PATHS_TOUCHED="$(git -C "$WT" diff --name-only --diff-filter=AMR \
+  "$BASE_SHA..$REVIEW_SHA")"
 .scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" start integrity
 ```
 
 `{review_sha}` and `{base_sha}` are passed to every aspect reviewer as
-the diff bounds; `paths_touched` limits the diff to this PBI's files.
+the diff bounds; `{paths_touched}` — the diff-derived file list above —
+limits the review to this PBI's files. It is computed in-stage because
+no persisted `paths_touched` exists yet at this point in the pipeline
+(the backlog item never carries one, and the PBI state field is only
+written at ready-to-merge).
 
 ### Step I-2: Pass-A static analysis (maintainability input)
 
@@ -109,8 +117,8 @@ to the per-PBI metrics path the maintainability reviewer reads:
 
 ```bash
 OUT=".scrum/pbi/$PBI_ID/metrics/static-analysis-r$n.json"
-# Diff-scoped file list, split by language:
-CHANGED="$(git -C "$WT" diff --name-only "$BASE_SHA".."$REVIEW_SHA" -- $PATHS_TOUCHED)"
+# Diff-scoped file list (from Step I-1), split by language:
+CHANGED="$PATHS_TOUCHED"
 PY_FILES="$(echo "$CHANGED" | grep -E '\.py$' || true)"
 SH_FILES="$(echo "$CHANGED" | grep -E '\.sh$' || true)"
 # Python → ruff F401,F841,ARG,B ; Shell → shellcheck ; both emit JSON.

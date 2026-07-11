@@ -62,13 +62,28 @@ dirties main, and blocks the merge. Target-project retrospectives
 logged this leak across **11 Sprints**, and a generic "Working
 directory:" header alone did not stop it: one bare path token (even
 one embedded in pasted `catalog_targets` JSON) still leaks. Hence the
-per-prompt hard rule + the conductor-side post-round verification in
+per-prompt hard rule — the shared `{worktree containment reminder}`
+block below, expanded at spawn time like `{common envelope reminder}`
+— plus the conductor-side post-round verification in
 `worktree-containment.md`.
 
 `.scrum/...` artifact paths are exempt: `.scrum` is a symlink shared
 between main and every worktree, so both resolutions land on the same
 SSOT directory. Only project-tree paths (source, tests,
 `docs/design/specs/`) can leak.
+
+## Worktree containment reminder (producer prompts)
+
+Expanded by the conductor wherever a producer prompt says
+`{worktree containment reminder}` (each prompt keeps its own
+role-specific example line above the placeholder):
+
+```text
+ALL project-tree writes MUST use absolute paths prefixed with
+{worktree_path}; a bare relative path resolved against the main repo
+checkout is a worktree leak that misses your PBI branch and blocks
+the merge. (.scrum/... paths are exempt — shared symlink.)
+```
 
 ## Common envelope reminder (append to every prompt)
 
@@ -101,12 +116,9 @@ End your response with a single JSON code block matching this schema:
 You are pbi-designer for {pbi_id}. Author the PBI working design doc.
 
 Worktree root: {worktree_path}
-ALL project-tree writes MUST use absolute paths prefixed with
-{worktree_path} — catalog specs go to
-{worktree_path}/docs/design/specs/..., never a bare docs/design/...
-relative path. A path resolved against the main repo checkout is a
-worktree leak: it misses your PBI branch and blocks the merge.
-(.scrum/... paths are exempt — shared symlink.)
+Catalog specs go to {worktree_path}/docs/design/specs/..., never a
+bare docs/design/... relative path.
+{worktree containment reminder}
 
 PBI assignment:
 {paste backlog.json entry for {pbi_id}}
@@ -187,10 +199,8 @@ Inputs:
 Worktree root: {worktree_path}
 Write source code to the project's normal implementation paths UNDER
 the worktree root, using absolute paths — e.g.
-{worktree_path}/src/.... ALL project-tree writes MUST resolve under
-{worktree_path}; a bare relative path resolved against the main repo
-checkout is a worktree leak that misses your PBI branch and blocks
-the merge. (.scrum/... paths are exempt — shared symlink.)
+{worktree_path}/src/....
+{worktree containment reminder}
 
 {common envelope reminder}
 ```
@@ -209,11 +219,9 @@ mark-pbi-ready-to-merge.sh will escalate any non-.md path as
 kind_mismatch and the SM will reject the PBI.
 
 Worktree root: {worktree_path}
-ALL edits MUST use absolute paths prefixed with {worktree_path} —
-including the `Files to edit` below, even though they are listed
-relative. A path resolved against the main repo checkout is a
-worktree leak that misses your PBI branch and blocks the merge.
-(.scrum/... paths are exempt — shared symlink.)
+This covers ALL edits — including the `Files to edit` below, even
+though they are listed relative.
+{worktree containment reminder}
 
 Inputs:
 - PBI acceptance_criteria (from backlog.json):
@@ -263,11 +271,8 @@ Inputs:
 
 Worktree root: {worktree_path}
 Write tests to the project's normal test paths UNDER the worktree
-root, using absolute paths — e.g. {worktree_path}/tests/.... ALL
-project-tree writes MUST resolve under {worktree_path}; a bare
-relative path resolved against the main repo checkout is a worktree
-leak that misses your PBI branch and blocks the merge. (.scrum/...
-paths are exempt — shared symlink.)
+root, using absolute paths — e.g. {worktree_path}/tests/....
+{worktree containment reminder}
 
 You have TWO mandatory deliverables this Round. BOTH must exist before
 you return — a missing AC coverage map fails the Round:
@@ -487,7 +492,10 @@ Inputs:
 - Base SHA (diff bound): {base_sha}
   The increment under review is
     git -C {worktree_path} diff {base_sha}..{review_sha} -- {paths_touched}
-- paths_touched (limits the diff to this PBI):
+- paths_touched (this PBI's changed files; the conductor derives the
+  list in Step I-1 of `integrity-stage.md` via
+  `git diff --name-only --diff-filter=AMR {base_sha}..{review_sha}` —
+  there is no persisted paths_touched yet at this point):
   - <path1>
   - <path2>
 - PBI backlog entry (id, title, acceptance_criteria, kind, parent_pbi_id):

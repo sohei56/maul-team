@@ -34,7 +34,11 @@ threshold (e.g., `"c1_threshold": 95` — percent scale, compared against
 ```bash
 CFG=".scrum/config.json"
 RUN_CMD="$(jq -r '.coverage_tool.command' "$CFG")"
-mapfile -t RUN_ARGS < <(jq -r '.coverage_tool.run_args[]' "$CFG")
+# Bash 3.2-safe array read (portable while-read idiom)
+RUN_ARGS=()
+while IFS= read -r line; do
+  RUN_ARGS+=("$line")
+done < <(jq -r '.coverage_tool.run_args[]' "$CFG")
 "$RUN_CMD" "${RUN_ARGS[@]}"
 EX=$?
 # nonzero EX is OK here (tests may have failed) — failures recorded
@@ -44,7 +48,10 @@ EX=$?
 (b) **Coverage report generation**
 
 ```bash
-mapfile -t REPORT_ARGS < <(jq -r '.coverage_tool.report_args[]' "$CFG")
+REPORT_ARGS=()
+while IFS= read -r line; do
+  REPORT_ARGS+=("$line")
+done < <(jq -r '.coverage_tool.report_args[]' "$CFG")
 REPORT_PATH=".scrum/pbi/$PBI_ID/metrics/coverage-r$ROUND.json"
 "$RUN_CMD" "${REPORT_ARGS[@]}" "$REPORT_PATH"
 ```

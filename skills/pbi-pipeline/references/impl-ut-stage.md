@@ -214,8 +214,8 @@ Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md § 
 # When Codex is absent, add: model="opus"
 ```
 
-Apply `reviewer-stall-fallback.md` per reviewer (2-min stall detect
-→ single general-purpose-agent retry → escalate as `reviewer_unavailable` if
+Apply `reviewer-stall-fallback.md` per reviewer (post-return persistence
+check → single general-purpose-agent retry → escalate as `reviewer_unavailable` if
 both fail). For kind=code the two reviewers are independent — fall
 back on either without affecting the other. For kind=docs there is
 only one reviewer.

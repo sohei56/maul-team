@@ -192,7 +192,7 @@ procedure. Leaks recurred across 11 Sprints in a target project when
 this was prompt-discipline only.
 
 All three `codex-*-reviewer` spawns share the stall fallback protocol
-in `references/reviewer-stall-fallback.md` (2-min stall detect →
+in `references/reviewer-stall-fallback.md` (post-return persistence check →
 single general-purpose-agent retry → escalate as `reviewer_unavailable`;
 Explore is unusable here — it has no `Write` tool to persist the
 review file).

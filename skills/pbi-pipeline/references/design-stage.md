@@ -73,7 +73,7 @@ reads those directly.
      Codex present → `Agent(subagent_type="codex-design-reviewer", prompt=<...>)`.
      Codex absent → `Agent(subagent_type="codex-design-reviewer", model="opus", prompt=<...>)`.
    - Build prompt from `sub-agent-prompts.md` § codex-design-reviewer
-   - Apply `reviewer-stall-fallback.md` (2-min stall detect →
+   - Apply `reviewer-stall-fallback.md` (post-return persistence check →
      single general-purpose-agent retry → escalate as `reviewer_unavailable`
      if both fail)
    - If the reviewer Task **completes** without writing
@@ -116,11 +116,20 @@ reads those directly.
 
 ```bash
 notify_sm_escalation() {
-  local pbi_id="$1" reason="$2"
+  local pbi_id="$1" reason="$2" last_review
+  # Newest review file across the design/impl/ut stages, by mtime.
+  # `ls -t | head -1` is fine in this doc snippet: review paths are
+  # framework-generated and contain no spaces or newlines.
+  last_review="$(ls -t \
+    ".scrum/pbi/$pbi_id/design/"review-r*.md \
+    ".scrum/pbi/$pbi_id/impl/"review-r*.md \
+    ".scrum/pbi/$pbi_id/ut/"review-r*.md \
+    2>/dev/null | head -n 1)"
+  [ -n "$last_review" ] || last_review="none"
   # Use the Agent Teams notification mechanism. Implementation in
   # current Developer agent uses TaskUpdate or message-passing —
   # invoke whichever convention applies.
-  echo "[$pbi_id] ESCALATED reason=$reason last_review=$(latest_review_path "$pbi_id")"
+  echo "[$pbi_id] ESCALATED reason=$reason last_review=$last_review"
 }
 ```
 
