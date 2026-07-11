@@ -23,6 +23,7 @@
 # Echoes the archived Sprint id on stdout.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -30,6 +31,8 @@ source "$HERE/lib/atomic.sh"
 
 SPRINT=".scrum/sprint.json"
 BACKLOG=".scrum/backlog.json"
+STATE=".scrum/state.json"
+STATE_SCHEMA="$ROOT/docs/contracts/scrum-state/state.schema.json"
 
 # Idempotent no-op: nothing to roll over (e.g. retried iteration).
 if [ ! -f "$SPRINT" ]; then
@@ -72,10 +75,23 @@ if [ -n "$PBIS_COMPLETED" ]; then HIST_ARGS+=(--pbis-completed "$PBIS_COMPLETED"
 
 "$HERE/append-sprint-history.sh" "${HIST_ARGS[@]}" >/dev/null
 
-# 2. Clear sprint.json so init-sprint.sh can create the next Sprint. The
+# 2. Clear state.current_sprint_id BEFORE removing sprint.json. state.json's
+#    field is defined as "ID of the active Sprint, null if none"; leaving it
+#    naming the just-archived Sprint is the drift init-sprint.sh guards against
+#    from the other direction. Nulling before the rm is deliberate: on a crash
+#    between the two steps a retried run re-enters (sprint.json still present),
+#    re-nulls (idempotent), then removes — no window strands a stale pointer.
+if [ -f "$STATE" ]; then
+  atomic_write "$STATE" ".current_sprint_id = null" "$STATE_SCHEMA"
+else
+  printf '[rollover-sprint] warning: %s absent; cannot null current_sprint_id\n' \
+    "$STATE" >&2
+fi
+
+# 3. Clear sprint.json so init-sprint.sh can create the next Sprint. The
 #    archive above is the durable record; sprint.json is ephemeral runtime.
 rm -f "$SPRINT"
 
-printf '[rollover-sprint] archived %s to sprint-history.json and cleared sprint.json\n' \
+printf '[rollover-sprint] archived %s to sprint-history.json, nulled state.current_sprint_id, and cleared sprint.json\n' \
   "$SPRINT_ID" >&2
 printf '%s\n' "$SPRINT_ID"

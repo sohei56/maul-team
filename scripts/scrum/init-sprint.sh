@@ -73,12 +73,15 @@ atomic_create "$SPRINT" "$SPRINT_SCHEMA" '{
 }' --arg id "$SPRINT_ID" --arg goal "$GOAL" --arg type "$TYPE" --arg now "$NOW"
 
 # Update state.json.current_sprint_id via the standard atomic_write helper.
-# If this step fails (e.g. schema violation), sprint.json is left behind for
-# manual cleanup — but that is preferable to the silent drift the wrapper
-# was created to prevent.
-atomic_write "$STATE" \
-  ".current_sprint_id = \"$SPRINT_ID\"" \
-  "$STATE_SCHEMA"
+# If this second write fails (e.g. schema violation), roll back the sprint.json
+# just created so no orphan half-init survives. atomic_write's `fail` exits, so
+# run it in a subshell to intercept the nonzero status and clean up first.
+if ! ( atomic_write "$STATE" \
+         ".current_sprint_id = \"$SPRINT_ID\"" \
+         "$STATE_SCHEMA" ); then
+  rm -f "$SPRINT"
+  fail E_SCHEMA "state.current_sprint_id update failed; rolled back $SPRINT (no orphan sprint.json left)"
+fi
 
 printf '[init-sprint] created %s (type=%s) and set state.current_sprint_id=%s\n' \
   "$SPRINT_ID" "$TYPE" "$SPRINT_ID"

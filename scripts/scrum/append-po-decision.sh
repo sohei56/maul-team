@@ -115,7 +115,9 @@ PATHF=".scrum/po/decisions.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/po-decisions.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
-  printf '%s\n' '{"decisions": []}' > "$PATHF"
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching every subsequent atomic_write mutation.
+  atomic_create "$PATHF" "$SCHEMA" '{decisions: []}'
 fi
 
 # Compute next id (max dec-NNNN + 1, zero-padded to 4). jq returns 0 when the

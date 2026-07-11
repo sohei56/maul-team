@@ -34,10 +34,14 @@ NOW="$(_iso_utc_now)"
 EXPR=".merged_sha = \"$SHA\" | .merged_at = \"$NOW\" | .merge_failure_count = 0 | del(.merge_failure)"
 atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
 
-# Mirror merged_sha + merged_at to backlog item (status flip happens via wrapper below).
+# Mirror merged_sha + merged_at to backlog item and stamp updated_at on the
+# mutated item (status flip happens via wrapper below, which also restamps
+# updated_at; stamping here keeps this direct mutation self-consistent).
+# $NOW is reused so updated_at == merged_at exactly.
 BACKLOG_SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
 EXPR_B="(.items[] | select(.id == \"$PBI\")).merged_sha = \"$SHA\""
 EXPR_B="$EXPR_B | (.items[] | select(.id == \"$PBI\")).merged_at = \"$NOW\""
+EXPR_B="$EXPR_B | (.items[] | select(.id == \"$PBI\")).updated_at = \"$NOW\""
 atomic_write "$BACKLOG" "$EXPR_B" "$BACKLOG_SCHEMA"
 
 # Flip backlog status to awaiting_cross_review (Sprint-end cross_review待機).

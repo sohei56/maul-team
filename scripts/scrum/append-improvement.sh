@@ -56,7 +56,9 @@ PATHF=".scrum/improvements.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/improvements.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
-  printf '%s\n' '{"entries": [], "last_consolidation_sprint": null}' > "$PATHF"
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching every subsequent atomic_write mutation.
+  atomic_create "$PATHF" "$SCHEMA" '{entries: [], last_consolidation_sprint: null}'
 fi
 
 # Compute next id (max imp-NNNN + 1, zero-padded to 4). jq returns 0 when the

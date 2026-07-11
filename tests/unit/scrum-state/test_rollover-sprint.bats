@@ -41,6 +41,15 @@ write_backlog() {
   ]}' > "$TEST_TMP/.scrum/backlog.json"
 }
 
+write_state() {
+  # state.json naming the Sprint being rolled over (the drift to clear).
+  jq -n '{
+    phase: "sprint_review", current_sprint_id: "sprint-001",
+    product_goal: "Ship the MVP",
+    created_at: "2026-06-01T00:00:00Z", updated_at: "2026-06-14T00:00:00Z"
+  }' > "$TEST_TMP/.scrum/state.json"
+}
+
 @test "rollover-sprint: complete sprint is archived and sprint.json removed" {
   write_sprint complete "Ship the MVP"
   write_backlog
@@ -58,6 +67,22 @@ write_backlog() {
   [ "$output" = "sprint-001" ]
   run jq -r '.sprints[0].goal' "$HIST"
   [ "$output" = "Ship the MVP" ]
+}
+
+@test "rollover-sprint: nulls state.current_sprint_id after archiving" {
+  write_sprint complete "Ship the MVP"
+  write_backlog
+  write_state
+  # Precondition: state names the sprint about to be rolled over.
+  run jq -r '.current_sprint_id' "$TEST_TMP/.scrum/state.json"
+  [ "$output" = "sprint-001" ]
+  run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT"
+  [ "$status" -eq 0 ]
+  # Pointer cleared (docs: current_sprint_id is null when no active Sprint).
+  run jq -r '.current_sprint_id' "$TEST_TMP/.scrum/state.json"
+  [ "$output" = "null" ]
+  # sprint.json still removed.
+  [ ! -f "$SPRINT" ]
 }
 
 @test "rollover-sprint: derives PBI counts from the Sprint Backlog" {

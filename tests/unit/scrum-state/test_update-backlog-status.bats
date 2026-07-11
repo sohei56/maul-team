@@ -22,6 +22,10 @@ backlog_status() {
   jq -r --arg id "$1" '.items[] | select(.id==$id).status' "$TEST_TMP/.scrum/backlog.json"
 }
 
+backlog_updated_at() {
+  jq -r --arg id "$1" '.items[] | select(.id==$id).updated_at' "$TEST_TMP/.scrum/backlog.json"
+}
+
 @test "update-backlog-status: accepts draft" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 draft
   [ "$status" -eq 0 ]
@@ -98,6 +102,19 @@ backlog_status() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 done
   [ "$status" -eq 0 ]
   [ "$(backlog_status pbi-001)" = "done" ]
+}
+
+@test "update-backlog-status: restamps updated_at on the mutated item" {
+  # Fixture seeds updated_at at a fixed past timestamp; a status change must
+  # advance it so it reflects the last mutation, not creation.
+  before="$(backlog_updated_at pbi-001)"
+  [ "$before" = "2026-03-01T12:00:00Z" ]
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 0 ]
+  after="$(backlog_updated_at pbi-001)"
+  [ "$after" != "$before" ]
+  # ISO-8601 UTC shape, same format add-backlog-item.sh seeds.
+  [[ "$after" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
 }
 
 @test "update-backlog-status: rejects legacy in_progress (no longer in enum)" {

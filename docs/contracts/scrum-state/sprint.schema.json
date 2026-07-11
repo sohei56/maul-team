@@ -29,7 +29,7 @@
             }
           },
           "status": {"enum": ["active", "failed"]},
-          "sub_agents": {"type": "array"},
+          "sub_agents": {"type": "array", "items": {"type": "string"}},
           "current_pbi": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"}
         }
       }

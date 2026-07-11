@@ -82,7 +82,9 @@ PATHF=".scrum/sprint-history.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/sprint-history.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
-  printf '%s\n' '{"sprints": []}' > "$PATHF"
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching every subsequent atomic_write mutation.
+  atomic_create "$PATHF" "$SCHEMA" '{sprints: []}'
 fi
 
 # Idempotency: a summary for this Sprint already recorded → no-op success.

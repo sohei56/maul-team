@@ -136,10 +136,13 @@ PATHF=".scrum/test-results.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/test-results.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching the atomic_write mutation that follows.
   NOW="$(_iso_utc_now)"
-  jq -n --arg now "$NOW" \
+  # shellcheck disable=SC2016  # $now is a jq -n var (atomic_create passes --arg now), not a shell var
+  atomic_create "$PATHF" "$SCHEMA" \
     '{categories: [], overall_status: "running", started_at: $now, updated_at: $now}' \
-    > "$PATHF"
+    --arg now "$NOW"
 fi
 
 # Upsert the category by name, then recompute overall_status from all categories.

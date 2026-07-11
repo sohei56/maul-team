@@ -81,6 +81,15 @@ while [ "$#" -ge 2 ]; do
       case "$V" in
         ''|*[!0-9]*) fail E_INVALID_ARG "$F must be non-negative integer (got: $V)" ;;
       esac
+      # Per-field upper bound. design_round tops out at 5 (Rounds 1..5). The
+      # technical-error remediation latch is impl-stage only (see
+      # skills/pbi-pipeline/references/termination-gates.md), so impl_round
+      # allows one extra Round → 6. Mirrored by "maximum" in pbi-state.schema.json.
+      case "$F" in
+        design_round) round_max=5 ;;
+        impl_round)   round_max=6 ;;
+      esac
+      [ "$V" -le "$round_max" ] || fail E_INVALID_ARG "$F must be <= $round_max (design_round: Rounds 1..5; impl_round: +1 remediation Round); got: $V"
       EXPR="$EXPR | .$F = $V"
       ;;
     design_status|ut_status)

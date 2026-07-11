@@ -45,6 +45,10 @@ SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
 # Pre-check existence of the pbi-id (atomic_write cannot tell us "not found")
 pbi_in_backlog "$PBI" "$PATHF" || fail E_INVALID_ARG "pbi not found: $PBI"
 
+# Stamp updated_at alongside the status change. atomic_write's auto-touch only
+# fires on a top-level updated_at (backlog.json has none), so the item's field
+# must be set explicitly here. $now is bound by atomic_write via `--arg now`
+# (same ISO-8601 UTC format add-backlog-item.sh seeds created_at/updated_at).
 atomic_write "$PATHF" \
-  "(.items[] | select(.id == \"$PBI\")).status = \"$STATUS\"" \
+  "(.items[] | select(.id == \"$PBI\")) |= (.status = \"$STATUS\" | .updated_at = \$now)" \
   "$SCHEMA"

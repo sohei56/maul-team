@@ -7,8 +7,8 @@
   "additionalProperties": false,
   "properties": {
     "pbi_id": {"type": "string", "pattern": "^pbi-[0-9]+$"},
-    "design_round": {"type": "integer", "minimum": 0},
-    "impl_round": {"type": "integer", "minimum": 0},
+    "design_round": {"type": "integer", "minimum": 0, "maximum": 5},
+    "impl_round": {"type": "integer", "minimum": 0, "maximum": 6},
     "design_status": {"enum": ["pending", "in_review", "fail", "pass", "skipped"]},
     "impl_status": {"enum": ["pending", "in_review", "fail", "pass"]},
     "ut_status": {"enum": ["pending", "in_review", "fail", "pass", "skipped"]},

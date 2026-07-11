@@ -108,6 +108,40 @@ teardown() {
   [[ "$output" == *"non-negative integer"* ]]
 }
 
+@test "update-pbi-state: accepts design_round 5 (design bound)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 design_round 5
+  [ "$status" -eq 0 ]
+  run jq -r '.design_round' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "5" ]
+}
+
+@test "update-pbi-state: rejects design_round 6 (over design bound; remediation latch is impl-only)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 design_round 6
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"<= 5"* ]]
+}
+
+@test "update-pbi-state: accepts impl_round 6 (impl bound: +1 remediation Round)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 impl_round 6
+  [ "$status" -eq 0 ]
+  run jq -r '.impl_round' "$TEST_TMP/.scrum/pbi/pbi-001/state.json"
+  [ "$output" = "6" ]
+}
+
+@test "update-pbi-state: rejects impl_round 7 (over impl bound)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" pbi-001 impl_round 7
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"<= 6"* ]]
+}
+
+@test "update-pbi-state: pbi-state.schema caps design_round at 5 and impl_round at 6" {
+  run jq -e '
+    (.properties.design_round.maximum == 5) and
+    (.properties.impl_round.maximum == 6)
+  ' "$TEST_TMP/docs/contracts/scrum-state/pbi-state.schema.json"
+  [ "$status" -eq 0 ]
+}
+
 @test "update-pbi-state: rejects bad pbi-id" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-pbi-state.sh" "BAD ID" design_round 1
   [ "$status" -eq 64 ]

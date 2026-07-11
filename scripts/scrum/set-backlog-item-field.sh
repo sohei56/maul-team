@@ -136,6 +136,12 @@ pbi_in_backlog "$PBI" "$PATHF" || fail E_INVALID_ARG "pbi not found: $PBI"
 # PBI and FIELD have passed strict whitelist case patterns above; VALUE_JSON is
 # either a fixed literal (`null`), a JSON-quoted string built via jq -Rs, or a
 # jq-parsed compact JSON string. Direct interpolation here is safe.
-EXPR='(.items[] | select(.id == "'"$PBI"'")).'"$FIELD"' = '"$VALUE_JSON"
+#
+# updated_at is stamped alongside the field mutation. atomic_write's auto-touch
+# only fires on a top-level updated_at (backlog.json has none), so the item's
+# field is set explicitly. $now is bound by atomic_write via `--arg now` (same
+# ISO-8601 UTC format add-backlog-item.sh seeds created_at/updated_at).
+# shellcheck disable=SC2016  # $now is a jq var bound by atomic_write --arg now, not a shell var
+EXPR='(.items[] | select(.id == "'"$PBI"'")) |= (.'"$FIELD"' = '"$VALUE_JSON"' | .updated_at = $now)'
 
 atomic_write "$PATHF" "$EXPR" "$SCHEMA"
