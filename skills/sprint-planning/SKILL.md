@@ -12,7 +12,7 @@ disable-model-invocation: false
 ## Outputs
 
 - `sprint.json`: id, goal, type: development, status: planning
-- `backlog.json` → items[].sprint_id, implementer_id assigned (review handled SM-side at Sprint end via `cross-review`). **Sprint PBI membership is derived from these `sprint_id` assignments** — `sprint.json` no longer carries a `pbi_ids` array (OD-4 single-source).
+- `backlog.json` → items[].sprint_id, implementer_id assigned (per-PBI review runs Developer-side inside pbi-pipeline as the Integrity stage; Sprint end adds only the audit-only `cross-review` ceremony). **Sprint PBI membership is derived from these `sprint_id` assignments** — `sprint.json` no longer carries a `pbi_ids` array (OD-4 single-source).
 - Oversized PBIs split into children (parent_pbi_id set)
 - `state.json` → phase: sprint_planning
 
@@ -55,7 +55,7 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008)
 5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
 6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
-7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — Sprint-end cross-review is performed by the Scrum Master via independent reviewer sub-agents (FR-009 Layer 2)
+7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — the per-PBI 5-aspect review runs inside pbi-pipeline (Integrity stage); Sprint-end cross-review is an audit-only SM ceremony (FR-009 Layer 2)
 8. **Roll over the previous Sprint, then create sprint.json + update
    state.current_sprint_id (atomic pair).**
 

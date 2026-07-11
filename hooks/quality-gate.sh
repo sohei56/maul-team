@@ -267,7 +267,7 @@ if ! check_linter "$pbi_id"; then
   warning_count=$((warning_count + 1))
 fi
 
-# DoD Check 5: Cross-review completed
+# DoD Check 5: Per-PBI Integrity review completed
 if ! check_review_doc "$pbi_id" "$pbi_data"; then
   warning_count=$((warning_count + 1))
 fi

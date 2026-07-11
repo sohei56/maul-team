@@ -39,7 +39,7 @@ variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
 ## Receives (kind=docs)
 
 - PBI `acceptance_criteria` (verbatim from backlog.json)
-- Parent PBI `cross-review digest` at
+- Parent PBI Integrity review digest at
   `.scrum/reviews/<parent-pbi-id>-review.md` (read for context;
   this is the design input)
 - `catalog_targets` listing the `*.md` files to edit

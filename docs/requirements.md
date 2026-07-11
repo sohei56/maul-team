@@ -90,9 +90,10 @@ and Sprint Review presents the Increment to the user.
    implementation-ready PBIs (one per function, screen, API, or
    platform component) and assigns each to exactly one
    implementer (1 Developer = 1 PBI). No per-PBI reviewer is
-   assigned — Sprint-end cross-review is performed by the
-   Scrum Master via independent reviewer sub-agents (FR-009
-   Layer 2).
+   assigned — per-PBI aspect review runs at the pipeline's
+   Integrity stage (FR-009 Layer 1), and Sprint-end cross-review
+   is performed by the Scrum Master via the whole-repo
+   `codebase-audit` spawns (FR-009 Layer 2).
 
 3. **Given** Sprint Planning is complete,
    **When** the Design phase begins,
@@ -294,7 +295,8 @@ use support sub-agents.
 - What happens when a Sprint has only one PBI?
   The single Developer implements the PBI. Sprint-end cross-review
   is independent of Developer count — the Scrum Master always
-  performs it via reviewer sub-agents (FR-009 Layer 2).
+  performs it via the whole-repo `codebase-audit` spawns (FR-009
+  Layer 2).
 
 - What happens when cross-review finds issues that cannot be fixed
   within the Sprint?
@@ -387,9 +389,11 @@ use support sub-agents.
 
 - **FR-006**: The system MUST assign each PBI to exactly one
   implementer (1 Developer = 1 PBI). The system MUST NOT assign
-  per-PBI reviewers to Developers. Sprint-end review is owned by
-  the Scrum Master and performed by independent reviewer
-  sub-agents (see FR-009 Layer 2). The legacy `reviewer_id`
+  per-PBI reviewers to Developers. Per-PBI aspect review runs at
+  the pipeline's **Integrity stage** via Developer-spawned aspect
+  reviewer sub-agents (see FR-009 Layer 1); Sprint-end
+  cross-review is the Scrum-Master-owned **audit-only** ceremony
+  (see FR-009 Layer 2). The legacy `reviewer_id`
   field is removed from `backlog.json` items, and `assigned_work`
   no longer contains a `review` array.
 
@@ -519,8 +523,9 @@ use support sub-agents.
   `pragma-audit-r{n}.json`). Existing tests must continue to pass
   (no regressions); linter/formatter must pass. After per-PBI merge
   succeeds the PBI sits at `awaiting_cross_review`; the Sprint-end
-  `cross-review` (FR-009 Layer 2) transitions it through
-  `cross_review` and PASS reaches `done`.
+  `cross-review` (FR-009 Layer 2) is audit-only and non-blocking —
+  every reviewed PBI transitions `cross_review → done`
+  unconditionally.
 
 - **FR-018**: The system MUST be launchable via a shell script
   (`scrum-start.sh`) that the user runs from the CLI. The
@@ -726,7 +731,7 @@ use support sub-agents.
 
 ### 2026-04-12
 
-- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly.
+- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly. (superseded 2026-07-11: two-tier review — the 5 aspect reviewers moved per-PBI to the pipeline's Integrity stage (FR-009 Layer 1), and Sprint-end cross-review became the audit-only whole-repo 4-axis `codebase-audit`, non-blocking, every reviewed PBI transitions `cross_review → done`; see FR-009 and US5)
 - Q: Where do specialist sub-agents come from? A: All sub-agents are project-managed in `agents/` and distributed by `setup-user.sh`. The external awesome-claude-code-subagents catalog dependency was removed. FR-019 and User Story 5 updated.
 
 ### 2026-02-26

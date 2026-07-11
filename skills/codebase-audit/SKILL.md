@@ -14,13 +14,14 @@ disable-model-invocation: false
 
 ## Role
 
-Per-PBI review sees one PBI's diff; Sprint-end `cross-review` sees one
-Sprint's diff. Neither can see defects that only emerge in the
-**accumulated whole**: dead code that is also an unimplemented
-requirement, an I/O default that silently disables a feature, a silent
-failure in the wiring layer, two design specs mandating contradictory
-behavior, or the same logic implemented twice across PBIs from
-different Sprints. Those defects survive every diff-scoped gate.
+Per-PBI review — the codex reviewers and the 5-aspect Integrity stage
+— sees one PBI's diff. A diff-scoped gate cannot see defects that only
+emerge in the **accumulated whole**: dead code that is also an
+unimplemented requirement, an I/O default that silently disables a
+feature, a silent failure in the wiring layer, two design specs
+mandating contradictory behavior, or the same logic implemented twice
+across PBIs from different Sprints. Those defects survive every
+diff-scoped gate.
 
 This skill closes that gap with a **whole-repo audit at HEAD**, run in
 two contexts. It is SM-owned and read-only: auditors read and reason,

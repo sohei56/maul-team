@@ -245,7 +245,7 @@ the sole broker — sub-agents never address the PO directly.
             contains <substring>" / "occurrence count == N" without a
             semantic read of the content.
           - Replace with: "<file> §X states <semantic claim>, verified
-            by reviewer reading the passage". The cross-review's
+            by reviewer reading the passage". The Integrity stage's
             requirement-conformance reviewer reads passages; grep is
             not a substitute for comprehension.
           - Rationale: target-project pbi-054 had 6 grep-shaped AC and

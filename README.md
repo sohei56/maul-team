@@ -79,8 +79,8 @@ See [macapp/README.md](macapp/README.md) for the full architecture — editor, b
 2. **Requirement Definition** — the Scrum Master spawns a Requirements Analyst to elicit requirements and write `requirements.md`
 3. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
 4. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
-5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage. The SM merges each PBI on completion.
-6. **Cross-Review** — once all PBIs are merged, the SM spawns 5 aspect-specialized reviewer sub-agents (requirement-conformance, functional-quality, security, maintainability, docs-consistency) in parallel over the whole Sprint Increment
+5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage; before ready-to-merge, an Integrity stage runs 5 aspect reviewers (requirement-conformance, functional-quality, security, maintainability, docs-consistency) over the PBI's diff. The SM merges each PBI on completion.
+6. **Cross-Review** — once all PBIs are merged, the SM runs an audit-only cross-review: a whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). It is non-blocking — Critical/High findings become draft PBIs for the next Sprint
 7. **Sprint Review** — the SM launches the app and demos each completed PBI in turn; you confirm each works
 8. **Retrospective** — the team reflects and records improvements for future Sprints
 9. **Repeat** from step 3 until the Product Goal is achieved; then advance to the two closing phases:
@@ -102,7 +102,7 @@ See [macapp/README.md](macapp/README.md) for the full architecture — editor, b
 ## Features
 
 - **Native Mac app** — MaulTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
-- **18 Skills** covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI Development (design + impl + UT + per-PBI review), per-PBI merge, cross-review, sprint review, retrospective, integration testing, and UAT & release
+- **19 Skills** covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI Development (design + impl + UT + per-PBI review), per-PBI merge, cross-review (whole-repo codebase audit), sprint review, retrospective, integration testing, and UAT & release
 - **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
 - **Autonomous PO mode** — replace even the PO with an AI Product Owner to drive development end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **Design document governance** — an immutable catalog (`catalog.md`) plus an editable enablement config (`catalog-config.json`), enforced by status-gate hooks, control the documents AI agents are allowed to create
@@ -118,7 +118,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Independent cross-review** — 5 aspect-specialized reviewer sub-agents (`requirement-conformance-reviewer`, `functional-quality-reviewer`, `security-reviewer`, `maintainability-reviewer`, `docs-consistency-reviewer`) run in parallel over the whole Sprint Increment, plus per-PBI Codex-CLI cross-model review
+- **Two-tier independent review** — every PBI passes a 5-aspect Integrity gate (`requirement-conformance`, `functional-quality`, `security`, `maintainability`, `docs-consistency` reviewers over its diff) before merge, then a Sprint-end whole-repo 4-axis codebase audit (spec-conformance, logic-defect, redundancy, product-security) sweeps the entire Increment — plus per-PBI Codex-CLI cross-model review
 
 **Constraints addressing AI weaknesses:**
 
@@ -150,13 +150,16 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  │                         design → impl + black-box UT →      │
  │                         cross-model (Codex) review, with    │
  │                         deterministic termination gates     │
- │                         and real C0/C1 coverage             │
+ │                         and real C0/C1 coverage,            │
+ │                         then a 5-aspect Integrity stage     │
  │          ▼                                                  │
  │  6. Per-PBI Merge     SM merges each ready PBI immediately  │
  │                         (--no-ff + regression gate;         │
  │                         3-strike escalation)                │
  │          ▼                                                  │
- │  7. Cross-Review      SM spawns 5 aspect reviewer agents    │
+ │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
+ │                         (audit-only, non-blocking;          │
+ │                         findings → next-Sprint draft PBIs)  │
  │          ▼                                                  │
  │  8. Sprint Review     Demo to PO, accept/reject PBIs        │
  │          ▼                                                  │

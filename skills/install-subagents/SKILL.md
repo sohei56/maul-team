@@ -54,8 +54,8 @@ Missing required → BLOCK (escalate to SM, do not proceed to PBI work).
    done
    ```
 3. Verify YAML frontmatter on each (yq eval '.name' or equivalent).
-4. During pbi-pipeline / cross-review execution→invoke via
-   `Agent(subagent_type="<name>")`. Record only actually-used agents in
+4. During pbi-pipeline execution (incl. the Integrity stage)→invoke
+   via `Agent(subagent_type="<name>")`. Record only actually-used agents in
    sprint.json via the wrapper:
    ```bash
    .scrum/scripts/set-sprint-developer.sh "$DEV_ID" sub_agents \
@@ -75,6 +75,6 @@ Ref: FR-019
 ## Exit Criteria
 
 - All 11 required sub-agents verified present (6 PBI Pipeline + 5
-  Cross-Review, per "Required Sub-Agents" list above) with valid YAML
-  frontmatter
+  Integrity-stage, per "Required Sub-Agents" list above) with valid
+  YAML frontmatter
 - BLOCKED if any required sub-agent is missing

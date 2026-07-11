@@ -122,7 +122,6 @@ When Teammate Liveness Protocol detects terminated Developer:
    - `in_progress_design` → "Resume pbi-pipeline for PBI-XXX from the Design stage; prior design docs at: ..."
    - `in_progress_impl` / `in_progress_pbi_review` / `in_progress_ut_run` → "Resume pbi-pipeline for PBI-XXX from the impl→pbi_review→ut_run cycle; design docs at: ..."
    - `in_progress_merge` → "Re-run `mark-pbi-ready-to-merge.sh` and re-notify SM; the prior worktree is intact"
-   - cross-review FAIL (status reverted to `in_progress_impl`) → "Fix cross-review findings for PBI-XXX: [findings]. Source at: ... Then re-run UT and re-mark ready-to-merge"
 6. Update `sprint.json` developer status: "active":
    ```bash
    .scrum/scripts/set-sprint-developer.sh "$DEV_ID" status active

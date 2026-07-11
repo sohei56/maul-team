@@ -82,8 +82,8 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 2. **要件定義** — Scrum Master が Requirements Analyst を spawn し、要件を引き出して `requirements.md` を書く
 3. **Backlog Refinement** — SM が要件から PBI を作成・洗練する
 4. **Sprint Planning** — SM が Sprint Goal を提案し、あなたが承認または調整する
-5. **PBI Development (PBI ごとに並列)** — 各 Developer は conductor として、自分が担当する PBI 専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で `pbi-pipeline` スキルを走らせる。design → implementation + black-box UT → cross-model (Codex) review のラウンドを、決定論的な終了ゲートと実測の C0/C1 カバレッジで回す。PBI 完了時には SM がマージする。
-6. **Cross-Review** — 全 PBI のマージ後、SM が Sprint 成果物 全体に対して 5 つの観点別レビュー sub-agent (requirement-conformance / functional-quality / security / maintainability / docs-consistency) を並列に spawn
+5. **PBI Development (PBI ごとに並列)** — 各 Developer は conductor として、自分が担当する PBI 専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で `pbi-pipeline` スキルを走らせる。design → implementation + black-box UT → cross-model (Codex) review のラウンドを、決定論的な終了ゲートと実測の C0/C1 カバレッジで回す。ready-to-merge の前には Integrity ステージとして 5 つの観点別レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff に対して走る。PBI 完了時には SM がマージする。
+6. **Cross-Review** — 全 PBI のマージ後、SM が監査専任の cross-review を実行: リポジトリ全体への 4 軸 `codebase-audit` (spec-conformance / logic-defect / redundancy / product-security)。non-blocking で、Critical/High の指摘は次 Sprint の draft PBI になる
 7. **Sprint Review** — SM がアプリを起動し、完了した PBI を順にデモ。あなたがそれぞれの動作を確認する
 8. **Retrospective** — チームが振り返り、次 Sprint 以降への改善を記録する
 9. Product Goal を達成するまで 3 に戻って**反復**。達成後、以下の 2 フェーズへ進む:
@@ -105,7 +105,7 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 ## 機能
 
 - **ネイティブ Mac アプリ** — MaulTeam.app はチーム全体を 1 つの macOS ウィンドウで動かす (プロジェクトピッカー、埋め込み Scrum Master ターミナル、タブ式コードエディタ、native ダッシュボード)。
-- **18 個の Skill** で Scrum ライフサイクル全体をカバー: プロダクトブリーフ共同作成、要件抽出、バックログリファインメント、スプリントプランニング、PBI Development (design + impl + UT + per-PBI review)、per-PBI merge、cross-review、sprint review、retrospective、integration testing、UAT & release
+- **19 個の Skill** で Scrum ライフサイクル全体をカバー: プロダクトブリーフ共同作成、要件抽出、バックログリファインメント、スプリントプランニング、PBI Development (design + impl + UT + per-PBI review)、per-PBI merge、cross-review (リポジトリ全体の codebase audit)、sprint review、retrospective、integration testing、UAT & release
 - **マルチエージェント連携** — Scrum Master (Delegate モード) が Sprint あたり最大 6 並列の Developer (1 PBI に Developer 1 名、上限 6) を統括
 - **自律 PO モード** — AI Product Owner でPOさえもエージェントに置き換えて開発をエンドツーエンドに駆動。外側の Ralph-Loop ウォッチドッグ がヘッドレスの Claude セッションを再起動し、安全弁を強制しつつレポートを `.scrum/reports/` に書き出す。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **設計書ガバナンス** — 不可変の catalog (`catalog.md`) + 編集可能な有効化設定 (`catalog-config.json`)をstatus-gate フックで強制することで、AIが作成するドキュメントを制御
@@ -121,7 +121,7 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 **AI の強みを活かす拡張:**
 
 - **動的なチームサイジング** — Developer エージェントの数は、PBI 数と複雑度に応じて Sprint ごとに最適化される
-- **独立した cross-review** — Sprint 成果物 全体に対して 5 つの観点別レビュー sub-agent (`requirement-conformance-reviewer` / `functional-quality-reviewer` / `security-reviewer` / `maintainability-reviewer` / `docs-consistency-reviewer`) を並列に spawn。PBI 単位の Codex-CLI cross-model review を実施
+- **二層の独立レビュー** — すべての PBI はマージ前に 5 観点の Integrity ゲート (`requirement-conformance` / `functional-quality` / `security` / `maintainability` / `docs-consistency` の各レビュアーがその PBI の diff をレビュー) を通過し、Sprint 末にはリポジトリ全体への 4 軸 codebase audit (spec-conformance / logic-defect / redundancy / product-security) が Increment 全体を掃く。加えて PBI 単位の Codex-CLI cross-model review を実施
 
 **AI の弱点を抑え込む制約:**
 
@@ -153,13 +153,16 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
  │                         design → impl + black-box UT →      │
  │                         cross-model (Codex) review, with    │
  │                         deterministic termination gates     │
- │                         and real C0/C1 coverage             │
+ │                         and real C0/C1 coverage,            │
+ │                         then a 5-aspect Integrity stage     │
  │          ▼                                                  │
  │  6. Per-PBI Merge     SM merges each ready PBI immediately  │
  │                         (--no-ff + regression gate;         │
  │                         3-strike escalation)                │
  │          ▼                                                  │
- │  7. Cross-Review      SM spawns 5 aspect reviewer agents    │
+ │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
+ │                         (audit-only, non-blocking;          │
+ │                         findings → next-Sprint draft PBIs)  │
  │          ▼                                                  │
  │  8. Sprint Review     Demo to PO, accept/reject PBIs        │
  │          ▼                                                  │
