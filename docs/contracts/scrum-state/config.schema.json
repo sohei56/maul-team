@@ -30,11 +30,15 @@
       }
     },
     "merge_regression": {
-      "description": "command run by merge-pbi.sh after each per-PBI merge; skipped with WARN when absent.",
+      "description": "command run by merge-pbi.sh after each per-PBI merge; skipped with WARN when absent. Written only via set-merge-regression-command.sh (Sprint-Planning decision).",
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "command": {"type": ["string", "null"]}
+        "command": {"type": ["string", "null"]},
+        "accepted_none": {
+          "description": "true = the team deliberately runs no per-PBI regression gate (recorded via set-merge-regression-command.sh --none). Distinguishes an explicit opt-out from a never-decided unset gate, so merge-pbi.sh drops its WARN to a quiet note. Not required; absent/false means the gate is either configured or undecided.",
+          "type": "boolean"
+        }
       }
     },
     "static_analysis": {

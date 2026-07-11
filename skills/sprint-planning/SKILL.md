@@ -26,14 +26,15 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
 in the numbered Steps below re-targets to the `product-owner` teammate
-per `rules/scrum-context.md` § PO seat resolution; the ceremony shape
+per `../../rules/scrum-context.md` § PO seat resolution; the ceremony shape
 is unchanged. The "ask the user" points are re-targeted as follows:
 
 | Step | Phrase in human mode | Agent-mode override (kind, scope, defaults) |
 |---|---|---|
 | 1 | Uncommitted-file 3-way choice (commit now / stash / proceed anyway) | `kind=git_dirty`, `scope=sprint-N`, `options=[commit_now,stash,proceed_anyway]`. The full `git status` file list is included as payload. **PO default policy:** if every changed path lies inside a deliverable directory → `choice:commit_now`; if only temporary files (build/, dist/, *.tmp, etc.) → `choice:proceed_anyway`. Mixed cases fall back to `commit_now`. |
-| 3 | Propose Sprint Goal → user approval | `kind=sprint_goal_approval`, `scope=sprint-N`, `options=[approve,reject]`. **Reject is capped at 2 rounds.** On the third request the PO must reply `decision=approve` with the verbatim Sprint Goal in the `rationale` (`PROPOSED_GOAL: <text>` — see `agents/product-owner.md` § Anti-loop rules); the SM **adopts that goal verbatim** and ends the ping-pong. |
+| 3 | Propose Sprint Goal → user approval | `kind=sprint_goal_approval`, `scope=sprint-N`, `options=[approve,reject]`. **Reject is capped at 2 rounds.** On the third request the PO must reply `decision=approve` with the verbatim Sprint Goal in the `rationale` (`PROPOSED_GOAL: <text>` — see `../../agents/product-owner.md` § Anti-loop rules); the SM **adopts that goal verbatim** and ends the ping-pong. |
 | 5 | Oversized PBI split → user confirmation | `kind=pbi_split`, `scope=pbi-NNN`, `options=[approve,reject]`. The parent PBI id, the child PBI breakdown, and the split rationale are payload. On `reject` the SM keeps the parent and reports the un-split risk in the Sprint summary. |
+| 11.5 | Merge regression gate → configure a command or accept no gate | `kind=quality_gate_config`, `scope=sprint-N`, `options=[choice:configure,choice:accept_no_gate]`, `recommendation=choice:configure`. Payload: the detected candidate command (or "none detected"). On `choice:configure` the SM runs `.scrum/scripts/set-merge-regression-command.sh '<cmd>'`; on `choice:accept_no_gate` it runs `.scrum/scripts/set-merge-regression-command.sh --none`. |
 | 12 | Present Sprint summary + 6-option menu → wait for user selection | The same summary is sent as `kind=scope_change` if it mutates Sprint membership, otherwise as `kind=sprint_goal_approval` for re-approval. `options=[choice:start_sprint, choice:adjust_goal, choice:change_pbis, choice:reassign_devs, choice:view_backlog, choice:other]`. PO replies `decision=choice:<label>`. **Default recommendation: `choice:start_sprint`.** Any non-start choice loops the SM back to the corresponding step (3 / 4-5 / 7) and re-asks. |
 
 Step 13 ("On Start Sprint") fires automatically when the Step 12
@@ -168,7 +169,7 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     same failure mode has recurred across 4 Sprints in 2 target
     projects even after the three rules above were pinned into this
     SKILL. The SM
-    main loop runs on Sonnet (see `agents/scrum-master.md`); pinned
+    main loop runs on Sonnet (see `../../agents/scrum-master.md`); pinned
     text alone has not been sufficient. Delegate the overlap analysis
     to an Opus-backed sub-agent via the `Agent` tool — do NOT compute
     the matrix in the SM main loop:
@@ -221,17 +222,35 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     analysis. Record the decision visibly in the Sprint summary so the
     PO (po_mode=agent) or user can override at Step 12.
 
-11.5. **Merge regression gate check**: read
-    `.scrum/config.json.merge_regression.command`. If absent / empty /
-    null, every per-PBI merge this Sprint will land with the
-    regression gate skipped (`merge-pbi.sh` prints a WARN nobody acts
-    on — a target project shipped a broken test suite to main this
-    way across multiple Sprints). Include a visible WARN line in the
-    Step 12 Sprint summary recommending a command (e.g. the project's
-    test suite). Human mode: the user decides whether to configure it
-    before starting. Agent mode: proceed (do not block planning);
-    `merge-pbi.sh` will surface the skipped gate to
-    `.scrum/po/attention.md` once per Sprint.
+11.5. **Merge regression gate decision (mandatory)**: read
+    `.scrum/config.json.merge_regression.command`. If it is set
+    (non-empty), skip this step — the gate is already configured. If it is
+    unset **and** `merge_regression.accepted_none` is not `true`, the gate
+    is undecided and must be resolved now: otherwise every per-PBI merge
+    this Sprint lands with the regression gate silently skipped (a target
+    project shipped a broken test suite to main across multiple Sprints
+    exactly this way).
+
+    Detect a candidate command from the target repo (existence-based
+    heuristics, first match wins):
+    - `pyproject.toml` / `pytest.ini` / a `tests/` dir with pytest → `pytest -q`
+    - `package.json` with a `test` script → `npm test --silent`
+    - `go.mod` → `go test ./...`
+    - `Makefile` with a `test:` target → `make test`
+    - `tests/*.bats` → `bats tests/`
+    - none of the above → no candidate detected
+
+    Put the decision to the PO seat in the same mode-agnostic style as the
+    other approvals in this skill (human mode: ask the user; agent mode:
+    `kind=quality_gate_config` per the PO Mode table above). options =
+    `[configure <detected-or-other command>, accept no gate this Sprint]`,
+    **recommendation = configure** (zero regressions reach main only if a
+    gate runs on each merge). On the decision, record it via the sanctioned
+    wrapper (direct `config.json` edits are guard-blocked):
+    - configure → `.scrum/scripts/set-merge-regression-command.sh '<command>'`
+    - accept no gate → `.scrum/scripts/set-merge-regression-command.sh --none`
+      (records the opt-out so `merge-pbi.sh` drops its per-merge WARN to a
+      quiet note instead of re-surfacing an undecided gate every Sprint)
 
 12. **Present Sprint summary + options**:
     - 1. Start Sprint

@@ -222,7 +222,8 @@ questions always traverse the SM.
 sprint_goal_approval | pbi_split | escalation_choice |
 spec_clarification | change_request | demo_acceptance |
 uat_item | defect_triage | release_decision | git_dirty |
-backlog_approval | scope_change | sprint_continuation
+backlog_approval | scope_change | sprint_continuation |
+quality_gate_config
 ```
 
 ## Persistence duties

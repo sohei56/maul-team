@@ -222,3 +222,13 @@ teardown() {
   run jq -r '.decisions[-1].id' "$TEST_TMP/.scrum/po/decisions.json"
   [ "$output" = "dec-10000" ]
 }
+
+@test "append-po-decision: accepts quality_gate_config kind" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind quality_gate_config --decision "choice:configure" \
+    --sprint sprint-1 \
+    --rationale "merge regression gate: zero-regression mandate"
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1].kind' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "quality_gate_config" ]
+}

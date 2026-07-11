@@ -185,25 +185,34 @@ fi
 # root after the merge commit lands. Absent/empty/null → skip with WARN.
 REG_LOG=".scrum/pbi/$PBI/merge-regression.log"
 REG_CMD=""
+REG_ACCEPTED_NONE="false"
 if [ -f .scrum/config.json ]; then
   REG_CMD="$(jq -r '.merge_regression.command // ""' .scrum/config.json)"
+  REG_ACCEPTED_NONE="$(jq -r '.merge_regression.accepted_none // false' .scrum/config.json)"
 fi
 if [ -z "$REG_CMD" ] || [ "$REG_CMD" = "null" ]; then
-  printf '[merge-pbi] WARN: no merge regression command configured — skipping regression gate\n'
-  # In autonomous mode a console WARN is read by nobody, so an
-  # unconfigured gate means every per-PBI merge lands ungated in
-  # silence (a target project shipped a broken test suite to main this
-  # way, Sprint after Sprint). Surface it to PO attention once per
-  # Sprint (deduped by a sprint-id marker line).
-  PO_MODE="$(jq -r '.po_mode // "human"' .scrum/config.json 2>/dev/null || echo human)"
-  if [ "$PO_MODE" = "agent" ] && [ -f .scrum/sprint.json ]; then
-    ATTN_SPRINT="$(jq -r '.id // ""' .scrum/sprint.json)"
-    ATTN_FILE=".scrum/po/attention.md"
-    ATTN_MARK="merge_regression.command unconfigured ($ATTN_SPRINT)"
-    if [ -n "$ATTN_SPRINT" ] && ! grep -qF "$ATTN_MARK" "$ATTN_FILE" 2>/dev/null; then
-      mkdir -p .scrum/po
-      printf -- '- [%s] %s: per-PBI merges land with the regression gate skipped; set .scrum/config.json.merge_regression.command\n' \
-        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ATTN_MARK" >> "$ATTN_FILE"
+  if [ "$REG_ACCEPTED_NONE" = "true" ]; then
+    # Explicit, logged opt-out (set-merge-regression-command.sh --none, a
+    # Sprint-Planning decision). The team chose no gate — do NOT spam a WARN
+    # or PO attention every merge; a single quiet note suffices.
+    printf '[merge-pbi] note: no per-PBI regression gate this project (accepted via set-merge-regression-command.sh --none)\n'
+  else
+    printf '[merge-pbi] WARN: merge_regression.command unset — regression gate SKIPPED for this merge. Configure via .scrum/scripts/set-merge-regression-command.sh '\''<cmd>'\'' (or record --none)\n'
+    # In autonomous mode a console WARN is read by nobody, so an
+    # undecided gate means every per-PBI merge lands ungated in
+    # silence (a target project shipped a broken test suite to main this
+    # way, Sprint after Sprint). Surface it to PO attention once per
+    # Sprint (deduped by a sprint-id marker line).
+    PO_MODE="$(jq -r '.po_mode // "human"' .scrum/config.json 2>/dev/null || echo human)"
+    if [ "$PO_MODE" = "agent" ] && [ -f .scrum/sprint.json ]; then
+      ATTN_SPRINT="$(jq -r '.id // ""' .scrum/sprint.json)"
+      ATTN_FILE=".scrum/po/attention.md"
+      ATTN_MARK="merge_regression.command unconfigured ($ATTN_SPRINT)"
+      if [ -n "$ATTN_SPRINT" ] && ! grep -qF "$ATTN_MARK" "$ATTN_FILE" 2>/dev/null; then
+        mkdir -p .scrum/po
+        printf -- '- [%s] %s: per-PBI merges land with the regression gate skipped; run .scrum/scripts/set-merge-regression-command.sh (configure a command or --none)\n' \
+          "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ATTN_MARK" >> "$ATTN_FILE"
+      fi
     fi
   fi
 else

@@ -95,10 +95,23 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$(git rev-parse HEAD)" = "$PRE_HEAD" ]
 }
 
-@test "merge-pbi: no regression command configured → success with WARN" {
+@test "merge-pbi: no regression command configured → success with WARN naming the remedy" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "no merge regression command configured"
+  echo "$output" | grep -q "merge_regression.command unset"
+  echo "$output" | grep -q "set-merge-regression-command.sh"
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "awaiting_cross_review" ]
+}
+
+@test "merge-pbi: accepted_none opt-out → quiet note, no WARN" {
+  cat > .scrum/config.json <<'EOF'
+{"merge_regression":{"command":null,"accepted_none":true}}
+EOF
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "no per-PBI regression gate this project"
+  ! echo "$output" | grep -q "WARN"
   run jq -r '.items[0].status' .scrum/backlog.json
   [ "$output" = "awaiting_cross_review" ]
 }

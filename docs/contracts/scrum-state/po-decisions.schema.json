@@ -42,7 +42,8 @@
               "git_dirty",
               "backlog_approval",
               "scope_change",
-              "sprint_continuation"
+              "sprint_continuation",
+              "quality_gate_config"
             ]
           },
           "request": {
