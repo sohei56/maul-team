@@ -27,16 +27,19 @@ kind=docs PBIs.
 
 ## Receives
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-- PBI worktree root: `.scrum/worktrees/<pbi-id>` (absolute path; all
-  paths resolve under this root — never the main repo checkout)
-- Review target SHA pin `{review_sha}` (worktree HEAD)
-- Base SHA `{base_sha}` — the diff under review is
-  `git -C <worktree> diff {base_sha}..{review_sha}`; the doc changes
-  are its `.md` entries and the implementation changes are its
-  non-`.md` entries (both limited to `paths_touched`)
-- `paths_touched` — the file list this PBI's increment covers
+**Shared review envelope** — full contract:
+[`../skills/pbi-pipeline/references/integrity-stage.md`](../skills/pbi-pipeline/references/integrity-stage.md)
+§ Aspect reviewer shared contract → Input envelope. In brief: the PBI
+worktree root `.scrum/worktrees/<pbi-id>` (absolute; all paths resolve
+under it, never the main repo checkout) and the `{review_sha}` /
+`{base_sha}` / `{paths_touched}` bounding the diff. **Aspect variation:
+this reviewer reads BOTH the `.md` and the non-`.md` entries of
+`git -C <worktree> diff {base_sha}..{review_sha}` (within
+`paths_touched`)** — the doc changes and the implementation changes
+they describe.
+
+Aspect-specific inputs:
+
 - The PBI backlog entry (`id`, `title`, `paths_touched`, `kind`,
   `parent_pbi_id`)
 
@@ -116,15 +119,9 @@ first four apply to all PBIs.
 
 ## Output Format
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-Return your review as markdown (the conductor folds it verbatim into
-the consolidated review doc and parses the Verdict line + Findings for
-the Integrity-stage verdict and the termination gates). Do NOT emit a
-JSON envelope: the pbi-pipeline envelope's `criterion_key` enum is
-codex-reviewer-specific and does not cover this aspect's vocabulary, so
-your findings carry the aspect criterion_key in the markdown Findings
-list below instead.
+Return your review as **markdown** (no JSON envelope) in the shape
+below. Full output + persistence contract:
+[integrity-stage.md § Aspect reviewer shared contract](../skills/pbi-pipeline/references/integrity-stage.md).
 
 ```
 ## Docs Consistency Review
@@ -143,11 +140,9 @@ If there are no findings, write "No findings."
 [2-3 sentences. Docs touched by the PBI + drift hotspots.]
 ```
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-**Verdict:** PASS = no Critical/High. FAIL = any Critical/High. The
-conductor derives each finding's signature (`{file}:{start}-{end}:{criterion_key}`)
-from the markdown Findings list for stagnation/divergence dedup.
+**Verdict: PASS = no Critical/High. FAIL = any Critical/High.** (The
+conductor derives each finding's signature for stagnation/divergence
+dedup — see the shared-contract pointer above.)
 
 ## Strict Rules
 
@@ -160,15 +155,10 @@ from the markdown Findings list for stagnation/divergence dedup.
 - Source-code comments are NOT docs for this aspect.
 - When the diff touches no docs and needs none, the verdict is PASS.
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
 ## File output (conductor responsibility)
 
-You do **not** have the `Write` tool by design. Return the review
-content (Output Format above — markdown, no JSON envelope) as your
-final assistant message. The Developer (pipeline conductor) collects your
-returned message during the Integrity stage and consolidates all
-aspect reviews verbatim into `.scrum/reviews/<pbi-id>-review.md` (see
-`../skills/pbi-pipeline/references/integrity-stage.md`). Do not refuse to
-produce content because the file is not yours to write — your output
-is the final message itself.
+You have **no `Write` tool** by design — return the review as your
+final assistant message; the conductor consolidates it into
+`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
+because the file is not yours to write. Full contract: the shared
+§ Persistence pointer above.

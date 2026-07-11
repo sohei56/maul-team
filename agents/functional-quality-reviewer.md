@@ -27,14 +27,16 @@ conductor); one PBI in scope.
 
 ## Receives
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-- PBI worktree root: `.scrum/worktrees/<pbi-id>` (absolute path; all
-  source paths resolve under this root — never the main repo checkout)
-- Review target SHA pin `{review_sha}` (worktree HEAD)
-- Base SHA `{base_sha}` — the diff under review is
-  `git -C <worktree> diff {base_sha}..{review_sha} -- <paths_touched>`
-- `paths_touched` — the file list this PBI's increment covers
+**Shared review envelope** — full contract:
+[`../skills/pbi-pipeline/references/integrity-stage.md`](../skills/pbi-pipeline/references/integrity-stage.md)
+§ Aspect reviewer shared contract → Input envelope. In brief: the PBI
+worktree root `.scrum/worktrees/<pbi-id>` (absolute; all paths resolve
+under it, never the main repo checkout) and the `{review_sha}` /
+`{base_sha}` / `{paths_touched}` bounding the diff
+(`git -C <worktree> diff {base_sha}..{review_sha} -- <paths_touched>`).
+
+Aspect-specific inputs:
+
 - Design doc: `.scrum/pbi/<pbi-id>/design/design.md`
 - The PBI backlog entry (`id`, `title`, `acceptance_criteria`)
 - `requirements.md` path
@@ -96,68 +98,29 @@ state_invariant, base_interface, data_integrity.
 
 ## Codex second opinion (cross-model)
 
-<!-- sync-set: this section is shared verbatim across the 2
-codex-second-opinion aspect reviewers (functional-quality, security)
-- edit both together -->
-After — and only after — your own review is complete, obtain an
-independent cross-model second opinion from the Codex CLI. The
-ordering is the independence guarantee: finalize your own Findings
-list and provisional Verdict FIRST, so codex output cannot anchor
-your analysis.
+**You MUST run this step.** After — and ONLY after — finalizing your
+own Findings list and provisional Verdict (the ordering is the
+independence guarantee), obtain an independent cross-model second
+opinion from the Codex CLI: from the PBI worktree,
+`source scripts/lib/codex-invoke.sh` then
+`codex_review_or_fallback "$instr" "$out"` (write `$instr` only under
+`"${TMPDIR:-/tmp}"` — the sole file you may create). On unavailability
+/ timeout, degrade to Claude-only and end Summary with `Codex second
+opinion: unavailable`. On success, adjudicate (never rubber-stamp):
+verify each codex-only Critical/High against the code — confirmed →
+adopt at its severity prefixed `[codex]`; unverified → downgrade to
+Medium prefixed `[codex-unverified]` (never blocks the gate) — then
+recompute the Verdict and end Summary with `Codex second opinion: ran`.
+Codex neither overrides your severities nor vetoes your findings.
 
-1. **Build instructions** — write a codex instructions file via Bash
-   heredoc under `"${TMPDIR:-/tmp}"` (the only file you ever create;
-   never create files inside the repo, the worktree, or `.scrum/`).
-   The instructions must carry: your aspect's criteria section
-   verbatim, the `criterion_key` enum, the severity scale
-   `critical|high|medium|low`, the diff bounds
-   (`git diff {base_sha}..{review_sha} -- <paths_touched>`), and the
-   exact Findings line format from § Output Format.
-2. **Invoke** — cd into the PBI worktree
-   (`.scrum/worktrees/<pbi-id>`), `source scripts/lib/codex-invoke.sh`,
-   then `codex_review_or_fallback "$instr" "$out"`. The call is
-   bounded by `CODEX_TIMEOUT_SECS` (default 300). The conductor-side
-   codex preflight and the `reviewer-stall-fallback.md` protocol do
-   NOT apply to this inline call.
-3. **Exit 1 (codex unavailable / timeout / empty output)** —
-   non-fatal. Return your own review alone; end Summary with
-   `Codex second opinion: unavailable`. Do not retry, do not escalate.
-4. **Exit 0 — adjudicate, never rubber-stamp.** Merge codex findings
-   into your Findings list under these rules:
-   - A codex finding whose signature
-     (`{file}:{start}-{end}:{criterion_key}`) duplicates one of yours
-     is dropped — yours stands.
-   - Codex-only finding at **Critical/High**: verify it against the
-     actual code (Read the cited lines; confirm the failure scenario
-     is reachable). Confirmed → adopt at codex's severity, Description
-     prefixed `[codex]`. Not confirmed → record at **Medium**,
-     Description prefixed `[codex-unverified]` plus a one-clause
-     reason it did not verify. An unverified codex claim never blocks
-     the gate.
-   - Codex-only finding at **Medium/Low**: record as-is, Description
-     prefixed `[codex]` (non-blocking severities need no verification
-     pass).
-   - Prefixes live inside the Description field only — the
-     `- #k [Severity] [File:Lines] [criterion_key] — …` line shape the
-     conductor parses is unchanged.
-   - Compute the final Verdict on the merged list (PASS = no
-     Critical/High after adjudication); end Summary with
-     `Codex second opinion: ran`.
-
-The merged review is still YOUR review: codex neither overrides your
-severities nor vetoes your findings.
+**Full protocol (instructions payload, invocation, adjudication rules):**
+[integrity-stage.md § Aspect reviewer shared contract → Codex second opinion](../skills/pbi-pipeline/references/integrity-stage.md).
 
 ## Output Format
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-Return your review as markdown (the conductor folds it verbatim into
-the consolidated review doc and parses the Verdict line + Findings for
-the Integrity-stage verdict and the termination gates). Do NOT emit a
-JSON envelope: the pbi-pipeline envelope's `criterion_key` enum is
-codex-reviewer-specific and does not cover this aspect's vocabulary, so
-your findings carry the aspect criterion_key in the markdown Findings
-list below instead.
+Return your review as **markdown** (no JSON envelope) in the shape
+below. Full output + persistence contract:
+[integrity-stage.md § Aspect reviewer shared contract](../skills/pbi-pipeline/references/integrity-stage.md).
 
 ```
 ## Functional Quality Review
@@ -176,11 +139,9 @@ If there are no findings, write "No findings."
 [2-3 sentences. Correctness of the increment + any risk hotspots.]
 ```
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
-**Verdict:** PASS = no Critical/High. FAIL = any Critical/High. The
-conductor derives each finding's signature (`{file}:{start}-{end}:{criterion_key}`)
-from the markdown Findings list for stagnation/divergence dedup.
+**Verdict: PASS = no Critical/High. FAIL = any Critical/High.** (The
+conductor derives each finding's signature for stagnation/divergence
+dedup — see the shared-contract pointer above.)
 
 ## Strict Rules
 
@@ -196,15 +157,10 @@ from the markdown Findings list for stagnation/divergence dedup.
 - Cannot evaluate a branch from given context → state so explicitly,
   do not guess.
 
-<!-- sync-set: this block is shared verbatim across all 5 aspect
-reviewers - edit all 5 together -->
 ## File output (conductor responsibility)
 
-You do **not** have the `Write` tool by design. Return the review
-content (Output Format above — markdown, no JSON envelope) as your
-final assistant message. The Developer (pipeline conductor) collects your
-returned message during the Integrity stage and consolidates all
-aspect reviews verbatim into `.scrum/reviews/<pbi-id>-review.md` (see
-`../skills/pbi-pipeline/references/integrity-stage.md`). Do not refuse to
-produce content because the file is not yours to write — your output
-is the final message itself.
+You have **no `Write` tool** by design — return the review as your
+final assistant message; the conductor consolidates it into
+`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
+because the file is not yours to write. Full contract: the shared
+§ Persistence pointer above.

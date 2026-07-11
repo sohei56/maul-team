@@ -25,12 +25,34 @@ Deterministic — no fuzzy heuristics.
 
 ## Status transition on escalation
 
-When any escalate gate fires:
+This is the **canonical escalation transition** every stage uses when a
+gate (or a stage-specific escalation such as `stale_review_snapshot` /
+`reviewer_unavailable`) fires. Stage docs reference this section rather
+than restating the sequence; each supplies only its own `<reason>` and
+its `pipeline.log` `<stage>` value.
+
+The ordering is invariant — **write the internal reason first, then flip
+the backlog status** — so an observer never sees `escalated` without a
+recorded `escalation_reason`:
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" "<stage>" "$n" gate "escalate → <reason>"
+notify_sm_escalation "$PBI_ID" "<reason>"
 ```
+
+- `<reason>` — the stage's chosen `escalation_reason` enum value
+  (termination gates: `stagnation` / `divergence` / `max_rounds` /
+  `budget_exhausted`; stage-specific: `stale_review_snapshot`,
+  `reviewer_unavailable`, `kind_mismatch`, …).
+- `<stage>` — the coarse `pipeline.log` stage identifier for the site
+  that escalated (`design` / `pbi_review` / `ut_run`), per
+  `state-management.md` § pipeline.log format.
+- `notify_sm_escalation` — the shared helper defined once in
+  `design-stage.md` § escalation-notify snippet; it emits the
+  `[<pbi-id>] ESCALATED reason=<reason> last_review=<path>` message SM
+  consumes.
 
 The new backlog status is `escalated` regardless of which stage the
 gate fired in (`in_progress_design / impl / pbi_review / ut_run`).

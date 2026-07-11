@@ -47,9 +47,6 @@ resolution:
   human-only unknown is appended to `.scrum/po/attention.md` and the
   PBI stays `draft`.
 
-The route is invariant across modes; only the seat changes. SM remains
-the sole broker — sub-agents never address the PO directly.
-
 ## Steps
 
 1. Read backlog.json

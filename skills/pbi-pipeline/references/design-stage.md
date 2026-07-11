@@ -89,13 +89,9 @@ reads those directly.
      `status=error` with `summary` starting `stale_snapshot:` —
      re-capture `DESIGN_HASH` and respawn the reviewer ONCE with the
      refreshed pin slot. If the second attempt also fails
-     verification, escalate with `escalation_reason=stale_review_snapshot`:
-     ```bash
-     .scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason stale_review_snapshot
-     .scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
-     .scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "escalate → stale_review_snapshot"
-     notify_sm_escalation "$PBI_ID" stale_review_snapshot
-     ```
+     verification, run the canonical escalation transition
+     (`termination-gates.md` § Status transition on escalation) with
+     `<reason>=stale_review_snapshot` and `<stage>=design`.
 
 4. **Step 3: Termination gate** (see termination-gates.md)
    - **Success**: design-reviewer verdict == PASS
@@ -103,11 +99,12 @@ reads those directly.
      - `.scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl`
      - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "success → in_progress_impl"`
      - Return to caller (impl stage begins)
-   - **Stagnation / Divergence / Hard cap**: escalate
-     - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"`
-     - `.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated`
-     - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "escalate → <reason>"`
-     - Notify SM (see `escalation-notify` snippet below)
+   - **Stagnation / Divergence / Hard cap**: run the canonical
+     escalation transition (`termination-gates.md` § Status transition
+     on escalation) with `<reason>` = the gate outcome and
+     `<stage>=design`. It performs the two state writes, the
+     `pipeline.log` line, and `notify_sm_escalation` (defined in the
+     `escalation-notify` snippet below).
    - **Other FAIL**: review-r{n}.md becomes input to Round n+1
      - `.scrum/scripts/append-pbi-log.sh "$PBI_ID" design "$n" gate "fail → round $((n+1))"`
      - Increment n, recurse.

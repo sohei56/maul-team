@@ -78,11 +78,13 @@ ALWAYS update PBI state via the validated wrapper scripts (never raw jq):
 
 # Stage transition (always via backlog status SSOT)
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl
-
-# Escalation: write reason to internal state, then flip backlog status
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason stagnation
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
 ```
+
+Escalation is the same two wrappers in a fixed order (reason to
+internal state first, then flip backlog status to `escalated`), plus a
+`pipeline.log` line and the SM notification. Do not restate that
+sequence per call site — the full recipe is canonical in
+[termination-gates.md § Status transition on escalation](termination-gates.md#status-transition-on-escalation).
 
 ### `impl_round` is owned by `begin-impl-round.sh`
 

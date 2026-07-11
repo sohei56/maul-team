@@ -250,15 +250,9 @@ envelope returns `status=error` with `summary` starting
 `stale_snapshot:` — re-capture `REVIEW_SHA` and `DESIGN_HASH` (the
 worktree may have moved while the reviewer ran) and respawn that
 reviewer ONCE with the refreshed pin slots. If the second attempt
-also fails verification, escalate via the existing escalation flow
-using `escalation_reason=stale_review_snapshot`:
-
-```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason stale_review_snapshot
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
-.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "escalate → stale_review_snapshot"
-notify_sm_escalation "$PBI_ID" stale_review_snapshot
-```
+also fails verification, run the canonical escalation transition
+(`termination-gates.md` § Status transition on escalation) with
+`<reason>=stale_review_snapshot` and `<stage>=pbi_review`.
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review ut_status in_review
@@ -490,17 +484,10 @@ NOT escalate this Round:
 # then continue via the FAIL → next-round path (begin-impl-round.sh).
 ```
 
-Otherwise, on any escalate gate:
-
-```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
-.scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate "escalate → <reason>"
-notify_sm_escalation "$PBI_ID" "<reason>"
-```
-
-`$STAGE` is `pbi_review` or `ut_run` depending on where the gate
-fired.
+Otherwise, on any escalate gate, run the canonical escalation
+transition (`termination-gates.md` § Status transition on escalation)
+with `<reason>` = the gate outcome and `<stage>=$STAGE`, where `$STAGE`
+is `pbi_review` or `ut_run` depending on where the gate fired.
 
 ### Build feedback for next round
 
