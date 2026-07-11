@@ -97,6 +97,9 @@ is_lead_session() {
 # unparseable JSON, or jq failure — the tmp file is removed and
 # AUTONOMY_FILE is left untouched. Lives IN this file (not validate.sh's
 # json_update_atomic) because this lib must stay standalone-sourceable.
+# Mirrored by scripts/autonomous/watchdog.sh::autonomy_atomic_write — a
+# DIFFERENT process family kept in sync by hand, not shared, per the
+# no-cross-source convention between scripts/ and hooks/lib/.
 _autonomy_jq_write() {
   local now=""
   if [ "${1:-}" = "-t" ]; then

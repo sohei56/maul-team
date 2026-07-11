@@ -24,21 +24,7 @@ timestamp="$(get_timestamp)"
 
 log_hook "stop-failure" "ERROR" "Session failed: $reason (agent: $agent_id)"
 
-event_json="$(jq -n \
-  --arg ts "$timestamp" \
-  --arg agent "$agent_id" \
-  --arg reason "$reason" \
-  --arg detail "Session failed: ${reason}" \
-  '{
-    "timestamp": $ts,
-    "type": "stop_failure",
-    "agent_id": $agent,
-    "file_path": null,
-    "change_type": null,
-    "detail": $detail
-  }')"
-
-append_dashboard_event "$event_json"
+append_dashboard_status_event "$timestamp" "stop_failure" "$agent_id" "Session failed: ${reason}"
 
 # Autonomous mode: also persist the failure on .scrum/autonomy.json so the
 # watchdog can read last_failure and decide whether to retry / abort the

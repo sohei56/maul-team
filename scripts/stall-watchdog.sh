@@ -199,6 +199,23 @@ read_cfg_or() {
   jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
+# read_cfg_uint_or <jq_path> <default>
+# Like read_cfg_or, but validates the scalar is an unsigned integer (digits
+# only; "0" is accepted) and falls back to <default> otherwise — the single
+# definition of the "positive-integer config fallback" idiom this file used to
+# repeat inline after every read_cfg_or for a numeric setting. (jq_cfg_or in
+# scripts/lib/jq-read.sh does NO type validation by contract; the shared lib
+# is out of this daemon's edit scope, so the typed reader is defined here as a
+# local wrapper mirroring read_cfg_or.)
+read_cfg_uint_or() {
+  local v
+  v="$(jq_cfg_or "$CONFIG_FILE" "$1" "$2")"
+  case "$v" in
+    ''|*[!0-9]*) printf '%s\n' "$2" ;;
+    *) printf '%s\n' "$v" ;;
+  esac
+}
+
 # last_nudge_epoch — read from STATE_FILE or 0.
 last_nudge_epoch() {
   if [ -f "$STATE_FILE" ]; then
@@ -219,28 +236,19 @@ write_last_nudge_epoch() {
   printf '%s\n' "$1" > "$STATE_FILE"
 }
 
-# in_flight_count — number of PBIs in in_progress_* (excluding in_progress_merge).
+# in_flight_snapshot — the ONE place the in-flight PBI filter lives in this
+# file. Reads backlog.json once and emits one TSV line "<id>\t<status>" per
+# PBI in in_progress_* (excluding in_progress_merge); the id field may be
+# empty. Count, ids, and the grouped status summary are all derived from this
+# single snapshot (snapshot_count / snapshot_ids / snapshot_summary) so the
+# filter and the backlog read are no longer duplicated three times.
 # Mirrors the `pbi_pipeline_active` in-flight filter in
-# hooks/completion-gate.sh so the two stay in sync.
-in_flight_count() {
-  if [ ! -f "$BACKLOG_FILE" ]; then
-    printf '0\n'
-    return 0
-  fi
-  if ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
-    printf '0\n'
-    return 0
-  fi
-  jq -r '
-    [.items[]?
-      | select(.status | startswith("in_progress_"))
-      | select(.status != "in_progress_merge")]
-    | length
-  ' "$BACKLOG_FILE" 2>/dev/null || printf '0\n'
-}
-
-# in_flight_ids — same filter, but emit the PBI ids one per line.
-in_flight_ids() {
+# hooks/completion-gate.sh — a DIFFERENT process family. Per the documented
+# no-cross-source convention between scripts/ and hooks/lib/ (see
+# scripts/scrum/lib/atomic.sh / queries.sh), the two are kept in sync by hand,
+# not shared; keep them in sync when changing the filter. Emits nothing on a
+# missing / unparseable backlog.
+in_flight_snapshot() {
   if [ ! -f "$BACKLOG_FILE" ] || ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
     return 0
   fi
@@ -248,8 +256,37 @@ in_flight_ids() {
     .items[]?
       | select(.status | startswith("in_progress_"))
       | select(.status != "in_progress_merge")
-      | .id // empty
+      | [(.id // ""), .status]
+      | @tsv
   ' "$BACKLOG_FILE" 2>/dev/null || true
+}
+
+# snapshot_count <snapshot> — number of in-flight PBIs (every snapshot line).
+snapshot_count() {
+  if [ -z "$1" ]; then
+    printf '0\n'
+    return 0
+  fi
+  printf '%s\n' "$1" | grep -c .
+}
+
+# snapshot_ids <snapshot> — the non-empty PBI ids, one per line.
+snapshot_ids() {
+  [ -z "$1" ] && return 0
+  printf '%s\n' "$1" | cut -f1 | grep -v '^$' || true
+}
+
+# snapshot_summary <snapshot> — grouped "N status" join. Statuses keep their
+# in_progress_ prefix (matching the historical stall message). An empty
+# snapshot yields an empty line.
+snapshot_summary() {
+  [ -z "$1" ] && { printf '\n'; return 0; }
+  printf '%s\n' "$1" | cut -f2 | jq -Rrn '
+    [inputs]
+    | if length == 0 then ""
+      else (group_by(.) | map("\(length) \(.[0])") | join(", "))
+      end
+  ' 2>/dev/null || printf '\n'
 }
 
 # pbi_activity_epoch <pbi_id> — newest activity epoch attributable to ONE
@@ -287,13 +324,14 @@ EOF
   printf '%s\n' "$max"
 }
 
-# stale_pbi_list <now_epoch> <threshold_seconds> — emit "id(Nm)" tokens,
-# one per line, for every in-flight PBI whose per-PBI activity is older
-# than the threshold. PBIs without an artifact dir are skipped (the global
-# idle detector still covers a team that never started).
+# stale_pbi_list <now_epoch> <threshold_seconds> <snapshot> — emit "id(Nm)"
+# tokens, one per line, for every in-flight PBI whose per-PBI activity is
+# older than the threshold. PBIs without an artifact dir are skipped (the
+# global idle detector still covers a team that never started). Ids are
+# derived from the shared in-flight snapshot.
 stale_pbi_list() {
-  local now="$1" threshold="$2" id act idle
-  in_flight_ids | while IFS= read -r id; do
+  local now="$1" threshold="$2" snapshot="$3" id act idle
+  snapshot_ids "$snapshot" | while IFS= read -r id; do
     [ -z "$id" ] && continue
     act="$(pbi_activity_epoch "$id")"
     [ "$act" -eq 0 ] && continue
@@ -302,22 +340,6 @@ stale_pbi_list() {
       printf '%s(%sm)\n' "$id" "$((idle / 60))"
     fi
   done
-}
-
-# in_flight_summary — same filter, but grouped "N status" join.
-in_flight_summary() {
-  if [ ! -f "$BACKLOG_FILE" ] || ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
-    printf '\n'
-    return 0
-  fi
-  jq -r '
-    [.items[]? | .status
-      | select(startswith("in_progress_"))
-      | select(. != "in_progress_merge")]
-    | group_by(.)
-    | map("\(length) \(.[0])")
-    | join(", ")
-  ' "$BACKLOG_FILE" 2>/dev/null || printf '\n'
 }
 
 # send_nudge <pane> <message>
@@ -349,24 +371,14 @@ run_once() {
     false|0|"") log_msg INFO "stall_watchdog disabled by config"; return 99 ;;
   esac
 
-  idle_threshold_min="$(read_cfg_or '.stall_watchdog.idle_threshold_minutes' "$DEFAULT_IDLE_THRESHOLD_MIN")"
-  cooldown_min="$(read_cfg_or '.stall_watchdog.cooldown_minutes' "$DEFAULT_COOLDOWN_MIN")"
-
-  # Validate numerics — fall back to default if not a positive integer.
-  case "$idle_threshold_min" in
-    ''|*[!0-9]*) idle_threshold_min="$DEFAULT_IDLE_THRESHOLD_MIN" ;;
-  esac
-  case "$cooldown_min" in
-    ''|*[!0-9]*) cooldown_min="$DEFAULT_COOLDOWN_MIN" ;;
-  esac
+  # read_cfg_uint_or validates the unsigned-integer fallback in one place.
+  idle_threshold_min="$(read_cfg_uint_or '.stall_watchdog.idle_threshold_minutes' "$DEFAULT_IDLE_THRESHOLD_MIN")"
+  cooldown_min="$(read_cfg_uint_or '.stall_watchdog.cooldown_minutes' "$DEFAULT_COOLDOWN_MIN")"
 
   # Per-PBI threshold defaults to the global idle threshold — one knob
   # unless the operator wants different sensitivities.
   local pbi_idle_threshold_min
-  pbi_idle_threshold_min="$(read_cfg_or '.stall_watchdog.pbi_idle_threshold_minutes' "$idle_threshold_min")"
-  case "$pbi_idle_threshold_min" in
-    ''|*[!0-9]*) pbi_idle_threshold_min="$idle_threshold_min" ;;
-  esac
+  pbi_idle_threshold_min="$(read_cfg_uint_or '.stall_watchdog.pbi_idle_threshold_minutes' "$idle_threshold_min")"
 
   # Runtime read
   if [ ! -f "$RUNTIME_FILE" ]; then
@@ -392,9 +404,11 @@ run_once() {
     return 98
   fi
 
-  # In-flight count
-  local in_flight
-  in_flight="$(in_flight_count)"
+  # In-flight snapshot (single backlog read) — count / ids / summary derive
+  # from this one projection.
+  local snapshot in_flight
+  snapshot="$(in_flight_snapshot)"
+  in_flight="$(snapshot_count "$snapshot")"
   if [ "${in_flight:-0}" -eq 0 ]; then
     log_msg INFO "no in-flight PBIs; nothing to monitor"
     return 0
@@ -422,11 +436,11 @@ run_once() {
   local nudge_msg=""
   if [ "$idle_seconds" -gt "$threshold_seconds" ]; then
     local summary
-    summary="$(in_flight_summary)"
+    summary="$(snapshot_summary "$snapshot")"
     nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
   else
     local stale_pbis
-    stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) | tr '\n' ' ')"
+    stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) "$snapshot" | tr '\n' ' ')"
     # Trim the trailing space from the join.
     stale_pbis="${stale_pbis% }"
     if [ -z "$stale_pbis" ]; then
@@ -457,10 +471,7 @@ run_once() {
 
 # Read poll interval once at startup — config edits during a run pick up next
 # loop iteration via the next read_cfg_or call inside run_once.
-POLL_INTERVAL_SEC="$(read_cfg_or '.stall_watchdog.poll_interval_seconds' "$DEFAULT_POLL_INTERVAL_SEC")"
-case "$POLL_INTERVAL_SEC" in
-  ''|*[!0-9]*) POLL_INTERVAL_SEC="$DEFAULT_POLL_INTERVAL_SEC" ;;
-esac
+POLL_INTERVAL_SEC="$(read_cfg_uint_or '.stall_watchdog.poll_interval_seconds' "$DEFAULT_POLL_INTERVAL_SEC")"
 
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 log_msg INFO "starting stall-watchdog (project=$PROJECT_DIR poll=${POLL_INTERVAL_SEC}s once=${ONCE})"

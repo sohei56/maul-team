@@ -143,16 +143,22 @@ cfg_value() {
   jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
-# autonomy_atomic_write <jq_expr>
-# Applies <jq_expr> to autonomy.json and ALWAYS stamps .updated_at with the
-# current time, so call sites never append the updated_at clause themselves.
-# Atomic via tmp + mv; returns non-zero (without exiting) on jq failure so
-# fail-open callers can `|| true`.
+# autonomy_atomic_write <jq_expr> [jq_arg...]
+# Applies <jq_expr> to autonomy.json (with any extra jq args such as --arg /
+# --argjson pairs) and ALWAYS stamps .updated_at with the current time, so
+# call sites never append the updated_at clause themselves. Atomic via tmp +
+# mv; returns non-zero (without exiting) on jq failure so fail-open callers
+# can `|| true`. Dynamic values MUST be passed as jq args (--arg/--argjson),
+# never interpolated into <jq_expr>. This mirrors
+# hooks/lib/autonomy.sh::_autonomy_jq_write — a DIFFERENT process family kept
+# in sync by hand, not shared, per the no-cross-source convention between
+# scripts/ and hooks/lib/ (see scripts/scrum/lib/atomic.sh / queries.sh).
 autonomy_atomic_write() {
-  local expr="$1" tmp now
+  local expr="$1"; shift
+  local tmp now
   now="$(iso_utc_now)"
   tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-  if jq --arg now "$now" "$expr | (.updated_at = \$now)" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
+  if jq --arg now "$now" "$@" "$expr | (.updated_at = \$now)" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
     mv "$tmp" "$AUTONOMY_FILE"
     return 0
   fi
@@ -167,7 +173,8 @@ autonomy_atomic_write() {
 # swallowed so bookkeeping never aborts the loop.
 record_failure() {
   autonomy_atomic_write \
-    "(.last_failure = {reason: \"$1\", at: \"$(iso_utc_now)\"})" \
+    '(.last_failure = {reason: $reason, at: $at})' \
+    --arg reason "$1" --arg at "$(iso_utc_now)" \
     || true
 }
 
@@ -456,7 +463,7 @@ printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failu
 # would block every Stop with no watchdog to re-launch the session — the
 # "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
 WATCHDOG_PID="$$"
-if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID})"; then
+if ! autonomy_atomic_write '(.watchdog_pid = $pid)' --argjson pid "$WATCHDOG_PID"; then
   printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
 fi
 
@@ -475,7 +482,7 @@ if [ -z "$SPRINT_BASELINE" ]; then
     SPRINT_BASELINE="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
   fi
   if ! autonomy_atomic_write \
-       "(.sprint_baseline = ${SPRINT_BASELINE})"; then
+       '(.sprint_baseline = $baseline)' --argjson baseline "$SPRINT_BASELINE"; then
     printf 'watchdog: WARN failed to record sprint_baseline in autonomy.json.\n' >&2
   fi
 fi
@@ -529,7 +536,8 @@ while :; do
   # ----- 3. Session ID + autonomy bookkeeping -----
   SID="$(generate_uuid)"
   if ! autonomy_atomic_write \
-       "(.iteration = ${ITER}) | (.lead_session_id = \"${SID}\") | (.stop_blocks = {phase: (.stop_blocks.phase // \"\"), count: 0})"; then
+       '(.iteration = $iter) | (.lead_session_id = $sid) | (.stop_blocks = {phase: (.stop_blocks.phase // ""), count: 0})' \
+       --argjson iter "$ITER" --arg sid "$SID"; then
     printf 'watchdog: failed to update autonomy.json — aborting.\n' >&2
     finalize 3 "autonomy_write_failed"
   fi
@@ -564,7 +572,8 @@ while :; do
     ITER_COST="$(jq -r '.total_cost_usd // 0' "$ITER_STDOUT" 2>/dev/null || echo 0)"
     if [ -n "$ITER_COST" ] && [ "$ITER_COST" != "null" ] && [ "$ITER_COST" != "0" ]; then
       autonomy_atomic_write \
-        "(.total_cost_usd = ((.total_cost_usd // 0) + ${ITER_COST}))" \
+        '(.total_cost_usd = ((.total_cost_usd // 0) + $cost))' \
+        --argjson cost "$ITER_COST" \
         || true
     fi
   fi

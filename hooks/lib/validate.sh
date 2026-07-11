@@ -161,7 +161,11 @@ json_update_atomic() {
 }
 
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via
-# max_default), write atomically.
+# max_default), write atomically. Thin semantic wrapper over
+# json_update_atomic: this function only builds the capped-append jq
+# expression + args; the temp-file, atomic mv, and cleanup-on-failure
+# behavior all come from json_update_atomic (so a jq failure removes the
+# temp and leaves the file untouched, returning non-zero).
 # Usage: append_to_json_array <filepath> <array_field> <item_json> <max_field> <max_default>
 append_to_json_array() {
   local filepath="$1"
@@ -169,11 +173,8 @@ append_to_json_array() {
   local item_json="$3"
   local max_field="$4"
   local max_default="$5"
-  local tmp_file="${filepath}.tmp.$$"
-  jq --argjson item "$item_json" \
-     --arg af "$array_field" \
-     --arg mf "$max_field" \
-     --argjson md "$max_default" '
+  # shellcheck disable=SC2016  # $af/$mf/$md/$item are jq variables, not shell expansion.
+  json_update_atomic "$filepath" '
     .[$af] = ((.[$af] // []) + [$item]) |
     (.[$mf] // $md) as $cap |
     if (.[$af] | length) > $cap then
@@ -181,7 +182,10 @@ append_to_json_array() {
     else
       .
     end
-  ' "$filepath" > "$tmp_file" && mv "$tmp_file" "$filepath"
+  ' --argjson item "$item_json" \
+    --arg af "$array_field" \
+    --arg mf "$max_field" \
+    --argjson md "$max_default"
 }
 
 # Log a timestamped message to .scrum/hooks.log

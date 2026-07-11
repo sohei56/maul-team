@@ -82,49 +82,19 @@ save_session_name() {
 }
 
 # emit_dashboard_status_event <type> <detail> [pbi_id]
-# Appends a lifecycle event (Stop / SubagentStart / SubagentStop /
-# TaskCompleted) to the dashboard events log. Uses the globals
-# `timestamp` and `agent_id` resolved in Main. file_path/change_type are
-# always null for these event types. The pbi_id parameter is
-# presence-sensitive: when a third argument is passed the event carries
-# a "pbi_id" key (empty string → JSON null); when omitted, no "pbi_id"
-# key is emitted at all (Stop / TaskCompleted events never had one).
+# Thin wrapper over lib/dashboard.sh::append_dashboard_status_event that
+# binds the Main-resolved globals `timestamp` and `agent_id`. Appends a
+# lifecycle event (Stop / SubagentStart / SubagentStop / TaskCompleted).
+# The pbi_id parameter is presence-sensitive: when a third argument is
+# passed the event carries a "pbi_id" key (empty string → JSON null);
+# when omitted, no "pbi_id" key is emitted at all (Stop / TaskCompleted
+# events never had one).
 emit_dashboard_status_event() {
-  local ev_type="$1"
-  local detail="$2"
-  local event_json
   if [ "$#" -ge 3 ]; then
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg type "$ev_type" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      --arg pbi "$3" \
-      '{
-        "timestamp": $ts,
-        "type": $type,
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail,
-        "pbi_id": (if $pbi == "" then null else $pbi end)
-      }')"
+    append_dashboard_status_event "$timestamp" "$1" "$agent_id" "$2" "$3"
   else
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg type "$ev_type" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": $type,
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
+    append_dashboard_status_event "$timestamp" "$1" "$agent_id" "$2"
   fi
-  append_dashboard_event "$event_json"
 }
 
 # Check if the last comms message has the same sender and content (dedup)
