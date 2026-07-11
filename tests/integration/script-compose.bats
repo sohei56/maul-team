@@ -212,3 +212,110 @@ EOF
   run jq -r '.items[0].status' .scrum/backlog.json
   [ "$output" = "escalated" ]
 }
+
+# --- setup-user.sh: runtime-doc subset + manifest-owned pruning ---
+#
+# These exercise the full setup-user.sh end-to-end (unlike the skipped copy
+# tests above) by shadowing only the three prerequisite binaries with stubs,
+# so the deploy/prune logic runs while real coreutils (cp, grep, jq, awk …)
+# stay intact. Stubs are PREPENDED to PATH — they never replace it.
+make_prereq_stubs() {
+  local bin="$TEMP_DIR/stubbin"
+  mkdir -p "$bin"
+  # claude: presence is all check_claude_cli requires.
+  printf '#!/usr/bin/env bash\necho "stub-claude 9.9.9"\n' > "$bin/claude"
+  # python3: report a >=3.9 version for the version probe; make every
+  # `import <pkg>` succeed so check_python_prereqs skips the pip install path.
+  cat > "$bin/python3" <<'PY'
+#!/usr/bin/env bash
+for a in "$@"; do
+  case "$a" in
+    *version_info*) echo "3.12"; exit 0 ;;
+  esac
+done
+exit 0
+PY
+  # tmux: presence skips the auto-install branch (and any sudo apt-get).
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$bin/tmux"
+  chmod +x "$bin/claude" "$bin/python3" "$bin/tmux"
+  echo "$bin"
+}
+
+@test "setup-user.sh deploys .claude/docs subset and writes .maul-manifest" {
+  local bin; bin="$(make_prereq_stubs)"
+  cd "$TEMP_DIR"
+  run env PATH="$bin:$PATH" bash "$PROJECT_ROOT/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+
+  # Runtime-doc subset mirrors the source subtree under .claude/docs/.
+  [ -f ".claude/docs/data-model.md" ]
+  [ -f ".claude/docs/autonomous-mode.md" ]
+  [ -f ".claude/docs/contracts/agent-interfaces.md" ]
+  [ -f ".claude/docs/contracts/sub-agents.md" ]
+
+  # Manifest exists, carries the versioned header, and lists the docs.
+  [ -f ".claude/.maul-manifest" ]
+  run grep -q '^# maul-team deploy manifest v[0-9]' ".claude/.maul-manifest"
+  assert_success
+  run grep -Fxq ".claude/docs/data-model.md" ".claude/.maul-manifest"
+  assert_success
+  run grep -Fxq ".claude/docs/contracts/agent-interfaces.md" ".claude/.maul-manifest"
+  assert_success
+  # A regular deployed agent is tracked too.
+  run grep -Fxq ".claude/agents/scrum-master.md" ".claude/.maul-manifest"
+  assert_success
+  # Non-.claude deploys are intentionally NOT tracked.
+  run grep -q "docs/contracts/scrum-state" ".claude/.maul-manifest"
+  assert_failure
+}
+
+@test "setup-user.sh prunes stale framework files on redeploy but keeps user files" {
+  local bin; bin="$(make_prereq_stubs)"
+  cd "$TEMP_DIR"
+  run env PATH="$bin:$PATH" bash "$PROJECT_ROOT/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+
+  # Simulate framework files that existed in a PRIOR version: present on disk
+  # AND recorded in the old manifest (so the next deploy is entitled to prune).
+  echo "stale" > ".claude/agents/removed-agent.md"
+  printf '%s\n' ".claude/agents/removed-agent.md" >> ".claude/.maul-manifest"
+  mkdir -p ".claude/skills/old-skill"
+  echo "stale" > ".claude/skills/old-skill/SKILL.md"
+  printf '%s\n' ".claude/skills/old-skill/SKILL.md" >> ".claude/.maul-manifest"
+
+  # A user-created file under .claude/skills/ — never in any manifest.
+  mkdir -p ".claude/skills/my-notes"
+  echo "mine" > ".claude/skills/my-notes/NOTES.md"
+
+  run env PATH="$bin:$PATH" bash "$PROJECT_ROOT/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+
+  # Stale framework file + stale (renamed) skill are pruned…
+  [ ! -f ".claude/agents/removed-agent.md" ]
+  [ ! -f ".claude/skills/old-skill/SKILL.md" ]
+  # …and its now-empty skill dir is removed.
+  [ ! -d ".claude/skills/old-skill" ]
+  # User-authored file (and its dir) survive untouched.
+  [ -f ".claude/skills/my-notes/NOTES.md" ]
+  # A genuine framework agent is still present after the redeploy.
+  [ -f ".claude/agents/scrum-master.md" ]
+}
+
+@test "setup-user.sh skips prune when previous manifest has an unsafe path" {
+  local bin; bin="$(make_prereq_stubs)"
+  cd "$TEMP_DIR"
+  run env PATH="$bin:$PATH" bash "$PROJECT_ROOT/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+
+  # A stale-but-safe entry that WOULD be pruned, plus a traversal path that
+  # must poison the whole prune step.
+  echo "stale" > ".claude/agents/removed-agent.md"
+  printf '%s\n' ".claude/agents/removed-agent.md" >> ".claude/.maul-manifest"
+  printf '%s\n' "../evil" >> ".claude/.maul-manifest"
+
+  run env PATH="$bin:$PATH" bash "$PROJECT_ROOT/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"unsafe path"* ]]
+  # Prune skipped ⇒ the otherwise-stale file is still on disk.
+  [ -f ".claude/agents/removed-agent.md" ]
+}
