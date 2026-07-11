@@ -282,7 +282,7 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 @keyframes hin{to{opacity:1; transform:none}}
 
 /* ---------- hero app (animated reproduction of the Mac app screen) ---------- */
-.hero-app{display:flex; flex-direction:column; min-height:472px; background:#0a1326;
+.hero-app{display:flex; flex-direction:column; min-height:512px; background:#0a1326;
   border-radius:0 0 13px 13px; overflow:hidden; text-align:left}
 /* window toolbar (Projects · project · path · info) */
 .ha-toolbar{display:flex; align-items:center; gap:13px; height:36px; padding:0 14px; flex:none;
@@ -294,7 +294,7 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .ha-tb-path{color:var(--text-3); overflow:hidden; text-overflow:ellipsis; min-width:0}
 .ha-tb-info{margin-left:auto; color:var(--text-3)}
 /* three-pane body */
-.ha-body{flex:1 1 auto; display:grid; grid-template-columns:170px 1fr 274px; min-height:0}
+.ha-body{flex:1 1 auto; display:grid; grid-template-columns:186px 1fr 274px; min-height:0}
 @media (max-width:1000px){ .ha-body{grid-template-columns:1fr 262px} .ha-explorer{display:none} }
 @media (max-width:720px){ .ha-body{display:flex; flex-direction:column} .ha-explorer{display:none}
   .ha-center{border-right:0; border-bottom:1px solid var(--line)} }
@@ -307,15 +307,29 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 /* --- left: Explorer + editor --- */
 .ha-explorer{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#0c1730}
 .ha-ex-head{letter-spacing:.12em; text-transform:uppercase; font-size:10px; color:var(--text-3)}
-.ha-tree{padding:8px 5px; flex:none; display:flex; flex-direction:column; gap:2px;
+.ha-tree{padding:7px 5px; flex:none; display:flex; flex-direction:column; gap:1px;
   font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
-.ha-row{display:flex; align-items:center; gap:5px; padding:2px 6px; border-radius:5px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.ha-row .ha-tw{color:var(--text-3); width:9px; display:inline-block; flex:none}
-.ha-row .ha-fi{flex:none}
-.ha-row.fold .ha-fi{color:var(--blue)} .ha-row .ha-fi{color:var(--text-3)}
+.ha-row{display:flex; align-items:center; gap:5px; padding:1.5px 6px; border-radius:5px;
+  white-space:nowrap; overflow:hidden}
+.ha-row .ha-nm{overflow:hidden; text-overflow:ellipsis}
+.ha-row .ha-tw{color:var(--text-3); width:9px; display:inline-block; flex:none;
+  font-size:8.5px; text-align:center}
+.ha-row .ha-fi{flex:none; width:12px; text-align:center; color:var(--text-3); font-size:9.5px}
+.ha-row .ha-fi.fi-json{color:#e8c66a} .ha-row .ha-fi.fi-html{color:#e0885e}
 .ha-row.active{background:var(--amber-soft); color:var(--text)}
-.ha-i1{padding-left:14px} .ha-i2{padding-left:26px} .ha-i3{padding-left:38px}
+.ha-i1{padding-left:15px} .ha-i2{padding-left:28px} .ha-i3{padding-left:41px}
+/* CSS-drawn macOS-style folder icon (blue; amber when framework-locked) */
+.ha-fico{position:relative; flex:none; width:12px; height:8.5px; margin-top:2px;
+  border-radius:1px 2px 2px 2px; background:linear-gradient(180deg,#6aa6e0,#3f7fc0)}
+.ha-fico::before{content:""; position:absolute; top:-2.5px; left:0; width:5.5px; height:3px;
+  border-radius:1.5px 1px 0 0; background:#6aa6e0}
+.ha-row.lock .ha-fico{background:linear-gradient(180deg,#d9a94e,#b07f2c)}
+.ha-row.lock .ha-fico::before{background:#d9a94e}
+/* tiny padlock badge after locked framework dirs */
+.ha-lock{flex:none; width:7px; height:5.5px; margin:2px 0 0 2px; border-radius:1.5px;
+  background:var(--amber-hi); opacity:.85; position:relative}
+.ha-lock::before{content:""; position:absolute; top:-3px; left:1px; width:5px; height:4px;
+  border:1px solid var(--amber-hi); border-bottom:0; border-radius:3px 3px 0 0}
 .ha-editor{flex:1 1 auto; min-height:0; border-top:1px solid var(--line); display:flex; flex-direction:column}
 .ha-ed-tab{display:flex; align-items:center; justify-content:space-between; padding:7px 11px; flex:none;
   border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
@@ -327,10 +341,10 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 
 /* --- center: Scrum Master terminal + Work Log --- */
 .ha-center{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#091224}
-.ha-term{flex:none; height:150px; overflow:hidden; padding:11px 15px 9px;
+.ha-term{flex:1 1 auto; min-height:0; overflow:hidden; padding:11px 15px 9px;
   display:flex; flex-direction:column; justify-content:flex-end;
   font-family:var(--font-mono); font-size:11.4px; line-height:1.55; color:var(--text-2)}
-@media (max-width:720px){ .ha-term{height:132px} }
+@media (max-width:720px){ .ha-term{flex:none; height:172px} }
 .ha-line{margin-bottom:8px; white-space:pre-wrap; word-break:break-word}
 .ha-line.he{opacity:0; transform:translateY(4px)}
 .ha-line.show{opacity:1; transform:none; transition:opacity .3s var(--ease-out), transform .3s var(--ease-out)}
@@ -344,6 +358,8 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
   border-top:1px solid var(--line); background:#0c1830; font-family:var(--font-mono); font-size:11px}
 .hc-caret{color:var(--amber-hi)}
 .ha-ph{flex:1; min-width:0; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#heroInput{color:var(--text)}
+.ha-ph .hc-tcursor{height:12px; vertical-align:-2px}
 .ha-owner{font-size:9.5px; color:var(--text-3); border:1px solid var(--line-strong);
   background:var(--panel-2); padding:2px 8px; border-radius:6px; flex:none}
 .ha-term-status{flex:none; display:flex; align-items:center; gap:13px; padding:6px 14px;
@@ -353,13 +369,13 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .ha-br i{width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.85)}
 .ha-tok{margin-left:auto}
 /* work log */
-.ha-worklog{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; border-top:1px solid var(--line); background:#0a1326}
+.ha-worklog{flex:none; display:flex; flex-direction:column; border-top:1px solid var(--line); background:#0a1326}
 .ha-wl-head{display:flex; align-items:center; gap:10px; padding:8px 14px; flex:none;
   font-family:var(--font-mono); font-size:10.5px; color:var(--text-2); border-bottom:1px solid var(--line)}
 .ha-wl-tabs{margin-left:auto; display:inline-flex; gap:4px; font-size:9px}
 .ha-wl-tabs i{font-style:normal; padding:2px 8px; border-radius:6px; color:var(--text-3)}
 .ha-wl-tabs i.on{color:#dfe7ef; background:var(--blue); }
-.ha-wl-list{flex:1 1 auto; overflow:hidden}
+.ha-wl-list{flex:none; height:112px; overflow:hidden}
 .ha-wl-row{display:flex; gap:10px; padding:6px 14px; border-bottom:1px solid rgba(255,255,255,.045); align-items:flex-start}
 .ha-wl-row.enter{animation:wlin .42s var(--ease-out)}
 @keyframes wlin{from{opacity:0; transform:translateY(-7px)} to{opacity:1; transform:none}}
@@ -801,7 +817,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <span class="mac-title">MaulTeam — test_demo</span>
         </div>
         <div class="hero-app" role="img"
-             aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: the Scrum Master terminal streaming status — design review PASS, in_progress_impl, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and a no-fast-forward merge to done — above a live Work Log of agent events. Right: the Dashboard, where the Sprint card's progress bar fills from 0 to 1 of 1 PBI done and pbi-001's status badge advances design → impl → pbi-review → merge → done as the terminal reports each step.">
+             aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: you type 'Build a retro 8-bit Snake game in a single index.html' into the Scrum Master's input bar; it answers 'Understood — starting Sprint 1', plans the backlog, spawns two Developer agents, and streams status — design review PASS, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and no-fast-forward merges — above a live Work Log of agent events. Right: the Dashboard, where the Sprint phase advances Planning → PBI Development → Sprint Review, the progress bar fills from 0 to 2 of 2 PBIs done, and the pbi-001/pbi-002 badges advance refined → design → impl → pbi-review → merge → done as the terminal reports each step.">
           <div class="ha-toolbar" aria-hidden="true">
             <span class="ha-tb-back">‹ Projects</span>
             <span class="ha-tb-proj"><i>▦</i> test_demo</span>
@@ -813,17 +829,21 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
             <div class="ha-explorer" aria-hidden="true">
               <div class="ha-colhead ha-ex-head">Explorer</div>
               <div class="ha-tree">
-                <div class="ha-row fold"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>test_demo</div>
-                <div class="ha-row fold ha-i1"><span class="ha-tw">▸</span><span class="ha-fi">▸</span>.claude</div>
-                <div class="ha-row fold ha-i1"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>.scrum</div>
-                <div class="ha-row fold ha-i1"><span class="ha-tw">▾</span><span class="ha-fi">▸</span>docs</div>
-                <div class="ha-row ha-i2"><span class="ha-tw"></span><span class="ha-fi">▸</span>contracts</div>
-                <div class="ha-row ha-i2"><span class="ha-tw"></span><span class="ha-fi">▸</span>design</div>
-                <div class="ha-row active ha-i2"><span class="ha-tw"></span><span class="ha-fi">▤</span>requirements.md</div>
-                <div class="ha-row fold ha-i1"><span class="ha-tw">▸</span><span class="ha-fi">▸</span>scripts</div>
-                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span>.gitignore</div>
-                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">{}</span>.mcp.json</div>
-                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span>CLAUDE.md</div>
+                <div class="ha-row"><span class="ha-tw">▾</span><span class="ha-fico"></span><span class="ha-nm">test_demo</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.claude</span></div>
+                <div class="ha-row lock ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.scrum</span><span class="ha-lock"></span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.tmp</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▾</span><span class="ha-fico"></span><span class="ha-nm">docs</span></div>
+                <div class="ha-row ha-i2"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">contracts</span></div>
+                <div class="ha-row ha-i2"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">design</span></div>
+                <div class="ha-row active ha-i2"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">requirements.md</span></div>
+                <div class="ha-row lock ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">scripts</span><span class="ha-lock"></span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">tests</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">.gitignore</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-json">{}</span><span class="ha-nm">.mcp.json</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-json">{}</span><span class="ha-nm">.scrum-config.example.json</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">CLAUDE.md</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-html">&lt;&gt;</span><span class="ha-nm">index.html</span></div>
               </div>
               <div class="ha-editor">
                 <div class="ha-ed-tab"><span>▤ requirements.md</span><span class="ha-save">Save</span></div>
@@ -832,9 +852,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 <b>## Goals</b>
 - G1: A complete, playable Snake
   game in a single index.html.
-- G2: Faithful 8-bit arcade feel.
-- G4: Lean MVP — ship the smallest
-  coherent playable game.</div>
+- G2: Faithful 8-bit arcade feel.</div>
               </div>
             </div>
 
@@ -844,7 +862,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
               <div class="ha-term" id="heroTerm"></div>
               <div class="ha-term-input" aria-hidden="true">
                 <span class="hc-caret">›</span>
-                <span class="ha-ph">Ping me when pbi-001 is ready to merge</span>
+                <span class="ha-ph"><span id="heroInput"></span><span class="hc-tcursor"></span></span>
                 <span class="ha-owner">scrum-master</span>
               </div>
               <div class="ha-term-status" aria-hidden="true">
@@ -863,7 +881,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
             <!-- RIGHT: Dashboard -->
             <div class="ha-dash" aria-hidden="true">
               <div class="ha-colhead ha-dash-head"><span>Dashboard</span>
-                <span class="hc-asof">as of 15:05:38</span></div>
+                <span class="hc-asof">as of 15:05:49</span></div>
               <div class="ha-scroll">
                 <div class="ha-card">
                   <div class="ha-card-h"><span class="ha-ico">▤</span>Project</div>
@@ -875,30 +893,30 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
                     <span class="hc-sprint-id">sprint-001</span>
                     <span class="hc-pill hc-pill-active">active</span>
                   </div>
-                  <div class="ha-phase-row">Phase <span class="hc-pill hc-pill-phase">Parallel Development for Each PBI</span></div>
-                  <div class="hc-done-count"><b id="heroDone">0</b>/1 PBIs done</div>
+                  <div class="ha-phase-row">Phase <span class="hc-pill hc-pill-phase" id="heroPhase">Planning</span></div>
+                  <div class="hc-done-count"><b id="heroDone">0</b>/2 PBIs done</div>
                   <div class="hc-progress"><i id="heroProgress" style="width:0%"></i></div>
-                  <div class="ha-member">👥 <span id="heroMembers">dev-001-s1</span></div>
+                  <div class="ha-member">👥 <span id="heroMembers">—</span></div>
                 </div>
                 <div class="ha-card ha-pbicard">
                   <div class="ha-card-h ha-pb-h"><span><span class="ha-ico">▤</span> PBI Board</span>
-                    <span class="hc-pb-tabs"><span class="on">Current&nbsp;1</span><span>All&nbsp;5</span></span></div>
+                    <span class="hc-pb-tabs"><span class="on" id="heroCurTab">Current&nbsp;0</span><span>All&nbsp;5</span></span></div>
                   <div class="hc-pbi-list" id="heroPbi">
                     <div class="hc-pbi" data-pbi="1">
                       <div class="hc-pbi-main">
-                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-001</span><span class="hc-pbi-scope">sprint-001</span></div>
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-001</span><span class="hc-pbi-scope hc-scope-bl" id="heroScope1">backlog</span></div>
                         <div class="hc-pbi-title">Canvas grid, game loop, and snake rendering</div>
                         <div class="hc-pbi-upd">updated 07-04 14:54:44</div>
                       </div>
-                      <div class="hc-pbi-right"><span class="hc-iter">i1</span><span class="pbi-badge b-design hc-badge">◈ design</span></div>
+                      <div class="hc-pbi-right"><span class="hc-iter" id="heroIter1" style="visibility:hidden">i1</span><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
                     </div>
                     <div class="hc-pbi" data-pbi="2">
                       <div class="hc-pbi-main">
-                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-002</span><span class="hc-pbi-scope hc-scope-bl">backlog</span></div>
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-002</span><span class="hc-pbi-scope hc-scope-bl" id="heroScope2">backlog</span></div>
                         <div class="hc-pbi-title">Directional controls and no-reverse constraint</div>
                         <div class="hc-pbi-upd">updated 07-04 14:14:35</div>
                       </div>
-                      <div class="hc-pbi-right"><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                      <div class="hc-pbi-right"><span class="hc-iter" id="heroIter2" style="visibility:hidden">i1</span><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
                     </div>
                     <div class="hc-pbi" data-pbi="3">
                       <div class="hc-pbi-main">
@@ -1822,20 +1840,33 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       merge:        {cls:"b-merge",     txt:"◆ merge",      dev:true},
       done:         {cls:"b-done",      txt:"✓ done",       dev:false}
     };
-    var row1 = heroPbi.querySelector('.hc-pbi[data-pbi="1"]');
-    var progEl = document.getElementById("heroProgress");
-    var doneEl = document.getElementById("heroDone");
+    var rows   = {1: heroPbi.querySelector('.hc-pbi[data-pbi="1"]'), 2: heroPbi.querySelector('.hc-pbi[data-pbi="2"]')};
+    var iters  = {1: document.getElementById("heroIter1"),  2: document.getElementById("heroIter2")};
+    var scopes = {1: document.getElementById("heroScope1"), 2: document.getElementById("heroScope2")};
+    var progEl    = document.getElementById("heroProgress");
+    var doneEl    = document.getElementById("heroDone");
+    var phaseEl   = document.getElementById("heroPhase");
+    var membersEl = document.getElementById("heroMembers");
+    var curTabEl  = document.getElementById("heroCurTab");
+    var inputEl   = document.getElementById("heroInput");
 
-    function setStatus(key){                         // only pbi-001 is in the current Sprint
-      var s = HS[key], b = row1.querySelector(".hc-badge");
+    function setStatus(n, key){                      // pbi-001 and pbi-002 run in parallel this Sprint
+      var s = HS[key], row = rows[n], b = row.querySelector(".hc-badge");
       b.className = "pbi-badge hc-badge " + s.cls;
       b.textContent = s.txt;
-      row1.classList.toggle("hc-active", s.dev);
+      row.classList.toggle("hc-active", s.dev);
+      if (iters[n]) iters[n].style.visibility = (key === "refined") ? "hidden" : "visible";
       if (!REDUCED){ void b.offsetWidth; b.classList.add("flip"); }
     }
     function setProgress(done){
-      if (progEl) progEl.style.width = (done ? 100 : 0) + "%";
+      if (progEl) progEl.style.width = (done * 50) + "%";
       if (doneEl) doneEl.textContent = done;
+    }
+    function setPhase(p){ if (phaseEl) phaseEl.textContent = p; }
+    function joinSprint(){                           // Planning picked pbi-001/002 → they enter sprint-001
+      [1, 2].forEach(function(n){ scopes[n].textContent = "sprint-001"; scopes[n].classList.remove("hc-scope-bl"); });
+      if (curTabEl)  curTabEl.innerHTML = "Current&nbsp;2";
+      if (membersEl) membersEl.textContent = "dev-001-s1, dev-002-s1";
     }
     function addLog(o, animate){
       var r = document.createElement("div");
@@ -1848,31 +1879,45 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           '<div class="ha-wl-msg">' + o.msg + '</div>' +
         '</div>';
       heroLog.insertBefore(r, heroLog.firstChild);
-      while (heroLog.children.length > 6) heroLog.removeChild(heroLog.lastChild);
+      while (heroLog.children.length > 3) heroLog.removeChild(heroLog.lastChild);
     }
     function startBoard(animate){
-      setStatus("design"); setProgress(0);
+      setStatus(1, "refined"); setStatus(2, "refined");
+      setProgress(0); setPhase("Planning");
+      [1, 2].forEach(function(n){ scopes[n].textContent = "backlog"; scopes[n].classList.add("hc-scope-bl"); });
+      if (curTabEl)  curTabEl.innerHTML = "Current&nbsp;0";
+      if (membersEl) membersEl.textContent = "—";
       heroLog.textContent = "";
-      addLog({time:"15:04:10", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"design.md emitted (18KB)"}, animate);
+      addLog({time:"15:03:12", tag:"progress update", cls:"wl-prog", who:"scrum-master", msg:"session started — awaiting your instruction"}, animate);
     }
 
-    // Scrum-Master-voice transcript; each line fires a Dashboard + Work Log update
+    // You brief the Scrum Master, then its transcript drives the Dashboard + Work Log
+    var USER_MSG = "Build a retro 8-bit Snake game in a single index.html.";
     var LINES = [
-      {seg:[{t:"▸ ",c:"t-amber"},{t:"Confirmed: dev-001-s1 wrote ",c:""},{t:"design.md",c:"t-blue"},{t:" — codex-design-reviewer: ",c:""},{t:"PASS",c:"t-ok"},{t:", 0 findings.",c:"t-dim"}],
-        on:function(){ setStatus("impl"); },
-        log:{time:"15:04:22", tag:"subagent stop", cls:"wl-stop", who:"pbi-designer", msg:"finished work"}, gap:1500},
-      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-001 now ",c:""},{t:"in_progress_impl",c:"t-blue"},{t:" — implementation + unit tests underway (Round 1).",c:""}],
-        log:{time:"15:04:31", tag:"agent spawn", cls:"wl-spawn", who:"dev-001-s1", msg:"spawned agent: Author pbi-001 unit tests"}, gap:1550},
-      {seg:[{t:"▸ ",c:"t-amber"},{t:"✅ ",c:"t-ok"},{t:"black-box UT green — C0/C1 ",c:""},{t:"100%",c:"t-ok"},{t:". Entering pbi-review.",c:""}],
-        on:function(){ setStatus("pbi-review"); },
-        log:{time:"15:04:52", tag:"file changed", cls:"wl-file", who:"pbi-ut-author", msg:"Write …/pbi-001/test/main.test.mjs"}, gap:1500},
-      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" branch=pbi/PBI-001.",c:"t-dim"}],
-        on:function(){ setStatus("merge"); },
-        log:{time:"15:05:20", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"PBI_READY_TO_MERGE"}, gap:1500},
-      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression gate ",c:""},{t:"green",c:"t-ok"},{t:" → pbi-001 ",c:""},{t:"done",c:"t-ok"},{t:".",c:""}],
-        on:function(){ setStatus("done"); setProgress(1); },
-        log:{time:"15:05:38", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-001 merged — done"}, gap:1600},
-      {seg:[{t:"Sprint 1 / pbi-001 complete — Increment ready. Standing by.",c:"t-dim"}], gap:3600}
+      {seg:[{t:"› ",c:"t-amber"},{t:USER_MSG,c:"t-cmd"}], gap:1300},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"Understood — starting ",c:""},{t:"Sprint 1",c:"t-blue"},{t:". Planning: refining your request into a Product Backlog (5 PBIs).",c:""}],
+        log:{time:"15:03:28", tag:"progress update", cls:"wl-prog", who:"scrum-master", msg:"backlog refined — 5 PBIs, 2 selected for Sprint 1"}, gap:1700},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"Planning complete. Spawning ",c:""},{t:"dev-001-s1",c:"t-blue"},{t:" (pbi-001) + ",c:""},{t:"dev-002-s1",c:"t-blue"},{t:" (pbi-002) — PBI Development begins.",c:""}],
+        on:function(){ setPhase("PBI Development"); joinSprint(); setStatus(1,"design"); setStatus(2,"design"); },
+        log:{time:"15:03:47", tag:"agent spawn", cls:"wl-spawn", who:"scrum-master", msg:"spawned teammates: dev-001-s1, dev-002-s1"}, gap:1750},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"design.md",c:"t-blue"},{t:" ×2 confirmed — codex-design-reviewer: ",c:""},{t:"PASS",c:"t-ok"},{t:", 0 findings. Both PBIs enter impl (Round 1).",c:""}],
+        on:function(){ setStatus(1,"impl"); setStatus(2,"impl"); },
+        log:{time:"15:04:22", tag:"subagent stop", cls:"wl-stop", who:"pbi-designer", msg:"finished work"}, gap:1650},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: black-box UT green — C0/C1 ",c:""},{t:"100%",c:"t-ok"},{t:". pbi-001 → pbi-review.",c:""}],
+        on:function(){ setStatus(1,"pbi-review"); },
+        log:{time:"15:04:52", tag:"file changed", cls:"wl-file", who:"pbi-ut-author", msg:"Write …/pbi-001/test/main.test.mjs"}, gap:1550},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" branch=pbi/PBI-001 — merging.",c:"t-dim"}],
+        on:function(){ setStatus(1,"merge"); },
+        log:{time:"15:05:07", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"PBI_READY_TO_MERGE"}, gap:1500},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression gate ",c:""},{t:"green",c:"t-ok"},{t:" → pbi-001 ",c:""},{t:"done",c:"t-ok"},{t:" (1/2). dev-002-s1: UT green → pbi-review.",c:""}],
+        on:function(){ setStatus(1,"done"); setProgress(1); setStatus(2,"pbi-review"); },
+        log:{time:"15:05:20", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-001 merged — done"}, gap:1600},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-002-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" — pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression ",c:""},{t:"green",c:"t-ok"},{t:".",c:""}],
+        on:function(){ setStatus(2,"merge"); },
+        log:{time:"15:05:33", tag:"progress update", cls:"wl-prog", who:"dev-002-s1", msg:"PBI_READY_TO_MERGE"}, gap:1450},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-002 ",c:""},{t:"done",c:"t-ok"},{t:" — 2/2 merged. Sprint 1 → ",c:""},{t:"Sprint Review",c:"t-blue"},{t:": Increment ready, demo the Snake game.",c:""}],
+        on:function(){ setStatus(2,"done"); setProgress(2); setPhase("Sprint Review"); },
+        log:{time:"15:05:49", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-002 merged — Sprint Review"}, gap:4200}
     ];
 
     var cursor = document.createElement("span");
@@ -1901,6 +1946,24 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     function later(fn, ms){ var t = setTimeout(fn, ms); timers.push(t); return t; }
     function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
 
+    // you type the brief into the input bar, then "send" it into the transcript
+    var typed = 0, submitted = false;
+    function typeStep(){
+      if (submitted){ later(tick, 400); return; }
+      if (typed < USER_MSG.length){
+        typed += 1;
+        inputEl.textContent = USER_MSG.slice(0, typed);
+        later(typeStep, 26 + (typed % 3) * 10);
+      } else {
+        later(submitMsg, 600);
+      }
+    }
+    function submitMsg(){
+      submitted = true;
+      inputEl.textContent = "";
+      later(tick, 380);                      // LINES[0] echoes the sent message
+    }
+
     function tick(){
       if (li >= LINES.length){ later(resetRun, 500); return; }
       var gap = LINES[li].gap || 1200;
@@ -1911,8 +1974,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       clearTimers();
       heroTerm.textContent = "";
       startBoard(false);
+      typed = 0; submitted = false; inputEl.textContent = "";
       li = 0;
-      later(tick, 700);
+      later(typeStep, 900);
     }
 
     if (REDUCED){
@@ -1923,7 +1987,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       function resume(){
         if (running) return;
         running = true;
-        if (!seeded){ seeded = true; startBoard(false); later(tick, 800); }
+        if (!seeded){ seeded = true; startBoard(false); later(typeStep, 800); }
+        else if (!submitted){ later(typeStep, 300); }
         else { later(tick, 500); }
       }
       function freeze(){ running = false; clearTimers(); }
