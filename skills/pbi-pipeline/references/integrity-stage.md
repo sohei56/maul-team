@@ -66,6 +66,21 @@ assistant message; the conductor reads the returned message directly
 from the synchronous `Agent` call (no review file for the reviewer to
 persist, so the "completed-but-unpersisted" branch is moot).
 
+Two aspects — **functional-quality** and **security** — additionally
+run a **codex second opinion** from inside the reviewer itself (agent
+definitions § Codex second opinion): after finalizing its own
+findings, the reviewer invokes `codex_review_or_fallback`
+(`scripts/lib/codex-invoke.sh`) against the same diff and adjudicates
+codex-only findings — a codex Critical/High enters the verdict only
+after the reviewer verifies it against the code; an unverified codex
+claim is downgraded to Medium and never blocks the gate. This is
+invisible to the conductor: spawn, Verdict parsing, and aggregation
+are unchanged (codex-sourced findings arrive with a `[codex]` /
+`[codex-unverified]` prefix inside the Description field only), and
+codex unavailability degrades that one reviewer to Claude-only
+(Summary notes `Codex second opinion: unavailable`) — it is never a
+spawn-time preflight, a model override, or an escalation.
+
 They return **markdown**, not the pbi-pipeline JSON envelope. The
 envelope's `criterion_key` enum
 (`docs/contracts/pbi-pipeline-envelope.schema.json`) is
@@ -182,6 +197,10 @@ AGG=".scrum/pbi/$PBI_ID/metrics/integrity-r$n.json"
 This aggregate is the conductor's own artifact — it is NOT a sub-agent
 envelope and is not bound by `pbi-pipeline-envelope.schema.json`, so
 the aspect criterion_keys are free to use each aspect's vocabulary.
+Descriptions from the functional-quality / security aspects may begin
+with a `[codex]` or `[codex-unverified]` prefix (their in-reviewer
+second opinion); the prefix is part of the Description text and does
+not change signature derivation or the severity rule below.
 
 **Integrity verdict** — deterministic:
 
@@ -287,3 +306,13 @@ design, and author-context are live and cheaply fixable through the
 same Round loop, instead of after N PBIs have already merged. It also
 lets the Sprint-end review shrink to a pure whole-repo audit ("product
 integrity") that no longer re-derives per-PBI conformance.
+
+The functional-quality and security aspects also carry **cross-model
+diversity to the final gate**: Round-level reviews already get a codex
+second opinion (codex-{design,impl,ut}-reviewer), but the last gate
+before merge was Claude-only. Those two aspects now run an in-reviewer
+codex pass (§ Reviewer model & backing) so blind-spot defect classes
+one model family misses are caught where fixing them is cheapest —
+before the PBI leaves its worktree. Detection is two-model; blocking
+stays deterministic (only reviewer-verified Critical/High findings
+fail the stage).

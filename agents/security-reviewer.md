@@ -83,6 +83,59 @@ Use the PBI-pipeline signature format (single PBI in scope):
 misconfiguration, xss, insecure_deserialization, vulnerable_dependency,
 insufficient_logging, path_traversal.
 
+## Codex second opinion (cross-model)
+
+<!-- sync-set: this section is shared verbatim across the 2
+codex-second-opinion aspect reviewers (functional-quality, security)
+- edit both together -->
+After — and only after — your own review is complete, obtain an
+independent cross-model second opinion from the Codex CLI. The
+ordering is the independence guarantee: finalize your own Findings
+list and provisional Verdict FIRST, so codex output cannot anchor
+your analysis.
+
+1. **Build instructions** — write a codex instructions file via Bash
+   heredoc under `"${TMPDIR:-/tmp}"` (the only file you ever create;
+   never create files inside the repo, the worktree, or `.scrum/`).
+   The instructions must carry: your aspect's criteria section
+   verbatim, the `criterion_key` enum, the severity scale
+   `critical|high|medium|low`, the diff bounds
+   (`git diff {base_sha}..{review_sha} -- <paths_touched>`), and the
+   exact Findings line format from § Output Format.
+2. **Invoke** — cd into the PBI worktree
+   (`.scrum/worktrees/<pbi-id>`), `source scripts/lib/codex-invoke.sh`,
+   then `codex_review_or_fallback "$instr" "$out"`. The call is
+   bounded by `CODEX_TIMEOUT_SECS` (default 300). The conductor-side
+   codex preflight and the `reviewer-stall-fallback.md` protocol do
+   NOT apply to this inline call.
+3. **Exit 1 (codex unavailable / timeout / empty output)** —
+   non-fatal. Return your own review alone; end Summary with
+   `Codex second opinion: unavailable`. Do not retry, do not escalate.
+4. **Exit 0 — adjudicate, never rubber-stamp.** Merge codex findings
+   into your Findings list under these rules:
+   - A codex finding whose signature
+     (`{file}:{start}-{end}:{criterion_key}`) duplicates one of yours
+     is dropped — yours stands.
+   - Codex-only finding at **Critical/High**: verify it against the
+     actual code (Read the cited lines; confirm the failure scenario
+     is reachable). Confirmed → adopt at codex's severity, Description
+     prefixed `[codex]`. Not confirmed → record at **Medium**,
+     Description prefixed `[codex-unverified]` plus a one-clause
+     reason it did not verify. An unverified codex claim never blocks
+     the gate.
+   - Codex-only finding at **Medium/Low**: record as-is, Description
+     prefixed `[codex]` (non-blocking severities need no verification
+     pass).
+   - Prefixes live inside the Description field only — the
+     `- #k [Severity] [File:Lines] [criterion_key] — …` line shape the
+     conductor parses is unchanged.
+   - Compute the final Verdict on the merged list (PASS = no
+     Critical/High after adjudication); end Summary with
+     `Codex second opinion: ran`.
+
+The merged review is still YOUR review: codex neither overrides your
+severities nor vetoes your findings.
+
 ## Output Format
 
 <!-- sync-set: this block is shared verbatim across all 5 aspect
@@ -120,7 +173,9 @@ from the markdown Findings list for stagnation/divergence dedup.
 
 ## Strict Rules
 
-- DO NOT modify project files (read-only)
+- DO NOT modify project files (read-only). The single exception is
+  the codex instructions temp file under `"${TMPDIR:-/tmp}"`
+  (§ Codex second opinion) — never create files anywhere else.
 - DO NOT suggest fixes (describe vulnerability only)
 - Stay inside this PBI's diff. Product-wide / cross-PBI security →
   Sprint-end audit's product-security axis.

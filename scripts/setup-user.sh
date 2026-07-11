@@ -429,11 +429,13 @@ fi
 
 # --- Check Codex CLI for cross-model code review ---
 # The codex-{design,impl,ut}-reviewer sub-agents call `codex` directly via
-# CLI for per-PBI cross-model review in the PBI pipeline. When codex is not
-# installed, those sub-agents fall back to Claude-based review. Everything
-# else is codex-independent: the per-PBI Integrity stage runs the 5
-# aspect-specialized reviewer sub-agents, and Sprint-end cross-review is an
-# audit-only 4-axis codebase-audit.
+# CLI for per-PBI cross-model review in the PBI pipeline, and the Integrity
+# stage's functional-quality / security aspect reviewers run an in-reviewer
+# codex second opinion on top of their own Claude review. When codex is not
+# installed, Round reviews fall back to Claude-based review and the two
+# Integrity aspects proceed Claude-only. Everything else is
+# codex-independent: the remaining 3 Integrity aspects, and Sprint-end
+# cross-review (an audit-only 4-axis codebase-audit).
 # check_codex_cli (scripts/lib/check-python.sh, sourced above) owns the
 # probe + install hint; it is silent when codex is present, so the
 # detected-confirmation line must be guarded here.

@@ -172,7 +172,9 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
   kind=code all 5, kind=docs aspects 1 + 5 only). These are
   Claude-backed (`model: opus`) and message-based — no codex preflight,
   no `Write` tool; the conductor consolidates their returned messages.
-  See `references/integrity-stage.md`.
+  functional-quality and security internally add a codex second opinion
+  (adjudicated, non-fatal on codex absence) — invisible to the
+  conductor. See `references/integrity-stage.md`.
 
 **Every Agent spawn in this pipeline is synchronous — pass
 `run_in_background: false`.** A background spawn parks the conductor:

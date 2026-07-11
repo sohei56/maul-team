@@ -72,7 +72,9 @@ EOF
 # Recommend (do not require) the Codex CLI. The PBI pipeline's
 # codex-design-reviewer / codex-impl-reviewer / codex-ut-reviewer sub-agents
 # use `codex exec` as an independent, cross-model second opinion on design,
-# implementation, and unit tests. When codex is absent the pipeline still
+# implementation, and unit tests, and the Integrity stage's
+# functional-quality / security aspect reviewers add an in-reviewer codex
+# second opinion at the final gate. When codex is absent the pipeline still
 # runs — every review degrades to a Claude-only pass (see
 # scripts/lib/codex-invoke.sh codex_review_or_fallback) — but loses that
 # cross-check, which is what catches API-misuse and blind-spot defects.
@@ -84,8 +86,10 @@ check_codex_cli() {
   cat >&2 <<'EOF'
 Note: Codex CLI not found on PATH — optional, but recommended.
   The PBI pipeline's codex-*-reviewer sub-agents (design / impl / unit-test)
-  use Codex as an independent cross-model reviewer. Without it the pipeline
-  still runs, but each review falls back to a Claude-only pass and loses the
+  use Codex as an independent cross-model reviewer, and the Integrity
+  stage's functional-quality / security reviewers add a Codex second
+  opinion on top of their own review. Without it the pipeline still runs,
+  but each review falls back to a Claude-only pass and loses the
   second-opinion cross-check that catches API-misuse and blind-spot defects.
 
   Install it:

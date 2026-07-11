@@ -67,14 +67,21 @@ message — **not** the pbi-pipeline JSON envelope (its `criterion_key`
 enum is codex-specific). The conductor parses those messages and
 synthesizes its own aggregate `.scrum/pbi/<id>/metrics/integrity-r{n}.json`.
 Critical/High → revert to `in_progress_impl` (bounded by the `impl_round`
-hard cap); Medium/Low recorded, non-blocking. Full protocol:
+hard cap); Medium/Low recorded, non-blocking. Aspects 2 and 3
+additionally run an in-reviewer **codex second opinion** (their agent
+definitions § Codex second opinion): the reviewer finalizes its own
+findings first, then invokes `codex_review_or_fallback` and merges —
+a codex-only Critical/High counts toward the verdict only after the
+reviewer verifies it against the code (unverified → downgraded to
+Medium, `[codex-unverified]` prefix); codex unavailability degrades
+that reviewer to Claude-only, non-fatally. Full protocol:
 `skills/pbi-pipeline/references/integrity-stage.md`.
 
 | # | Aspect | Agent | Role | Tools |
 |---|---|---|---|---|
 | 1 | Requirement conformance | `requirement-conformance-reviewer` | This PBI's AC coverage + scope drift vs. design specs | Read, Grep, Glob, Bash (read-only) |
-| 2 | Functional quality | `functional-quality-reviewer` | Boundary values, error propagation, state transitions, data integrity in this PBI's increment | Read, Grep, Glob, Bash (read-only) |
-| 3 | Security | `security-reviewer` | OWASP Top 10 / vulnerability scan of this PBI's diff | Read, Grep, Glob, Bash (read-only) |
+| 2 | Functional quality | `functional-quality-reviewer` | Boundary values, error propagation, state transitions, data integrity in this PBI's increment + codex second opinion | Read, Grep, Glob, Bash (read-only; codex instructions temp file excepted) |
+| 3 | Security | `security-reviewer` | OWASP Top 10 / vulnerability scan of this PBI's diff + codex second opinion | Read, Grep, Glob, Bash (read-only; codex instructions temp file excepted) |
 | 4 | Maintainability | `maintainability-reviewer` | Abstraction, duplication, cohesion, god-class/function, dead code (Pass-A static-analysis-grounded, diff-scoped) | Read, Grep, Glob, Bash (read-only) |
 | 5 | Docs consistency | `docs-consistency-reviewer` | `docs/**` vs. implementation drift, stale wording, missing follow-up | Read, Grep, Glob, Bash (read-only) |
 
