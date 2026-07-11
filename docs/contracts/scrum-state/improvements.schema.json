@@ -14,9 +14,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "Auto-assigned sequential id. imp-NNNN with 4-digit zero-padded counter.",
+            "description": "Auto-assigned sequential id. imp-NNNN, zero-padded to at least 4 digits (grows naturally past imp-9999).",
             "type": "string",
-            "pattern": "^imp-[0-9]{4}$"
+            "pattern": "^imp-[0-9]{4,}$"
           },
           "sprint_id": {
             "type": "string",
@@ -40,7 +40,7 @@
           "dec_id": {
             "description": "Optional link to a PO decision record (po-decisions.json) that motivated this improvement. Used by retrospective in po_mode=agent for change_request decisions flagged ASSUMPTION: in the rationale.",
             "type": "string",
-            "pattern": "^dec-[0-9]{4}$"
+            "pattern": "^dec-[0-9]{4,}$"
           }
         }
       }

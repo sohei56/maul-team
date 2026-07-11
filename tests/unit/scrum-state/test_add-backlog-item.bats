@@ -139,3 +139,22 @@ teardown() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad --kind"* ]]
 }
+
+@test "add-backlog-item: id grows past pbi-999 (pbi-1000, no truncation)" {
+  jq '.next_pbi_id = 1000' .scrum/backlog.json > backlog.tmp && mv backlog.tmp .scrum/backlog.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "Thousandth PBI"
+  [ "$status" -eq 0 ]
+  [ "$output" = "pbi-1000" ]
+  run jq -r '.next_pbi_id' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "1001" ]
+}
+
+@test "add-backlog-item: fallback max-scan parses 4-digit ids" {
+  jq 'del(.next_pbi_id) | .items[0].id = "pbi-1000"' .scrum/backlog.json > backlog.tmp \
+    && mv backlog.tmp .scrum/backlog.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "After rollover"
+  [ "$status" -eq 0 ]
+  [ "$output" = "pbi-1001" ]
+}

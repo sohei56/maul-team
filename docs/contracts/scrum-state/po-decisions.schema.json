@@ -14,9 +14,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "Auto-assigned sequential id. dec-NNNN with 4-digit zero-padded counter.",
+            "description": "Auto-assigned sequential id. dec-NNNN, zero-padded to at least 4 digits (grows naturally past dec-9999).",
             "type": "string",
-            "pattern": "^dec-[0-9]{4}$"
+            "pattern": "^dec-[0-9]{4,}$"
           },
           "timestamp": {"type": "string", "format": "date-time"},
           "sprint_id": {

@@ -54,7 +54,8 @@ pbi_in_backlog() {
 # Compute the next monotonic id for an append-only store: scan
 # <jq_array_path>[].id for `<prefix>NNN`, take max(N)+1 (0 when the array is
 # empty or absent → the first id is <prefix> padded to 1), zero-pad the result
-# to <pad_width>, and echo `<prefix><padded>`. <prefix> must include its
+# to <pad_width> (a minimum width: values needing more digits grow naturally,
+# e.g. imp-9999 → imp-10000), and echo `<prefix><padded>`. <prefix> must include its
 # trailing hyphen (e.g. "imp-", "dec-"). Fails E_SCHEMA (via lib/errors.sh) if
 # the computed value is non-numeric, signalling a corrupt store.
 #

@@ -103,3 +103,10 @@ teardown() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"unknown flag"* ]]
 }
+
+@test "consolidate: accepts 5-digit --archive ids past imp-9999" {
+  run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT" \
+    --sprint sprint-003 --archive imp-10000
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"no such improvement entry: imp-10000"* ]]
+}

@@ -47,10 +47,9 @@ done
 assert_sprint_id "$SPRINT" --sprint
 
 if [ -n "$DEC_ID" ]; then
-  case "$DEC_ID" in
-    dec-[0-9][0-9][0-9][0-9]) ;;
-    *) fail E_INVALID_ARG "bad --dec-id: $DEC_ID (expected dec-NNNN)" ;;
-  esac
+  # Zero-padded to at least 4 digits; grows past dec-9999 (matches schema).
+  printf '%s' "$DEC_ID" | grep -Eq '^dec-[0-9]{4,}$' \
+    || fail E_INVALID_ARG "bad --dec-id: $DEC_ID (expected dec-NNNN)"
 fi
 
 PATHF=".scrum/improvements.json"

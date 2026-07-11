@@ -98,3 +98,14 @@ teardown() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"unknown flag"* ]]
 }
+
+@test "append-improvement: id grows past imp-9999 (5-digit rollover)" {
+  printf '%s\n' '{"entries":[{"id":"imp-9999","sprint_id":"sprint-001","description":"seed","status":"active","created_at":"2026-01-01T00:00:00Z","archived_at":null}],"last_consolidation_sprint":null}' \
+    > .scrum/improvements.json
+  run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT" \
+    --sprint sprint-002 --description "ten-thousandth" --dec-id dec-10000
+  [ "$status" -eq 0 ]
+  [ "$output" = "imp-10000" ]
+  run jq -r '.entries[-1].dec_id' "$TEST_TMP/.scrum/improvements.json"
+  [ "$output" = "dec-10000" ]
+}

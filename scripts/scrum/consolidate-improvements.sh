@@ -38,10 +38,10 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --sprint)  SPRINT="$2"; shift 2 ;;
     --archive)
-      case "$2" in
-        imp-[0-9][0-9][0-9][0-9]) ARCHIVE_IDS+=("$2") ;;
-        *) fail E_INVALID_ARG "bad --archive: $2 (expected imp-NNNN)" ;;
-      esac
+      # Zero-padded to at least 4 digits; grows past imp-9999 (matches schema).
+      printf '%s' "$2" | grep -Eq '^imp-[0-9]{4,}$' \
+        || fail E_INVALID_ARG "bad --archive: $2 (expected imp-NNNN)"
+      ARCHIVE_IDS+=("$2")
       shift 2
       ;;
     *) fail E_INVALID_ARG "unknown flag: $1" ;;
