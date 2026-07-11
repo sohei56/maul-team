@@ -27,12 +27,20 @@ disable-model-invocation: false
 
 ## Outputs
 
+The wrapper's exit code is the routing SSOT (`0/1/2/3`; see § Steps
+step 3 and the `merge-pbi.sh` header). In particular a recorded merge
+failure is **exit 2** — a preflight refusal (**exit 1**) and a
+post-merge bookkeeping fault (**exit 3**) are *not* merge failures and
+leave `merge_failure` / `merge_failure_count` untouched.
+
 - backlog.json `items[].status` transitions to one of:
-  - `awaiting_cross_review` (success — written by `mark-pbi-merged.sh`)
-  - `in_progress_merge` (recoverable failure under the 3-strike threshold;
-    `mark-pbi-merge-failure.sh` records `state.merge_failure.kind ∈
-    {conflict, artifact_missing, regression}` but leaves backlog status
-    untouched so the Developer can fix on `pbi/<id>` and re-notify).
+  - `awaiting_cross_review` (success — written by `mark-pbi-merged.sh`;
+    wrapper exit 0)
+  - `in_progress_merge` (recoverable failure under the 3-strike threshold,
+    wrapper **exit 2**; `mark-pbi-merge-failure.sh` records
+    `state.merge_failure.kind ∈ {conflict, artifact_missing, regression}`
+    but leaves backlog status untouched so the Developer can fix on
+    `pbi/<id>` and re-notify).
     Status stays `in_progress_merge` across retries; each
     `mark-pbi-ready-to-merge.sh` re-notification re-stamps `head_sha`,
     `paths_touched`, and `ready_at`.
@@ -72,17 +80,33 @@ disable-model-invocation: false
    bash .scrum/scripts/merge-pbi.sh <pbi-id>
    ```
 
-3. **Branch on exit code:**
+3. **Branch on exit code.** `merge-pbi.sh` resolves every exit to one
+   of `0/1/2/3` (contract documented in the wrapper header). The exit
+   code — not "zero vs non-zero" — selects the recovery: only exit 2
+   is a recorded merge failure that reads `merge_failure.kind` and
+   runs the 3-strike matrix.
    - exit 0 → re-read `state.json`, find `merged_sha`. Backlog status
      is now `awaiting_cross_review`. SendMessage to Developer
      (`sprint.json.developers[].current_pbi == <pbi-id>`):
      `[<pbi-id>] MERGED at <merged_sha>. Stand by for next assignment.`
-   - non-zero → re-read `state.json.merge_failure.kind` (status remains
-     `in_progress_merge` while `merge_failure_count < 3`). The
-     wrapper's main-state cleanup differs by kind: `conflict` aborts
-     the merge via `git merge --abort` so main stays exactly where it
-     was; `artifact_missing` and `regression` both have a partial
-     merge commit on main that is rolled back via
+   - exit 1 → **preflight / infra failure.** Nothing was recorded and
+     main is unchanged (`state.merge_failure` was NOT written this
+     attempt and `merge_failure_count` did NOT advance). Do **not**
+     re-read `merge_failure.kind` and do **not** run the matrix below.
+     Report the wrapper's stderr verbatim, fix the named precondition
+     (wrong checked-out branch, status ≠ `in_progress_merge`, merge
+     lock contention, `.scrum/` tracked, missing state/backlog, dirty
+     tree colliding with the merge set), and re-run `merge-pbi.sh`.
+     This does **not** count toward the 3-strike threshold.
+   - exit 2 → **a merge failure was recorded THIS attempt** and main
+     is back at its pre-merge HEAD. This is the **only** exit that
+     re-reads `state.json.merge_failure.kind` and runs the per-kind
+     matrix + 3-strike rule. Status remains `in_progress_merge` while
+     `merge_failure_count < 3`. The wrapper's main-state cleanup
+     differs by kind: `conflict` aborts the merge via
+     `git merge --abort` so main stays exactly where it was;
+     `artifact_missing` and `regression` both have a partial merge
+     commit on main that is rolled back via
      `git reset --hard <pre-merge HEAD>`. The SM does not need to
      redo any git operation on main — only the per-kind SendMessage
      below.
@@ -108,6 +132,19 @@ disable-model-invocation: false
        merge_artifact_missing, merge_regression}`) → invoke
        `pbi-escalation-handler` skill with `<pbi-id>` (further Developer
        iteration is unproductive).
+   - exit 3 → **the merge commit landed on main but post-merge
+     bookkeeping/cleanup did not complete** (or a rollback after a
+     recorded failure failed — main was mutated). The PBI is
+     effectively merged; do **not** route to the failure matrix and do
+     **not** count it toward the 3-strike threshold. Read the
+     wrapper's stderr: it names the exact recovery — re-run
+     `mark-pbi-merged.sh <pbi-id> <sha>` (backlog not yet flipped to
+     `awaiting_cross_review`), re-run `cleanup-pbi-worktree.sh
+     <pbi-id>` (worktree/branch left behind), or a manual check
+     (verify main HEAD is at the intended merge commit when a rollback
+     failed). Repair, then confirm backlog status is
+     `awaiting_cross_review` and `.scrum/worktrees/<pbi-id>` +
+     `pbi/<pbi-id>` are gone before moving on.
 
    Note: `merge_failure.kind` uses unprefixed values (`conflict`,
    `artifact_missing`, `regression`) while `escalation_reason` uses the

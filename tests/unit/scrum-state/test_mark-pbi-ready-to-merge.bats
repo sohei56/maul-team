@@ -114,3 +114,53 @@ _mark_kind_docs_pbi() {
   run jq -r '.items[0].status' .scrum/backlog.json
   [ "$output" = "in_progress_merge" ]
 }
+
+# Helper: rebuild the pbi-001 branch so that a .sh file exists at base and is
+# then DELETED (with a .md added so paths_touched/AMR is non-empty). Re-stamps
+# state.base_sha to the commit that holds the .sh file. Echoes nothing.
+_docs_pbi_with_deletion() {
+  local extra_file="$1"   # file to delete alongside the .md addition
+  _mark_kind_docs_pbi
+  local WT=.scrum/worktrees/pbi-001
+  git -C "$WT" reset --hard HEAD~1        # drop setup()'s src.txt commit → back to base
+  printf 'echo hi\n' > "$WT/$extra_file"
+  git -C "$WT" add "$extra_file"
+  git -C "$WT" commit -q -m "add $extra_file"
+  local newbase; newbase="$(git -C "$WT" rev-parse HEAD)"
+  jq --arg b "$newbase" '.base_sha = $b' .scrum/pbi/pbi-001/state.json > tmp.json && mv tmp.json .scrum/pbi/pbi-001/state.json
+  git -C "$WT" rm -q "$extra_file"
+  echo "# notes" > "$WT/notes.md"
+  git -C "$WT" add notes.md
+  git -C "$WT" commit -q -m "delete $extra_file, add notes.md"
+}
+
+@test "mark-ready-to-merge: kind=docs DELETING a non-.md file -> escalated(kind_mismatch)" {
+  # T1-9: paths_touched (AMR) excludes deletions, so a docs PBI that DELETES a
+  # .sh file passed the boundary before this fix. The deletion must now be
+  # inspected and rejected just like a non-.md addition.
+  _docs_pbi_with_deletion foo.sh
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -ne 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "kind_mismatch" ]
+  # paths_touched / head_sha must NOT be set when the boundary fails.
+  run jq -r 'has("paths_touched")' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "false" ]
+}
+
+@test "mark-ready-to-merge: kind=docs DELETING a .md file -> success (boundary allows .md deletions)" {
+  # Positive control: the deletion check must reject only non-.md deletions.
+  # Deleting a .md file is within the docs contract and must still succeed.
+  _docs_pbi_with_deletion old.md
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+  # paths_touched stays AMR-only (the added .md), not the deleted .md.
+  run jq -r '.paths_touched | length' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "1" ]
+  run jq -r '.paths_touched[0]' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "notes.md" ]
+}

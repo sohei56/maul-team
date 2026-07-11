@@ -34,6 +34,16 @@ if [ "${#PATHS[@]}" -eq 0 ]; then
   fail E_INVALID_ARG "no commits beyond base — refusing to mark ready_to_merge"
 fi
 
+# Deleted paths (--diff-filter=D) are collected SEPARATELY from PATHS. They are
+# deliberately kept OUT of paths_touched (which stays AMR-only, so merge-pbi.sh
+# does not flag an intentionally deleted file as artifact_missing), but the
+# kind=docs boundary below must still inspect them: a docs PBI that DELETES a
+# non-.md file (e.g. foo.sh) is as much a scope violation as one that adds code.
+DELETED=()
+while IFS= read -r line; do
+  DELETED+=("$line")
+done < <(git -C "$PBI_WT" diff --name-only --diff-filter=D "$PBI_BASE_SHA..HEAD")
+
 # kind=docs PBIs are confined to *.md by design. A docs PBI that touches a
 # non-.md path means either the PBI was mis-classified at refinement, or
 # the implementer scope-crept into code. Either way the right move is to
@@ -55,6 +65,15 @@ if [ "$KIND" = "docs" ]; then
       *) NON_MD+=("$p") ;;
     esac
   done
+  # Deletions of non-.md files are boundary violations too (see DELETED above).
+  if [ "${#DELETED[@]}" -gt 0 ]; then
+    for p in "${DELETED[@]}"; do
+      case "$p" in
+        *.md) ;;
+        *) NON_MD+=("$p") ;;
+      esac
+    done
+  fi
   if [ "${#NON_MD[@]}" -gt 0 ]; then
     printf >&2 '[mark-pbi-ready-to-merge] kind_mismatch for %s: non-.md paths touched:\n' "$PBI"
     for p in "${NON_MD[@]}"; do printf >&2 '  - %s\n' "$p"; done

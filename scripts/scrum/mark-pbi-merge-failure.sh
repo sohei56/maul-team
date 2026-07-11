@@ -32,12 +32,12 @@ NEW_COUNT=$((PREV_COUNT + 1))
 PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | jq -R . | jq -s .)"
 MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
 
-# Map kind → escalation_reason for the escalated case.
+# Map kind → escalation_reason for the escalated case. KIND is already
+# validated to one of these three at the top, so no default arm is needed.
 case "$KIND" in
   conflict)          ESC_REASON="merge_conflict" ;;
   artifact_missing)  ESC_REASON="merge_artifact_missing" ;;
   regression)        ESC_REASON="merge_regression" ;;
-  *)                 fail E_INVALID_ARG "bad kind: $KIND" ;;
 esac
 
 if [ "$NEW_COUNT" -ge 3 ]; then
