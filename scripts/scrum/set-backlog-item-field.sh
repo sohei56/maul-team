@@ -69,14 +69,11 @@ case "$FIELD" in
       VALUE_JSON="$(printf '%s' "$VALUE" | jq -Rs .)"
     fi
     ;;
-  catalog_targets)
-    # Parse as JSON, require an array of strings (schema also enforces uniqueItems).
-    if ! VALUE_JSON="$(printf '%s' "$VALUE" | jq -ce '.')"; then
-      fail E_INVALID_ARG "catalog_targets: not valid JSON: $VALUE"
-    fi
-    if ! printf '%s' "$VALUE_JSON" | jq -e 'type == "array" and all(.[]; type == "string")' >/dev/null; then
-      fail E_INVALID_ARG "catalog_targets: must be a JSON array of strings"
-    fi
+  catalog_targets|acceptance_criteria|design_doc_paths)
+    # All three take a JSON array of strings (the schema additionally enforces
+    # uniqueItems on catalog_targets). $FIELD is the error label so each keeps
+    # its field-specific message.
+    VALUE_JSON="$(parse_json_string_array "$FIELD" "$VALUE")"
     ;;
   priority)
     case "$VALUE" in
@@ -97,14 +94,6 @@ case "$FIELD" in
       true|false) VALUE_JSON="$VALUE" ;;
       *) fail E_INVALID_ARG "bad ux_change: $VALUE (expected true or false)" ;;
     esac
-    ;;
-  acceptance_criteria|design_doc_paths)
-    if ! VALUE_JSON="$(printf '%s' "$VALUE" | jq -ce '.')"; then
-      fail E_INVALID_ARG "$FIELD: not valid JSON: $VALUE"
-    fi
-    if ! printf '%s' "$VALUE_JSON" | jq -e 'type == "array" and all(.[]; type == "string")' >/dev/null; then
-      fail E_INVALID_ARG "$FIELD: must be a JSON array of strings"
-    fi
     ;;
   depends_on_pbi_ids)
     if ! VALUE_JSON="$(printf '%s' "$VALUE" | jq -ce '.')"; then

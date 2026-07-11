@@ -148,6 +148,8 @@ fi
 
 # shellcheck source=scripts/lib/check-python.sh
 . "$SCRIPT_DIR/scripts/lib/check-python.sh"
+# shellcheck source=scripts/lib/time.sh
+. "$SCRIPT_DIR/scripts/lib/time.sh"
 check_claude_cli
 # Version warning lives only in scrum-start.sh (not setup-user.sh) so the
 # operator sees the upgrade prompt once per launch rather than twice.
@@ -457,7 +459,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
   else
     RUN_ID="run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
   fi
-  NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  NOW_ISO="$(iso_utc_now)"
   cat > .scrum/autonomy.json <<EOF
 {
   "run_id": "$RUN_ID",
@@ -657,7 +659,7 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
   SM_PANE_ID="$(tmux display-message -p -t "${session_name}:0.0" '#{pane_id}' 2>/dev/null || echo "")"
 
   mkdir -p .scrum
-  RUNTIME_NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  RUNTIME_NOW="$(iso_utc_now)"
   RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
   jq -n \
     --arg session "$session_name" \

@@ -73,7 +73,7 @@ fi
 # array literally into the jq expression is injection-safe — atomic_write
 # only threads --arg now into the expression.
 if [ "${#EFFECTIVE_IDS[@]}" -gt 0 ]; then
-  IDS_JSON="$(printf '%s\n' "${EFFECTIVE_IDS[@]}" | jq -R . | jq -cs .)"
+  IDS_JSON="$(printf '%s\n' "${EFFECTIVE_IDS[@]}" | json_lines_to_array)"
 else
   IDS_JSON="[]"
 fi

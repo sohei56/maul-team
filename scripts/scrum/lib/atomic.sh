@@ -88,6 +88,17 @@ _iso_utc_now() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+# json_lines_to_array
+# Read newline-delimited items from stdin and emit a compact JSON array of
+# strings (one element per line; special chars JSON-escaped). Empty stdin
+# yields []. Bash 3.2-safe: a single two-stage jq pipeline, no shell arrays.
+# Callers with CSV input pipe through `tr ',' '\n'` first, and must keep their
+# own explicit empty-array guard — an empty bash array expands to one blank
+# line under `set -u`, which would otherwise yield [""] rather than [].
+json_lines_to_array() {
+  jq -R . | jq -cs .
+}
+
 # _make_tmp_path <target_path>
 # Build a uniquified tmp path that preserves the target's extension. ajv-cli
 # treats path-without-.json as a module ref, so callers about to validate must

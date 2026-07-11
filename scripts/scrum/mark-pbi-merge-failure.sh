@@ -29,7 +29,7 @@ PREV_COUNT="$(jq -r '.merge_failure_count // 0' "$STATE")"
 NEW_COUNT=$((PREV_COUNT + 1))
 
 # Build merge_failure object
-PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | jq -R . | jq -s .)"
+PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | json_lines_to_array)"
 MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
 
 # Map kind → escalation_reason for the escalated case. KIND is already

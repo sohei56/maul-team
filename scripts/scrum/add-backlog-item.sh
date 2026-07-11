@@ -74,7 +74,7 @@ INCREMENTED=$((NEXT_NUM + 1))
 if [ "${#ACS[@]}" -eq 0 ]; then
   AC_JSON='[]'
 else
-  AC_JSON="$(printf '%s\n' "${ACS[@]}" | jq -R . | jq -s .)"
+  AC_JSON="$(printf '%s\n' "${ACS[@]}" | json_lines_to_array)"
 fi
 
 NOW="$(_iso_utc_now)"

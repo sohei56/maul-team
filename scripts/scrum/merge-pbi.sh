@@ -211,7 +211,7 @@ if [ -z "$REG_CMD" ] || [ "$REG_CMD" = "null" ]; then
       if [ -n "$ATTN_SPRINT" ] && ! grep -qF "$ATTN_MARK" "$ATTN_FILE" 2>/dev/null; then
         mkdir -p .scrum/po
         printf -- '- [%s] %s: per-PBI merges land with the regression gate skipped; run .scrum/scripts/set-merge-regression-command.sh (configure a command or --none)\n' \
-          "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$ATTN_MARK" >> "$ATTN_FILE"
+          "$(_iso_utc_now)" "$ATTN_MARK" >> "$ATTN_FILE"
       fi
     fi
   fi

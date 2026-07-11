@@ -86,7 +86,7 @@ if [ "$KIND" = "docs" ]; then
 fi
 
 # Build paths_touched array literal for jq.
-PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -s .)"
+PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | json_lines_to_array)"
 NOW="$(_iso_utc_now)"
 
 EXPR=".head_sha = \"$HEAD\""

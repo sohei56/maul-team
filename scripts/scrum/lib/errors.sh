@@ -68,3 +68,21 @@ assert_sprint_id() {
     *) fail E_INVALID_ARG "bad $label: $value" ;;
   esac
 }
+
+# parse_json_string_array <label> <value>
+# Parse <value> as JSON, require an array of strings, and echo the compact form
+# (jq -ce) on success. On malformed JSON the wrapper fails E_INVALID_ARG
+# "<label>: not valid JSON: <value>"; on wrong shape it fails "<label>: must be
+# a JSON array of strings". <label> is the field name so each caller keeps its
+# field-specific error text. Used by set-backlog-item-field.sh (catalog_targets,
+# acceptance_criteria, design_doc_paths) and set-sprint-developer.sh (sub_agents).
+parse_json_string_array() {
+  local label="$1" value="$2" compact
+  if ! compact="$(printf '%s' "$value" | jq -ce '.')"; then
+    fail E_INVALID_ARG "$label: not valid JSON: $value"
+  fi
+  if ! printf '%s' "$compact" | jq -e 'type == "array" and all(.[]; type == "string")' >/dev/null; then
+    fail E_INVALID_ARG "$label: must be a JSON array of strings"
+  fi
+  printf '%s' "$compact"
+}
