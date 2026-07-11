@@ -24,11 +24,10 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the human user is not
-the PO seat — the `product-owner` teammate is. The ceremony shape is
-unchanged; only the destination of PO-approval prompts is re-targeted.
-Apply the following overrides to the Steps below; everything not in
-this table runs verbatim.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the Steps below re-targets to the `product-owner` teammate per
+`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+unchanged, and Steps not overridden in this table run verbatim.
 
 | Step                             | Override (po_mode=agent)                                                                                                                                                                                                                                                                                                                                                  |
 |----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -38,12 +37,6 @@ this table runs verbatim.
 | 8. Get user feedback             | Replaced by a single structured pass — see step 9 override. No human-input wait.                                                                                                                                                                                                                                                                                          |
 | 9. Defect/change handling        | The "repeat until user says that's all" loop collapses to **one** structured PO pass: the PO returns a single message listing (a) gaps against `docs/product/vision.md` and (b) defects observed during the demo, terminated by `FEEDBACK_COMPLETE`. Each defect is recorded as `kind=defect_triage` with priority; each becomes a draft PBI exactly as in human mode.     |
 | 11. Leftover Summary             | Include any `assumption=true` PO decisions (from `.scrum/po/decisions.json` written this Sprint) as a fourth group: `Assumed decisions to re-examine: <dec-id> <kind> <rationale>`. These are surfaced for next-Sprint Refinement.                                                                                                                                         |
-
-The "Ask user to confirm" / "Get user feedback" / "user says that's
-all" phrases in the Steps below are mode-agnostic: under
-`po_mode=agent` they resolve to `PO_DECISION_REQUEST` / structured
-PO reply per the table above, not to human prompts. SM never blocks
-on `read` from stdin in this mode.
 
 ## Steps
 

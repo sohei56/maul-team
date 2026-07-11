@@ -28,14 +28,10 @@ integrity**. Two things changed the shape of this ceremony:
 
 2. **Sprint-end cross-review is the whole-repo `codebase-audit`.** It
    scans the **accumulated codebase at HEAD** — the scope no per-PBI
-   diff review can reach — along four axes:
-
-   | Axis | Catches (only visible whole-repo) |
-   |---|---|
-   | `spec-conformance` | Divergences, coded-but-unspecified behavior, spec-vs-spec conflicts |
-   | `logic-defect` | Feature-disabling defaults, silent failures, wiring-layer edge cases |
-   | `redundancy` | Dead exports (static-analysis-grounded), cross-PBI duplication, stale docs |
-   | `product-security` | Cross-component authz, trust-boundary data flow, whole-repo secret handling, integration-point injection surfaces |
+   diff review can reach — along the four audit axes
+   (`spec-conformance`, `logic-defect`, `redundancy`,
+   `product-security`) defined in `skills/codebase-audit/SKILL.md`
+   § Role (axis table lives there).
 
 The audit is **non-blocking**: PBIs already passed their per-PBI aspect
 reviews before reaching this ceremony, so the audit never reverts them.
@@ -71,12 +67,12 @@ Sprints). At ceremony end every reviewed PBI transitions
 - `.scrum/reviews/codebase-audit-s{N}.md` — the whole-repo audit report
   (`N` = numeric sprint number).
 - Draft `[codebase-audit:<sprint-id>:F<n>:<Severity>]` PBIs for the
-  **next** Sprint (non-blocking; Critical/High mandatory, identity-deduped
-  across Sprints; `[REGRESSION]`-tagged when a closed finding recurs).
+  **next** Sprint (per § Role; Critical/High mandatory,
+  identity-deduped across Sprints; `[REGRESSION]`-tagged when a closed
+  finding recurs).
 - `backlog.json` `items[].status` transitions:
   - At start: `awaiting_cross_review → cross_review`.
-  - At end: `cross_review → done` (every reviewed PBI; the audit never
-    reverts).
+  - At end: `cross_review → done` (every reviewed PBI, per § Role).
 - `state.json` overall phase: `review`.
 - `sprint.json.status: "cross_review"`.
 
@@ -86,10 +82,9 @@ Sprints). At ceremony end every reviewed PBI transitions
   `status ∈ {awaiting_cross_review, escalated}`. Anything else must be
   driven to one of those terminal values (via `pbi-merge` or
   `pbi-escalation-handler`) before this skill runs.
-- **Each `awaiting_cross_review` PBI has already passed its per-PBI
-  aspect review in the pipeline** (per-PBI review doc + `review_doc_path`
-  authored there). This ceremony assumes per-PBI quality is settled and
-  does not re-evaluate it.
+- Each `awaiting_cross_review` PBI has already passed its per-PBI
+  aspect review in the pipeline (per § Role); this ceremony does not
+  re-evaluate per-PBI quality.
 - Review target: merged main HEAD.
 - `sprint.json.base_sha` is set (captured at Sprint start).
 - App builds + starts (verified during implementation; if uncertain →
@@ -132,8 +127,8 @@ Sprints). At ceremony end every reviewed PBI transitions
    The analysis runs in **two passes** whose findings both land in the
    single `.scrum/reviews/static-analysis-r${ROUND}.json` file (one
    `tools[]` entry per tool invocation, from either pass). Both passes
-   now feed the audit's `redundancy` axis — there is no separate
-   Sprint-level maintainability aspect consumer any more.
+   feed the audit's `redundancy` axis, their sole Sprint-level
+   consumer.
 
    **Pass A — intra-file lint (Sprint-diff scope).** Run on the
    Sprint-wide source path union (files this Sprint touched):
@@ -188,52 +183,17 @@ Sprints). At ceremony end every reviewed PBI transitions
    any supported/declared tool, set `skipped_reason` to a short string
    (e.g. `"no python/shell sources; no static_analysis.commands
    configured"`); the `redundancy` axis will degrade accordingly.
-6. **Announce expected duration to the user (mandatory).** Before
-   spawning, output a single short notice so the user does not
-   interpret silence or `completion-gate.sh` Stop-blocks as failure
-   and try to `/clear` the session mid-audit. Target-project
-   retrospectives showed this UX failure 5 Sprints in a row before the
-   announcement convention was made explicit. Use this exact wording
-   so the user learns to recognise it:
-
-   > "Cross-review: コードベース監査 4 軸を並列起動します。完了まで 60-120
-   > 秒（最大 5 分）。その間 `completion-gate.sh` がセッション終了をブロック
-   > します。もし 5 分以上応答がなければここに声をかけてください。"
-
-   Then, and only then, spawn the audit axes in the next step.
-7. **Spawn the 4 codebase-audit axes in parallel** via the `Agent`
-   tool — one `Agent` call per axis (`spec-conformance`,
-   `logic-defect`, `redundancy`, `product-security`),
-   `run_in_background: true`, single message. Each carries the common
-   protocol + its axis prompt from
-   `skills/codebase-audit/references/axes.md` and the Step-1 read set
-   from `skills/codebase-audit/SKILL.md` (enabled specs,
-   `requirements.md`, PBI summary, and the Step 5 static-analysis file
-   as the `redundancy` axis's ground truth). The axes are **whole-repo**
-   — no kind partition, no per-PBI fan-out; all 4 always run, even on a
-   docs-only Sprint.
-
-   **File ownership.** Audit axes are read-only and return their
-   findings **as their final assistant message**. The SM synthesizes
-   them into the audit report in Step 8. Do NOT ask an axis to write any
-   file — tell each explicitly: "Return your findings as your final
-   message; the orchestrator persists the report."
-
-   **Wait barrier.** After spawning, wait for **all 4** Tasks to reach
-   `Status = completed`. Do NOT attempt to stop the session in between.
-   Completion typically takes 60-120s — do NOT interpret a Stop hook
-   block (`completion-gate.sh` "PBIs not done") as a failure. Synthesis
-   is Step 8's job, after `Status = completed` — do NOT wait for the
-   report file to appear. See `agents/scrum-master.md` § Background
-   Subagent + Stop Hook Reading.
-
-   **Axes are single-shot.** `Status = completed` is the success signal
-   — do NOT apply the Teammate Liveness Protocol re-spawn rule meant for
-   Developer teammates. If an axis's final message is missing or empty,
-   re-spawn that single axis. After each completes, `git status` must be
-   clean (read-only is prompt-enforced) — discard any edits and re-run
-   if dirty.
-8. **Synthesize the audit report + file next-Sprint PBIs** per
+6. **Run the audit barrage (codebase-audit § Steps 0–2,
+   `context=cross_review`).** Resolve scope and assemble the shared
+   read set per `skills/codebase-audit/SKILL.md` Steps 0–1, then
+   execute its **§ Step 2** — the canonical announce / 4-axis parallel
+   spawn / file-ownership / wait-barrier / single-shot / git-clean
+   procedure — with `<label>` = `Cross-review` in the duration notice.
+   Cross-review-specific glue: the Step 5 static-analysis file above
+   is the read-set member that grounds the `redundancy` axis. Do not
+   proceed until Step 2's wait barrier reports all 4 axes
+   `Status = completed`.
+7. **Synthesize the audit report + file next-Sprint PBIs** per
    `skills/codebase-audit/SKILL.md` context (a), Steps 3–5:
    - Read the 4 axis final messages; dedup within the audit (a
      cross-boundary defect landing on two axes counts once, keep the
@@ -246,15 +206,15 @@ Sprints). At ceremony end every reviewed PBI transitions
      (`[codebase-audit:<sprint-id>:F<n>:<Severity>]`) with the
      cross-Sprint **content dedup** (skip if an open PBI already tracks
      the finding's `identity`; `[REGRESSION]` if a closed one recurred);
-     Medium/Low at PO discretion. This does **not** revert any PBI or
-     transition the phase — the audit is strictly non-blocking. Full
-     rules + the dedup `jq` live in `skills/codebase-audit/SKILL.md`.
+     Medium/Low at PO discretion. No PBI revert, no phase transition
+     (per § Role). Full rules + the dedup `jq` live in
+     `skills/codebase-audit/SKILL.md`.
    - PO routing is mode-agnostic — in `po_mode=agent` it resolves to one
      `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage
      options=[next_sprint,defer,reject]` carrying the finding list; the
      SM never blocks on human input.
-9. **Mark every reviewed PBI done.** The PBIs already passed their
-   per-PBI aspect reviews and the audit never reverts them:
+8. **Mark every reviewed PBI done** (per § Role — the audit never
+   reverts them):
    ```bash
    for PBI_ID in $(jq -r '.items[] | select(.sprint_id == "<sprint-id>" and .status == "cross_review") | .id' .scrum/backlog.json); do
      .scrum/scripts/update-backlog-status.sh "$PBI_ID" done

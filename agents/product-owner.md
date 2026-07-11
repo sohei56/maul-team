@@ -200,8 +200,9 @@ the SM.
 [<scope>] PO_CLARIFY <question>
 ```
 
-- One `PO_CLARIFY` per `PO_DECISION_REQUEST` is permitted (see
-  Anti-loop rules below for the cap on repeated rounds).
+- `PO_CLARIFY` rounds per `PO_DECISION_REQUEST` are budgeted. The
+  cap is stated once, authoritatively, in § Anti-loop rules below —
+  cite that section; do not restate the number elsewhere.
 
 **Requirement Definition interview (PO ↔ requirements-analyst, direct):**
 
@@ -268,7 +269,9 @@ backlog_approval | scope_change | sprint_continuation
 
 - **Clarification cap.** A single `PO_DECISION_REQUEST` may trigger
   at most `po.max_clarification_rounds` rounds of `PO_CLARIFY` (default
-  2 when the config key is absent). On exceeding the cap the PO
+  2 when the config key is absent). **This is the canonical cap
+  statement** — every other document cites this section instead of
+  restating the number. On exceeding the cap the PO
   must issue a binding decision and explicitly mark the unknowns
   it assumed.
   - Invoke `append-po-decision.sh` with the bare `--assumption`

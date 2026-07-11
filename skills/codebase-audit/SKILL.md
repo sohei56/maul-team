@@ -111,27 +111,21 @@ does **not** re-review single-PBI diff-local security.
   audit). The audit is a no-op on an empty repo.
 - `requirements.md` and the enabled design specs exist.
 - Context (a): invoked inside the `cross-review` ceremony (see
-  `skills/cross-review/SKILL.md` § the audit step). Context (b):
-  invoked at the top of `integration-tests` Step 1.
+  `skills/cross-review/SKILL.md` Steps 6–7). Context (b): invoked at
+  the top of `integration-tests` Step 1.
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the PO seat is the
-`product-owner` teammate, not the human. The ceremony shape is
-unchanged; only the destination of PO prompts is re-targeted. Every
-"ask the user" / "PO decides" phrase below is mode-agnostic — under
-`po_mode=agent` it resolves to a `PO_DECISION_REQUEST` and its
-`PO_DECISION` reply per `rules/scrum-context.md` § PO seat resolution;
-**do not branch the flow on mode.** The SM never blocks on `read` from
-stdin in this mode.
+Under `po_mode=agent`, every "ask the user" / "PO decides" phrase
+below resolves to a `PO_DECISION_REQUEST` / `PO_DECISION` exchange
+with the `product-owner` teammate, per the uniform rule in
+`rules/scrum-context.md` § PO seat resolution (flow unchanged; never
+block on human input). Skill-specific overrides:
 
 | Context | Override (po_mode=agent) |
 |------|--------------------------|
 | (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject] recommendation=next_sprint` carrying the full Critical/High + Medium/Low finding list. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file (Critical/High default to `next_sprint`). No human-input wait, non-blocking either way. |
 | (b) integration entry | On an unresolved Critical/High, replace "inform the user of the block" with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[fix_now,defer] recommendation=fix_now` carrying the blocking PBI list. The route to `backlog_created` is taken regardless (Critical/High blocks integration); the PO reply sets fix priority, it does not waive the block. |
-
-Informational lines ("report the verdict") are observation-only — emit
-the summary, do not wait for a reply.
 
 ## Steps
 
@@ -149,9 +143,9 @@ Branch on `context`:
 - **`integration_entry`** → do the **thin re-check first** (Step 1b).
   It short-circuits to *proceed* in the common case and only falls
   through to the full audit (Steps 1–5) when the report is stale/missing.
-- **`cross_review`** → skip Step 1b and go straight to Step 1
-  (the axes were spawned by the cross-review barrage; here you collect
-  and synthesize).
+- **`cross_review`** → skip Step 1b and run Steps 1–5 (invoked from
+  the `cross-review` ceremony, Steps 6–7, after it produced the
+  static-analysis file).
 
 ### Step 1b — Integration-entry thin re-check (context (b) only)
 
@@ -193,29 +187,53 @@ STATIC="$(ls .scrum/reviews/static-analysis-r*.json 2>/dev/null | sort -V | tail
 Do NOT pass `.scrum/` pipeline state, dev communications, or PBI
 descriptions beyond the fields above.
 
-### Step 2 — Obtain the 4 auditors' findings
+### Step 2 — Announce, spawn the 4 auditors, wait (canonical procedure)
 
-- **Context (a) — embedded in cross-review.** The four axes are the
-  entire cross-review barrage (Sprint-end cross-review is
-  audit-only; see `skills/cross-review/SKILL.md`). Do **not** re-spawn
-  — collect each axis auditor's final message once its Task reaches
-  `Status = completed`. The duration notice and wait barrier are owned
-  by cross-review.
-- **Context (b) fresh run, or any standalone invocation.** Announce
-  duration, then spawn the 4 axes yourself — one `Agent` call per axis,
-  `run_in_background: true`, single message, each carrying the common
-  protocol + its axis prompt from
-  [`references/axes.md`](references/axes.md) + the Step 1 read set:
+This step is the **single owner** of the announce / spawn / wait /
+clean-check procedure for the audit barrage, in every context. The
+`cross-review` ceremony invokes it as "run codebase-audit § Step 2
+with `context=cross_review`"; context (b) reaches it only when Step 1b
+falls through to a fresh audit; a standalone invocation runs it as-is.
 
-  > "Codebase audit: 4 アスペクトを並列起動します（リポジトリ全体走査）。
-  > 完了まで数分かかります。その間 `completion-gate.sh` がセッション終了
-  > をブロックします。5 分以上応答がなければ声をかけてください。"
+- **Announce expected duration (mandatory).** Before spawning, output
+  one short notice so the user does not interpret silence or
+  `completion-gate.sh` Stop-blocks as failure and `/clear` the session
+  mid-audit (target-project retrospectives showed this UX failure 5
+  Sprints in a row before the announcement convention was made
+  explicit). Use this exact template, with `<label>` = `Cross-review`
+  in context (a) and `Codebase audit` in context (b) / standalone:
 
-  Wait for all 4 Tasks to reach `Status = completed` (a Stop-hook block
-  during the wait is not a failure). Auditors are single-shot; re-spawn
-  only a single auditor whose final message is missing or empty. After
-  each completes, `git status` must be clean (read-only is
-  prompt-enforced) — discard any edits and re-run if dirty.
+  > "<label>: コードベース監査 4 軸を並列起動します（リポジトリ全体
+  > 走査）。完了まで 60-120 秒（最大 5 分）。その間
+  > `completion-gate.sh` がセッション終了をブロックします。もし 5 分
+  > 以上応答がなければここに声をかけてください。"
+
+- **Spawn the 4 axes in parallel** via the `Agent` tool — one `Agent`
+  call per axis (`spec-conformance`, `logic-defect`, `redundancy`,
+  `product-security`), `run_in_background: true`, single message. Each
+  carries the common protocol + its axis prompt from
+  [`references/axes.md`](references/axes.md) + the Step 1 read set
+  (the static-analysis file is the `redundancy` axis's ground truth).
+  The axes are **whole-repo** — no kind partition, no per-PBI fan-out;
+  all 4 always run, even on a docs-only Sprint.
+- **File ownership.** Auditors are read-only and return their findings
+  **as their final assistant message**; the orchestrator synthesizes
+  them in Step 3. Do NOT ask an axis to write any file — tell each
+  explicitly: "Return your findings as your final message; the
+  orchestrator persists the report."
+- **Wait barrier.** After spawning, wait for **all 4** Tasks to reach
+  `Status = completed`. Do NOT attempt to stop the session in between;
+  a Stop-hook block (`completion-gate.sh` "PBIs not done") during the
+  wait is not a failure. Synthesis is Step 3's job, after
+  `Status = completed` — do NOT wait for the report file to appear.
+  See `agents/scrum-master.md` § Background Subagent + Stop Hook
+  Reading.
+- **Axes are single-shot.** `Status = completed` is the success signal
+  — do NOT apply the Teammate Liveness Protocol re-spawn rule meant
+  for Developer teammates. Re-spawn only a single axis whose final
+  message is missing or empty. After each completes, `git status` must
+  be clean (read-only is prompt-enforced) — discard any edits and
+  re-run that axis if dirty.
 
 ### Step 3 — Synthesize + dedup + classify → report
 
@@ -259,11 +277,9 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
 - **Medium/Low** → at PO discretion. Offer them in the same request;
   file only those the PO routes to `next_sprint`.
 
-Context (a) is **non-blocking regardless of severity** — do not
-transition the phase, do not fail the Sprint. Per-PBI quality was
-already gated by the pipeline's per-PBI aspect reviews before each PBI
-reached `awaiting_cross_review`; the Sprint-end audit only files
-next-Sprint PBIs and never reverts a PBI.
+Context (a) is **non-blocking regardless of severity** (per § Role) —
+do not transition the phase, do not fail the Sprint, never revert a
+PBI; the audit only files next-Sprint PBIs.
 
 ### Step 5 — File PBIs with cross-Sprint content dedup
 
@@ -345,10 +361,8 @@ the description is the dedup key — it MUST be present and stable.
 - **Redundancy claims are grounded** — cite the static-analysis file
   when it exists; otherwise state the reachability reasoning and mark
   the finding lower-confidence.
-- **`product-security` is whole-repo only.** It audits cross-component
-  authz, trust-boundary data flow, whole-repo secret handling, and
-  integration-point injection surfaces — NOT single-PBI diff-local
-  security, which the per-PBI pipeline security aspect already owns.
+- **`product-security` is whole-repo only** — the complement of the
+  per-PBI diff-local security aspect (scope split: § Role).
 
 ## Exit Criteria
 

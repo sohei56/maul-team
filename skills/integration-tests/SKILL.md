@@ -52,24 +52,17 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the human user is not the
-PO seat — the `product-owner` teammate is. The ceremony shape is
-unchanged; only the destination of PO-approval prompts is re-targeted.
-Apply the following overrides to the Steps below; everything not in
-this table runs verbatim. The decision to enter the Integration Sprint
-is already made upstream by the `retrospective` `sprint_continuation`
-decision — this skill has no start gate of its own.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the Steps below re-targets to the `product-owner` teammate per
+`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+unchanged, and Steps not overridden in this table run verbatim. The
+decision to enter the Integration Sprint is already made upstream by
+the `retrospective` `sprint_continuation` decision — this skill has no
+start gate of its own.
 
 | Step | Override (po_mode=agent) |
 |------|--------------------------|
 | 7. Quality gate (`failed`) | Replace "ask user for additional issues" with one structured PO pass: `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[high,medium,low,reject] recommendation=<...>` carrying the full failure list (smoke + integration + design-coverage). PO returns a priority for each failure in a single reply. No human-input wait, no "any other issues" loop. |
-
-The "user confirms" / "ask the user" phrases in the Steps below are
-mode-agnostic: under `po_mode=agent` they resolve to
-`PO_DECISION_REQUEST` per the table above, not to human prompts. SM
-never blocks on `read` from stdin in this mode. Informational lines
-("report to the user") are observation-only — emit the summary, do not
-wait for a reply.
 
 ## Steps
 

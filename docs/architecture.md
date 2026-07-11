@@ -2,13 +2,10 @@
 
 ## Overview
 
-This document records the nine key architecture decisions (R1-R9) that
-shape the maul-team system. R1 establishes Agent Teams with
-Delegate mode as the orchestration model. R2-R3 define the TUI dashboard
-and testing strategy. R4-R5 cover state persistence and the shell script
-entry point. R6-R7 introduce Skills for ceremony execution and Hooks for
-Sprint cycle enforcement. R8 governs design documents via the catalog
-system. R9 decides on sub-agent installation for specialist capabilities.
+This document records the architecture decisions (R1-R10) that shape
+the maul-team system, one section per decision. Each section states the
+decision, its rationale, alternatives considered, and key technical
+details.
 
 ## R1: Agent Orchestration — Claude Code Agent Teams in Delegate Mode
 
@@ -257,11 +254,10 @@ execute.
   Developer conductor at the pipeline's Integrity stage, and the
   Sprint-end whole-repo audit is owned by the Scrum Master (FR-009).
 
-- **`install-subagents`**: Verify PBI Pipeline sub-agents
-  (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
-  `codex-design-reviewer`, `codex-impl-reviewer`, `codex-ut-reviewer`)
-  are installed under `.claude/agents/` (FR-019). Developers invoke
-  after receiving PBI assignments; missing required sub-agent → BLOCK.
+- **`install-subagents`**: Verify the 6 PBI Pipeline sub-agents
+  (catalog: `docs/contracts/sub-agents.md`) are installed under
+  `.claude/agents/` (FR-019). Developers invoke after receiving PBI
+  assignments; missing required sub-agent → BLOCK.
 
 - The Scrum Master preloads ceremony skills via its `skills:` frontmatter
   (see `agents/scrum-master.md`). The Developer loads `pbi-pipeline`,
@@ -407,16 +403,11 @@ Developers reviewing each other's code.
   `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
 - Cross-review flow (Sprint-end, audit-only): Scrum Master invokes the
-  `cross-review` skill, which runs a static analysis pass and then spawns
-  the whole-repo `codebase-audit` along 4 axes in parallel via the Agent
-  tool — `spec-conformance`, `logic-defect`, `redundancy`,
-  `product-security` — over the accumulated codebase at HEAD. The audit
-  is non-blocking: Critical/High findings become next-Sprint draft PBIs;
-  it never reverts a PBI.
-- Per-PBI Integrity stage: the 5 aspect reviewers
-  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
-  `security-reviewer`, `maintainability-reviewer`,
-  `docs-consistency-reviewer`) now run **per-PBI**, spawned by the
+  `cross-review` skill, which runs a static analysis pass and then the
+  whole-repo 4-axis `codebase-audit` (non-blocking; regulation in
+  `skills/codebase-audit/SKILL.md`).
+- Per-PBI Integrity stage: the 5 aspect reviewers (catalog:
+  `docs/contracts/sub-agents.md`) run **per-PBI**, spawned by the
   Developer conductor at the Round tail before ready-to-merge, over this
   one PBI's diff; Critical/High reverts the PBI to `in_progress_impl`.
 - PBI Pipeline: the Developer conductor spawns `pbi-*` workers and

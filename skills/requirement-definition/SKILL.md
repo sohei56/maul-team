@@ -52,15 +52,16 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-This section only applies when `.scrum/config.json.po_mode == "agent"`.
-Human-mode readers can skip it; the numbered Steps below are unchanged
-and remain the canonical flow. In agent mode the SM has already spawned
-the `product-owner` teammate per `agents/scrum-master.md` §
-Autonomous PO Mode, and the PO has already produced
-`docs/product/vision.md` (Vision / target users / Scope In · Out /
-measurable release criteria) from `docs/product/brief.md` — the single
-human-authored input placed at session start. The brief is the PO's
-source of truth for in-scope vs out-of-scope.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the numbered Steps below re-targets to the `product-owner` teammate
+per `rules/scrum-context.md` § PO seat resolution; the ceremony shape
+is unchanged. Skill-specific context: the SM has already spawned the
+`product-owner` teammate per `agents/scrum-master.md` § Autonomous PO
+Mode, and the PO has already produced `docs/product/vision.md` (Vision
+/ target users / Scope In · Out / measurable release criteria) from
+`docs/product/brief.md` — the single human-authored input placed at
+session start. The brief is the PO's source of truth for in-scope vs
+out-of-scope.
 
 The points in the numbered Steps that read as "ask the user" are
 re-targeted as follows:
@@ -72,11 +73,6 @@ re-targeted as follows:
 | 8 | Present requirements summary + initial backlog → user confirmation | SM sends `[product] PO_DECISION_REQUEST kind=backlog_approval options=[approve,reject] recommendation=approve` with the requirements summary and the draft backlog as payload, and proceeds on `PO_DECISION`. |
 | 9a | CLAUDE.md initialization 3-way choice (overwrite / append / skip) | **Not** routed to the PO. This is an operational default, not a product judgment: if `CLAUDE.md` is absent → create; if present → append. Skip is not used in agent mode. The PO is not consulted. |
 | 9b | Requirements Analyst writes/updates `CLAUDE.md` | Unchanged; the deterministic default from row 9a drives this step. |
-
-Per `rules/scrum-context.md` § PO seat resolution, the SM must never
-block on human input in agent mode; every PO-targeted prompt above is
-resolved via `PO_DECISION_REQUEST` / `PO_DECISION` and logged through
-`.scrum/scripts/append-po-decision.sh` (the PO returns `dec_id`).
 
 ## Steps
 

@@ -115,7 +115,7 @@ named SKILL.md for the exact required state and files/keys written.
 | `spawn-teammates` | Spawn Developer teammates for the Sprint | `skills/spawn-teammates/SKILL.md` § Inputs/Outputs |
 | `install-subagents` | Install PBI Pipeline sub-agents from catalog | `skills/install-subagents/SKILL.md` § Inputs/Outputs |
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
-| `pbi-merge` | SM-side per-PBI merge into main (rollback / 3-strike escalation) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
+| `pbi-merge` | SM-side per-PBI merge into main (rollback / strike rule: see Skills Mapping above) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
 | `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
 | `cross-review` | Sprint-end audit-only ceremony (static analysis + whole-repo 4-axis `codebase-audit`; non-blocking) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
 | `codebase-audit` | Whole-repo 4-axis audit (embedded in cross-review; thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
@@ -234,7 +234,8 @@ named SKILL.md for the exact required state and files/keys written.
 2. PO restores context by reading the files listed in *Inputs*
    above, in that order. Aborts with a notice to SM if
    `docs/product/vision.md` is missing past `backlog_created`.
-3. Per request: optional `PO_CLARIFY` (≤ `po.max_clarification_rounds`),
+3. Per request: optional `PO_CLARIFY` (bounded by the clarification
+   cap in `agents/product-owner.md` § Anti-loop rules),
    then `append-po-decision.sh` → echo `dec_id` in `PO_DECISION`.
 4. Acceptance flows (demo / UAT) run the `po-acceptance` skill,
    which produces transcripts + per-AC decisions + an aggregated
@@ -244,19 +245,23 @@ named SKILL.md for the exact required state and files/keys written.
 
 ### Communication contracts
 
-| Direction | Message | Notes |
-|---|---|---|
-| SM → PO | `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>` | `<scope>` ∈ `pbi-NNN` \| `sprint-N` \| `product`. `kind` enum defined in `agents/product-owner.md`. |
-| PO → SM | `[<scope>] PO_CLARIFY <question>` | At most one per `PO_DECISION_REQUEST` (`po.max_clarification_rounds`, default 2). |
-| PO → SM | `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>` | `dec_id` is mandatory; returned by `.scrum/scripts/append-po-decision.sh`. |
-| requirements-analyst → PO | `[req] INTERVIEW_QUESTION <question>` | **Only** legal during Requirement Definition. The Sprint Developer has no direct PO channel; its spec/requirement traffic traverses SM. |
-| PO → requirements-analyst | `[req] INTERVIEW_ANSWER <answer>` | Same Requirement-Definition-only constraint. |
-| PO → SM | `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo\|uat> results=[<id>:<verdict>:<dec_id>,...]` | Emitted once by `po-acceptance` after every AC / release criterion has a decision logged. |
+This table is **shape-only** — it lists directions and message
+shapes. Field formats, the `<scope>` / `kind` enums, the verdict
+matrix, `dec_id` rules, the clarification cap, and channel
+constraints are canonical in `agents/product-owner.md`
+§ Communication protocol / § Anti-loop rules.
+
+| Direction | Message shape |
+|---|---|
+| SM → PO | `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>` |
+| PO → SM | `[<scope>] PO_CLARIFY <question>` |
+| PO → SM | `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>` |
+| requirements-analyst → PO | `[req] INTERVIEW_QUESTION <question>` (Requirement Definition only) |
+| PO → requirements-analyst | `[req] INTERVIEW_ANSWER <answer>` (Requirement Definition only) |
+| PO → SM | `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo\|uat> results=[<id>:<verdict>:<dec_id>,...]` |
 
 Routing rules and per-mode behaviour live in
-`rules/scrum-context.md` § PO seat resolution; the `kind` enum and
-verdict matrix are normative in `agents/product-owner.md` §
-Communication protocol.
+`rules/scrum-context.md` § PO seat resolution.
 
 ---
 

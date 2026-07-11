@@ -54,11 +54,10 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the human user is not
-the PO seat — the `product-owner` teammate is. The ceremony shape is
-unchanged; only the destination of PO-approval prompts is re-targeted.
-Apply the following overrides to the Steps below; everything not in
-this table runs verbatim.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the Steps below re-targets to the `product-owner` teammate per
+`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+unchanged, and Steps not overridden in this table run verbatim.
 
 | Step                          | Override (po_mode=agent)                                                                                                                                                                                                                                                                                                                                                                  |
 |-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -67,11 +66,6 @@ this table runs verbatim.
 | 4. Return to Development      | **Re-entry cap:** the integration→development→integration loop may execute at most `.scrum/config.json.po.max_integration_cycles` (default `3`) times. On exceeding the cap, do **not** continue; emit `[product] PO_DECISION kind=release_decision decision=no_go rationale=integration_cycle_cap_hit cap=<n>`, append a release-blocking entry to `.scrum/po/attention.md` enumerating remaining defects, materialise each remaining defect as a `known-issues` draft PBI in `.scrum/backlog.json`, then halt the skill in a safe parked state for human morning review. |
 | 5. Release decision          | "User confirms release-ready" → `[product] PO_DECISION_REQUEST kind=release_decision options=[go,no_go] recommendation=<...>`. `decision=go` is mechanically gated by `append-po-decision.sh` (requires `.scrum/test-results.json.overall_status ∈ {passed, passed_with_skips}`); a rubber-stamp `go` without passing results is rejected by the wrapper.                                  |
 | 5a. CLAUDE.md regeneration   | The "warn user before overwriting" prompt is non-interactive in agent mode: if `CLAUDE.md` exists, the Developer first copies it to `.scrum/po/claude-md-backup-<UTC-ISO8601>.md` (writable PO-scoped path), then regenerates. The backup path is recorded in the `release_decision=go` decision's `--evidence`. No human wait.                                                            |
-
-The "user confirms" / "user confirmation" / "ask user" phrases in the
-Steps below are mode-agnostic: under `po_mode=agent` they resolve to
-`PO_DECISION_REQUEST` per the table above, not to human prompts. SM
-never blocks on `read` from stdin in this mode.
 
 ## Steps
 

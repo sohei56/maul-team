@@ -24,12 +24,13 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the human is not at
-the keyboard, so the Step 7 "recommend `/clear` or session restart
-to the user" line cannot be acted on by anyone in-session. This
-section is a no-op when `po_mode` is absent or `"human"`; the
-existing Step 7 recommendation is preserved bit-for-bit for human
-mode.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+below re-targets to the `product-owner` teammate per
+`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+unchanged. Skill-specific: with no human at the keyboard, the Step 7
+"recommend `/clear` or session restart to the user" line cannot be
+acted on by anyone in-session (human mode keeps that recommendation
+bit-for-bit).
 
 Overrides in agent mode:
 

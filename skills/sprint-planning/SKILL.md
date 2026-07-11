@@ -24,15 +24,10 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-This section only applies when `.scrum/config.json.po_mode == "agent"`.
-Human-mode readers can skip it; the numbered Steps below are unchanged.
-In agent mode the SM resolves every user-approval point by sending a
-`PO_DECISION_REQUEST` to the `product-owner` teammate and continuing on
-`PO_DECISION` — never by waiting on human input
-(`rules/scrum-context.md` § PO seat resolution).
-
-The points in the numbered Steps that read as "ask the user" are
-re-targeted as follows:
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the numbered Steps below re-targets to the `product-owner` teammate
+per `rules/scrum-context.md` § PO seat resolution; the ceremony shape
+is unchanged. The "ask the user" points are re-targeted as follows:
 
 | Step | Phrase in human mode | Agent-mode override (kind, scope, defaults) |
 |---|---|---|

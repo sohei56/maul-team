@@ -106,9 +106,9 @@ rules follow.
   Init, not by SM: `in_progress_design` (`in_progress_impl` for
   kind=docs PBIs, which skip Design).
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
-- cross-review end: every `cross_review` PBI → `done`. The audit is
-  non-blocking — Critical/High findings become next-Sprint draft
-  PBIs; there is no revert edge back to `in_progress_impl`.
+- cross-review end: every `cross_review` PBI → `done`. There is no
+  revert edge back to `in_progress_impl` — the audit is non-blocking
+  (see FR-009 above).
 - Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`, abandon → `cancelled`)
 - Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked`). Never park such PBIs at `blocked` — `blocked` is strictly for hold-and-resume on an external blocker.
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
@@ -191,11 +191,12 @@ user to approve, choose, or confirm is now a SendMessage to the PO:
 The PO replies with one of:
 
 - `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>` — final ruling; resume the affected ceremony / pipeline step.
-- `[<scope>] PO_CLARIFY <question>` — one-shot clarification per
-  `PO_DECISION_REQUEST`. Answer **once**, then re-send the original
-  request augmented with the answer. If the PO clarifies a second
-  time on the same request, that is a bug in the PO loop — surface
-  it; do not enter a clarification storm.
+- `[<scope>] PO_CLARIFY <question>` — clarification round. Answer,
+  then re-send the original request augmented with the answer.
+  Rounds per `PO_DECISION_REQUEST` are budgeted by the clarification
+  cap (canonical statement: `agents/product-owner.md` § Anti-loop
+  rules). A PO exceeding that budget is a bug in the PO loop —
+  surface it; do not enter a clarification storm.
 
 Routing in `po_mode=agent`:
 
@@ -295,7 +296,7 @@ session as potentially short-lived:
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
    - Sprint phase transition→Developers run pbi-pipeline
-   - Sprint-end cross-review→SM runs cross-review skill (audit-only: static analysis + the 4 whole-repo `codebase-audit` axes spawned in parallel via the Agent tool — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the axis catalog). The 5 aspect reviews already ran per-PBI at the pipeline's Integrity stage. The audit is non-blocking: its Critical/High findings become draft PBIs for the next Sprint in a separate `codebase-audit-s{N}.md` report; it never reverts a PBI, and every reviewed PBI ends at `done`
+   - Sprint-end cross-review→SM runs the cross-review skill (audit-only; see FR-009 above)
    - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
@@ -381,13 +382,9 @@ unanswered `PO_DECISION_REQUEST` you find — most recent first." Do
 **not** include a fabricated decision in the task prompt; the PO
 must rebuild rationale from `decisions.json` and the brief/vision.
 
-Sprint-end **codebase-audit axes** (spec-conformance / logic-defect /
-redundancy / product-security) are single-shot — completion is the
-success path, not a failure to re-spawn. They are read-only and return
-their findings **as their final assistant message** (no output file to
-wait for); you synthesize `.scrum/reviews/codebase-audit-s{N}.md` from
-those messages. Re-spawn a single axis only if its final message is
-missing or empty.
+Sprint-end **codebase-audit axes** are single-shot — completion is
+the success path, not a failure to re-spawn. Spawn / wait / re-spawn
+procedure is canonical in `skills/codebase-audit/SKILL.md` § Step 2.
 
 ## Background Subagent + Stop Hook Reading
 
@@ -415,10 +412,10 @@ When you spawn an Agent in background and immediately try to stop:
 Decision rule on receiving a Stop hook block right after a spawn:
 1. Run `TaskGet` on the just-spawned agent.
 2. running/in_progress → wait. Do not re-spawn. Do not switch tools.
-3. completed → verify the expected output (for a codebase-audit axis, a non-empty final assistant message; for a file-writing sub-agent, its output artifact). If present, mark the work done. If not, then re-spawn.
+3. completed → verify the expected output (for a codebase-audit axis, per `skills/codebase-audit/SKILL.md` § Step 2; for a file-writing sub-agent, its output artifact). If present, mark the work done. If not, then re-spawn.
 4. failed/terminated → re-spawn per Liveness Protocol.
 
-Do **not** re-spawn an auditor based solely on Stop hook output. The first audit axis typically takes 60-120s to finish; re-spawning at <60s creates duplicate work and inflates communications.json noise.
+Do **not** re-spawn an auditor based solely on Stop hook output — auditor timing and re-spawn criteria are in `skills/codebase-audit/SKILL.md` § Step 2.
 
 ### `pbi_pipeline_active` phase — Teammate-specific
 

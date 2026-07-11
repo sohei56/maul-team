@@ -63,11 +63,10 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every Response Matrix
 row that would "present the user with options" or "human-escalate"
-re-targets the same decision to the `product-owner` teammate via
-`SendMessage`. The matrix actions themselves are unchanged — only
-the PO seat. See `rules/scrum-context.md` § PO seat resolution and
-`agents/product-owner.md` § Communication protocol for the canonical
-shapes; this section is a no-op when `po_mode` is absent or `"human"`.
+re-targets the same decision to the `product-owner` teammate per
+`rules/scrum-context.md` § PO seat resolution (canonical message
+shapes: `agents/product-owner.md` § Communication protocol); the
+matrix actions themselves are unchanged.
 
 Override map (apply per row of the Response Matrix above):
 

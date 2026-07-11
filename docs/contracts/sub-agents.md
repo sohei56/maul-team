@@ -42,14 +42,16 @@ cites as ground truth.
 | `pbi-designer` | Per-PBI design spec author + library selection (S-070 verified specs) | Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch |
 | `pbi-implementer` | Source code (no test writes) | Read, Write, Edit, Grep, Glob (Bash hook-blocked) |
 | `pbi-ut-author` | Black-box UT (no impl reads) | Read, Write, Edit, Grep, Glob (Bash hook-blocked) |
-| `codex-design-reviewer` | Cross-model design critique | Read, Grep, Glob, Bash |
-| `codex-impl-reviewer` | Cross-model impl review (no test visibility) | Read, Grep, Glob, Bash |
-| `codex-ut-reviewer` | Cross-model UT review (no impl visibility) | Read, Grep, Glob, Bash |
+| `codex-design-reviewer` | Cross-model design critique | Read, Grep, Glob, Bash, Write (verdict self-persist only) |
+| `codex-impl-reviewer` | Cross-model impl review (no test visibility) | Read, Grep, Glob, Bash, Write (verdict self-persist only) |
+| `codex-ut-reviewer` | Cross-model UT review (no impl visibility) | Read, Grep, Glob, Bash, Write (verdict self-persist only) |
 
 Spawned per Round by the `pbi-pipeline` skill. Path-level constraints
 on `pbi-implementer` and `pbi-ut-author` are enforced by
-`hooks/pre-tool-use-path-guard.sh`. See FR-019 (requirements.md) and
-R10 (architecture.md).
+`hooks/pre-tool-use-path-guard.sh`. The codex reviewers' `Write` is
+for the mandatory verdict self-persist (`review-r{n}.md`) only —
+`hooks/status-gate.sh` scopes their writes to `.scrum/pbi/*`. See
+FR-019 (requirements.md) and R10 (architecture.md).
 
 ### PBI Integrity stage (spawned by Developer at the Round tail)
 
