@@ -173,7 +173,8 @@ extract_frontmatter() {
 }
 
 # ---------------------------------------------------------------------------
-# Cross-review aspect reviewers (5-aspect parallel, Sprint-end)
+# Integrity-stage aspect reviewers (5-aspect parallel, per-PBI;
+# Developer-spawned in the PBI pipeline's Integrity stage)
 # ---------------------------------------------------------------------------
 
 @test "requirement-conformance-reviewer.md has valid YAML frontmatter" {

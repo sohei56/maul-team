@@ -51,10 +51,15 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
             ▼             ▼             ▼
        codex-design   codex-impl    codex-ut
        -reviewer      -reviewer     -reviewer
+                          │
+     Integrity stage (Round tail, before ready-to-merge — the
+     5 aspect reviewers now run PER-PBI here, not Sprint-end):
+       requirement-conformance / functional-quality / security
+       / maintainability / docs-consistency  reviewers
 
-   Sprint-end (SM-owned, parallel via Agent tool):
-     requirement-conformance / functional-quality / security
-     / maintainability / docs-consistency  reviewers
+   Sprint-end (SM-owned, AUDIT-ONLY, non-blocking, parallel via Agent tool):
+     codebase-audit 4 axes: spec-conformance / logic-defect
+     / redundancy / product-security
 ```
 
 When you start a turn, **identify which seat you are in** by reading

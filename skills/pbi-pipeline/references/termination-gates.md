@@ -43,6 +43,44 @@ SM picks it up via the `pbi-escalation-handler` skill.
   `codex-ut-reviewer.verdict == PASS`
 - **UT Run stage**: see `coverage-gate.md` § Pass criteria
   (test failures + coverage thresholds + pragma audit)
+- **Integrity stage** (`integrity-stage.md`): every spawned aspect
+  reviewer's `verdict == PASS` — i.e. **no Critical/High finding
+  across any aspect**. kind=code spawns all 5 aspects; kind=docs spawns
+  aspects 1 + 5 only. Medium/Low findings are recorded, non-blocking.
+
+### Integrity stage — gate wiring
+
+The Integrity stage runs at the tail of the Round (after UT Run PASS
+for kind=code, after impl-reviewer PASS for kind=docs) and does **not**
+have its own Round counter — it reuses `impl_round` (`$n`). An
+Integrity FAIL reverts to `in_progress_impl`, and the next
+`begin-impl-round.sh` increments `impl_round`, so the **hard cap
+(`impl_round >= 5`) bounds the Integrity retry loop** with no new
+counter regime.
+
+Stagnation and Divergence for the Integrity stage operate on the
+**union of all spawned aspect reviewers' findings** for the Round —
+the aggregate the conductor persisted to
+`.scrum/pbi/<id>/metrics/integrity-r{n}.json` (Critical/High only),
+exactly as the PBI Review stage builds its set from the union of both
+codex reviewers. The "prior review" for the comparison is the previous
+Round's `integrity-r{n-prev}.json` (the last Round that reached the
+Integrity stage).
+
+### Integrity stage re-entry boundary
+
+A Round only reaches the Integrity stage after its UT Run (kind=code)
+or impl-reviewer (kind=docs) PASSes. A Round that failed earlier (at
+PBI Review or UT Run) produces **no** `integrity-r{n}.json`, so the
+"prior Round" for Stagnation may be several Rounds back or absent:
+
+- **Stagnation** compares Critical/High signatures between the current
+  Round's integrity aggregate and the **most recent prior Round that
+  produced one**. If no comparable prior aggregate exists (this is the
+  first Round to reach the Integrity stage), skip Stagnation for this
+  Round — you cannot detect a repeat with nothing to compare against.
+- **Divergence** and **Hard cap** always apply (they count, not
+  compare), using the same integrity aggregate.
 
 ### kind=docs overrides
 
@@ -58,6 +96,11 @@ When `backlog.json items[].kind == "docs"`:
   path so the same algorithms apply unchanged.
 - **UT Run stage**: not run. No gate fires; `ut_status` and
   `coverage_status` stay `skipped`.
+- **Integrity stage**: runs aspects 1 (requirement-conformance) + 5
+  (docs-consistency) only. Success = both `verdict == PASS`.
+  Stagnation/Divergence evaluate on the union of those two aspects'
+  findings — a strict subset of the kind=code aspect set, so the same
+  algorithms apply unchanged.
 - **Impl stage hard cap**: same as kind=code (`impl_round >= 5`).
   doc-only PBIs that can't converge in 5 impl rounds usually mean
   the parent finding was mis-framed; escalating to the SM is
@@ -108,10 +151,10 @@ Restrict the judgment strictly to the technical-error set above. Never
 let an assertion failure or a spec/style `criterion_key` enter this
 judgment — those belong to Stagnation/Divergence, which escalate.
 
-Unlike Stagnation, this gate does **not** need the post-Cross-Review
-skip: `test-results-r{n}.json` is uniformly schema'd, so Round n and
-n-1 are comparable even across a Cross-Review revert boundary (only
-reviewer *prose* is incomparable there).
+Unlike Stagnation, this gate does **not** need the Integrity-stage
+re-entry skip: `test-results-r{n}.json` is uniformly schema'd, so Round
+n and n-1 are comparable even across a Round that reverted from the
+Integrity stage (only reviewer *prose* is incomparable there).
 
 ### Outcome
 
@@ -192,33 +235,13 @@ fi
 ```
 
 The hard cap is **cumulative** across the impl/PBI-review/UT-run cycle
-INCLUDING Rounds added after a Cross Review revert. `impl_round` is
+INCLUDING Rounds added after an Integrity-stage revert. `impl_round` is
 the sole counter and is owned by `begin-impl-round.sh`; the wrapper
 makes monotonic advance the only legal operation. A PBI that exceeds
-5 impl Rounds — whether by internal review FAILs or by Sprint-end
-Cross Review reverts — escalates and returns judgement to SM / PO.
+5 impl Rounds — whether by internal review FAILs or by Integrity-stage
+reverts — escalates and returns judgement to SM / PO.
 This is intentional: more rounds usually means the requirement /
 design is wrong, not that the implementer needs more tries.
-
-## Cross Review re-entry boundary
-
-When a Sprint-end Cross Review aspect 1/2/3 FAIL reverts a PBI to
-`in_progress_impl`, the new Round that follows it is the FIRST
-Round whose "prior review" is an aspect reviewer output, not a
-codex-impl / codex-ut reviewer output. Concretely:
-
-- Stagnation detection compares Critical/High signatures from
-  Round n and Round n-1. Signatures from Cross Review aspect
-  reviewers (`.scrum/reviews/aspect-*-review.md`) and PBI Review
-  reviewers (`.scrum/pbi/<id>/impl/review-r{n-1}.md`,
-  `.scrum/pbi/<id>/ut/review-r{n-1}.md`) are produced by different
-  agents with different output conventions and are NOT comparable.
-  → Skip Stagnation detection in that one Round.
-- Divergence and Hard cap continue to apply (they count, not
-  compare signatures).
-
-After that first post-revert Round completes a normal PBI Review
-cycle, Stagnation detection resumes normally for subsequent Rounds.
 
 ## Gate evaluation order
 

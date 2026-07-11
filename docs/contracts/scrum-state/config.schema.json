@@ -38,7 +38,7 @@
       }
     },
     "static_analysis": {
-      "description": "Project-declared reachability / dead-export commands for the cross-review whole-repo dead-code pass (aspect 4). Each command runs via `bash -c` from the repo root; stdout+exit are aggregated into .scrum/reviews/static-analysis-r{n}.json. When commands[] is absent or empty, the pass falls back to the built-in Python `vulture` auto-run (when available). Meant for languages the built-in pass does not cover (e.g. knip / ts-prune for TypeScript, staticcheck for Go, cargo-udeps for Rust).",
+      "description": "Project-declared reachability / dead-export commands for the cross-review whole-repo dead-code pass (feeds the `redundancy` audit axis). Each command runs via `bash -c` from the repo root; stdout+exit are aggregated into .scrum/reviews/static-analysis-r{n}.json. When commands[] is absent or empty, the pass falls back to the built-in Python `vulture` auto-run (when available). Meant for languages the built-in pass does not cover (e.g. knip / ts-prune for TypeScript, staticcheck for Go, cargo-udeps for Rust).",
       "type": "object",
       "additionalProperties": true,
       "properties": {

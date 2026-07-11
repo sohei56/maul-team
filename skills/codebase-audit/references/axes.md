@@ -2,7 +2,7 @@
 
 The Scrum Master spawns one `Agent`-tool auditor per axis, in parallel.
 This file holds the shared protocol, the finding-return schema, and the
-three axis-specific prompt templates. Paste the **Common protocol** head
+four axis-specific prompt templates. Paste the **Common protocol** head
 plus **one** axis section into each auditor's prompt, and append the
 shared read set (enabled specs, requirements, PBI summary, most recent
 `static-analysis-r*.json` path) assembled in SKILL.md Step 2.
@@ -42,7 +42,7 @@ persists the report. Use this schema per finding:
 
 ```
 ### <F-local-id> <one-line title>
-- axis: spec-conformance | logic-defect | redundancy
+- axis: spec-conformance | logic-defect | redundancy | product-security
 - severity_hint: Critical | High | Medium | Low   (SM may re-rank on dedup)
 - location: <path>:<line> (+ additional locations if any)
 - identity: <path>::<symbol-or-anchor>   (stable defect key — the file
@@ -164,3 +164,56 @@ actually a real bug (two copies that already diverged). When two copies
 differ, that difference is a **logic-defect-class** finding, not mere
 redundancy — raise the severity and say which copy is correct if you
 can tell.
+
+---
+
+## Axis D — `product-security`
+
+Audit the **product-wide security integrity** of the whole codebase —
+the security defects that emerge only when you look across component and
+PBI boundaries. The per-PBI pipeline already ran a **diff-local**
+security aspect review on each PBI's own change; **do not re-review
+single-PBI diff-local security** (an injection in one function a diff
+review would have caught). Your yield is entirely in the seams:
+
+- **Authorization boundaries spanning components/PBIs.** A route,
+  handler, or entry point added in one PBI whose authorization / access
+  check lives in — or was supposed to live in — another PBI's code. Look
+  for endpoints with no reachable authz guard, roles checked in some
+  paths but not sibling paths, and privilege boundaries that only hold
+  if two independently-built components agree (and don't). Anchor the
+  unprotected entry point AND where the check should be.
+- **Data flows crossing trust boundaries.** Untrusted input (network,
+  user, external service, file) that reaches a sink (DB, shell, eval,
+  filesystem path, template, response) through a path that spans
+  functions/modules built separately — so no single diff saw the whole
+  flow. Name the source, the sink, and the unsanitized hops between.
+- **Secrets / credential handling across the codebase.** Hardcoded
+  secrets, tokens or keys logged / echoed / persisted in plaintext,
+  credentials passed through insecure channels, secrets committed to
+  config or fixtures. Grep-plus-reasoning across the whole tree, not one
+  file.
+- **Injection surfaces at integration points.** SQL / command / path /
+  template / header injection where the tainting and the sink are in
+  different modules, or where an integration boundary (an API call, a
+  queue message, a stub seam) reintroduces untrusted data downstream of
+  the PBI that validated it.
+- **Missing security controls no single PBI owned.** A control the
+  product needs as a whole — auth on an admin surface, rate limiting,
+  CSRF/output encoding, TLS enforcement, resource limits — that no
+  individual PBI was responsible for, so nobody built it. These are
+  gaps *between* PBIs; flag them and name the requirement/spec anchor if
+  one exists, else say it is an unowned gap.
+
+Severity: an exploitable cross-component authz bypass, an unsanitized
+untrusted-input-to-dangerous-sink flow, or a live exposed secret →
+Critical; a missing product-wide control on a sensitive surface or a
+plausible-but-unconfirmed injection seam → High; defense-in-depth gaps
+on secondary paths → Medium. Keep **fact** (the code/flow as written)
+separate from **interpretation** (the exploit it enables), and mark
+confidence honestly when you cannot trace a full flow end-to-end.
+
+Out of scope (explicit): single-PBI diff-local security issues, generic
+best-practice nits with no reachable exploit, and third-party
+dependency CVEs (a different tool's job) — unless the dependency is
+wired in a way that itself creates a cross-component exposure.

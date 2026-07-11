@@ -129,15 +129,18 @@ ASCII transition graph:
         ↓                          │ FAIL
 [Dev] in_progress_pbi_review ──────┤  (codex-impl-reviewer + codex-ut-reviewer)
         ↓ PASS                     │
-[Dev] in_progress_ut_run ──────────┘ FAIL  (real test execution + coverage gate)
-        ↓ PASS
+[Dev] in_progress_ut_run ──────────┘ FAIL  (real test execution + coverage gate;
+        ↓ PASS                              this FAIL edge also carries Integrity reverts)
+        ↓ [Integrity stage — per-PBI 5-aspect gate at the Round tail, before
+        ↓  ready-to-merge. Critical/High → revert to in_progress_impl via the
+        ↓  in_progress_ut_run FAIL edge above, bounded by the impl_round hard cap]
 [Dev] in_progress_merge            (Developer signals "ready for merge")
         ↓ SM picks up, runs merge-pbi.sh
         ↓ merge PASS
 [SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
-        ↓ Sprint-end SM invokes cross-review skill
-[SM]  cross_review ── FAIL → [Dev] in_progress_impl  (Developer fixes on top of merged code)
-        ↓ PASS
+        ↓ Sprint-end SM invokes cross-review skill (whole-repo 4-axis codebase audit)
+[SM]  cross_review                 (audit-only; non-blocking, never reverts a PBI)
+        ↓ audit files Critical/High findings as next-Sprint draft PBIs
 [SM]  done
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
@@ -157,11 +160,13 @@ skips `in_progress_design` and `in_progress_ut_run` entirely:
         ↓                           │ FAIL
 [Dev] in_progress_pbi_review ───────┘   (codex-impl-reviewer only)
         ↓ PASS
+        ↓ [Integrity stage — aspects 1 (req-conformance) + 5 (docs-consistency)
+        ↓  only; Critical/High → revert to in_progress_impl]
 [Dev] in_progress_merge             (mark-pbi-ready-to-merge enforces
                                       paths_touched ⊆ **/*.md; violation
                                       → escalated(kind_mismatch))
         ↓ (per-PBI merge)
-[SM]  awaiting_cross_review → cross_review → done
+[SM]  awaiting_cross_review → cross_review → done   (Sprint-end audit; non-blocking)
 ```
 
 The two retry paths (`escalated → in_progress_design` retry, `blocked
@@ -186,14 +191,14 @@ State descriptions:
 - `in_progress_pbi_review` — Per-PBI Round review: `codex-impl-reviewer` + `codex-ut-reviewer` evaluating; FAIL loops back to `in_progress_impl`.
 - `in_progress_ut_run` — Real test execution + coverage gate; FAIL loops back to `in_progress_impl`.
 - `in_progress_merge` — Developer has signalled ready-for-merge (`mark-pbi-ready-to-merge.sh`); SM is about to run `merge-pbi.sh`.
-- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` skill.
-- `cross_review` — Sprint-end `cross-review` skill running for this PBI.
-- `done` — Cross-review PASS. Definition of Done (FR-017) met.
+- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` ceremony (now a whole-repo 4-axis codebase audit).
+- `cross_review` — Sprint-end `cross-review` ceremony running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
+- `done` — Sprint-end ceremony complete. The PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
 - `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
 - `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears.
 
 ### Validation Rules
-- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — Sprint-end review is performed by the Scrum Master via independent reviewer sub-agents (see `cross-review` skill, FR-009 Layer 2).
+- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — the per-PBI aspect review is spawned by the Developer conductor inside `pbi-pipeline` (the Integrity stage), and the Sprint-end whole-repo audit is owned by the Scrum Master (see the `cross-review` / `codebase-audit` skills, FR-009).
 - `design_doc_paths` is populated when design documents are produced (before `in_progress`).
 - `acceptance_criteria` MUST be non-empty when transitioning from `draft` to `refined`.
 - `depends_on_pbi_ids` is used by the Scrum Master to avoid placing dependent PBIs in the same Sprint (FR-008).
@@ -603,12 +608,15 @@ UAT stories file before allowing that phase to end.
 
 **File**: `.scrum/reviews/<pbi-id>-review.md`
 **Format**: Markdown
-**Owner**: Assigned Reviewer (write)
-**Readers**: Implementer, Scrum Master
+**Owner**: Developer conductor (`pbi-pipeline` Integrity stage; write)
+**Readers**: `hooks/quality-gate.sh` (DoD gate), Scrum Master
 
-Cross-review results for a PBI. Created during the Sprint-end Review phase
-(FR-009). Per-PBI pipeline reviews live separately under
-`.scrum/pbi/<pbi-id>/{impl,ut}/review-r{n}.md`.
+Consolidated per-PBI Integrity review, authored by the Developer conductor
+at the Integrity stage (the final gate before ready-to-merge; FR-009). It
+embeds each aspect reviewer's markdown verdict for this PBI's increment.
+The Sprint-end whole-repo audit report is a separate artifact at
+`.scrum/reviews/codebase-audit-s{N}.md`. Per-PBI codex pipeline reviews
+live separately under `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{n}.md`.
 
 ---
 

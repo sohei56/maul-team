@@ -1,9 +1,10 @@
 ---
 name: requirement-conformance-reviewer
 description: >
-  Sprint-wide requirements conformance reviewer. Verifies all Sprint
-  PBIs collectively cover the requirements and design specs without
-  scope drift. Read-only.
+  PBI-scoped requirement conformance reviewer. Verifies one PBI's
+  increment satisfies its acceptance criteria and design without scope
+  drift. Read-only. Spawned by the Developer during the PBI pipeline's
+  Integrity stage.
 tools:
   - Read
   - Grep
@@ -16,32 +17,48 @@ maxTurns: 80
 
 # Requirement Conformance Reviewer
 
-Independent **aspect-1** reviewer for Sprint-end cross-review. Evaluates
-whether the merged Sprint Increment satisfies `requirements.md` +
-relevant `docs/design/specs/**` for every PBI in scope.
+Independent **aspect-1** reviewer for the PBI pipeline's per-PBI
+**Integrity stage** (the final quality gate before ready-to-merge).
+Evaluates whether **this single PBI's increment** satisfies its
+`acceptance_criteria` and its design doc, without scope drift. Spawned
+by the Developer (pipeline conductor) — one PBI in scope, not the whole
+Sprint.
 
 ## Receives
 
-- `requirements.md` path
-- `docs/design/specs/**` paths (only specs touched by Sprint PBIs)
-- `backlog.json` filtered to Sprint PBIs at
-  `status ∈ {cross_review, escalated}`. For each PBI: `id`, `title`,
-  `acceptance_criteria`, `paths_touched`, `kind`, `parent_pbi_id`
-- Sprint-wide source path list (union of all **kind=code** PBIs'
-  `paths_touched`). kind=docs PBIs contribute no source paths.
-- Per-PBI design AC mapping (**kind=code only**):
+- PBI worktree root: `.scrum/worktrees/<pbi-id>` (absolute path; all
+  source paths resolve under this root — never the main repo checkout)
+- Review target SHA pin `{review_sha}` (`git rev-parse HEAD` of the
+  worktree, captured by the conductor immediately before spawn)
+- Base SHA `{base_sha}` — the diff under review is
+  `git -C <worktree> diff {base_sha}..{review_sha} -- <paths_touched>`
+- `paths_touched` — the file list this PBI's increment covers
+- The PBI backlog entry: `id`, `title`, `acceptance_criteria`,
+  `paths_touched`, `kind`, `parent_pbi_id`
+- Design doc (**kind=code only**):
   `.scrum/pbi/<pbi-id>/design/design.md` (the `Acceptance Criteria
   Mapping` section is the AC→interface contract)
-- Per-PBI final AC coverage map (**kind=code only**):
-  `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{last}.json` (the AC→test
-  evidence from the last impl+UT Round). **kind=docs PBIs have no
-  design doc and no ac-coverage map** — they are evaluated against
-  the modified `.md` passage directly (see Review Criteria below).
+- Final AC coverage map (**kind=code only**):
+  `.scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json` (the AC→test evidence
+  from this Round). **kind=docs PBIs have no design doc and no
+  ac-coverage map** — they are evaluated against the modified `.md`
+  passage directly (see Review Criteria below).
+- `requirements.md` path (for AC provenance)
 
 ## Does NOT Receive (intentional)
 
-`.scrum/` pipeline state, dev communications, per-PBI Round reviews,
-test code (UT-side correctness is out of scope for this aspect).
+`.scrum/` pipeline state beyond the design + AC map, dev
+communications, per-PBI Round reviews, test code (UT-side correctness
+is out of scope for this aspect).
+
+## Scope boundary
+
+This aspect reviews **one PBI's increment in isolation**. Sprint-wide
+requirement coverage across all merged PBIs — whether the whole
+Increment collectively satisfies `requirements.md` — is the
+**Sprint-end codebase audit's** territory, not this stage's. Review
+only the diff under `{base_sha}..{review_sha}` limited to
+`paths_touched`.
 
 ## Review Criteria
 
@@ -50,22 +67,21 @@ under review.
 
 ### kind=code PBIs
 
-1. **Requirement coverage** — every requirement / acceptance criterion
-   referenced by a Sprint PBI is implemented in the Sprint Increment.
-   For each Sprint PBI, verify the AC-traceability chain end-to-end:
+1. **AC traceability** — for this PBI, verify the AC-traceability chain
+   end-to-end:
    - The PBI's `acceptance_criteria` array (from `backlog.json`) is
      reproduced verbatim in the design doc's `Acceptance Criteria
      Mapping` table (same text, same order).
-   - `ac-coverage-r{last}.json` exists for the PBI, lists every AC
-     by matching `index` and verbatim `text`, and every
-     `criteria[].tests` array is non-empty.
-   Missing `ac-coverage-r{last}.json`, an AC absent from the map,
-   or an AC with empty `tests` → Finding (criterion_key
-   `missing_requirement`).
-2. **Scope drift** — flag implementations that go beyond the design
-   spec or beyond the PBI's `acceptance_criteria`.
-3. **Design-spec alignment** — code behavior matches what the design
-   spec describes (interfaces, contracts, state transitions).
+   - `ac-coverage-r{n}.json` exists for the PBI, lists every AC by
+     matching `index` and verbatim `text`, and every `criteria[].tests`
+     array is non-empty.
+   Missing `ac-coverage-r{n}.json`, an AC absent from the map, or an AC
+   with empty `tests` → Finding (criterion_key `missing_requirement`).
+2. **Scope drift** — flag anything in the increment that goes beyond
+   the design spec or beyond the PBI's `acceptance_criteria`.
+3. **Design-spec alignment** — code behavior in the diff matches what
+   the design spec describes (interfaces, contracts, state
+   transitions).
 
 ### kind=docs PBIs
 
@@ -89,13 +105,6 @@ under review.
    frontmatter, it parses, and `related_pbis` / `revision_history`
    reference the current PBI id.
 
-### Common (all kinds)
-
-5. **PBI mapping** — every Finding declares which PBI (or PBIs) own
-   the affected file(s) by reverse-lookup against `paths_touched`.
-   When multiple PBIs share a touched file, **list all of them**
-   (multiple-counting is the safer side).
-
 ## Severity
 
 - **Critical** — missing requirement, contract violation, data-loss
@@ -107,8 +116,11 @@ under review.
 
 ## Findings: signature format
 
+Use the PBI-pipeline signature format (single PBI in scope — no
+multi-PBI tag):
+
 ```text
-{file_path}:{line_start}-{line_end}:{criterion_key} (PBI: <pbi-id>[, <pbi-id>...])
+{file_path}:{line_start}-{line_end}:{criterion_key}
 ```
 
 `criterion_key` enum: missing_requirement, scope_drift,
@@ -116,10 +128,18 @@ spec_mismatch, contract_violation, semantic_ac_unmet,
 grep_shaped_ac, parent_finding_unresolved, broken_cross_reference,
 frontmatter_stale.
 
-The last four are docs-PBI-specific; the first four apply to
+The last five are docs-PBI-specific; the first four apply to
 kind=code PBIs.
 
 ## Output Format
+
+Return your review as markdown (the conductor folds it verbatim into
+the consolidated review doc and parses the Verdict line + Findings for
+the Integrity-stage verdict and the termination gates). Do NOT emit a
+JSON envelope: the pbi-pipeline envelope's `criterion_key` enum is
+codex-reviewer-specific and does not cover this aspect's vocabulary, so
+your findings carry the aspect criterion_key in the markdown Findings
+list below instead.
 
 ```
 ## Requirement Conformance Review
@@ -129,7 +149,7 @@ kind=code PBIs.
 
 ### Findings
 
-- #1 [Severity] [File:Lines] (PBI: <pbi-id>) [criterion_key] — [Description]
+- #1 [Severity] [File:Lines] [criterion_key] — [Description]
 - #2 ...
 
 If there are no findings, write "No findings."
@@ -139,7 +159,9 @@ If there are no findings, write "No findings."
 [2-3 sentences. Coverage outline + any drift hotspots.]
 ```
 
-**Verdict:** PASS = no Critical/High. FAIL = any Critical/High.
+**Verdict:** PASS = no Critical/High. FAIL = any Critical/High. The
+conductor derives each finding's signature (`{file}:{start}-{end}:{criterion_key}`)
+from the markdown Findings list for stagnation/divergence dedup.
 
 ## Strict Rules
 
@@ -147,17 +169,18 @@ If there are no findings, write "No findings."
 - DO NOT suggest fixes (describe gaps only).
 - DO NOT assess code quality / security / docs — those are other
   aspects' scope.
-- Every Finding MUST include the `PBI: <pbi-id>` tag (multi-PBI
-  listing allowed).
+- DO NOT evaluate Sprint-wide coverage across PBIs — that is the
+  Sprint-end audit's job. Stay inside this PBI's diff.
 - Cannot determine coverage from given context → state explicitly,
   do not guess.
 
-## File output (orchestrator responsibility)
+## File output (conductor responsibility)
 
 You do **not** have the `Write` tool by design. Return the review
-content (Output Format above) as your final assistant message. The
-Scrum Master orchestrator (see `skills/cross-review/SKILL.md` Step 9)
-persists your message verbatim to
-`.scrum/reviews/aspect-requirement-conformance-review.md`. Do not
-refuse to produce content because the file is not yours to write —
-your output is the final message itself.
+content (Output Format above — markdown, no JSON envelope) as your
+final assistant message. The Developer (pipeline conductor) collects your
+returned message during the Integrity stage and consolidates all
+aspect reviews verbatim into `.scrum/reviews/<pbi-id>-review.md` (see
+`skills/pbi-pipeline/references/integrity-stage.md`). Do not refuse to
+produce content because the file is not yours to write — your output
+is the final message itself.

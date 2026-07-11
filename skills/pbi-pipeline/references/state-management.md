@@ -92,7 +92,7 @@ n=$(.scrum/scripts/begin-impl-round.sh "$PBI_ID")
   `impl_round > 0`, it returns the current value without mutating.
 - Refuses if the backlog pre-state isn't one of
   `{in_progress_design, in_progress_pbi_review, in_progress_ut_run,
-  cross_review, in_progress_impl}`.
+  in_progress_impl}`.
 
 Within the impl / PBI-review / UT-run cycle, conductors MUST NOT write
 `impl_round` via `update-pbi-state.sh` — `begin-impl-round.sh` is the

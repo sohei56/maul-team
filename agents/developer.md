@@ -37,8 +37,11 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 2. Receive PBI assignment (Agent Teams task)
 3. Read `improvements.json`→apply relevant improvements
 4. Run `install-subagents` skill (FR-019)
-5. Run `pbi-pipeline` skill→drive design → impl → pbi_review → ut_run → merge stages via
-   sub-agent fan-out (no code written by Developer itself)
+5. Run `pbi-pipeline` skill→drive design → impl → pbi_review → ut_run →
+   integrity → merge stages via sub-agent fan-out (no code written by
+   Developer itself). The **Integrity stage** at the Round tail spawns
+   the 5 aspect reviewers (kind=code) / aspects 1+5 (kind=docs) as the
+   final gate before ready-to-merge.
 6. On PBI completion or escalation, notify SM
 7. Wait for next PBI assignment from SM
 8. Terminate at Sprint end
@@ -58,8 +61,10 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 - **FR-012 Improvements**: Read `improvements.json` at Sprint start→apply relevant ones
 - **FR-017 Definition of Done**: Replaced by pbi-pipeline termination
   gate (success requires impl+UT verdicts PASS, tests pass, C0/C1
-  100%, pragma justified). Sprint-end SM `cross-review` remains as a
-  cross-cutting quality check.
+  100%, pragma justified, **and the per-PBI Integrity stage — the
+  5-aspect review at the Round tail — PASS**). Sprint-end SM
+  `cross-review` is now an audit-only whole-repo check, not a per-PBI
+  gate.
 - **FR-019 Sub-Agent Selection**: Run `install-subagents`→select specialists→use via Agent tool
 
 ### Integration Sprint Testing
@@ -134,9 +139,10 @@ notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
 - `docs/design/catalog.md` — type reference (read-only)
 - `docs/design/catalog-config.json` — enabled specs (read-only)
 - `docs/design/specs/**/*.md` — read existing; write for assigned PBIs
-- `.scrum/reviews/<pbi-id>-review.md` — read-only context for fix loops
-  after Sprint-end cross-review FAIL. **Written by Scrum Master via the
-  `cross-review` skill, not by Developer.**
+- `.scrum/reviews/<pbi-id>-review.md` — the consolidated per-PBI
+  Integrity review. **Written by the Developer conductor at the
+  Integrity stage** (on PASS, before ready-to-merge); on a Critical/High
+  FAIL its findings feed the next Round's impl/UT fix loop.
 - `.scrum/test-results.json` — write during Integration Sprint
 - `tests/integration/`, `tests/e2e/`, `tests/stubs/` (main worktree) —
   write during Integration Tests only; committed via

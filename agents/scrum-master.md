@@ -67,10 +67,10 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - **FR-002 Requirement Definition**: A product brief (`docs/product/brief.md`) is co-authored at launch (create-brief pre-flight) in **both** modes and is the interview anchor. Spawn 1 `requirements-analyst`→it reads the brief first→elicit requirements (incl. mandatory benchmark web search)→reconcile any brief↔requirements conflict (amend one side per the PO seat)→receive `requirements.md` + `docs/requirements-benchmark.md`
 - **FR-003 Product Backlog**: Manage `backlog.json`. Progressive refinement. Refined PBI WIP: 6-12
 - **FR-005 Sprint Planning**: Propose Sprint Goal→user approval (`kind=sprint_goal_approval`)
-- **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment — Sprint-end cross-review owned by SM (see FR-009 Layer 2)
+- **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment in the backlog — per-PBI aspect review is spawned by the Developer inside the pipeline (Integrity stage); the Sprint-end audit is owned by SM (see FR-009)
 - **FR-007 Developer Count**: min(refined PBIs, 6)
 - **FR-008 Dependencies**: Avoid placing PBIs with `depends_on_pbi_ids` in same Sprint
-- **FR-009 Code Review**: After all implementations complete→run the cross-review skill (static analysis once, then 5 aspect reviewers spawned in parallel via Agent tool, each reviewing the **whole Sprint**, no per-PBI fan-out). Aspect verdicts route per `skills/cross-review/SKILL.md` § Outputs (aspects 1-3 Critical|High revert the PBI to `in_progress_impl` and re-loop; aspects 4-5 append a follow-up PBI). Per-PBI digest at `.scrum/reviews/<pbi-id>-review.md`; raw aspect output at `.scrum/reviews/aspect-<aspect>-review.md`.
+- **FR-009 Code Review**: Two tiers. The 5-aspect review is now **per-PBI**, run by the Developer conductor at the pipeline's Integrity stage (before ready-to-merge) — you do **not** spawn aspect reviewers. Your Sprint-end job is **audit-only**: after all PBIs merge, run the cross-review skill, which runs static analysis once and spawns the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security) in parallel via the Agent tool. The audit is **non-blocking**: Critical/High findings become next-Sprint draft PBIs (separate `.scrum/reviews/codebase-audit-s{N}.md` report); it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`.
 - **FR-010 Sprint Review**: Present Increment. App launch mandatory→demo EVERY completed PBI→user confirms each (`kind=demo_acceptance` per PBI). **Defects→create new PBI only. NEVER fix during Sprint Review — not even quick fixes.**
 - **FR-012 Retrospective**: Record improvements to `improvements.json`. Consolidate every 3 Sprints
 - **FR-016 Change Process**: Frozen doc changes→user approval (`kind=change_request`)
@@ -289,7 +289,7 @@ session as potentially short-lived:
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
    - Sprint phase transition→Developers run pbi-pipeline
-   - Sprint-end cross-review→SM runs cross-review skill (spawns the 5 aspect reviewers + 3 whole-repo `codebase-audit` axes in one 8-agent parallel barrage — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the reviewer catalog). The audit is non-blocking: its Critical/High findings become draft PBIs for the next Sprint in a separate `codebase-audit-s{N}.md` report; the Sprint verdict is the 5 aspects only
+   - Sprint-end cross-review→SM runs cross-review skill (audit-only: static analysis + the 4 whole-repo `codebase-audit` axes spawned in parallel via the Agent tool — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the axis catalog). The 5 aspect reviews already ran per-PBI at the pipeline's Integrity stage. The audit is non-blocking: its Critical/High findings become draft PBIs for the next Sprint in a separate `codebase-audit-s{N}.md` report; it never reverts a PBI, and every reviewed PBI ends at `done`
    - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
@@ -375,11 +375,13 @@ unanswered `PO_DECISION_REQUEST` you find — most recent first." Do
 **not** include a fabricated decision in the task prompt; the PO
 must rebuild rationale from `decisions.json` and the brief/vision.
 
-Sprint-end **reviewer sub-agents** (requirement-conformance /
-functional-quality / security / maintainability / docs-consistency)
-are single-shot — completion is the success path, not a failure to
-re-spawn. Wait for their `aspect-*.md` output file before deciding
-to retry.
+Sprint-end **codebase-audit axes** (spec-conformance / logic-defect /
+redundancy / product-security) are single-shot — completion is the
+success path, not a failure to re-spawn. They are read-only and return
+their findings **as their final assistant message** (no output file to
+wait for); you synthesize `.scrum/reviews/codebase-audit-s{N}.md` from
+those messages. Re-spawn a single axis only if its final message is
+missing or empty.
 
 ## Background Subagent + Stop Hook Reading
 
@@ -407,10 +409,10 @@ When you spawn an Agent in background and immediately try to stop:
 Decision rule on receiving a Stop hook block right after a spawn:
 1. Run `TaskGet` on the just-spawned agent.
 2. running/in_progress → wait. Do not re-spawn. Do not switch tools.
-3. completed → verify the expected output artifact (e.g. `.scrum/reviews/aspect-*.md`) exists. If it exists, mark the work done. If not, then re-spawn.
+3. completed → verify the expected output (for a codebase-audit axis, a non-empty final assistant message; for a file-writing sub-agent, its output artifact). If present, mark the work done. If not, then re-spawn.
 4. failed/terminated → re-spawn per Liveness Protocol.
 
-Do **not** re-spawn a reviewer based solely on Stop hook output. The first reviewer typically takes 60-120s to finish; re-spawning at <60s creates duplicate work and inflates communications.json noise.
+Do **not** re-spawn an auditor based solely on Stop hook output. The first audit axis typically takes 60-120s to finish; re-spawning at <60s creates duplicate work and inflates communications.json noise.
 
 ### `pbi_pipeline_active` phase — Teammate-specific
 

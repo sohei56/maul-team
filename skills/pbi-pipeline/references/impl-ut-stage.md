@@ -41,8 +41,8 @@ The detailed sub-steps below call out kind branches inline.
 The Round counter is owned by `.scrum/scripts/begin-impl-round.sh`.
 The conductor MUST NOT compute `n` itself or write `impl_round` via
 `update-pbi-state.sh`. At every impl-Round entry — first entry from
-Design success AND re-entry after PBI Review FAIL, UT Run FAIL, or a
-Sprint-end Cross Review revert — call:
+Design success AND re-entry after PBI Review FAIL, UT Run FAIL, or an
+Integrity-stage FAIL — call:
 
 ```bash
 n=$(.scrum/scripts/begin-impl-round.sh "$PBI_ID")
@@ -59,7 +59,7 @@ The wrapper is atomic and idempotent:
   without mutating state. The conductor resumes the same Round.
 - Refuses when backlog status is not one of
   `{in_progress_design, in_progress_pbi_review, in_progress_ut_run,
-  cross_review, in_progress_impl}`.
+  in_progress_impl}`.
 
 This is the only sanctioned writer of `impl_round`. Hand-rolled
 `update-pbi-state.sh "$PBI_ID" impl_round <N>` is forbidden in the
@@ -293,10 +293,11 @@ round re-runs pbi-implementer ONLY.
 
 **kind=docs: this step is skipped entirely.** When the single
 impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` at
-`pending` and `coverage_status` at `skipped`, and jump straight to
-"Success branch (hand off to SM)" below. Do NOT call `update-backlog-status.sh
-in_progress_ut_run`. Continue reading the kind=code branch only if
-your PBI is kind=code.
+`pending` and `coverage_status` at `skipped`, then run the Integrity
+stage (aspects 1 + 5 only — see "Integrity stage" below) and, on
+Integrity PASS, jump to "Success branch (hand off to SM)". Do NOT call
+`update-backlog-status.sh in_progress_ut_run`. Continue reading the
+kind=code branch only if your PBI is kind=code.
 
 When both reviewers PASS (kind=code), advance to UT Run:
 
@@ -328,9 +329,10 @@ impl-reviewer.verdict == PASS
 
 This is already true by the time control reaches Step 4 (the FAIL
 branch in Step 2 would have looped back to in_progress_impl
-otherwise). So for kind=docs, advance directly to the Success branch
-below — no coverage gate, no AC coverage gate, no pragma audit, no
-test runner invocation.
+otherwise). So for kind=docs, advance to the Integrity stage (aspects
+1 + 5) and then, on Integrity PASS, to the Success branch below — no
+coverage gate, no AC coverage gate, no pragma audit, no test runner
+invocation.
 
 For kind=code, the full evaluation logic applies (see
 `coverage-gate.md` § Pass criteria):
@@ -400,9 +402,34 @@ absent that, the format above is the contract.
 
 A failed AC gate routes like a UT Run FAIL (existing branch below).
 
+#### Integrity stage (runs before hand off)
+
+Once the Pass criteria above are all met (kind=code) — or the single
+impl-reviewer PASSes (kind=docs) — the Round has one gate left before
+ready-to-merge: the per-PBI **Integrity stage** (the 5 cross-cutting
+review aspects, run against this PBI's increment). See
+`integrity-stage.md` for the full procedure. In brief:
+
+- Run the Integrity stage now, at `$n` = current `impl_round`, while
+  the backlog status is still the Round's terminal stage
+  (`in_progress_ut_run` for kind=code, `in_progress_pbi_review` for
+  kind=docs). It does not have its own backlog status.
+- **Integrity PASS** → the conductor has written the consolidated
+  review doc to `.scrum/reviews/$PBI_ID-review.md` and set
+  `review_doc_path`. Proceed to the Success branch below.
+- **Integrity FAIL** (any Critical/High across aspects) → do NOT hand
+  off. Evaluate the termination gates on the aggregated integrity
+  findings (`termination-gates.md` § Integrity stage); on an escalate
+  gate, escalate; otherwise revert to `in_progress_impl` and fold the
+  findings into the next Round's feedback (`feedback-routing.md`
+  § Integrity-stage revert input). This reuses `begin-impl-round.sh`
+  and the `impl_round` hard cap — no new counter.
+
+Only on Integrity PASS does control reach the Success branch.
+
 #### Success branch (hand off to SM)
 
-**kind=code:**
+**kind=code** (reached only after Integrity PASS):
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status pass

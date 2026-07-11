@@ -17,9 +17,10 @@ at Init, then transitions backlog status directly to
 Rationale: doc-only PBIs (modifications confined to `*.md` files
 under any directory — `docs/**`, `skills/**`, `agents/**`,
 `CLAUDE.md`, `README.md`) edit existing prose. Design documents about
-documents are noise; the parent PBI's cross-review findings or the
-docs-consistency follow-up payload already constitute the design
-input. The implementer reads those directly.
+documents are noise; the parent PBI's per-PBI Integrity review digest
+(`.scrum/reviews/<parent-pbi-id>-review.md`) or the docs-consistency
+follow-up payload already constitute the design input. The implementer
+reads those directly.
 
 ## Round n procedure (kind=code only)
 

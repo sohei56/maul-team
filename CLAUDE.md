@@ -9,14 +9,15 @@ agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-ma
   developer.md           # Developer teammate (PBI pipeline conductor)
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
   requirements-analyst.md # Requirement Definition ceremony (interview + mandatory benchmark web search + requirements.md/CLAUDE.md authoring)
-  # Sprint-end cross-review (5-aspect parallel): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
+  # Per-PBI Integrity stage (5-aspect, Developer-spawned at Round tail): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
+  # Sprint-end cross-review is audit-only: 4 whole-repo codebase-audit axes (general-purpose Agent spawns, not named agents)
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
 skills/                  # 19 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance + 1 brief authoring) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
   create-brief/          # Co-author docs/product/brief.md with the human (interactive); pre-flight for autonomous launch when no brief exists
   change-process/        # Manage changes to frozen design docs
-  codebase-audit/        # Whole-repo multi-agent audit (spec-conformance/logic-defect/redundancy); runs every Sprint inside cross-review (non-blocking, next-Sprint PBIs) + thin re-check at Integration-Sprint entry
-  cross-review/          # Sprint-end cross-cutting quality gate
+  codebase-audit/        # Whole-repo 4-axis audit (spec-conformance/logic-defect/redundancy/product-security); IS the Sprint-end cross-review (non-blocking, next-Sprint PBIs) + thin re-check at Integration-Sprint entry
+  cross-review/          # Sprint-end audit-only ceremony (runs codebase-audit; non-blocking)
   pbi-pipeline/          # PBI conductor pipeline (orchestrator + references/)
   pbi-escalation-handler/ # SM-side escalation handler
   pbi-merge/             # SM-side per-PBI merge orchestration
@@ -139,9 +140,9 @@ sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md 
   the pipeline. **kind=code** runs the full pipeline above.
   **kind=docs** (paths_touched ⊆ `**/*.md`) skips Design and the
   entire UT pipeline — only `pbi-implementer` + `codex-impl-reviewer`
-  run — and Sprint-end cross-review evaluates it against aspects 1
-  (req-conformance) and 5 (docs-consistency) only. `kind` is set by
-  `backlog-refinement` and machine-enforced at ready-to-merge
+  run — and its per-PBI Integrity stage runs aspects 1 (req-conformance)
+  and 5 (docs-consistency) only (after impl-review PASS). `kind` is set
+  by `backlog-refinement` and machine-enforced at ready-to-merge
   (violation → `escalated(kind_mismatch)`). Full flow:
   `skills/pbi-pipeline/SKILL.md` § Stages + `docs/data-model.md`
   § kind=docs override.
@@ -248,7 +249,8 @@ per-merge regression gate that runs
 `.scrum/config.json.merge_regression.command` (skipped with WARN when
 unset), SendMessage matrix for `conflict` / `artifact_missing` /
 `regression`, and 3-strike escalation to `pbi-escalation-handler`).
-The full Sprint-end lint/quality review still runs in `cross-review`.
+The Sprint-end whole-repo audit (static analysis + 4-axis
+`codebase-audit`) still runs in `cross-review`.
 
 In **deployed target projects** (registered via `setup-user.sh`), the
 hook `pre-tool-use-no-branch-ops.sh` scans each shell statement segment

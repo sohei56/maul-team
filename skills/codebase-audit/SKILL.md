@@ -1,13 +1,14 @@
 ---
 name: codebase-audit
 description: >
-  Whole-repo, multi-agent audit that runs EVERY Sprint as part of
-  cross-review (spec-conformance, logic/defect hunt, redundancy over the
-  ACCUMULATED codebase at HEAD — not the Sprint diff). Findings are
-  non-blocking at cross-review time: Critical/High become draft PBIs for
-  the NEXT Sprint, Medium/Low at PO discretion. At Integration-Sprint
-  entry a thin re-check confirms the latest audit is fresh and no open
-  Critical/High audit PBIs remain before testing proceeds.
+  Whole-repo, multi-agent audit that IS the Sprint-end cross-review
+  ceremony (product-wide integrity): 4 axes — spec-conformance,
+  logic/defect hunt, redundancy, and product-security — over the
+  ACCUMULATED codebase at HEAD, not the Sprint diff. Findings are
+  non-blocking: Critical/High become draft PBIs for the NEXT Sprint,
+  Medium/Low at PO discretion. At Integration-Sprint entry a thin
+  re-check confirms the latest audit is fresh and no open Critical/High
+  audit PBIs remain before testing proceeds.
 disable-model-invocation: false
 ---
 
@@ -37,7 +38,7 @@ starts from an already-audited, already-remediated codebase. Context
 case: it exists only to close the hole where an audit PBI was filed but
 never fixed before integration.
 
-The audit runs along three evidence-based axes, each a single parallel
+The audit runs along four evidence-based axes, each a single parallel
 auditor via the `Agent` tool:
 
 | Axis | Focus | What only this axis catches |
@@ -45,6 +46,14 @@ auditor via the `Agent` tool:
 | `spec-conformance` | Implementation vs enabled specs + requirements | Divergences, coded-but-unspecified behavior (dead code that is also a spec gap), and spec-vs-spec conflicts |
 | `logic-defect` | I/O orchestration + wiring layer | Feature-disabling production defaults, boundaries unit tests mock out, silent failures, edge cases in scheduling / state transitions |
 | `redundancy` | Dead code, cross-PBI duplication, stale docs | Unused exports, duplicate implementations of the same logic across PBIs, docstrings that no longer match the code |
+| `product-security` | Product-wide security integrity | Authorization boundaries spanning components/PBIs, data flows crossing trust boundaries, secrets/credential handling across the codebase, injection surfaces at integration points, security controls no single PBI owned |
+
+The per-PBI pipeline now runs a diff-local security aspect review on
+each PBI before it reaches `awaiting_cross_review`. The audit's
+`product-security` axis is deliberately the **complement** of that: it
+owns only what a single-PBI diff cannot see (cross-component authz,
+whole-repo secret handling, integration-point injection surfaces), and
+does **not** re-review single-PBI diff-local security.
 
 ## Inputs
 
@@ -182,25 +191,25 @@ STATIC="$(ls .scrum/reviews/static-analysis-r*.json 2>/dev/null | sort -V | tail
 Do NOT pass `.scrum/` pipeline state, dev communications, or PBI
 descriptions beyond the fields above.
 
-### Step 2 — Obtain the 3 auditors' findings
+### Step 2 — Obtain the 4 auditors' findings
 
-- **Context (a) — embedded in cross-review.** The three axes were
-  already spawned as part of the cross-review 8-agent barrage (5 aspect
-  reviewers + 3 audit axes; see `skills/cross-review/SKILL.md`). Do
-  **not** re-spawn — collect each axis auditor's final message once its
-  Task reaches `Status = completed`. The duration notice and wait
-  barrier are owned by cross-review.
+- **Context (a) — embedded in cross-review.** The four axes are the
+  entire cross-review barrage (Sprint-end cross-review is
+  audit-only; see `skills/cross-review/SKILL.md`). Do **not** re-spawn
+  — collect each axis auditor's final message once its Task reaches
+  `Status = completed`. The duration notice and wait barrier are owned
+  by cross-review.
 - **Context (b) fresh run, or any standalone invocation.** Announce
-  duration, then spawn the 3 axes yourself — one `Agent` call per axis,
+  duration, then spawn the 4 axes yourself — one `Agent` call per axis,
   `run_in_background: true`, single message, each carrying the common
   protocol + its axis prompt from
   [`references/axes.md`](references/axes.md) + the Step 1 read set:
 
-  > "Codebase audit: 3 アスペクトを並列起動します（リポジトリ全体走査）。
+  > "Codebase audit: 4 アスペクトを並列起動します（リポジトリ全体走査）。
   > 完了まで数分かかります。その間 `completion-gate.sh` がセッション終了
   > をブロックします。5 分以上応答がなければ声をかけてください。"
 
-  Wait for all 3 Tasks to reach `Status = completed` (a Stop-hook block
+  Wait for all 4 Tasks to reach `Status = completed` (a Stop-hook block
   during the wait is not a failure). Auditors are single-shot; re-spawn
   only a single auditor whose final message is missing or empty. After
   each completes, `git status` must be clean (read-only is
@@ -212,13 +221,18 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
 `.scrum/reviews/` is carved out of the scrum-state guard; the SM has no
 `Write` tool):
 - **Within-audit dedup:** the same defect surfaced by two axes counts
-  **once** (keep the higher severity, note both axes).
-- **Cross-reference aspect-4 (maintainability).** In context (a) the
-  maintainability reviewer ran on the same static-analysis file. A
-  tool-grounded dead-code item surfaced by **both** aspect-4 and the
-  `redundancy` audit axis is one problem: count it once, cross-ref the
-  aspect-4 Finding in the audit report, and do **not** file a second
-  PBI for it in Step 5 (the aspect-4 follow-up already covers it).
+  **once** (keep the higher severity, note both axes). A cross-boundary
+  defect commonly lands on two axes — e.g. a missing authz check that is
+  also a spec divergence (`product-security` + `spec-conformance`), or a
+  duplicated helper that has already drifted (`redundancy` +
+  `logic-defect`). Merge, keep the higher severity, note both axes.
+- **Redundancy axis is static-analysis-grounded.** In context (a) the
+  `redundancy` axis consumes the same two-pass static-analysis file
+  cross-review produced (Pass A Sprint-diff lint + Pass B whole-repo
+  reachability). Sprint-end review no longer has a separate
+  maintainability aspect — the `redundancy` axis is the sole Sprint-level
+  owner of whole-repo dead-code findings, so it must cite that file as
+  ground truth (absent → reachability reasoning at lower confidence).
 - **Severity** (table below) per distinct finding.
 - Number findings `F1..Fn`; each carries axis(es), severity,
   `file:line`, `identity` key, fact, interpretation (labeled
@@ -244,8 +258,10 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   file only those the PO routes to `next_sprint`.
 
 Context (a) is **non-blocking regardless of severity** — do not
-transition the phase, do not fail the Sprint. The Sprint's PASS/FAIL is
-decided entirely by cross-review's 5 aspects.
+transition the phase, do not fail the Sprint. Per-PBI quality was
+already gated by the pipeline's per-PBI aspect reviews before each PBI
+reached `awaiting_cross_review`; the Sprint-end audit only files
+next-Sprint PBIs and never reverts a PBI.
 
 ### Step 5 — File PBIs with cross-Sprint content dedup
 
@@ -322,23 +338,23 @@ the description is the dedup key — it MUST be present and stable.
   in the PBI description, not the per-Sprint prefix. An open match →
   skip; a closed-then-recurred match → `[REGRESSION]` PBI. Never file a
   duplicate for an already-open finding.
-- **Do not double-file against maintainability.** A dead-code item
-  covered by an aspect-4 follow-up PBI is cross-referenced, not
-  re-filed.
 - **Fact vs interpretation stay separated** in every finding.
 - **Spec-vs-spec conflicts check the PO decision log first.**
 - **Redundancy claims are grounded** — cite the static-analysis file
   when it exists; otherwise state the reachability reasoning and mark
   the finding lower-confidence.
+- **`product-security` is whole-repo only.** It audits cross-component
+  authz, trust-boundary data flow, whole-repo secret handling, and
+  integration-point injection surfaces — NOT single-PBI diff-local
+  security, which the per-PBI pipeline security aspect already owns.
 
 ## Exit Criteria
 
 - **Context (a):** `.scrum/reviews/codebase-audit-s{N}.md` exists for
-  the Sprint with all 3 axes represented, findings deduped (within
-  audit + cross-referenced to aspect-4) and severity-classified, fact
-  separated from interpretation. Every Critical/High finding is either
-  a new/regression draft PBI or deduped against an existing open PBI
-  (id noted). Phase untouched; the Sprint verdict is cross-review's.
+  the Sprint with all 4 axes represented, findings deduped (within
+  audit) and severity-classified, fact separated from interpretation.
+  Every Critical/High finding is either a new/regression draft PBI or
+  deduped against an existing open PBI (id noted). Phase untouched.
 - **Context (b):** either **proceed** (fresh report + no open
   Critical/High audit PBI → handed back, phase untouched) or **block**
   (open/newly-found Critical/High → `backlog_created`, blocking PBIs

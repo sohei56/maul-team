@@ -80,10 +80,11 @@ wait for a reply.
    (No-op when already there on re-entry.)
 
    **Codebase-audit pre-flight re-check (mandatory, thin).** The
-   whole-repo `codebase-audit` runs every Sprint inside `cross-review`
-   (context (a)), so by now the codebase has already been audited and
-   its Critical/High findings filed as PBIs. This step is a cheap
-   **re-check**, not a fresh full audit: run the `codebase-audit` skill
+   whole-repo `codebase-audit` (4 axes) IS the Sprint-end `cross-review`
+   ceremony (context (a)) and runs every Sprint, so by now the codebase
+   has already been audited and its Critical/High findings filed as
+   PBIs. This step is a cheap **re-check**, not a fresh full audit: run
+   the `codebase-audit` skill
    with `context=integration_entry`. It verifies (i) the latest audit
    report is fresh — `.scrum/reviews/codebase-audit-s{N}.md` exists for
    the final development Sprint (`N` = numeric sprint number from

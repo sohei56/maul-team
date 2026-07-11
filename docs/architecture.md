@@ -253,8 +253,9 @@ execute.
   Planning. Developer count = min(refined PBIs, 6). Reads `sprint.json`
   + `backlog.json`, spawns teammates with consistent naming (`dev-001-s{N}`,
   ...). Each Developer implements their assigned PBI. There is no
-  reviewer assignment — Sprint-end cross-review is performed by the
-  Scrum Master via independent reviewer sub-agents (FR-009 Layer 2).
+  reviewer assignment — per-PBI aspect review is spawned by the
+  Developer conductor at the pipeline's Integrity stage, and the
+  Sprint-end whole-repo audit is owned by the Scrum Master (FR-009).
 
 - **`install-subagents`**: Verify PBI Pipeline sub-agents
   (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
@@ -369,10 +370,12 @@ PreToolUse hook for the executable contract.
 ### Decision
 Maintain specialist sub-agents as project-managed definitions in
 `agents/`, distributed to `.claude/agents/` by `setup-user.sh`. These
-sub-agents handle cross-review (code quality + security) and developer
-support (TDD guidance, build error resolution). Cross-review is
-performed by the Scrum Master spawning independent reviewer sub-agents,
-NOT by peer Developers reviewing each other's code.
+sub-agents handle review (code quality + security) and developer
+support (TDD guidance, build error resolution). Review is performed by
+independent sub-agents — the 5 aspect reviewers spawned per-PBI by the
+Developer conductor at the Integrity stage, and the Sprint-end
+whole-repo audit axes spawned by the Scrum Master — NOT by peer
+Developers reviewing each other's code.
 
 ### Rationale
 - **Project-managed over external catalog**: The original design (R9-v1)
@@ -388,8 +391,8 @@ NOT by peer Developers reviewing each other's code.
   the Developer, and (c) Codex cross-model review adds a second opinion
   from a different AI model.
 - Sub-agents use the `tools` frontmatter field for tool sandboxing
-  (all cross-review reviewers are read-only) and context isolation via
-  the Task tool.
+  (all review and audit sub-agents are read-only) and context isolation
+  via the Task tool.
 
 ### Alternatives Considered
 - **External catalog (awesome-claude-code-subagents)**: Original R9-v1.
@@ -403,13 +406,19 @@ NOT by peer Developers reviewing each other's code.
 - **Sub-agent catalog**: full list, roles, and tool sandbox in
   `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
-- Cross-review flow: Scrum Master invokes the `cross-review` skill,
-  which runs a static analysis pass and then spawns 5 aspect
-  reviewers in parallel via the Task tool —
-  `requirement-conformance-reviewer`, `functional-quality-reviewer`,
+- Cross-review flow (Sprint-end, audit-only): Scrum Master invokes the
+  `cross-review` skill, which runs a static analysis pass and then spawns
+  the whole-repo `codebase-audit` along 4 axes in parallel via the Agent
+  tool — `spec-conformance`, `logic-defect`, `redundancy`,
+  `product-security` — over the accumulated codebase at HEAD. The audit
+  is non-blocking: Critical/High findings become next-Sprint draft PBIs;
+  it never reverts a PBI.
+- Per-PBI Integrity stage: the 5 aspect reviewers
+  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
   `security-reviewer`, `maintainability-reviewer`,
-  `docs-consistency-reviewer`. Each reviewer ingests the whole Sprint;
-  Findings carry PBI tags via `paths_touched` reverse-lookup.
+  `docs-consistency-reviewer`) now run **per-PBI**, spawned by the
+  Developer conductor at the Round tail before ready-to-merge, over this
+  one PBI's diff; Critical/High reverts the PBI to `in_progress_impl`.
 - PBI Pipeline: the Developer conductor spawns `pbi-*` workers and
   `codex-*-reviewer` critics per Round (see R10).
 - Runtime tracking: `sprint.json` → `developers[].sub_agents` records

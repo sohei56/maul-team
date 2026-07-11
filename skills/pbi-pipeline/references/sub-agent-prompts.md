@@ -219,7 +219,7 @@ Inputs:
 - PBI acceptance_criteria (from backlog.json):
   - <verbatim list, one per line>
 - Parent PBI id: {parent_pbi_id}
-  - Parent PBI cross-review digest (read for context):
+  - Parent PBI Integrity review digest (read for context):
     .scrum/reviews/{parent_pbi_id}-review.md
 - Files to edit (from PBI catalog_targets):
   - <path1>.md
@@ -381,7 +381,7 @@ Inputs:
 - Review target SHA: {review_sha}
 - Base SHA (for diff): {base_sha}
 - Parent PBI id: {parent_pbi_id}
-- Parent PBI cross-review digest:
+- Parent PBI Integrity review digest:
   .scrum/reviews/{parent_pbi_id}-review.md
 - PBI acceptance_criteria (verbatim from backlog.json):
   - <criterion 1>
@@ -458,3 +458,80 @@ Otherwise the review file MUST begin with two header lines:
 
 {common envelope reminder}
 ```
+
+## Integrity aspect reviewers
+
+The 5 aspect reviewers of the per-PBI **Integrity stage** (see
+`integrity-stage.md`) are Claude-backed (`model: opus` frontmatter) and
+**message-based** — they have no `Write` tool and return their review
+as their final assistant message; the conductor reads it from the
+synchronous `Agent` call. No codex preflight, no pin-mismatch respawn
+loop (the worktree is quiescent during the stage). Constraints (scope
+boundary, criterion_key enum, severity) live in each agent definition
+under `agents/` and are not restated here.
+
+Spawn all applicable aspects in a single parallel message (kind=code →
+all 5; kind=docs → aspects 1 + 5). Fill the shared slots below; add the
+per-aspect input line where noted.
+
+### Shared prompt skeleton
+
+```text
+You are {aspect-reviewer-name} for {pbi_id} Round {n}. Independent
+per-PBI Integrity review of THIS PBI's increment (one PBI in scope —
+not the Sprint).
+
+Inputs:
+- PBI worktree root: {worktree_path}
+- Review target SHA: {review_sha}
+- Base SHA (diff bound): {base_sha}
+  The increment under review is
+    git -C {worktree_path} diff {base_sha}..{review_sha} -- {paths_touched}
+- paths_touched (limits the diff to this PBI):
+  - <path1>
+  - <path2>
+- PBI backlog entry (id, title, acceptance_criteria, kind, parent_pbi_id):
+{paste backlog.json entry for {pbi_id}}
+- requirements.md: <path>
+{aspect-specific input lines — see below}
+
+All file reads MUST resolve under {worktree_path} — never the main repo
+checkout. Return your review as your final message using the markdown
+Output Format in your agent definition (a `**Verdict: PASS | FAIL**`
+line plus the Findings list). Do NOT emit the pbi-pipeline JSON
+envelope — its criterion_key enum is codex-reviewer-specific; your
+findings carry this aspect's criterion_key in the markdown list. You
+have no Write tool — do NOT try to write a review file; the conductor
+parses your returned message and consolidates it into
+.scrum/reviews/{pbi_id}-review.md.
+```
+
+### Per-aspect input lines
+
+- **requirement-conformance-reviewer** (kind=code): add
+  ```text
+  - Design doc: .scrum/pbi/{pbi_id}/design/design.md
+  - Final AC coverage map: .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
+  ```
+  (kind=docs): add
+  ```text
+  - Parent PBI id: {parent_pbi_id}
+  - Parent PBI digest: .scrum/reviews/{parent_pbi_id}-review.md
+  ```
+- **functional-quality-reviewer** (kind=code only): add
+  ```text
+  - Design doc: .scrum/pbi/{pbi_id}/design/design.md
+  ```
+- **security-reviewer** (kind=code only): no extra input line (diff +
+  requirements.md suffice).
+- **maintainability-reviewer** (kind=code only): add
+  ```text
+  - Per-PBI static analysis (Pass A over the diff files):
+    .scrum/pbi/{pbi_id}/metrics/static-analysis-r{n}.json
+  ```
+- **docs-consistency-reviewer** (both kinds): add, when the PBI is
+  kind=docs,
+  ```text
+  - Parent PBI id: {parent_pbi_id}
+  - Parent PBI digest: .scrum/reviews/{parent_pbi_id}-review.md
+  ```

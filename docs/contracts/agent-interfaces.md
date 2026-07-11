@@ -61,10 +61,10 @@ responsibilities (what it owns).
 | FR-003 | Create and maintain Product Backlog; progressive refinement |
 | FR-004 | Orchestrate Design phase: determine design document granularity (R8), assign Developers, ensure existing designs are read |
 | FR-005 | Propose Sprint Goals (PO-reviewable scope), get user approval |
-| FR-006 | Assign implementers (one per PBI). Sprint-end review is owned by SM via cross-review (FR-009 Layer 2) — no reviewer assigned per PBI in backlog |
+| FR-006 | Assign implementers (one per PBI). Per-PBI aspect review runs inside the pipeline (Developer-conducted Integrity stage); Sprint-end audit is owned by SM via cross-review (FR-009) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Orchestrate Sprint-end cross-review: run static analysis once, then spawn 5 aspect reviewers in parallel over the whole Sprint. Aspect verdicts route per `skills/cross-review/SKILL.md` § Outputs (aspects 1-3 revert the PBI to `in_progress_impl`; aspects 4-5 append a follow-up PBI). Loop until every Sprint PBI reaches `status: done`. |
+| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` as an **audit-only** ceremony — static analysis + the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). The audit is non-blocking: Critical/High findings become next-Sprint draft PBIs; it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`. |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -117,7 +117,8 @@ named SKILL.md for the exact required state and files/keys written.
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
 | `pbi-merge` | SM-side per-PBI merge into main (rollback / 3-strike escalation) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
 | `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
-| `cross-review` | Sprint-end 5-aspect cross-cutting quality gate | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `cross-review` | Sprint-end audit-only ceremony (static analysis + whole-repo 4-axis `codebase-audit`; non-blocking) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `codebase-audit` | Whole-repo 4-axis audit (embedded in cross-review; thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
 | `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
 | `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
 | `integration-tests` | Design-driven systematic integration testing (boundary values, flow/pattern-branch coverage, external-interface stubs) | `skills/integration-tests/SKILL.md` § Inputs/Outputs |
@@ -266,13 +267,17 @@ Communication protocol.
 **Role**: Ephemeral worker within the spawning agent's session
 
 Full sub-agent catalog (roles, spawning parents, tool sandboxes) in
-`docs/contracts/sub-agents.md`. Cross-review uses 5 aspect-specialized
-reviewers in parallel over the whole Sprint:
-`requirement-conformance-reviewer`, `functional-quality-reviewer`,
+`docs/contracts/sub-agents.md`. The 5 aspect-specialized reviewers
+(`requirement-conformance-reviewer`, `functional-quality-reviewer`,
 `security-reviewer`, `maintainability-reviewer`,
-`docs-consistency-reviewer`. PBI Pipeline uses `pbi-{designer,
-implementer, ut-author}` workers and `codex-{design, impl, ut}-reviewer`
-critics per Round.
+`docs-consistency-reviewer`) are spawned **per-PBI by the Developer** at
+the pipeline's Integrity stage (not Sprint-end). Sprint-end cross-review
+is audit-only: 4 whole-repo `codebase-audit` axes (`spec-conformance`,
+`logic-defect`, `redundancy`, `product-security`) spawned by the SM as
+general-purpose `Agent` calls (not named catalog agents), driven by
+`skills/codebase-audit/references/axes.md`. PBI Pipeline uses
+`pbi-{designer, implementer, ut-author}` workers and `codex-{design,
+impl, ut}-reviewer` critics per Round.
 
 ### Inputs
 - Task description from spawning agent (via Task tool prompt)
@@ -281,8 +286,22 @@ critics per Round.
 
 ### Outputs
 - Task result returned to spawning agent
-- `.scrum/reviews/<pbi-id>-review.md` (reviewer sub-agents)
+- `.scrum/reviews/<pbi-id>-review.md` — the consolidated per-PBI Integrity
+  review, authored by the **Developer conductor** at the Integrity stage
+  (not by the aspect reviewers themselves; they are message-based and
+  have no `Write` tool)
 - File modifications (developer support sub-agents, if applicable)
+
+**Integrity-stage aspect reviewers return markdown, not the JSON
+envelope.** The 5 aspect reviewers spawned at the pipeline's Integrity
+stage return a `**Verdict: PASS | FAIL**` line plus a markdown Findings
+list as their final assistant message — they do **not** emit the
+pbi-pipeline JSON envelope. The envelope contract
+(`docs/contracts/pbi-pipeline-envelope.schema.json`, whose `criterion_key`
+enum is codex-reviewer-specific) remains scoped to the codex reviewers
+only. The conductor parses the markdown verdicts and synthesizes its own
+aggregate `.scrum/pbi/<id>/metrics/integrity-r{n}.json`, which is a
+conductor-owned artifact and is **not** bound by that schema.
 
 ### Responsibilities
 - Reviewer sub-agents: evaluate code against requirements and design docs, produce review reports

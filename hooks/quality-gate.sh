@@ -197,7 +197,7 @@ check_linter() {
   return 1
 }
 
-# Check if cross-review document exists for the PBI
+# Check if the per-PBI Integrity review document exists for the PBI
 check_review_doc() {
   local pbi_id="$1"
   local pbi_data="$2"
@@ -206,7 +206,7 @@ check_review_doc() {
   review_doc_path="$(echo "$pbi_data" | jq -r '.review_doc_path // empty' 2>/dev/null)"
 
   if [ -z "$review_doc_path" ] || [ "$review_doc_path" = "null" ]; then
-    warn "PBI ${pbi_id}: No review document path set. DoD requires a cross-review."
+    warn "PBI ${pbi_id}: No review document path set. DoD requires the per-PBI Integrity review."
     return 1
   fi
 
@@ -215,7 +215,7 @@ check_review_doc() {
     return 1
   fi
 
-  info "PBI ${pbi_id}: Cross-review document present."
+  info "PBI ${pbi_id}: Integrity review document present."
   return 0
 }
 

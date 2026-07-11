@@ -19,6 +19,11 @@ disable-model-invocation: false
   sub-agents verified by install-subagents): `pbi-designer`,
   `pbi-implementer`, `pbi-ut-author`, `codex-design-reviewer`,
   `codex-impl-reviewer`, `codex-ut-reviewer`
+- 5 Integrity-stage aspect reviewer definitions (the remaining catalog
+  sub-agents), spawned in the per-PBI Integrity stage:
+  `requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer`
 
 ## Outputs
 
@@ -89,6 +94,17 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    - aggregate Pass criteria; FAIL → status reverts to in_progress_impl
      (next round) OR escalates (termination gate)
    ↓ PASS
+[Integrity Stage] → see references/integrity-stage.md
+   - runs at the tail of in_progress_ut_run (no own status)
+   - 5 aspect reviewers in parallel against THIS PBI's increment
+     (requirement-conformance, functional-quality, security,
+     maintainability, docs-consistency) + Pass-A static analysis
+   - any Critical/High → FAIL → status reverts to in_progress_impl
+     (next round via begin-impl-round.sh; impl_round hard cap bounds it)
+     OR escalates (termination gate on the union of aspect findings)
+   - PASS → conductor writes .scrum/reviews/<pbi-id>-review.md and sets
+     review_doc_path (quality-gate DoD)
+   ↓ PASS
 [Ready-to-merge handoff]
    - run .scrum/scripts/mark-pbi-ready-to-merge.sh <pbi-id>
      (sets head_sha, paths_touched, ready_at; sets backlog status to
@@ -121,6 +137,14 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    - aggregate verdict; FAIL → status reverts to in_progress_impl
      (next impl round).
    ↓ PASS
+[Integrity Stage]  (aspects 1 + 5 only) → see references/integrity-stage.md
+   - runs at the tail of in_progress_pbi_review (no own status)
+   - requirement-conformance + docs-consistency reviewers only
+   - any Critical/High → FAIL → status reverts to in_progress_impl
+     (next impl round) OR escalates (termination gate)
+   - PASS → conductor writes .scrum/reviews/<pbi-id>-review.md and sets
+     review_doc_path
+   ↓ PASS
 [Ready-to-merge handoff]  (UT Run stage skipped)
    - mark-pbi-ready-to-merge.sh enforces paths_touched ⊆ **/*.md;
      violation → escalation_reason=kind_mismatch.
@@ -142,6 +166,13 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
 - `codex-design-reviewer` — Design Round Step 2 (sequential)
 - `pbi-implementer` ‖ `pbi-ut-author` — Impl Round Step 1 (parallel pair)
 - `codex-impl-reviewer` ‖ `codex-ut-reviewer` — PBI Review Stage (parallel pair)
+- `requirement-conformance-reviewer` ‖ `functional-quality-reviewer` ‖
+  `security-reviewer` ‖ `maintainability-reviewer` ‖
+  `docs-consistency-reviewer` — Integrity Stage (parallel barrage;
+  kind=code all 5, kind=docs aspects 1 + 5 only). These are
+  Claude-backed (`model: opus`) and message-based — no codex preflight,
+  no `Write` tool; the conductor consolidates their returned messages.
+  See `references/integrity-stage.md`.
 
 **Every Agent spawn in this pipeline is synchronous — pass
 `run_in_background: false`.** A background spawn parks the conductor:

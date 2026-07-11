@@ -210,53 +210,66 @@ Board, and Work Log, all updating in real time.
 ### User Story 5 - Project-Managed Specialist Sub-Agents (Priority: P5)
 
 The system provides project-managed specialist sub-agents that
-support the Scrum workflow. During Sprint-end cross-review, the
-Scrum Master spawns 5 aspect-specialized reviewer sub-agents in
-parallel (`requirement-conformance-reviewer`,
+support the Scrum workflow. The 5 aspect-specialized reviewer
+sub-agents (`requirement-conformance-reviewer`,
 `functional-quality-reviewer`, `security-reviewer`,
-`maintainability-reviewer`, `docs-consistency-reviewer`) over the
-whole Sprint to evaluate the merged Increment along requirement
-coverage, cross-PBI functional quality, security, maintainability,
-and docs consistency. During implementation, Developer teammates
-install PBI Pipeline sub-agents (`pbi-*`, `codex-*-reviewer`)
-via the `install-subagents` Skill. All sub-agent definitions are
-maintained in the project's `agents/` directory and distributed
-to `.claude/agents/` by `setup-user.sh`. This happens
-automatically without user involvement.
+`maintainability-reviewer`, `docs-consistency-reviewer`) run
+**per-PBI**, spawned by the Developer conductor at the pipeline's
+**Integrity stage** (the final quality gate before ready-to-merge)
+to evaluate that one PBI's increment along requirement coverage,
+functional quality, security, maintainability, and docs
+consistency. Sprint-end cross-review is instead an **audit-only**
+ceremony in which the Scrum Master spawns the whole-repo
+`codebase-audit` along four axes (spec-conformance, logic-defect,
+redundancy, product-security) — defects that only emerge in the
+accumulated codebase, not in any single diff. During
+implementation, Developer teammates install PBI Pipeline sub-agents
+(`pbi-*`, `codex-*-reviewer`) via the `install-subagents` Skill.
+All sub-agent definitions are maintained in the project's `agents/`
+directory and distributed to `.claude/agents/` by `setup-user.sh`.
+This happens automatically without user involvement.
 
-**Verification**: Observe cross-review and verify the Scrum Master
-spawns reviewer sub-agents that read requirements and design docs.
-Observe implementation and verify Developers use support sub-agents.
+**Verification**: Observe a PBI pipeline and verify the Developer
+spawns the 5 aspect reviewers at the Integrity stage. Observe
+Sprint-end cross-review and verify the Scrum Master spawns the 4
+whole-repo audit axes. Observe implementation and verify Developers
+use support sub-agents.
 
 **Acceptance Scenarios**:
 
-1. **Given** all implementers have completed their work and merged,
+1. **Given** a PBI's Round reaches its terminal stage (kind=code: UT
+   Run PASS; kind=docs: impl-review PASS),
+   **When** the Developer conductor runs the Integrity stage,
+   **Then** the aspect reviewer sub-agents (kind=code: all 5;
+   kind=docs: aspects 1 + 5) are spawned in parallel over this PBI's
+   diff (`{base_sha}..{review_sha}` scoped to `paths_touched`), each
+   returning a markdown `**Verdict: PASS | FAIL**` + Findings.
+
+2. **Given** any Integrity-stage aspect reviewer returns a
+   Critical|High Finding, **When** the conductor computes the
+   Integrity verdict, **Then** the PBI is reverted to
+   `status: in_progress_impl` for the next Round (bounded by the
+   `impl_round` hard cap) and the Critical/High findings feed the
+   next Round's impl/UT fix input. A PASS (no Critical/High) writes
+   the consolidated `.scrum/reviews/<pbi-id>-review.md`, sets
+   `review_doc_path`, and proceeds to ready-to-merge.
+
+3. **Given** all Sprint PBIs have merged,
    **When** the Scrum Master invokes the `cross-review` Skill,
-   **Then** the 5 aspect reviewer sub-agents enumerated in US5 are
-   spawned in parallel and review the **whole Sprint Increment**
-   against `requirements.md` and design documents. Findings tag
-   PBIs by reverse-lookup against `paths_touched`.
-
-2. **Given** an aspect-1/2/3 reviewer (req-conformance /
-   functional-quality / security) returns a Critical|High Finding
-   on a PBI, **When** cross-review processes the verdict, **Then**
-   that PBI is reverted to `status: in_progress_impl` and the
-   Developer is re-engaged to fix.
-
-3. **Given** an aspect-4/5 reviewer (maintainability /
-   docs-consistency) returns a Critical|High Finding on a PBI,
-   **When** cross-review processes the verdict, **Then** the PBI
-   itself proceeds to `done` and a follow-up draft PBI is appended
-   to the backlog (title prefix
-   `[cross-review-followup:<pbi-id>:<aspect>]`, `parent_pbi_id`
-   set, dedup on title).
+   **Then** static analysis runs once and the 4 whole-repo
+   `codebase-audit` axes are spawned in parallel; the audit is
+   **non-blocking** — its Critical/High findings become draft PBIs
+   for the **next** Sprint (title prefix
+   `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
+   across Sprints), it never reverts a PBI, and every reviewed PBI
+   transitions `cross_review → done`.
 
 4. **Given** Sprint Planning assigns a PBI to a Developer teammate,
    **When** the Developer prepares for implementation,
    **Then** the Developer verifies PBI Pipeline sub-agents
    (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
    `codex-design-reviewer`, `codex-impl-reviewer`,
-   `codex-ut-reviewer`) AND cross-review reviewer sub-agents
+   `codex-ut-reviewer`) AND the 5 Integrity-stage aspect reviewers
    (`requirement-conformance-reviewer`,
    `functional-quality-reviewer`, `security-reviewer`,
    `maintainability-reviewer`, `docs-consistency-reviewer`) are
@@ -399,31 +412,38 @@ Observe implementation and verify Developers use support sub-agents.
   their respective source set — never the opposing artifact —
   enforcing black-box UT discipline. Verdicts (PASS/FAIL with
   structured findings) feed the pipeline's deterministic termination
-  gates (success / stagnation / divergence / hard cap N=5). **Layer
-  2 (Sprint-end cross-review)**: after each per-PBI merge, the PBI
-  is queued at `status: awaiting_cross_review`. At Sprint end the
-  Scrum Master runs the `cross-review` skill which transitions each
-  queued PBI to `status: cross_review` and runs static analysis
-  once (Python `ruff`, Shell `shellcheck`) before spawning **5
-  aspect-specialized reviewers in parallel over the whole Sprint
-  (no per-PBI fan-out)**:
-  `requirement-conformance-reviewer`, `functional-quality-reviewer`
-  (cross-PBI seams only), `security-reviewer`,
-  `maintainability-reviewer` (dead-code claims grounded in static
-  analysis), and `docs-consistency-reviewer` (`docs/**` vs.
-  implementation drift). Findings tag PBIs by `paths_touched`
-  reverse-lookup; multi-PBI Findings are copied to each affected
-  PBI digest. Per-PBI review files at
-  `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` are read for
-  context but NOT re-evaluated. **FAIL routing splits by aspect:**
-  aspect 1/2/3 Critical|High → PBI returns to
-  `status: in_progress_impl` (Developer fix loop, full 5-aspect
-  re-evaluation on re-merge); aspect 4/5 Critical|High → PBI
-  proceeds to `done` and a follow-up draft PBI is appended to the
-  backlog with title prefix `[cross-review-followup:<pbi-id>:<aspect>]`
-  and `parent_pbi_id` set (dedup by title). The Codex-fallback
-  rule still applies to Layer 1 reviewers (`codex-impl-reviewer`,
-  `codex-ut-reviewer`).
+  gates (success / stagnation / divergence / hard cap N=5). At the
+  Round tail, before ready-to-merge, the conductor runs the
+  **Integrity stage**: the 5 aspect-specialized reviewers
+  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer` — kind=code spawns all 5; kind=docs
+  spawns aspects 1 + 5 only) review this one PBI's diff
+  (`{base_sha}..{review_sha}` scoped to `paths_touched`) and return
+  markdown `**Verdict: PASS | FAIL**` + Findings (not the codex JSON
+  envelope). Any Critical|High finding reverts the PBI to
+  `status: in_progress_impl` for the next Round (bounded by the
+  `impl_round` hard cap N=5), its findings folding into the next
+  Round's impl/UT fix input; a PASS writes the consolidated
+  `.scrum/reviews/<pbi-id>-review.md`, sets `review_doc_path`, and
+  proceeds to ready-to-merge. **Layer 2 (Sprint-end cross-review,
+  audit-only)**: after each per-PBI merge, the PBI is queued at
+  `status: awaiting_cross_review`. At Sprint end the Scrum Master
+  runs the `cross-review` skill which transitions each queued PBI to
+  `status: cross_review`, runs static analysis once (Python `ruff`,
+  Shell `shellcheck` intra-file lint + a whole-repo dead-export /
+  reachability pass) feeding the redundancy axis, then spawns the
+  whole-repo `codebase-audit` along **four axes in parallel**
+  (`spec-conformance`, `logic-defect`, `redundancy`,
+  `product-security`) over the accumulated codebase at HEAD —
+  defects no single PBI or Sprint diff can see. The audit is
+  **non-blocking**: it never reverts a PBI; its Critical|High
+  findings become draft PBIs for the **next** Sprint (title prefix
+  `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
+  across Sprints, `[REGRESSION]`-tagged when a closed finding
+  recurs), and every reviewed PBI transitions `cross_review → done`.
+  The Codex-fallback rule still applies to Layer 1 codex reviewers
+  (`codex-impl-reviewer`, `codex-ut-reviewer`).
 
 - **FR-010**: At Sprint Review, the Scrum Master MUST present the
   Increment with a change summary. A live demo MUST be performed
@@ -636,12 +656,13 @@ Observe implementation and verify Developers use support sub-agents.
   alone — the user never edits structured files.
 
 - **SC-003**: Every Development Sprint produces at least one
-  Increment that meets the Definition of Done, including
-  Sprint-end cross-review by 5 aspect-specialized reviewer
-  sub-agents (`requirement-conformance-reviewer`,
-  `functional-quality-reviewer`, `security-reviewer`,
-  `maintainability-reviewer`, `docs-consistency-reviewer`) spawned
-  in parallel by the Scrum Master.
+  Increment that meets the Definition of Done, including a per-PBI
+  Integrity-stage review by 5 aspect-specialized reviewer sub-agents
+  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer`) spawned by the Developer conductor
+  before ready-to-merge, plus a non-blocking Sprint-end whole-repo
+  `codebase-audit` (4 axes) spawned by the Scrum Master.
 
 - **SC-004**: The user can understand project status at any time
   through the TUI dashboard without inspecting code, logs, or

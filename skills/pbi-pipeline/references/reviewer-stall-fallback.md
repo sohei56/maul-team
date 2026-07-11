@@ -147,7 +147,8 @@ hand-rolled spin loop.
 - Do NOT mix codex output and fallback output in the same
   `review-r{n}.md`. The fallback overwrites the file; the codex
   partial output (if any) is discarded.
-- The Sprint-end aspect reviewers in `cross-review` are **not**
-  covered by this protocol — they are not codex-backed. See
-  `skills/cross-review/SKILL.md` Step 8 "Reviewer wait barrier" for
-  the analogous policy on that side.
+- The per-PBI Integrity-stage aspect reviewers (`integrity-stage.md`)
+  are **not** covered by this protocol — they are Claude-backed, not
+  codex-backed, and message-based (no review file to stall on). See
+  `integrity-stage.md` § Step I-3 for their bounded-wait + single-retry
+  handling.

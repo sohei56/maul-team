@@ -30,7 +30,8 @@ Verify these 11 sub-agents exist with valid YAML frontmatter at
 - `codex-impl-reviewer`
 - `codex-ut-reviewer`
 
-**Sprint-end Cross-Review (SM-spawned, 5-aspect parallel):**
+**PBI Integrity stage (Developer-spawned, 5-aspect parallel at the
+Round tail):**
 
 - `requirement-conformance-reviewer`
 - `functional-quality-reviewer`

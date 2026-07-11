@@ -73,15 +73,20 @@ to `in_progress_impl`. It is idempotent on respawn (returns current
 `impl_round` without mutation when `impl_status == "pending"` AND
 `impl_round > 0`). It refuses to start from illegal pre-states
 (anything other than `in_progress_design`, `in_progress_pbi_review`,
-`in_progress_ut_run`, `cross_review`, `in_progress_impl`).
+`in_progress_ut_run`, `in_progress_impl`).
 
-Rationale: a Cross Review aspect-1/2/3 FAIL reverts the PBI to
-`in_progress_impl` without touching `state.json.impl_round`. When the
-counter was computed by the agent (LLM reads `impl_round`, adds 1,
-writes back), this re-entry path was undocumented and the conductor
-restarted at Round 1 — observable as the dashboard's Round column
-regressing from N to 1. Centralising the counter in a wrapper makes
-that regression structurally impossible. Direct
+Rationale: a review revert re-enters impl without touching
+`state.json.impl_round`. When the counter was computed by the agent
+(LLM reads `impl_round`, adds 1, writes back), this re-entry path was
+undocumented and the conductor restarted at Round 1 — observable as
+the dashboard's Round column regressing from N to 1 (historically
+triggered by the Sprint-end Cross Review reverts that existed before
+cross-review became audit-only; today the same re-entry shape comes
+from the Integrity-stage revert, which pre-sets `in_progress_impl`
+before calling the wrapper). Centralising the counter in a wrapper
+makes that regression structurally impossible. `cross_review` was
+dropped from the legal pre-states when cross-review stopped reverting
+PBIs. Direct
 `update-pbi-state.sh ... impl_round <N>` is still accepted (for
 migration tooling and tests) but is forbidden during the live
 pipeline.
