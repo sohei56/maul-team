@@ -28,8 +28,9 @@
 #   AUTON_CLAUDE_BIN     — claude binary (default `claude`)
 #   AUTON_SLEEP_SCALE    — multiplier on every sleep duration (default 1; 0
 #                          disables sleeping entirely — useful for tests)
-#   AUTON_NOW_CMD        — command emitting epoch seconds for the "now"
-#                          comparison points (default `date +%s`)
+#   SCRUM_NOW_EPOCH      — pins now_epoch for the "now" comparison points
+#                          (shared seam in scripts/lib/time.sh; replaces the
+#                          legacy eval-based AUTON_NOW_CMD hook)
 #
 # Bash 3.2 compatible. shellcheck clean.
 #
@@ -49,11 +50,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/report.sh"
 # shellcheck source=../lib/jq-read.sh
 . "$SCRIPT_DIR/../lib/jq-read.sh"
+# shellcheck source=../lib/time.sh
+. "$SCRIPT_DIR/../lib/time.sh"
 
 # --- Configurable test hooks --------------------------------------------------
 AUTON_CLAUDE_BIN="${AUTON_CLAUDE_BIN:-claude}"
 AUTON_SLEEP_SCALE="${AUTON_SLEEP_SCALE:-1}"
-AUTON_NOW_CMD="${AUTON_NOW_CMD:-date +%s}"
 
 # --- Files -------------------------------------------------------------------
 CONFIG_FILE=".scrum/config.json"
@@ -84,13 +86,7 @@ MAX_RATE_LIMIT_WAIT_SECS=21600
 
 # --- Helpers ----------------------------------------------------------------
 
-now_epoch() {
-  eval "$AUTON_NOW_CMD"
-}
-
-iso_utc_now() {
-  date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z"
-}
+# now_epoch / iso_utc_now come from scripts/lib/time.sh (sourced above).
 
 # iso_to_epoch <iso8601> — convert an ISO-8601 UTC timestamp to unix epoch
 # seconds, portable across GNU (`date -d`) and BSD (`date -j -f`). Emits 0 when
@@ -147,17 +143,6 @@ cfg_value() {
   jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
-# cfg_str_or_null <jq_path>
-cfg_str_or_null() {
-  local path="$1" val
-  if [ ! -f "$CONFIG_FILE" ]; then
-    return 0
-  fi
-  val="$(jq -r "$path // empty" "$CONFIG_FILE" 2>/dev/null || true)"
-  [ "$val" = "null" ] && val=""
-  printf '%s' "$val"
-}
-
 # autonomy_atomic_write <jq_expr>
 # Applies <jq_expr> to autonomy.json and ALWAYS stamps .updated_at with the
 # current time, so call sites never append the updated_at clause themselves.
@@ -173,6 +158,17 @@ autonomy_atomic_write() {
   fi
   rm -f "$tmp"
   return 1
+}
+
+# record_failure <reason>
+# Stamps `.last_failure = {reason, at}` on autonomy.json — the single
+# definition of the last_failure shape in this file (read back by
+# lib/report.sh for the morning report). Fail-open: a write failure is
+# swallowed so bookkeeping never aborts the loop.
+record_failure() {
+  autonomy_atomic_write \
+    "(.last_failure = {reason: \"$1\", at: \"$(iso_utc_now)\"})" \
+    || true
 }
 
 # progress_hash — emits sha of phase + current_sprint_id + every PBI's id:status.
@@ -444,7 +440,7 @@ case "$PERMISSION_MODE" in
   dontAsk|bypassPermissions) ;;
   *) PERMISSION_MODE="$DEFAULT_PERMISSION_MODE" ;;
 esac
-FALLBACK_MODEL="$(cfg_str_or_null '.autonomous.fallback_model')"
+FALLBACK_MODEL="$(cfg_value '.autonomous.fallback_model' "")"
 
 # wall-clock seconds limit
 MAX_WALL_SECS="$(awk -v h="$MAX_WALL_HOURS" 'BEGIN{printf "%d", h*3600}')"
@@ -612,9 +608,7 @@ while :; do
       printf 'watchdog: rate-limit detected; no reset time parsed — sleeping %ss\n' \
         "$WAIT_SECS" >&2
     fi
-    autonomy_atomic_write \
-      "(.last_failure = {reason: \"rate_limit_wait\", at: \"$(iso_utc_now)\"})" \
-      || true
+    record_failure "rate_limit_wait"
     do_sleep "$WAIT_SECS"
     LAST_HASH="$NEW_HASH"
     ITER=$((ITER - 1))
@@ -645,9 +639,7 @@ while :; do
     REASON="no_progress"
     [ "$rc" -ne 0 ]      && REASON="claude_exit_${rc}"
     [ -n "$CB_TRIPPED" ] && REASON="circuit_breaker"
-    autonomy_atomic_write \
-      "(.last_failure = {reason: \"${REASON}\", at: \"$(iso_utc_now)\"})" \
-      || true
+    record_failure "$REASON"
     printf 'watchdog: failure (%s); fail_streak=%s\n' "$REASON" "$FAIL_STREAK" >&2
   fi
 

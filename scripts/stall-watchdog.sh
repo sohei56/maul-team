@@ -57,7 +57,9 @@
 # Test hooks (env vars; harmless in production):
 #   STALL_TMUX_BIN     — tmux binary to use (default `tmux`). Tests stub it
 #                        via a PATH-shimmed script.
-#   STALL_NOW_EPOCH    — override "now" for deterministic comparison.
+#   SCRUM_NOW_EPOCH    — pins now_epoch for deterministic comparison (shared
+#                        seam in scripts/lib/time.sh). The legacy name
+#                        STALL_NOW_EPOCH is still honored as an alias.
 #
 # Bash 3.2 compatible. shellcheck clean.
 
@@ -66,6 +68,14 @@ set -euo pipefail
 STALL_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/jq-read.sh
 . "$STALL_SCRIPT_DIR/lib/jq-read.sh"
+# shellcheck source=lib/time.sh
+. "$STALL_SCRIPT_DIR/lib/time.sh"
+
+# Back-compat: honor the legacy per-daemon override name by mapping it onto
+# the shared time.sh seam (explicit SCRUM_NOW_EPOCH wins when both are set).
+if [ -z "${SCRUM_NOW_EPOCH:-}" ] && [ -n "${STALL_NOW_EPOCH:-}" ]; then
+  SCRUM_NOW_EPOCH="$STALL_NOW_EPOCH"
+fi
 
 # ---------------------------------------------------------------------------
 # Arg parsing
@@ -132,17 +142,7 @@ TMUX_BIN="${STALL_TMUX_BIN:-tmux}"
 # Helpers
 # ---------------------------------------------------------------------------
 
-now_epoch() {
-  if [ -n "${STALL_NOW_EPOCH:-}" ]; then
-    printf '%s\n' "$STALL_NOW_EPOCH"
-  else
-    date +%s
-  fi
-}
-
-iso_utc_now() {
-  date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z"
-}
+# now_epoch / iso_utc_now come from scripts/lib/time.sh (sourced above).
 
 log_msg() {
   # log_msg <level> <message>

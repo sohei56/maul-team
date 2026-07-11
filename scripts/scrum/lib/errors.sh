@@ -8,20 +8,12 @@ if [ "${_SCRUM_ERRORS_SH_LOADED:-}" = "1" ]; then
 fi
 _SCRUM_ERRORS_SH_LOADED=1
 
-# Exit codes — exported as readonly for callers that source this file.
-# shellcheck disable=SC2034  # constants are consumed by sourcing scripts/tests
-readonly E_OK=0
-# shellcheck disable=SC2034
-readonly E_INVALID_ARG=64
-# shellcheck disable=SC2034
-readonly E_SCHEMA=65
-# shellcheck disable=SC2034
-readonly E_LOCK_TIMEOUT=66
-# shellcheck disable=SC2034
-readonly E_FILE_MISSING=67
-# shellcheck disable=SC2034
-readonly E_NO_VALIDATOR=68
-
+# fail <E_NAME> <message...>
+# Prints `[scrum-tool] <E_NAME>: <message>` to stderr and exits with the
+# fixed code mapped below. Callers pass the name as a STRING (e.g.
+# `fail E_INVALID_ARG "bad status"`); this case map is the single source
+# of the name → exit-code binding (documented in
+# docs/MIGRATION-scrum-state-tools.md § Failure modes).
 fail() {
   local code_name="$1"; shift
   local msg="$*"
@@ -31,7 +23,6 @@ fail() {
     E_SCHEMA)       code=65 ;;
     E_LOCK_TIMEOUT) code=66 ;;
     E_FILE_MISSING) code=67 ;;
-    E_NO_VALIDATOR) code=68 ;;
     *)              code=1 ;;
   esac
   printf '[scrum-tool] %s: %s\n' "$code_name" "$msg" >&2

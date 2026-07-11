@@ -280,6 +280,32 @@ set_mtime_ago() {
 }
 
 # --------------------------------------------------------------------------
+# (f2) SCRUM_NOW_EPOCH (shared scripts/lib/time.sh seam) pins "now"
+# --------------------------------------------------------------------------
+@test "stall-watchdog: SCRUM_NOW_EPOCH pins now → fresh activity looks stale, nudge fires" {
+  seed_backlog_inflight 1
+  mkdir -p .scrum/pbi/pbi-001
+  # dashboard.json freshly touched — with the real clock this would be "no
+  # nudge" (scenario b). Pin now 10 minutes ahead so idle > 1-min threshold.
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+  SCRUM_NOW_EPOCH=$(( $(date +%s) + 600 )) run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+}
+
+# --------------------------------------------------------------------------
+# (f3) legacy STALL_NOW_EPOCH alias still maps onto the shared seam
+# --------------------------------------------------------------------------
+@test "stall-watchdog: legacy STALL_NOW_EPOCH override still honored" {
+  seed_backlog_inflight 1
+  mkdir -p .scrum/pbi/pbi-001
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+  STALL_NOW_EPOCH=$(( $(date +%s) + 600 )) run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+}
+
+# --------------------------------------------------------------------------
 # (g) tmux session vanished → exit 0 (clean shutdown)
 # --------------------------------------------------------------------------
 @test "stall-watchdog: tmux has-session fails → exit 0 (team gone)" {

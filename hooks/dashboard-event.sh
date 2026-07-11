@@ -81,6 +81,52 @@ save_session_name() {
   fi
 }
 
+# emit_dashboard_status_event <type> <detail> [pbi_id]
+# Appends a lifecycle event (Stop / SubagentStart / SubagentStop /
+# TaskCompleted) to the dashboard events log. Uses the globals
+# `timestamp` and `agent_id` resolved in Main. file_path/change_type are
+# always null for these event types. The pbi_id parameter is
+# presence-sensitive: when a third argument is passed the event carries
+# a "pbi_id" key (empty string → JSON null); when omitted, no "pbi_id"
+# key is emitted at all (Stop / TaskCompleted events never had one).
+emit_dashboard_status_event() {
+  local ev_type="$1"
+  local detail="$2"
+  local event_json
+  if [ "$#" -ge 3 ]; then
+    event_json="$(jq -n \
+      --arg ts "$timestamp" \
+      --arg type "$ev_type" \
+      --arg agent "$agent_id" \
+      --arg detail "$detail" \
+      --arg pbi "$3" \
+      '{
+        "timestamp": $ts,
+        "type": $type,
+        "agent_id": $agent,
+        "file_path": null,
+        "change_type": null,
+        "detail": $detail,
+        "pbi_id": (if $pbi == "" then null else $pbi end)
+      }')"
+  else
+    event_json="$(jq -n \
+      --arg ts "$timestamp" \
+      --arg type "$ev_type" \
+      --arg agent "$agent_id" \
+      --arg detail "$detail" \
+      '{
+        "timestamp": $ts,
+        "type": $type,
+        "agent_id": $agent,
+        "file_path": null,
+        "change_type": null,
+        "detail": $detail
+      }')"
+  fi
+  append_dashboard_event "$event_json"
+}
+
 # Check if the last comms message has the same sender and content (dedup)
 is_duplicate_comms() {
   local sender="$1"
@@ -246,93 +292,32 @@ case "$hook_type" in
     # Session or teammate stopping. agent_id resolves to a friendly name
     # only if an earlier event saved a session-map entry for this session.
     reason="$(echo "$hook_event" | jq -r '.reason // "completed"')"
-    detail="session stopped (${reason})"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "status_transition",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "status_transition" "session stopped (${reason})"
     ;;
 
   SubagentStart|subagent_start)
     # Teammate/subagent starting work. The agent name (payload agent_type)
     # is already in agent_id — detail carries only the action.
     pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
-    detail="started work${pbi_id:+ on ${pbi_id}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      --arg pbi "$pbi_id" \
-      '{
-        "timestamp": $ts,
-        "type": "subagent_start",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail,
-        "pbi_id": (if $pbi == "" then null else $pbi end)
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "subagent_start" \
+      "started work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
 
   SubagentStop|subagent_stop)
     # Teammate/subagent finished its work. Name lives in agent_id.
-    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
-    detail="finished work${pbi_id:+ on ${pbi_id}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      --arg pbi "$pbi_id" \
-      '{
-        "timestamp": $ts,
-        "type": "subagent_stop",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail,
-        "pbi_id": (if $pbi == "" then null else $pbi end)
-      }')"
-
     # The comms "finished work" mirror was removed when the dashboard
     # merged its log panes; completion-gate.sh counts in-flight subagents
     # from these dashboard subagent_start/stop events, so they must stay.
-    append_dashboard_event "$event_json"
+    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
+    emit_dashboard_status_event "subagent_stop" \
+      "finished work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
 
   TaskCompleted|task_completed)
     # A task has been completed
     tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
-    detail="completed task${tool_name:+: ${tool_name}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "task_completed",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "task_completed" \
+      "completed task${tool_name:+: ${tool_name}}"
     ;;
 esac
 

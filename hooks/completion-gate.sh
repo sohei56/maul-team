@@ -585,22 +585,23 @@ EOF
       allow_stop
     fi
 
-    in_flight_summary="$(jq -r '
+    # NOTE: the in-flight status filter below (in_progress_* minus
+    # in_progress_merge) is mirrored in scripts/stall-watchdog.sh
+    # (in_flight_count / in_flight_ids / in_flight_summary) — keep the
+    # two files in sync when changing it. Total and grouped summary are
+    # emitted by ONE jq program (tab-separated) because this runs on the
+    # Stop-hook hot path.
+    in_flight_total="0"
+    in_flight_summary=""
+    IFS=$'\t' read -r in_flight_total in_flight_summary < <(jq -r '
       [.items[]? | .status
         | select(startswith("in_progress_"))
         | select(. != "in_progress_merge")
-        | sub("^in_progress_"; "")]
-      | group_by(.)
-      | map("\(length) \(.[0])")
-      | join(", ")
-    ' "$BACKLOG_FILE" 2>/dev/null || echo "")"
-
-    in_flight_total="$(jq -r '
-      [.items[]?
-        | select(.status | startswith("in_progress_"))
-        | select(.status != "in_progress_merge")]
-      | length
-    ' "$BACKLOG_FILE" 2>/dev/null || echo "0")"
+        | sub("^in_progress_"; "")] as $phases
+      | [($phases | length),
+         ($phases | group_by(.) | map("\(length) \(.[0])") | join(", "))]
+      | @tsv
+    ' "$BACKLOG_FILE" 2>/dev/null || printf '0\t\n') || true
 
     escalated_unresolved=""
     while IFS= read -r pbi_id; do

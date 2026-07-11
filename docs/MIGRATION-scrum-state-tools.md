@@ -116,9 +116,10 @@ The threat model is **honest agent**, not adversary. Sophisticated obfuscation (
 | `65` | `E_SCHEMA` | The post-mutation document violates its JSON Schema |
 | `66` | `E_LOCK_TIMEOUT` | Could not acquire `.scrum/locks/<file>.lock.d` within `SCRUM_LOCK_TIMEOUT` seconds (default 10) |
 | `67` | `E_FILE_MISSING` | The target `.scrum/*.json` file does not exist (init it via the relevant ceremony first) |
-| `68` | `E_NO_VALIDATOR` | No JSON Schema validator was found on the host |
 
 All errors print `[scrum-tool] <CONST>: <message>` to stderr.
+
+A missing JSON Schema validator is **not** a distinct exit code: `lib/check-validator.sh` prints `[scrum-tool] E_NO_VALIDATOR: install one of …` to stderr and exits `1`, and the wrappers surface that through the schema-validation path as exit `65` (`E_SCHEMA`) with the validator-missing message embedded in the error text.
 
 ## Reading stays free
 
@@ -133,7 +134,7 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 3. `jsonschema` CLI (deprecated upstream but functional)
 4. Python `jsonschema` module
 
-`scripts/setup-dev.sh` probes and reports the resolved runner. CI / test runs that need determinism set `SCRUM_VALIDATOR_OVERRIDE` to one of `ajv`, `check-jsonschema`, `jsonschema-cli`, `python` to bypass auto-detection. If none of the four runners is available, every wrapper exits `68` (`E_NO_VALIDATOR`).
+`scripts/setup-dev.sh` probes and reports the resolved runner. CI / test runs that need determinism set `SCRUM_VALIDATOR_OVERRIDE` to one of `ajv`, `check-jsonschema`, `jsonschema-cli`, `python` to bypass auto-detection. If none of the four runners is available, `lib/check-validator.sh` prints `[scrum-tool] E_NO_VALIDATOR: …` to stderr and exits `1`; the calling wrapper fails its schema-validation step and exits `65` (`E_SCHEMA`) with that message embedded (see § Failure modes).
 
 ## Known gaps (follow-ups)
 
