@@ -218,6 +218,10 @@ cat > "$settings_file" << 'SETTINGS_EOF'
       "mcp__chrome-devtools"
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "$CLAUDE_PROJECT_DIR/.claude/statusline.sh"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -231,7 +235,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Bash",
+        "matcher": "Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -249,7 +253,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
@@ -258,7 +262,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Read|Write|Edit|MultiEdit|Bash",
+        "matcher": "Read|Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -269,7 +273,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Agent|SendMessage",
+        "matcher": "Write|Edit|Agent|SendMessage",
         "hooks": [
           {
             "type": "command",
@@ -425,23 +429,30 @@ fi
 
 # --- Check Codex CLI for cross-model code review ---
 # The codex-{design,impl,ut}-reviewer sub-agents call `codex` directly via
-# CLI for per-PBI cross-model review (Layer 1 in the PBI Pipeline). When
-# codex is not installed, those sub-agents fall back to Claude-based review.
-# Sprint-end cross-review (Layer 2) is independent of codex and runs the
-# 5 aspect-specialized reviewer sub-agents regardless.
+# CLI for per-PBI cross-model review in the PBI pipeline. When codex is not
+# installed, those sub-agents fall back to Claude-based review. Everything
+# else is codex-independent: the per-PBI Integrity stage runs the 5
+# aspect-specialized reviewer sub-agents, and Sprint-end cross-review is an
+# audit-only 4-axis codebase-audit.
+# check_codex_cli (scripts/lib/check-python.sh, sourced above) owns the
+# probe + install hint; it is silent when codex is present, so the
+# detected-confirmation line must be guarded here.
 
+echo ""
 if command -v codex >/dev/null 2>&1; then
-  echo ""
   echo "Codex CLI detected — cross-model code review enabled."
 else
-  echo ""
-  echo "Note: codex not found — code review will use Claude fallback."
-  echo "  Install: npm i -g @openai/codex && codex login"
+  check_codex_cli
 fi
 
-# --- Configure status line ---
-# Status line config goes in settings.json or .claude/settings.local.json
-# The statusline.sh script is referenced by path
+# --- Deploy status line script ---
+# The settings.json heredoc above registers a statusLine command at
+# $CLAUDE_PROJECT_DIR/.claude/statusline.sh, so the script must exist there
+# and be executable.
+echo ""
+echo "Deploying status line script to $TARGET_DIR/.claude/statusline.sh..."
+cp "$PROJECT_ROOT/scripts/statusline.sh" "$TARGET_DIR/.claude/statusline.sh"
+chmod +x "$TARGET_DIR/.claude/statusline.sh"
 
 echo ""
 echo "=== Setup complete ==="

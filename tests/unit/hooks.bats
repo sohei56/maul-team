@@ -156,22 +156,19 @@ EOF
   [ ! -f ".scrum/communications.json" ]
 }
 
-@test "dashboard-event.sh handles MultiEdit like Write/Edit (DH-F4)" {
+@test "dashboard-event.sh ignores retired MultiEdit tool name" {
   mkdir -p .scrum
 
-  # PostToolUse matcher includes MultiEdit; the inner tool_name case must
-  # route it through the same file_changed branch as Write/Edit.
+  # MultiEdit was merged into Edit in Claude Code; the matcher and the
+  # inner tool_name case no longer carry it. An event with the retired
+  # name must be a silent no-op, not a file_changed event.
   local event_json
   event_json='{"hook_type":"PostToolUse","agent_id":"dev-001","tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/dashboard-event.sh'"
   assert_success
 
-  [ -f ".scrum/dashboard.json" ]
-  jq -e '.events[-1].type == "file_changed"' .scrum/dashboard.json
-  jq -e '.events[-1].file_path == "src/main.py"' .scrum/dashboard.json
-  jq -e '.events[-1].change_type == "modified"' .scrum/dashboard.json
-  jq -e '.events[-1].detail == "MultiEdit on src/main.py"' .scrum/dashboard.json
+  [ ! -f ".scrum/dashboard.json" ]
 }
 
 @test "dashboard-event.sh creates communications.json if missing" {
@@ -544,13 +541,15 @@ EOF
   [ "$decision" = "allow" ]
 }
 
-@test "setup-user.sh settings.json template includes MultiEdit in status-gate matcher" {
-  run grep -q '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+@test "setup-user.sh settings.json template uses Write|Edit status-gate matcher (no retired MultiEdit)" {
+  run grep -q '"matcher": "Write|Edit"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
+  run grep -q 'MultiEdit' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
 }
 
 @test "setup-user.sh settings.json template excludes Bash from dashboard-event matcher" {
-  run grep -q '"matcher": "Write|Edit|MultiEdit|Agent|SendMessage"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep -q '"matcher": "Write|Edit|Agent|SendMessage"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 
@@ -882,12 +881,12 @@ EOF
   assert_output "Write|Edit"
 }
 
-@test "setup-user.sh settings.json template includes Write|Edit|MultiEdit matcher for PreToolUse" {
+@test "setup-user.sh settings.json template includes Write|Edit|Bash matcher for PreToolUse" {
   # Validate the heredoc template source directly — no prereqs required
   run grep -A1 '"PreToolUse"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
   # The matcher line must appear somewhere after PreToolUse in the file
-  run grep '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep '"matcher": "Write|Edit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 

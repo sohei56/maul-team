@@ -130,7 +130,7 @@ case "$hook_type" in
     tool_input="$(echo "$hook_event" | jq -c '.tool_input // {}')"
 
     case "$tool_name" in
-      Write|Edit|MultiEdit)
+      Write|Edit)
         file_path="$(echo "$tool_input" | jq -r '.file_path // empty')"
         if [ -n "$file_path" ]; then
           # Always "modified": this is a PostToolUse hook, so by the time it
