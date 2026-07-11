@@ -92,7 +92,7 @@ STATUS_COLORS = {
     "cross_review": "bright_green",
     "escalated": "red",
     "done": "green",
-    "cancelled": "dim",
+    "cancelled": "green",
     # Developer-managed (blue/cyan family)
     "in_progress_design": "cyan",
     "in_progress_impl": "blue",

@@ -311,14 +311,14 @@ enum PBIStatus {
 
     static func color(_ s: String) -> Color {
         switch s {
-        case "done", "awaiting_cross_review", "cross_review": return .green
+        case "done", "cancelled", "awaiting_cross_review", "cross_review": return .green
         case "refined": return .yellow
         case "blocked", "escalated": return .red
         case "in_progress_design": return .cyan
         case "in_progress_impl", "in_progress_pbi_review": return .blue
         case "in_progress_ut_run": return .teal
         case "in_progress_merge": return .purple
-        case "draft", "cancelled": return .secondary
+        case "draft": return .secondary
         default: return .secondary
         }
     }
