@@ -93,9 +93,9 @@ pipeline.
 
 ## What enforces this
 
-`hooks/pre-tool-use-scrum-state-guard.sh` is registered as a `PreToolUse` hook in `.claude/settings.json` (matcher: `Write|Edit|MultiEdit|Bash`). It blocks:
+`hooks/pre-tool-use-scrum-state-guard.sh` is registered as a `PreToolUse` hook in `.claude/settings.json` (matcher: `Write|Edit|Bash`). It blocks:
 
-- `Write` / `Edit` / `MultiEdit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form). A leading `.scrum/worktrees/<pbi-id>/` prefix is also stripped: each worktree has a `.scrum -> ../../../.scrum` symlink, so a write to `.scrum/worktrees/pbi-001/.scrum/backlog.json` targets the real shared SSOT and is guarded identically to `.scrum/backlog.json` (and worktree-relative exempt-artifact writes are correctly allowed rather than falsely blocked).
+- `Write` / `Edit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form). A leading `.scrum/worktrees/<pbi-id>/` prefix is also stripped: each worktree has a `.scrum -> ../../../.scrum` symlink, so a write to `.scrum/worktrees/pbi-001/.scrum/backlog.json` targets the real shared SSOT and is guarded identically to `.scrum/backlog.json` (and worktree-relative exempt-artifact writes are correctly allowed rather than falsely blocked).
 - `Bash` commands that redirect (`>`, `>>`, `tee`, `sponge`) into `.scrum/*.json`
 - `Bash` with `jq -i`, `sed -i`, or `awk -i inplace` on `.scrum/*.json`
 - `Bash` with `mv X .scrum/*.json` or `cp X .scrum/*.json` (the second half of the redirect-then-rename pattern)

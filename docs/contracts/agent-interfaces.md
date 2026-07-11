@@ -455,7 +455,7 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 
 **Outputs** — each happening is written to exactly one file:
 - `.scrum/dashboard.json` (work events): `file_changed` (PostToolUse
-  `Write|Edit|MultiEdit` branch of `dashboard-event.sh`),
+  `Write|Edit` branch of `dashboard-event.sh`),
   `status_transition` (Stop), `subagent_start` / `subagent_stop`,
   `task_completed`
 - `.scrum/communications.json` (agent messages): `message` (SendMessage —
@@ -466,7 +466,7 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 ```json
 {
   "hooks": {
-    "PostToolUse": [{"matcher": {"tool_name": "Write|Edit|MultiEdit|Agent|SendMessage"}, "hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
+    "PostToolUse": [{"matcher": {"tool_name": "Write|Edit|Agent|SendMessage"}, "hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "TaskCompleted": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "TeammateIdle": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "SubagentStart": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],

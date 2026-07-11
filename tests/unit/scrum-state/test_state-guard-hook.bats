@@ -27,11 +27,6 @@ teardown() {
   [ "$status" -eq 2 ]
 }
 
-@test "guard: blocks MultiEdit on .scrum/sprint.json" {
-  run bash -c "$HOOK <<< '{\"tool_name\":\"MultiEdit\",\"tool_input\":{\"file_path\":\".scrum/sprint.json\"}}'"
-  [ "$status" -eq 2 ]
-}
-
 @test "guard: blocks Edit on .scrum/pbi/pbi-001/state.json (nested)" {
   run bash -c "$HOOK <<< '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\".scrum/pbi/pbi-001/state.json\"}}'"
   [ "$status" -eq 2 ]

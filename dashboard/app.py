@@ -692,10 +692,6 @@ class UnifiedLog(RichLog):
         self._entries: deque[tuple[str, str, str]] = deque(maxlen=self.MAX_ENTRIES)
         self._filter = "all"
 
-    @property
-    def filter_mode(self) -> str:
-        return self._filter
-
     def cycle_filter(self) -> str:
         """Advance the filter (all → messages → work) and re-render."""
         modes = self.FILTER_MODES

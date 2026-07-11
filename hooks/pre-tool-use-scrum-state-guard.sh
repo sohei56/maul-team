@@ -91,7 +91,7 @@ tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true
 [ -n "$tool" ] || exit 0
 
 case "$tool" in
-  Write|Edit|MultiEdit)
+  Write|Edit)
     file="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
     [ -n "$file" ] || exit 0
     abs_file="$(abs_strip_worktree "$(normalize_path "$file")")"

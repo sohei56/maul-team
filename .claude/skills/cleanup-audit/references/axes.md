@@ -13,7 +13,7 @@ Spawn with `subagent_type: "general-purpose"`.
 
 ### Read-only contract
 
-- NO `Write` / `Edit` / `MultiEdit` except the single final report
+- NO `Write` / `Edit` except the single final report
 - Inspection only: `Read`, `Grep`, `Glob`, `Bash` (`git`, `grep`,
   `find`, `jq`, `awk`)
 - Output: ONE Markdown report at the path supplied in the prompt,

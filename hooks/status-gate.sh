@@ -93,14 +93,14 @@ is_enabled_in_config() {
 }
 
 # Extract target file path from tool_input JSON.
-# For Write/Edit/MultiEdit tools, the path is in "file_path".
+# For Write/Edit tools, the path is in "file_path".
 # For Bash tool, we cannot reliably parse — return empty.
 get_target_path() {
   local tool_name="$1"
   local tool_input="$2"
 
   case "$tool_name" in
-    Write|Edit|MultiEdit)
+    Write|Edit)
       echo "$tool_input" | jq -r '.file_path // empty' 2>/dev/null
       ;;
     *)
@@ -121,7 +121,7 @@ tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
 # Fast path: only mutating file tools are gated. All others→allow immediately.
 # This avoids reading state.json, catalog.md, catalog-config.json on every
 # Read/Grep/Glob/Bash call — the biggest hook overhead source.
-if [ "$tool_name" != "Write" ] && [ "$tool_name" != "Edit" ] && [ "$tool_name" != "MultiEdit" ]; then
+if [ "$tool_name" != "Write" ] && [ "$tool_name" != "Edit" ]; then
   allow
 fi
 
@@ -152,9 +152,9 @@ fi
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# From here: only Write/Edit/MultiEdit tools reach this code (fast path above
+# From here: only Write/Edit tools reach this code (fast path above
 # short-circuits everything else, including Bash). The fast-path guarantees
-# tool_name ∈ {Write,Edit,MultiEdit}, so `tool_input.file_path` is always
+# tool_name ∈ {Write,Edit}, so `tool_input.file_path` is always
 # present and `get_target_path` returns it verbatim. An empty target_path at
 # this point would mean a malformed payload — treat as defensive allow to
 # avoid blocking legitimate edits on a payload glitch (no path = no scope

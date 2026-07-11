@@ -397,20 +397,6 @@ EOF
   [ "$decision" = "deny" ]
 }
 
-@test "status-gate.sh denies source MultiEdit during sprint_planning" {
-  mkdir -p .scrum
-  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
-
-  local event_json
-  event_json='{"tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
-
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
-}
 
 @test "status-gate.sh denies source Edit during retrospective" {
   mkdir -p .scrum

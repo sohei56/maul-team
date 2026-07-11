@@ -37,11 +37,6 @@ payload() {
   [ "$status" -eq 2 ]
 }
 
-@test "blocks pbi-ut-author from multi-editing impl path" {
-  run bash -c "echo '$(payload pbi-ut-author MultiEdit src/auth.py)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
 @test "allows pbi-ut-author to read test path" {
   run bash -c "echo '$(payload pbi-ut-author Read tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 0 ]
@@ -54,11 +49,6 @@ payload() {
 
 @test "blocks pbi-implementer from writing test path" {
   run bash -c "echo '$(payload pbi-implementer Write tests/test_auth.py)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
-@test "blocks pbi-implementer from multi-editing test path" {
-  run bash -c "echo '$(payload pbi-implementer MultiEdit tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 2 ]
 }
 
@@ -129,11 +119,6 @@ payload() {
 
 @test "blocks product-owner from editing tests/test_main.py" {
   run bash -c "echo '$(payload product-owner Edit tests/test_main.py)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
-@test "blocks product-owner from multi-editing docs/requirements.md" {
-  run bash -c "echo '$(payload product-owner MultiEdit docs/requirements.md)' | $HOOK"
   [ "$status" -eq 2 ]
 }
 
