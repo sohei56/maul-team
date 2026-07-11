@@ -216,6 +216,12 @@ struct DashboardView: View {
                 .controlSize(.small)
                 .help("Live pipeline board — watch the current sprint's PBIs move across stages in real time")
 
+                if !items.isEmpty {
+                    statusSummary(items)
+                        .font(.caption2.weight(.medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 if items.isEmpty {
                     Text(pbiScope == .current ? "No PBIs in the current sprint" : "No PBIs")
                         .foregroundStyle(.secondary).font(.subheadline)
@@ -231,6 +237,30 @@ struct DashboardView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Per-status tally for the scoped PBI list, in lifecycle order, as one
+    /// wrapping line of colored "label n" segments (e.g. "impl 2 · done 14").
+    private func statusSummary(_ items: [BacklogItem]) -> Text {
+        let lifecycleOrder = [
+            "draft", "refined", "in_progress_design", "in_progress_impl",
+            "in_progress_pbi_review", "in_progress_ut_run", "in_progress_merge",
+            "awaiting_cross_review", "cross_review", "done", "cancelled",
+            "blocked", "escalated",
+        ]
+        var counts: [String: Int] = [:]
+        for item in items { counts[item.status ?? "draft", default: 0] += 1 }
+        let unknown = counts.keys.filter { !lifecycleOrder.contains($0) }.sorted()
+        let segments: [Text] = (lifecycleOrder + unknown).compactMap { status in
+            counts[status].map {
+                Text("\(PBIStatus.label(status)) \($0)")
+                    .foregroundColor(PBIStatus.color(status))
+            }
+        }
+        guard let first = segments.first else { return Text("") }
+        return segments.dropFirst().reduce(first) {
+            $0 + Text(" · ").foregroundColor(.secondary) + $1
         }
     }
 

@@ -173,11 +173,11 @@ final class DashboardModel: ObservableObject {
 
     var currentSprintID: String? { state?.current_sprint_id ?? sprint?.id }
 
-    /// The whole backlog, ordered by PBI number (pbi-001, pbi-002, …). The PBI
-    /// board shows all PBIs — matching the Textual dashboard, which does not
-    /// filter by sprint.
+    /// The whole backlog, newest first (largest PBI number on top) so
+    /// long-running backlogs surface the latest PBIs without scrolling.
+    /// The PBI board shows all PBIs — it does not filter by sprint.
     var allItems: [BacklogItem] {
-        (backlog?.items ?? []).sorted { Self.pbiNumber($0.id) < Self.pbiNumber($1.id) }
+        (backlog?.items ?? []).sorted { Self.pbiNumber($0.id) > Self.pbiNumber($1.id) }
     }
 
     /// PBIs assigned to the current sprint — used for sprint progress.
@@ -186,9 +186,10 @@ final class DashboardModel: ObservableObject {
         return allItems.filter { $0.sprint_id == sid }
     }
 
-    /// Numeric part of a PBI id ("pbi-013" -> 13); non-numeric ids sort last.
+    /// Numeric part of a PBI id ("pbi-013" -> 13); non-numeric ids sort last
+    /// (the list is newest-first, so "last" means the smallest key).
     static func pbiNumber(_ id: String) -> Int {
-        Int(id.split(separator: "-").last ?? "") ?? Int.max
+        Int(id.split(separator: "-").last ?? "") ?? Int.min
     }
 
     /// Done count within the current sprint (for the sprint progress bar).
