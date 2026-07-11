@@ -204,6 +204,24 @@ prompt_yes_no() {
   done
 }
 
+# jq_write_inplace <file> <jq_filter> [jq_args...]
+# Rewrites <file> in place through jq via a same-directory tmp file so the
+# final mv is atomic. Extra args are passed to jq before the filter
+# (--arg/--argjson). On jq failure the tmp file is removed and the function
+# returns nonzero — fatal under `set -e` unless the caller tests the result.
+# Not for `jq -n` producers (no input file); those keep their inline tmp+mv.
+jq_write_inplace() {
+  local file="$1" filter="$2" tmp
+  shift 2
+  tmp="${file}.tmp.$$.${RANDOM}"
+  if jq "$@" "$filter" "$file" > "$tmp"; then
+    mv "$tmp" "$file"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 sh "$SCRIPT_DIR/scripts/setup-user.sh"
 
@@ -218,6 +236,15 @@ if [ -f ".scrum/state.json" ]; then
   if [ -x "$SCRIPT_DIR/scripts/scrum/migrate-legacy.sh" ]; then
     sh "$SCRIPT_DIR/scripts/scrum/migrate-legacy.sh" || \
       echo "Warning: migrate-legacy.sh reported issues (continuing)" >&2
+  fi
+
+  # Backfill `kind: "code"` on backlog items lacking it (idempotent one-shot).
+  # The script fails with E_FILE_MISSING when .scrum/backlog.json is absent,
+  # so gate on the file's existence.
+  if [ -x "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" ] \
+     && [ -f ".scrum/backlog.json" ]; then
+    sh "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" || \
+      echo "Warning: migrate-add-kind-field.sh reported issues (continuing)" >&2
   fi
 
   phase="$(jq -r '.phase // "unknown"' .scrum/state.json)"
@@ -371,8 +398,8 @@ if [ "$AUTONOMOUS" = "1" ]; then
   # Defaults match .scrum-config.example.json. Overrides applied last.
   # PO model is intentionally absent — its SSOT is the deployed
   # .claude/agents/product-owner.md frontmatter, patched below.
-  TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-  jq --arg perm "$PERM_MODE" '
+  # shellcheck disable=SC2016  # $perm is a jq --arg binding, not shell
+  jq_write_inplace "$CONFIG_FILE" '
     .po_mode = "agent"
     | .autonomous = (
         (.autonomous // {})
@@ -387,21 +414,18 @@ if [ "$AUTONOMOUS" = "1" ]; then
             fallback_model:            (.autonomous.fallback_model            // null)
           }
       )
-  ' "$CONFIG_FILE" > "$TMP_CFG"
-  mv "$TMP_CFG" "$CONFIG_FILE"
+  ' --arg perm "$PERM_MODE"
 
   # Apply --max-sprints / --max-hours overrides (CLI value or wizard input).
   if [ -n "$OPT_MAX_SPRINTS" ]; then
-    TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-    jq --argjson v "$OPT_MAX_SPRINTS" '.autonomous.max_sprints = $v' \
-      "$CONFIG_FILE" > "$TMP_CFG"
-    mv "$TMP_CFG" "$CONFIG_FILE"
+    # shellcheck disable=SC2016  # $v is a jq --argjson binding, not shell
+    jq_write_inplace "$CONFIG_FILE" '.autonomous.max_sprints = $v' \
+      --argjson v "$OPT_MAX_SPRINTS"
   fi
   if [ -n "$OPT_MAX_HOURS" ]; then
-    TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-    jq --argjson v "$OPT_MAX_HOURS" '.autonomous.max_wall_clock_hours = $v' \
-      "$CONFIG_FILE" > "$TMP_CFG"
-    mv "$TMP_CFG" "$CONFIG_FILE"
+    # shellcheck disable=SC2016  # $v is a jq --argjson binding, not shell
+    jq_write_inplace "$CONFIG_FILE" '.autonomous.max_wall_clock_hours = $v' \
+      --argjson v "$OPT_MAX_HOURS"
   fi
 
   # --- Apply PO model to deployed agent file (the SSOT) --------------------
@@ -464,12 +488,9 @@ else
   if [ -f "$RESET_CFG" ]; then
     _prior_po_mode="$(jq -r '.po_mode // "human"' "$RESET_CFG" 2>/dev/null || echo human)"
     if [ "$_prior_po_mode" = "agent" ]; then
-      TMP_CFG="${RESET_CFG}.tmp.$$.${RANDOM}"
-      if jq '.po_mode = "human"' "$RESET_CFG" > "$TMP_CFG" 2>/dev/null; then
-        mv "$TMP_CFG" "$RESET_CFG"
+      if jq_write_inplace "$RESET_CFG" '.po_mode = "human"' 2>/dev/null; then
         echo "  Human mode: reset leftover po_mode=agent → human (PO teammate disabled)."
       else
-        rm -f "$TMP_CFG"
         echo "Warning: could not reset po_mode in $RESET_CFG (continuing)." >&2
       fi
     fi
@@ -695,14 +716,9 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
       nohup "$STALL_WATCHDOG_SCRIPT" "$PWD" >/dev/null 2>&1 &
       STALL_WATCHDOG_PID=$!
       # Update runtime.json with the pid (best-effort; failure not fatal).
-      RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
-      if jq --argjson pid "$STALL_WATCHDOG_PID" \
-           '.stall_watchdog_pid = $pid' \
-           .scrum/runtime.json > "$RUNTIME_TMP" 2>/dev/null; then
-        mv "$RUNTIME_TMP" .scrum/runtime.json
-      else
-        rm -f "$RUNTIME_TMP"
-      fi
+      # shellcheck disable=SC2016  # $pid is a jq --argjson binding, not shell
+      jq_write_inplace .scrum/runtime.json '.stall_watchdog_pid = $pid' \
+        --argjson pid "$STALL_WATCHDOG_PID" 2>/dev/null || true
     fi
   fi
 
