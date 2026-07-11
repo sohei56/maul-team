@@ -45,6 +45,9 @@ persists the report. Use this schema per finding:
 - axis: spec-conformance | logic-defect | redundancy
 - severity_hint: Critical | High | Medium | Low   (SM may re-rank on dedup)
 - location: <path>:<line> (+ additional locations if any)
+- identity: <path>::<symbol-or-anchor>   (stable defect key — the file
+  plus the function / symbol / rule at fault, NOT the line number,
+  which drifts between Sprints; the SM uses this for cross-Sprint dedup)
 - fact: <what is literally observed in the code/spec — no inference>
 - interpretation: <why it is a defect; the failure it causes>
 - confidence: High | Medium | Low

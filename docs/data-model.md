@@ -47,13 +47,15 @@ Valid phases:
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
 - `integration_sprint` — Integration Tests in progress. Opens with a
-  mandatory `codebase-audit` pre-flight gate (whole-repo multi-agent
-  audit; Critical/High findings become defect PBIs and route back to
-  `backlog_created` before testing proceeds), then design-driven
-  systematic testing (boundary values, flow-branch and pattern-branch
-  coverage, external-interface stubs) via the `integration-tests`
-  skill. On passing tests the Scrum Master advances to `uat_release`;
-  on failures it returns to `backlog_created` (defect-fix loop).
+  thin `codebase-audit` re-check (the whole-repo audit itself runs
+  every Sprint inside `cross-review`, non-blocking; this re-check just
+  verifies the latest audit report is fresh and no open Critical/High
+  `[codebase-audit:*]` PBI remains — unresolved → route back to
+  `backlog_created`), then design-driven systematic testing (boundary
+  values, flow-branch and pattern-branch coverage, external-interface
+  stubs) via the `integration-tests` skill. On passing tests the Scrum
+  Master advances to `uat_release`; on failures it returns to
+  `backlog_created` (defect-fix loop).
 - `uat_release` — UAT & Release in progress: user-story-driven UAT
   and the go/no-go release decision via the `uat-release` skill.
   Entered only after `integration_sprint` tests pass. Advances to

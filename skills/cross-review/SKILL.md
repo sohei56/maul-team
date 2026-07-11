@@ -2,10 +2,12 @@
 name: cross-review
 description: >
   Sprint-end cross-cutting quality gate. Scrum Master runs static analysis,
-  then spawns 5 aspect-specialized reviewers in parallel (each reviews the
-  whole Sprint, not per-PBI fan-out). FAIL routing is aspect-specific:
-  aspects 1-3 revert PBIs to in_progress_impl, aspects 4-5 generate
-  follow-up PBIs in the next Sprint.
+  then spawns 5 aspect-specialized reviewers PLUS 3 whole-repo
+  codebase-audit axes in one parallel barrage (8 agents; each aspect
+  reviews the whole Sprint, each audit axis the whole repo at HEAD). FAIL
+  routing is aspect-specific: aspects 1-3 revert PBIs to in_progress_impl,
+  aspects 4-5 generate follow-up PBIs. Audit findings are non-blocking —
+  Critical/High become draft PBIs for the next Sprint (separate report).
 disable-model-invocation: false
 ---
 
@@ -29,6 +31,14 @@ slices, and assumes per-PBI Pass criteria are already satisfied
 (prior context in `.scrum/pbi/<pbi-id>/impl/review-r{last}.md` and
 `ut/review-r{last}.md`). PBI mapping is recorded inside Findings via
 reverse-lookup against `paths_touched`.
+
+Composed onto this, the same ceremony spawns the 3 **whole-repo**
+`codebase-audit` axes in the same parallel barrage (Step 8) and
+synthesizes them separately (Step 14). The audit scans the accumulated
+codebase at HEAD — a scope the 5 diff-oriented aspects cannot reach —
+and is **non-blocking**: its findings become draft PBIs for the next
+Sprint and never affect this Sprint's PASS/FAIL. The 5-aspect verdict
+machinery below is unchanged. See `skills/codebase-audit/SKILL.md`.
 
 ## Inputs
 
@@ -68,6 +78,10 @@ reverse-lookup against `paths_touched`.
   `aspect-docs-consistency-review.md`)
 - `.scrum/reviews/<pbi-id>-review.md` — per-PBI digest combining all
   aspect Findings filtered to that PBI (existing schema preserved)
+- `.scrum/reviews/codebase-audit-s{N}.md` — the separate whole-repo
+  audit report (Step 14; does NOT feed the aspect digest matrix)
+- Draft `[codebase-audit:*]` PBIs for the **next** Sprint (Step 14;
+  non-blocking, Critical/High mandatory)
 - `backlog.json` `items[].status` transitions:
   - At step 1: `awaiting_cross_review → cross_review`
   - On all aspects PASS: `cross_review → done`
@@ -204,15 +218,18 @@ reverse-lookup against `paths_touched`.
    announcement convention was made explicit. Use this exact wording
    so the user learns to recognise it:
 
-   > "Cross-review: 5 アスペクト並列起動します。完了まで 60-120 秒（最大
-   > 5 分）。その間 `completion-gate.sh` がセッション終了をブロックします。
-   > もし 5 分以上応答がなければここに声をかけてください。"
+   > "Cross-review: 5 アスペクト + コードベース監査 3 軸を並列起動します
+   > （計 8 エージェント）。完了まで 60-120 秒（最大 5 分）。その間
+   > `completion-gate.sh` がセッション終了をブロックします。もし 5 分以上
+   > 応答がなければここに声をかけてください。"
 
    Then, and only then, spawn the reviewers in the next step.
 
-8. **Spawn 5 reviewers in parallel** via the `Agent` tool. **No
-   per-PBI fan-out — each reviewer receives the whole Sprint.**
-   Single `Agent` call per aspect.
+8. **Spawn 5 aspect reviewers + 3 codebase-audit axes in parallel**
+   via the `Agent` tool — one barrage, 8 agents. **No per-PBI fan-out
+   — each aspect reviewer receives the whole Sprint; each audit axis
+   receives the whole repo at HEAD.** Single `Agent` call per aspect
+   and per axis.
 
    **PBI kind partition (prerequisite).** Before spawning, partition
    the Sprint's `cross_review` PBIs by kind. Aspects 2/3/4 evaluate
@@ -291,13 +308,29 @@ reverse-lookup against `paths_touched`.
    `paths_touched` + `kind` + `parent_pbi_id` only — the minimum
    needed for PBI-mapping and docs parent linkage.)
 
-   **Reviewer wait barrier.** After spawning, wait for all reviewer
-   Tasks (3 or 5 depending on `CODE_COUNT`) to reach `Status =
-   completed`. Do NOT attempt to stop the session in between. Reviewer
-   completion typically takes 60-120s — do NOT interpret a Stop hook
-   block (`completion-gate.sh` "PBIs not done") as reviewer failure.
-   Persistence to `aspect-*.md` is Step 9's job, after `Status =
-   completed` — do NOT wait for the file to appear before Step 9.
+   **Codebase-audit axes (3 additional agents in the same barrage).**
+   Alongside the aspect reviewers, spawn the 3 whole-repo audit axes
+   (`spec-conformance`, `logic-defect`, `redundancy`) per
+   `skills/codebase-audit/SKILL.md` context (a) +
+   `skills/codebase-audit/references/axes.md`. These are **not**
+   kind-partitioned — each scans the entire repo at HEAD (not the
+   Sprint diff), so they always run (all 3), even on a docs-only
+   Sprint. Feed them the Step 5 static-analysis file
+   (`.scrum/reviews/static-analysis-r${ROUND}.json`) as the redundancy
+   axis's ground truth, plus the enabled specs, `requirements.md`, and
+   the PBI summary. Like the aspect reviewers, audit axes are read-only
+   and return findings **as their final message**; the SM synthesizes
+   them into the separate audit report in Step 14 (they do **not** feed
+   the 5-aspect digest matrix or the Sprint verdict).
+
+   **Wait barrier.** After spawning, wait for **all** Tasks to reach
+   `Status = completed`: the aspect reviewers (3 or 5 depending on
+   `CODE_COUNT`) **plus the 3 audit axes** — 6 or 8 total. Do NOT
+   attempt to stop the session in between. Completion typically takes
+   60-120s — do NOT interpret a Stop hook block (`completion-gate.sh`
+   "PBIs not done") as a failure. Persistence to `aspect-*.md` is Step
+   9's job and audit synthesis is Step 14's job, both after `Status =
+   completed` — do NOT wait for any file to appear before those steps.
    See `agents/scrum-master.md` § Background Subagent + Stop Hook
    Reading.
 
@@ -489,6 +522,30 @@ reverse-lookup against `paths_touched`.
     .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" review_doc_path \
       ".scrum/reviews/${PBI_ID}-review.md"
     ```
+14. **Whole-repo audit synthesis (independent, non-blocking).** The 3
+    audit axes spawned in Step 8 are independent of the 5-aspect
+    verdict — synthesize them per `skills/codebase-audit/SKILL.md`
+    context (a), Steps 3–5:
+    - Read the 3 axis final messages, dedup within the audit, and write
+      the report to `.scrum/reviews/codebase-audit-s{N}.md`
+      (`N` = numeric sprint number).
+    - **Cross-reference aspect-4.** A tool-grounded dead-code item
+      surfaced by **both** the `maintainability` aspect (Step 11 aspect-4
+      follow-up) and the `redundancy` audit axis is one problem — count
+      it once, cross-ref the aspect-4 Finding in the audit report, and
+      do NOT file a second audit PBI for it.
+    - Route Critical/High findings to the **next** Sprint as draft PBIs
+      (`[codebase-audit:<sprint-id>:F<n>:<Severity>]`), with the
+      cross-Sprint content dedup (skip if an open PBI already tracks the
+      finding's `identity`; `[REGRESSION]` if a closed one recurred);
+      Medium/Low at PO discretion. This does **not** revert any PBI,
+      re-loop the Sprint, or transition the phase — the audit is
+      strictly non-blocking here. Full rules + the dedup `jq` in
+      `skills/codebase-audit/SKILL.md`.
+
+    On an aspect 1/2/3 re-loop (Step 12), this step is reached only on
+    the terminal (non-re-looping) pass; the audit's own dedup makes any
+    intermediate re-run idempotent.
 
 Ref: FR-009
 
@@ -509,3 +566,9 @@ Ref: FR-009
   `parent_pbi_id` set; no duplicates.
 - `items[].review_doc_path` set for every Sprint PBI.
 - `state.json` overall phase: `review`.
+- Whole-repo audit synthesized to
+  `.scrum/reviews/codebase-audit-s{N}.md`; its Critical/High findings
+  filed as `[codebase-audit:*]` draft PBIs for the next Sprint (or
+  deduped against an existing open one), cross-referenced against
+  aspect-4 to avoid double-filing. Audit findings did NOT affect the
+  Sprint PASS/FAIL verdict.

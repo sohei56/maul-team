@@ -79,19 +79,21 @@ wait for a reply.
    ```
    (No-op when already there on re-entry.)
 
-   **Codebase-audit pre-flight gate (mandatory).** Before any test
-   derivation, a whole-repo `codebase-audit` must have run and be
-   gate-clean for the current rollover. Check for
-   `.scrum/reviews/codebase-audit-s{N}.md` (`N` = numeric sprint number
-   from `sprint.json.id`); if it is missing or carries open
-   Critical/High findings, run the `codebase-audit` skill now and let
-   it resolve. If that audit trips its gate it creates defect PBIs and
-   sets the phase back to `backlog_created` — **stop here**; the
-   Integration Sprint resumes after the defect-fix loop. Proceed to
-   Step 2 only once the audit is gate-clean. Rationale: per-PBI and
-   Sprint-diff review cannot see whole-repo defects (dead code, silent
-   I/O failures, cross-spec conflicts, cross-PBI duplication); catching
-   them here is far cheaper than during integration testing.
+   **Codebase-audit pre-flight re-check (mandatory, thin).** The
+   whole-repo `codebase-audit` runs every Sprint inside `cross-review`
+   (context (a)), so by now the codebase has already been audited and
+   its Critical/High findings filed as PBIs. This step is a cheap
+   **re-check**, not a fresh full audit: run the `codebase-audit` skill
+   with `context=integration_entry`. It verifies (i) the latest audit
+   report is fresh — `.scrum/reviews/codebase-audit-s{N}.md` exists for
+   the final development Sprint (`N` = numeric sprint number from
+   `sprint.json.id`) — and (ii) no open (non-`done`) `[codebase-audit:*]`
+   Critical/High PBI remains in `backlog.json`. Both hold → proceed to
+   Step 2. Report stale/missing → it runs a fresh audit now; any
+   unresolved Critical/High → it sets the phase to `backlog_created`
+   and **stops here** (the Integration Sprint resumes after the
+   defect-fix loop). This closes the hole where an audit PBI was filed
+   but never fixed before integration.
 
 2. **Spawn the testing Developer teammate(s)** via the
    `spawn-teammates` skill (1–2 for testing). The Developer(s) run

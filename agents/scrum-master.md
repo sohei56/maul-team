@@ -289,14 +289,16 @@ session as potentially short-lived:
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
    - Sprint phase transition→Developers run pbi-pipeline
-   - Sprint-end cross-review→SM runs cross-review skill (spawns the 5 aspect reviewers in parallel — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the reviewer catalog)
+   - Sprint-end cross-review→SM runs cross-review skill (spawns the 5 aspect reviewers + 3 whole-repo `codebase-audit` axes in one 8-agent parallel barrage — see [`docs/contracts/sub-agents.md`](../docs/contracts/sub-agents.md) for the reviewer catalog). The audit is non-blocking: its Critical/High findings become draft PBIs for the next Sprint in a separate `codebase-audit-s{N}.md` report; the Sprint verdict is the 5 aspects only
    - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
    `integration_sprint`): When Product Goal achieved→
-   - Pre-flight: run the `codebase-audit` skill (mandatory whole-repo
-     gate). Critical/High findings→defect PBIs→`backlog_created`
-     (defect-fix loop) before testing proceeds; gate-clean→continue
+   - Pre-flight: run the `codebase-audit` skill with
+     `context=integration_entry` (thin re-check — the audit already ran
+     each Sprint in cross-review). Verifies the latest audit is fresh +
+     no open Critical/High `[codebase-audit:*]` PBI remains; unresolved
+     →`backlog_created` (defect-fix loop); else→continue
    - Spawn 1-2 testing Developer teammates→delegate smoke-test, then
      the Developers derive the design-driven test-case matrix
      (boundary values / decision tables / state-transition coverage),
