@@ -118,7 +118,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Two-tier independent review** — every PBI passes a 5-aspect Integrity gate (`requirement-conformance`, `functional-quality`, `security`, `maintainability`, `docs-consistency` reviewers over its diff) before merge, then a Sprint-end whole-repo 4-axis codebase audit (spec-conformance, logic-defect, redundancy, product-security) sweeps the entire Increment — plus per-PBI Codex-CLI cross-model review
+- **Two-tier independent review** — the Increment is inspected at two altitudes: each PBI's diff before merge (the 5-aspect Integrity gate), then a Sprint-end whole-repo codebase audit over the merged Increment, complemented by per-PBI Codex cross-model review. See [What a Sprint looks like](#what-a-sprint-looks-like) for the full aspect and axis catalog
 
 **Constraints addressing AI weaknesses:**
 

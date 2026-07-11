@@ -121,7 +121,7 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 **AI の強みを活かす拡張:**
 
 - **動的なチームサイジング** — Developer エージェントの数は、PBI 数と複雑度に応じて Sprint ごとに最適化される
-- **二層の独立レビュー** — すべての PBI はマージ前に 5 観点の Integrity ゲート (`requirement-conformance` / `functional-quality` / `security` / `maintainability` / `docs-consistency` の各レビュアーがその PBI の diff をレビュー) を通過し、Sprint 末にはリポジトリ全体への 4 軸 codebase audit (spec-conformance / logic-defect / redundancy / product-security) が Increment 全体を掃く。加えて PBI 単位の Codex-CLI cross-model review を実施
+- **二層の独立レビュー** — Increment を 2 つの粒度で検査する: マージ前に各 PBI の diff (5 観点の Integrity ゲート)、続いて Sprint 末にマージ後の Increment 全体へのリポジトリ全体 codebase audit。加えて PBI 単位の Codex cross-model review を実施。観点・軸の一覧は [Scrum 開発の流れ](#scrum-開発の流れ) を参照
 
 **AI の弱点を抑え込む制約:**
 

@@ -86,11 +86,10 @@ ruff format dashboard/
 # Install dev dependencies
 sh scripts/setup-dev.sh
 
-# Launch the Scrum team (in target project directory)
+# Launch the Scrum team (in target project directory).
+# Full setup walkthrough + autonomous-mode flags are canonical in
+# docs/quickstart.md and docs/autonomous-mode.md — not duplicated here.
 sh /path/to/maul-team/scrum-start.sh
-
-# Launch in autonomous-PO mode (Ralph Loop; see docs/autonomous-mode.md)
-sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md --max-sprints 3
 ```
 
 ## Code Style
