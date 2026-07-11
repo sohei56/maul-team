@@ -111,8 +111,16 @@ KIND="$(jq -r --arg id "$PBI_ID" '
      in_progress_merge)
    - notify SM: "[<pbi-id>] PBI_READY_TO_MERGE branch=pbi/<id> sha=<head>"
    - stop and wait for SM SendMessage (MERGED / MERGE_CONFLICT /
-     ARTIFACT_MISSING)
+     ARTIFACT_MISSING / MERGE_REGRESSION — on MERGE_REGRESSION,
+     reproduce from .scrum/pbi/<pbi-id>/merge-regression.log, fix, and
+     re-run mark-pbi-ready-to-merge.sh)
 ```
+
+Design `Rounds 1..5` is a strict cap (no latch). The Impl stage's
+`Rounds 1..5` is the normal cap, but the technical-error remediation
+latch (impl-stage only) may add at most one extra impl Round, so the
+absolute impl bound is Round 6 (see references/termination-gates.md
+§ Gate evaluation order).
 
 ### kind=docs (Design + UT all skipped)
 
@@ -150,6 +158,11 @@ KIND="$(jq -r --arg id "$PBI_ID" '
      violation → escalation_reason=kind_mismatch.
    - notify SM identically to the kind=code path.
 ```
+
+The `Rounds 1..5` impl cap here carries the same latch caveat as the
+kind=code path: the technical-error remediation latch may add at most
+one extra Round → absolute bound 6 (see
+references/termination-gates.md § Gate evaluation order).
 
 The `paths_touched ⊆ **/*.md` boundary is machine-enforced by
 `mark-pbi-ready-to-merge.sh` (PR-1). The conductor itself does not

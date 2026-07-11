@@ -20,7 +20,7 @@ Deterministic — no fuzzy heuristics.
 | Tech-error recurrence | Same root web-searchable technical error in 2 consecutive Rounds AND `websearch_attempted` unset | Set latch; conductor runs the web search and folds findings into the next Round's feedback (no escalate). See § Technical-error recurrence |
 | Stagnation | Same `signature` repeats in 2 consecutive Rounds (Critical/High only) | STOP escalate (`stagnation`) |
 | Divergence | (CRITICAL+HIGH count) increases Round n → n+1 | STOP escalate (`divergence`) |
-| Hard cap | `round_n >= 5` | STOP escalate (`max_rounds`) |
+| Hard cap | `round_n >= 5` — `design_round` is a strict cap (max 5, no latch); `impl_round`'s technical-error latch may add one remediation impl Round → absolute impl bound 6 (see § Technical-error recurrence) | STOP escalate (`max_rounds`) |
 | Budget cap | (cumulative token > threshold) | STOP escalate (`budget_exhausted`) — the value is live: schema accepts it, `update-pbi-state.sh` writes it, and `pbi-escalation-handler` matches it as "Immediate human-escalate". The threshold itself is operator-configurable (no gate code wires up the comparison yet); declare a target via `.scrum/config.json` to enable. |
 
 ## Status transition on escalation
@@ -94,8 +94,11 @@ When `backlog.json items[].kind == "docs"`:
   Stagnation and divergence are evaluated on the impl-reviewer's
   findings alone — the signature set is a strict subset of the kind=code
   path so the same algorithms apply unchanged.
-- **UT Run stage**: not run. No gate fires; `ut_status` and
-  `coverage_status` stay `skipped`.
+- **UT Run stage**: not run. No gate fires. `ut_status` holds
+  `pending` (begin-impl-round.sh resets it to `pending` each impl
+  Round — the UT *work* is skipped, not the status); `coverage_status`
+  stays `skipped` (seeded `skipped` at Init and never reset by
+  begin-impl-round.sh).
 - **Integrity stage**: runs aspects 1 (requirement-conformance) + 5
   (docs-consistency) only. Success = both `verdict == PASS`.
   Stagnation/Divergence evaluate on the union of those two aspects'
@@ -244,6 +247,13 @@ reverts — escalates and returns judgement to SM / PO.
 This is intentional: more rounds usually means the requirement /
 design is wrong, not that the implementer needs more tries.
 
+The **one** exception is the technical-error remediation latch (§ Gate
+evaluation order, step 2): after the normal five impl Rounds it can add
+**at most one** further impl Round (a 6th), which then escalates on the
+hard cap — so the absolute `impl_round` bound is 6, not 5. Design Rounds
+have no latch — `design_round` is a strict 1..5 with an absolute bound
+of 5.
+
 ## Gate evaluation order
 
 1. If success criteria met → STOP success (no further checks)
@@ -259,6 +269,9 @@ design is wrong, not that the implementer needs more tries.
 6. Otherwise: proceed to next Round (or build feedback first for the
    impl/pbi-review/ut-run cycle)
 
-Step 2 only redirects; it never stops. A web-search remediation Round
-still counts toward the hard cap (step 5), so the latch can add at most
-one Round before the cap forces escalation.
+Step 2 only redirects; it never stops. This gate order governs the
+impl/PBI-review/UT-run cycle: the latch (impl-stage only) adds at most
+one impl Round beyond the normal five — a 6th impl Round that still
+counts toward the hard cap (step 5), which then forces escalation.
+Absolute `impl_round` bound: 6. Design Rounds run the same order minus
+step 2 (no latch), so `design_round` is a strict 1..5.

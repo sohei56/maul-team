@@ -60,7 +60,10 @@ frontmatter) — **not** codex-backed. The codex preflight
 (`sub-agent-prompts.md` § Conductor codex preflight) does **not** apply
 here; spawn them with no `model` override. The
 `reviewer-stall-fallback.md` codex-stall protocol also does not apply
-(there is no codex to hang). These reviewers are **message-based**:
+because the codex second opinion two of these reviewers run (below) is
+bounded inside the reviewer's own turn — with its own availability
+preflight and fallback — and is invisible to the conductor. These
+reviewers are **message-based**:
 they have no `Write` tool and return their review as their final
 assistant message; the conductor reads the returned message directly
 from the synchronous `Agent` call (no review file for the reviewer to

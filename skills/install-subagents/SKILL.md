@@ -14,7 +14,8 @@ disable-model-invocation: false
 ## Outputs
 
 - Confirmation of available sub-agents
-- sprint.json → developers[].sub_agents (runtime: actually-used agents only)
+- sprint.json → developers[].sub_agents (the sub-agents installed for
+  this developer's pipeline profiles this Sprint)
 
 ## Required Sub-Agents
 
@@ -55,12 +56,18 @@ Missing required → BLOCK (escalate to SM, do not proceed to PBI work).
    ```
 3. Verify YAML frontmatter on each (yq eval '.name' or equivalent).
 4. During pbi-pipeline execution (incl. the Integrity stage)→invoke
-   via `Agent(subagent_type="<name>")`. Record only actually-used agents in
-   sprint.json via the wrapper:
+   via `Agent(subagent_type="<name>")`. Record the **full installed
+   set** for this developer's pipeline profiles — the 6 Round agents
+   plus the 5 Integrity-stage reviewers — in sprint.json via the
+   wrapper (this is a deterministic record of what was installed, not
+   an accumulated log of runtime invocations):
    ```bash
    .scrum/scripts/set-sprint-developer.sh "$DEV_ID" sub_agents \
-     '["pbi-designer","pbi-implementer","pbi-ut-author","codex-design-reviewer","codex-impl-reviewer","codex-ut-reviewer"]'
+     '["pbi-designer","pbi-implementer","pbi-ut-author","codex-design-reviewer","codex-impl-reviewer","codex-ut-reviewer","requirement-conformance-reviewer","functional-quality-reviewer","security-reviewer","maintainability-reviewer","docs-consistency-reviewer"]'
    ```
+   A kind=docs PBI exercises only a subset of these at runtime (impl +
+   codex-impl-reviewer, and Integrity aspects 1 and 5); the recorded
+   set is still the full installed roster, not the per-PBI subset.
    The wrapper validates the value parses as a JSON array of strings.
    Raw `jq -i` / direct edits on `.scrum/sprint.json` are blocked by
    the PreToolUse guard.

@@ -109,7 +109,7 @@ rules follow.
 - cross-review end: every `cross_review` PBI → `done`. There is no
   revert edge back to `in_progress_impl` — the audit is non-blocking
   (see FR-009 above).
-- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`, abandon → `cancelled`)
+- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, or `in_progress_impl` for a kind=docs PBI; hold → stays `escalated`; human-escalate stays `escalated`; abandon → `cancelled`; `blocked` is reserved for parking on an external dependency, not a hold outcome)
 - Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked`). Never park such PBIs at `blocked` — `blocked` is strictly for hold-and-resume on an external blocker.
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
   a failure **leaves status `in_progress_merge`** for the Developer to

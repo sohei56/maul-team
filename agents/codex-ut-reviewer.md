@@ -1,9 +1,11 @@
 ---
 name: codex-ut-reviewer
 description: >
-  Independent UT reviewer powered by Codex CLI. Reviews test code +
-  coverage report against design doc. Does not see implementation
-  source. Audits pragma exclusions for justification.
+  Independent UT reviewer powered by Codex CLI. Reviews test code
+  against the design doc for interface + acceptance-criteria coverage
+  and test quality. Does not see implementation source. Pragma /
+  coverage-threshold gating is not its job (owned by the conductor's
+  coverage gate).
 tools:
   - Read
   - Grep
@@ -87,7 +89,7 @@ Implementation source code, .scrum/ state, PBI dev communications.
 
 `criterion_key` enum (UT review): missing_test_for_acceptance,
 missing_branch_coverage, redundant_test, mock_overuse, magic_number,
-bad_assertion, pragma_unjustified.
+bad_assertion.
 
 ## Processing Flow
 

@@ -117,7 +117,8 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 > isolation, so two PBIs touching the same source file no longer
 > corrupt each other at write time. Conflicts surface during
 > `pbi-merge` and the assigned Developer rebases. Pre-separation is
-> still required for catalog files (see `catalog-contention.md`).
+> still required for catalog files (see
+> `../pbi-pipeline/references/catalog-contention.md`).
 
 11. **Source-file overlap pre-flight** (merge-conflict prevention):
 
