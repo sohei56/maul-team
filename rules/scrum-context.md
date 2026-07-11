@@ -76,8 +76,8 @@ Schemas under `docs/contracts/scrum-state/` are authoritative.
 |---|---|
 | Project workflow phase (Sprint-level ceremony) | `.scrum/state.json` |
 | Current Sprint, base_sha, member list | `.scrum/sprint.json` |
-| All PBIs, statuses (13-value enum), paths_touched | `.scrum/backlog.json` |
-| Your PBI's internal pipeline state, round counters, merge fields | `.scrum/pbi/<pbi-id>/state.json` |
+| All PBIs, statuses (13-value enum) | `.scrum/backlog.json` |
+| Your PBI's internal pipeline state, round counters, merge fields, paths_touched | `.scrum/pbi/<pbi-id>/state.json` |
 | PBI lifecycle graph, status semantics | `docs/data-model.md` |
 | Inter-agent message contracts, envelope schema | `docs/contracts/agent-interfaces.md`, `docs/contracts/sub-agents.md` |
 | Project-wide conventions, git workflow, state-write rules | `CLAUDE.md` |

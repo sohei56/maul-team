@@ -130,12 +130,13 @@ A finding counts as a web-searchable technical error iff it is one of:
   assertion` is EXCLUDED** — an assertion failure is a logic/spec
   mismatch the design must resolve, not something a web search answers.
 - a reviewer finding whose `signature` ends in `:error_handling` — the
-  sole `criterion_key` that maps to a library/API contract. Every other
-  `criterion_key` (`incorrect_behavior`, `scope_creep`, `naming`,
-  `missing_validation`, `unclear_intent`, `dead_code`, `duplication`,
-  `missing_test_for_acceptance`, `missing_branch_coverage`,
-  `redundant_test`, `mock_overuse`, `magic_number`, `bad_assertion`,
-  `pragma_unjustified`) is spec/style and is NOT in this set.
+  sole `criterion_key` that maps to a library/API contract. Every
+  other `criterion_key` in the impl/UT reviewer vocabularies (full
+  enum: `docs/contracts/pbi-pipeline-envelope.schema.json`) is
+  spec/style and is NOT in this set. The suffix match is on
+  `:error_handling` including the colon, so the design-stage key
+  `missing_error_handling` (signature suffix
+  `:missing_error_handling`) does NOT match.
 
 ### Recurrence judgment (the one bounded LLM call in this gate set)
 

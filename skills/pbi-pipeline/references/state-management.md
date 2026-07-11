@@ -22,20 +22,28 @@ The 8 SM-managed status values (see [docs/data-model.md § State Transitions: st
 
 ## Schema: `.scrum/pbi/<pbi-id>/state.json`
 
-```json
-{
-  "pbi_id": "pbi-001",
-  "design_round": 0,
-  "impl_round": 0,
-  "design_status": "pending | in_review | fail | pass",
-  "impl_status": "pending | in_review | fail | pass",
-  "ut_status": "pending | in_review | fail | pass",
-  "coverage_status": "pending | fail | pass",
-  "escalation_reason": null,
-  "started_at": "2026-05-02T12:00:00+09:00",
-  "updated_at": "2026-05-02T12:00:00+09:00"
-}
-```
+The canonical schema is
+[docs/contracts/scrum-state/pbi-state.schema.json](../../../docs/contracts/scrum-state/pbi-state.schema.json)
+(field semantics in
+[docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate)).
+Do not copy it here — the compact listing below covers only the fields
+the conductor writes, with enums transcribed from the schema:
+
+| Field | Values |
+|---|---|
+| `design_round`, `impl_round` | integer ≥ 0 |
+| `design_status` | `pending \| in_review \| fail \| pass \| skipped` |
+| `impl_status` | `pending \| in_review \| fail \| pass` |
+| `ut_status` | `pending \| in_review \| fail \| pass \| skipped` |
+| `coverage_status` | `pending \| fail \| pass \| skipped` |
+| `escalation_reason` | `null` or one of the enum (see below) |
+| `websearch_attempted` | boolean, once-per-PBI latch — see [termination-gates.md § Technical-error recurrence](termination-gates.md#technical-error-recurrence-web-search-remediation) |
+
+`skipped` is written by the kind=docs flow (Design and UT Run stages
+not run; see [termination-gates.md § kind=docs overrides](termination-gates.md#kinddocs-overrides)).
+`pbi_id` / `started_at` are seeded by `init-pbi-state.sh` and
+`updated_at` is auto-stamped by the wrappers; the worktree / merge
+fields are owned by other scripts (see § New fields below).
 
 `escalation_reason` enum (only set when backlog status is
 `escalated`): canonical value list in
@@ -181,4 +189,6 @@ escalates:
   (SM-side; transitions backlog status to `awaiting_cross_review`)
 - `merge_failure`, `merge_failure_count` — written by
   `mark-pbi-merge-failure.sh` (SM-side; transitions backlog status to
-  `escalated`)
+  `escalated` only on the 3rd consecutive failure — below that it
+  records the failure and increments the count, leaving backlog
+  status unchanged)

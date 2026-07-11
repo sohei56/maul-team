@@ -122,7 +122,7 @@ sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md 
   per a PO-seat decision) and is a pre-ceremony input, not a
   `state.json.phase` value. TTY / abort rules + full flow:
   [`skills/create-brief/SKILL.md`](skills/create-brief/SKILL.md).
-- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → uat_release → complete`. From `integration_sprint`, failing tests route to `backlog_created` (defect-fix loop) instead of advancing; from `uat_release`, UAT defects also route back to `backlog_created`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode) — the decision's `choice:integration_sprint` label is unchanged even though the phase graph beyond it now runs through `uat_release`; in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint. The `codebase-audit` whole-repo multi-agent audit runs every Sprint inside cross-review (non-blocking; Critical/High findings become draft PBIs for the next Sprint, kept in a separate `codebase-audit-s{N}.md` report), and `integration_sprint` opens with a thin `codebase-audit` re-check (verifies the latest audit is fresh and no open Critical/High audit PBIs remain; unresolved → route back to `backlog_created`) before the `integration-tests` skill (design-driven systematic testing); `uat_release` runs the `uat-release` skill (UAT walkthrough + release decision).
+- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → uat_release → complete`. From `integration_sprint`, failing tests route to `backlog_created` (defect-fix loop) instead of advancing; from `uat_release`, UAT defects also route back to `backlog_created`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode) — the decision's `choice:integration_sprint` label is unchanged even though the phase graph beyond it now runs through `uat_release`; in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint. The `codebase-audit` whole-repo audit runs every Sprint inside cross-review (regulation details: `skills/codebase-audit/SKILL.md`), and `integration_sprint` opens with a thin `codebase-audit` re-check (latest audit fresh + no open Critical/High audit PBIs; otherwise route back to `backlog_created`) before the `integration-tests` skill (design-driven systematic testing); `uat_release` runs the `uat-release` skill (UAT walkthrough + release decision).
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
@@ -197,15 +197,17 @@ Direct edits are blocked by `hooks/pre-tool-use-scrum-state-guard.sh`
 (registered as `PreToolUse`). Schemas under
 `docs/contracts/scrum-state/` are the SSOT. See
 `docs/MIGRATION-scrum-state-tools.md` for the wrapper map, the
-v1→v2 status migration history, and known gaps. Two runtime files
+v1→v2 status migration history, and known gaps. Some runtime files
 are written **without** a `.scrum/scripts/*.sh` wrapper because
-they are hot-path bookkeeping rather than agent state:
-`.scrum/stop-gate.json` is the Stop-hook dedup ledger written by
-`hooks/lib/stop-gate-state.sh` (human mode only; schema
-`stop-gate.schema.json`), and `.scrum/runtime.json` records the
-tmux session, the SM pane id, and the stall-watchdog PID written
-by `scrum-start.sh` (consumed by `scripts/stall-watchdog.sh`).
-Both still match the guard's `.scrum/**/*.json` pattern, but their
+they are hot-path bookkeeping rather than agent state — for
+example, `.scrum/stop-gate.json`, the Stop-hook dedup ledger
+written by `hooks/lib/stop-gate-state.sh` (human mode only; schema
+`stop-gate.schema.json`), and `.scrum/runtime.json`, which records
+the tmux session, the SM pane id, and the stall-watchdog PID
+written by `scrum-start.sh` (consumed by
+`scripts/stall-watchdog.sh`). The canonical file-by-file writer
+enumeration lives in `docs/contracts/scrum-state/README.md`. These
+files still match the guard's `.scrum/**/*.json` pattern, but their
 writers run outside agent tool calls (hook process / launcher
 script), so the guard never intercepts them; agents editing these
 files via Bash are blocked as usual. The PBI state schema

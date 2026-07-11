@@ -302,14 +302,15 @@ State descriptions:
 > `docs/MIGRATION-scrum-state-tools.md`.
 
 ### Validation Rules
-- Consolidation is designed to occur every 3 Sprints (FR-012) but is
-  **not yet implemented**: `consolidate-improvements.sh` does not
-  exist, so no writer currently sets `status: "archived"` /
-  `archived_at` or bumps `last_consolidation_sprint`. Entries
-  accumulate until the wrapper lands. See
-  `docs/MIGRATION-scrum-state-tools.md` § Known gaps.
-- Archived entries (once consolidation lands) are retained but not
-  shown to Developers.
+- Consolidation runs every 3 Sprints (FR-012) via
+  `consolidate-improvements.sh --sprint <sprint-id>
+  [--archive imp-NNNN]...`: the Retrospective ceremony decides which
+  active entries are stale, and the wrapper executes that decision —
+  flipping each named entry to `status: "archived"` with an
+  `archived_at` stamp and bumping `last_consolidation_sprint` — in one
+  atomic, schema-validated write. Zero `--archive` flags is valid
+  ("reviewed, nothing stale": bumps the marker alone).
+- Archived entries are retained but not shown to Developers.
 
 ---
 
@@ -575,7 +576,7 @@ UAT stories file before allowing that phase to end.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"integration_api"`, `"integration_ui"`, `"design_coverage"`, `"manual_probe"` |
+| `name` | string | Non-empty category name, unique within `categories` (a re-run replaces the same-named entry). Conventional values: `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"integration_api"`, `"integration_ui"`, `"design_coverage"`, `"manual_probe"` — the schema constrains only `minLength: 1`, not an enum |
 | `status` | enum | `"passed"`, `"failed"`, `"skipped"` |
 | `total` | integer | Total number of tests |
 | `passed` | integer | Tests that passed |
@@ -646,7 +647,7 @@ context.
 | `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
 | `escalation_reason` | enum \| null | Set when `backlog.json.items[].status == escalated`. See enum below. |
 | `branch` | string \| absent | Worktree branch name (`pbi/<id>`). Absent until set; schema rejects null |
-| `worktree` | string \| absent | Worktree path (`.scrum/worktrees/<pbi-id>/`). Absent until set; schema rejects null |
+| `worktree` | string \| absent | Worktree path (`.scrum/worktrees/<pbi-id>`, no trailing slash — the schema pattern rejects one). Absent until set; schema rejects null |
 | `base_sha` | string \| absent | Sprint base SHA inherited at worktree creation. Absent until set; schema rejects null |
 | `head_sha` | string \| absent | Latest commit SHA on `pbi/<id>`. Absent until set; schema rejects null |
 | `paths_touched` | string[] | Files modified by the PBI (used by `merge-pbi.sh` verification) |
@@ -689,7 +690,7 @@ kind_mismatch
 | `metrics/pragma-audit-r{n}.json` | Pragma exclusion audit (see `docs/contracts/pragma-audit-rN.schema.json`) |
 | `feedback/impl-r{n+1}.md` | Aggregated feedback for next-round `pbi-implementer` |
 | `feedback/ut-r{n+1}.md` | Aggregated feedback for next-round `pbi-ut-author` |
-| `pipeline.log` | Append-only event log: `<ISO8601>\t<phase>\t<round>\t<event>\t<detail>` |
+| `pipeline.log` | Append-only event log: `<ISO8601>\t<stage>\t<round>\t<event>\t<detail>`. `<stage>` is the fixed coarse set `init\|design\|pbi_review\|ut_run\|complete\|escalated` enforced by `append-pbi-log.sh` — not the 13-value backlog status enum |
 | `escalation-resolution.md` | SM decision recorded by `pbi-escalation-handler` (only on escalation) |
 
 ### Companion lock directory
@@ -746,6 +747,7 @@ kind_mismatch
 | `stall_watchdog` | object \| absent | Settings for the external teammate-stall monitor `scripts/stall-watchdog.sh` (non-autonomous mode only). |
 | `stall_watchdog.enabled` | boolean | When `false`, the daemon exits without nudging. Default `true`. |
 | `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Idle window (no `.scrum/dashboard.json` mtime AND no `.scrum/pbi/*/` mtime change) after which a nudge is sent. Default 15. |
+| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to `idle_threshold_minutes`. |
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
