@@ -156,11 +156,12 @@ Branch on `context`:
 
 ```bash
 FRESH_REPORT=".scrum/reviews/codebase-audit-s${N}.md"
-# open (non-done) audit PBIs whose severity-tagged prefix is Critical/High
+# open audit PBIs whose severity-tagged prefix is Critical/High
+# (done = fixed, cancelled = explicitly descoped by PO — neither is open)
 OPEN_CH="$(jq '[.items[]
   | select(.title | startswith("[codebase-audit:"))
   | select(.title | test(":(Critical|High)\\]"))
-  | select(.status != "done")] | length' .scrum/backlog.json)"
+  | select(.status != "done" and .status != "cancelled")] | length' .scrum/backlog.json)"
 ```
 
 - **Fresh report exists AND `OPEN_CH == 0`** → **proceed**. Report

@@ -7,7 +7,7 @@ Claude Code.
 Panels:
   (a) Sprint Overview — Sprint Goal, project phase, PBI count, Developer
       assignments
-  (b) Unified PBI Board — single DataTable showing each PBI's 12-value
+  (b) Unified PBI Board — single DataTable showing each PBI's 13-value
       status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
       counters come from `pbi/<id>/state.json`, but the status displayed
       is always the backlog SSOT — there is no separate phase column.
@@ -80,7 +80,7 @@ _SCHEMA_FOR_FILE = {
     "dashboard.json": "dashboard.schema.json",
 }
 
-# 12-value status SSOT — see docs/contracts/scrum-state/backlog.schema.json.
+# 13-value status SSOT — see docs/contracts/scrum-state/backlog.schema.json.
 # Actor-split coloring: SM-managed states use green family, Developer-managed
 # in_progress_* states use blue/cyan family. Terminal/escalated use red.
 STATUS_COLORS = {
@@ -92,6 +92,7 @@ STATUS_COLORS = {
     "cross_review": "bright_green",
     "escalated": "red",
     "done": "green",
+    "cancelled": "dim",
     # Developer-managed (blue/cyan family)
     "in_progress_design": "cyan",
     "in_progress_impl": "blue",
@@ -100,7 +101,7 @@ STATUS_COLORS = {
     "in_progress_merge": "magenta",
 }
 
-# Compact display labels for the 12-value status enum. Keep short enough
+# Compact display labels for the 13-value status enum. Keep short enough
 # for a status column in a DataTable.
 STATUS_LABELS = {
     "draft": "draft",
@@ -115,6 +116,7 @@ STATUS_LABELS = {
     "cross_review": "x-review",
     "escalated": "escalated",
     "done": "done",
+    "cancelled": "cancelled",
 }
 
 # Developer-managed status set — used both to pick which round counter to
@@ -180,7 +182,7 @@ def format_sprint_status(status: str) -> str:
 
 
 def format_status(status: str) -> str:
-    """Render a 12-value PBI status with icon + color + short label."""
+    """Render a 13-value PBI status with icon + color + short label."""
     # Actor glyph is derivable from the status: ◆ Developer-managed, ◇ any
     # other *known* status (SM-managed). An unknown / missing status (e.g. the
     # "?" placeholder) gets no glyph, preserving the pre-derivation default.
@@ -312,8 +314,11 @@ class SprintOverview(Static):
             if backlog:
                 for item in get_backlog_items(backlog):
                     if item.get("sprint_id") == sprint_id:
+                        status = item.get("status")
+                        if status == "cancelled":
+                            continue  # terminal non-delivery; not in progress ratio
                         pbi_count += 1
-                        if item.get("status") == "done":
+                        if status == "done":
                             done_count += 1
 
             devs = sprint.get("developers") or []
@@ -378,7 +383,7 @@ def _truncate_to_cells(s: str, budget: int) -> str:
 
 
 class UnifiedPbiBoard(DataTable):
-    """Single PBI board driven by the 12-value status SSOT.
+    """Single PBI board driven by the 13-value status SSOT.
 
     Columns: ID, Title, Status, Round, Dev, Updated.
 

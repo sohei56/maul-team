@@ -9,7 +9,7 @@
 import SwiftUI
 
 /// A live Kanban of the current Sprint's PBIs across the real PBI-pipeline
-/// stages. Cards are positioned by each PBI's 12-value `status`; as the
+/// stages. Cards are positioned by each PBI's 13-value `status`; as the
 /// DashboardModel re-polls `.scrum/` (~2s) and a status changes, the card
 /// animates from its old column to the new one via `matchedGeometryEffect` —
 /// so you can literally watch a PBI move design → impl → review → ut → merge
@@ -144,7 +144,7 @@ struct ScrumBoardView: View {
             Text("◆ Developer-managed").foregroundStyle(BoardTheme.amber)
             Text("◇ SM-managed").foregroundStyle(.secondary)
             Spacer()
-            Text("\(items.filter { $0.status == "done" }.count)/\(items.count) done")
+            Text("\(items.filter { $0.status == "done" }.count)/\(items.filter { $0.status != "cancelled" }.count) done")
                 .foregroundStyle(.secondary)
         }
         .font(.caption2.monospaced())
@@ -255,9 +255,10 @@ enum PipelineStage: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Map a PBI to its column from the top-level 12-value status. `escalated`
+    /// Map a PBI to its column from the top-level 13-value status. `escalated`
     /// / `blocked` have no pipeline column of their own, so fall back to the
-    /// furthest stage the per-PBI pipeline state reached.
+    /// furthest stage the per-PBI pipeline state reached. `cancelled` is
+    /// terminal, so it sits in the Done column (but never counts as done).
     static func stage(for item: BacklogItem, state: PbiState?) -> PipelineStage {
         switch item.status {
         case "draft", "refined": return .backlog
@@ -267,7 +268,7 @@ enum PipelineStage: String, CaseIterable, Identifiable {
         case "in_progress_ut_run": return .unitTests
         case "in_progress_merge": return .merge
         case "awaiting_cross_review", "cross_review": return .crossReview
-        case "done": return .done
+        case "done", "cancelled": return .done
         case "escalated", "blocked": return derivedStage(state)
         default: return .backlog
         }

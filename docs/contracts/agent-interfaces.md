@@ -492,7 +492,7 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 
 ### PreToolUse Hook
 - **Script**: `hooks/status-gate.sh` (renamed from `phase-gate.sh` in v2)
-- **Reads**: `.scrum/state.json` current `phase` (project workflow); `.scrum/backlog.json` current PBI `status` (12-value enum); `docs/design/catalog.md`
+- **Reads**: `.scrum/state.json` current `phase` (project workflow); `.scrum/backlog.json` current PBI `status` (13-value enum); `docs/design/catalog.md`
 - **Output**: `permissionDecision` (`allow`, `deny`, or `ask`)
 - **Logging**: Logs all deny decisions to `.scrum/hooks.log`
 - **Purpose**: Gate tool usage by project workflow phase and per-PBI status. Examples:

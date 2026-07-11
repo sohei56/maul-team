@@ -35,9 +35,10 @@ disable-model-invocation: false
   - **block on external dependency** → `blocked` (SM-only status; later
     transitioned back to `in_progress_design` when the external factor
     clears; worktree preserved)
-  - **abandon** → SM calls `cleanup-pbi-worktree.sh` to remove the
-    worktree + `pbi/<id>` branch; backlog status stays `escalated`
-    unless the user explicitly reclassifies (e.g., to `done`)
+  - **abandon** → `cancelled` (terminal); SM calls
+    `cleanup-pbi-worktree.sh` to remove the worktree + `pbi/<id>`
+    branch. The audit trail lives in `escalation-resolution.md`, not
+    in a lingering `escalated` status.
 - User notified via SM channel when human escalation is needed
 
 ## Response Matrix
@@ -150,10 +151,13 @@ Rules common to every row above:
    external resolution). Worktree is preserved for inspection.
 6. **For abandon** (user decides the PBI is no longer viable): call
    `.scrum/scripts/cleanup-pbi-worktree.sh "$PBI_ID"` to remove the
-   worktree + `pbi/<id>` branch. Backlog status stays `escalated` as
-   the audit trail; flip to `done` only if the user explicitly
-   reclassifies the PBI as resolved. SM owns this cleanup — neither
-   merge-pbi nor the Developer ever cleans up an escalated worktree.
+   worktree + `pbi/<id>` branch, then
+   `.scrum/scripts/update-backlog-status.sh "$PBI_ID" cancelled`.
+   `cancelled` is terminal; the decision and reasoning are preserved
+   in `escalation-resolution.md` (step 7), never by parking the PBI
+   at `escalated` or mislabeling it `done`. SM owns this cleanup —
+   neither merge-pbi nor the Developer ever cleans up an escalated
+   worktree.
 7. Write decision to `.scrum/pbi/<pbi-id>/escalation-resolution.md`
    with timestamp, decision, and reasoning.
 
@@ -163,5 +167,5 @@ Rules common to every row above:
 - backlog.json `items[].status` reflects decision
   (`in_progress_design` for retry — `in_progress_impl` for a kind=docs
   retry, `escalated` for hold, `blocked` for
-  parked-on-external-dependency)
+  parked-on-external-dependency, `cancelled` for abandon)
 - User informed (when human-escalate or hold)

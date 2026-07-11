@@ -5,7 +5,7 @@ How the Developer (conductor) manages PBI internal state.
 ## SSOT for stage position
 
 The Developer's stage position is the PBI's
-`backlog.json.items[].status` (a 12-value flat enum). The internal
+`backlog.json.items[].status` (a 13-value flat enum). The internal
 `pbi-state.json` holds round counters and per-stage `*_status`
 flags only. There is no `phase` field; status is the sole SSOT.
 
@@ -18,7 +18,7 @@ flags only. There is no `phase` field; status is the sole SSOT.
 | Ready-to-merge handoff | `in_progress_merge` |
 | Termination-gate escalation | `escalated` |
 
-The 7 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-12-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Schema: `.scrum/pbi/<pbi-id>/state.json`
 

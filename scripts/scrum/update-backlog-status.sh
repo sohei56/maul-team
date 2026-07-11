@@ -2,13 +2,13 @@
 # scripts/scrum/update-backlog-status.sh — set a PBI's status in .scrum/backlog.json.
 # Usage: update-backlog-status.sh <pbi-id> <status>
 #
-# Status is the sole SSOT for PBI lifecycle (12-value enum). All actors write
+# Status is the sole SSOT for PBI lifecycle (13-value enum). All actors write
 # this directly through the wrapper; there is no derived projection from
 # pbi-state.json anymore.
 #
 # Status enum (matches docs/contracts/scrum-state/backlog.schema.json):
 #   SM-managed:   draft, refined, blocked, awaiting_cross_review,
-#                 cross_review, escalated, done
+#                 cross_review, escalated, done, cancelled
 #   Dev-managed:  in_progress_design, in_progress_impl, in_progress_pbi_review,
 #                 in_progress_ut_run, in_progress_merge
 #
@@ -35,7 +35,7 @@ case "$STATUS" in
   draft|refined|blocked|\
 in_progress_design|in_progress_impl|in_progress_pbi_review|\
 in_progress_ut_run|in_progress_merge|\
-awaiting_cross_review|cross_review|escalated|done) ;;
+awaiting_cross_review|cross_review|escalated|done|cancelled) ;;
   *) fail E_INVALID_ARG "bad status: $STATUS" ;;
 esac
 

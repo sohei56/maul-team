@@ -485,7 +485,7 @@ use support sub-agents.
   (a) **Sprint Overview** — Sprint Goal, selected PBIs, assigned
   Developers, and current project workflow phase
   (`state.json.phase`, e.g. `pbi_pipeline_active`);
-  (b) **Real-time PBI Progress Board** — each PBI's 12-value
+  (b) **Real-time PBI Progress Board** — each PBI's 13-value
   status (see Q&A 2026-02-25 below and `docs/data-model.md` §
   State Transitions: status) updated as work progresses;
   (c) **Work Log** — a single chronological stream merging
@@ -602,13 +602,15 @@ use support sub-agents.
   needed to achieve the Product Goal. Managed by the Scrum Master.
   PBIs start coarse-grained and are progressively refined.
 
-- **Product Backlog Item (PBI)**: A unit of work with a 12-state
+- **Product Backlog Item (PBI)**: A unit of work with a 13-state
   lifecycle split between SM-managed and Developer-managed states
   (see Q&A 2026-02-25 below for the full enum, and
   `docs/data-model.md` § PBI for the schema and transition graph).
   `escalated` is the gate-trip / merge-failure state resolved by
   SM `pbi-escalation-handler`; `blocked` is an SM-decided hold for
-  external blockers. Each refined PBI produces three deliverables:
+  external blockers (hold-and-resume only); `cancelled` is the
+  SM-decided terminal state for PBIs merged into another PBI or no
+  longer needed. Each refined PBI produces three deliverables:
   design document, implementation, and tests. Design is completed
   and reviewed before implementation begins.
 
@@ -738,7 +740,7 @@ use support sub-agents.
 - Q: Where are project artifacts stored on disk? A: A `.scrum/` directory in the project root with flat JSON files (one file per concern: `state.json`, `backlog.json`, `sprint.json`, etc.) and a `reviews/` subdirectory. Design documents live separately under `docs/design/specs/{category}/`, governed by `docs/design/catalog.md`.
 - Q: What serialization format for state files? A: JSON — one file per concern (e.g., `state.json`, `backlog.json`, `improvements.json`).
 - Q: How are cross-Sprint context limits managed? A: Fresh context per Sprint — the Scrum Master (team lead) reads state files from disk at Sprint start; Developer teammates receive only their assigned artifacts (PBI, relevant design docs, requirements).
-- Q: What are the explicit PBI lifecycle states? A: 12 states (v2 schema), actor-split — see `docs/data-model.md` § State Transitions for the canonical enum list and ASCII transition graph. The legacy 6-state model (`draft → refined → in_progress → review → done | blocked`) was replaced when the `pbi-state.json.phase` field was removed; status is the sole SSOT.
+- Q: What are the explicit PBI lifecycle states? A: 13 states (v2 schema), actor-split — see `docs/data-model.md` § State Transitions for the canonical enum list and ASCII transition graph. The legacy 6-state model (`draft → refined → in_progress → review → done | blocked`) was replaced when the `pbi-state.json.phase` field was removed; status is the sole SSOT.
 - Q: Can Agent Teams teammates use specialist sub-agents from the catalog? A: Yes — teammates are full Claude Code sessions that load `.claude/agents/` automatically. They install sub-agent `.md` files from the catalog and use them via the Task tool. This is distinct from Agent Teams itself: teammates coordinate via shared task list and messaging, while sub-agents are ephemeral workers within a teammate's session.
 
 ### 2026-02-21

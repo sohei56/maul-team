@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # escalation-smoke.bats — Smoke test for escalation status transitions.
 #
-# Verifies that, given the 12-value status enum (PBI-A) and the expanded
+# Verifies that, given the 13-value status enum (PBI-A) and the expanded
 # escalation_reason enum (PBI-A), three canonical escalation transitions
 # produce schema-valid state.
 #

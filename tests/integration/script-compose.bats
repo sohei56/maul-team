@@ -114,7 +114,7 @@ EOF
   [[ "$output" == *"1 draft"* ]]
 }
 
-# --- 12-value status SSOT: direct-write through wrappers ---
+# --- 13-value status SSOT: direct-write through wrappers ---
 
 # These tests compose multiple wrappers (update-backlog-status / update-pbi-state /
 # mark-pbi-ready-to-merge / mark-pbi-merged / mark-pbi-merge-failure) and verify
@@ -135,12 +135,12 @@ EOF
 EOF
 }
 
-@test "compose: update-backlog-status accepts every value of the 12-value enum" {
+@test "compose: update-backlog-status accepts every value of the 13-value enum" {
   setup_status_sandbox
   for s in draft refined blocked \
            in_progress_design in_progress_impl in_progress_pbi_review \
            in_progress_ut_run in_progress_merge \
-           awaiting_cross_review cross_review escalated done; do
+           awaiting_cross_review cross_review escalated done cancelled; do
     run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli \
       "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 "$s"
     [ "$status" -eq 0 ]

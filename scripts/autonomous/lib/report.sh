@@ -129,7 +129,7 @@ generate_morning_report() {
     local bucket
     # Quoted "done" so shellcheck does not flag the loop word as the closing
     # keyword of the surrounding `do … done`.
-    for bucket in "done" escalated blocked; do
+    for bucket in "done" escalated blocked cancelled; do
       printf '### %s\n\n' "$bucket" >> "$report_path"
       statuses="$(jq -r --arg s "$bucket" '
         [(.items // [])[] | select((.status // "") == $s)

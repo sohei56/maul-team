@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-/// A colored status pill for a PBI's 12-value status.
+/// A colored status pill for a PBI's 13-value status.
 struct StatusBadge: View {
     let status: String
     var body: some View {

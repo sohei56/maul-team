@@ -90,9 +90,9 @@ When assigned→execute Steps 3–6 of the `integration-tests` skill:
 - **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report. Integration Tests test assets are the one exception: commit them via `commit-integration-tests.sh` (stages `tests/` paths only; refuses product source).
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
-## Status Ownership (12-value status SSOT)
+## Status Ownership (13-value status SSOT)
 
-Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-12-value-enum-actor-split).
+Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
 
 Developer owns these `backlog.json.items[].status` values:
 `in_progress_design`, `in_progress_impl`, `in_progress_pbi_review`,

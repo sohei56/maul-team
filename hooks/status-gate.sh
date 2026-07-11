@@ -10,7 +10,7 @@
 # Note: this hook reads the project-level Scrum phase from .scrum/state.json
 # (which retains its `phase` field for the Sprint state machine:
 # sprint_planning, pbi_pipeline_active, review, sprint_review, ...). It is
-# unrelated to the per-PBI 12-value status enum stored in
+# unrelated to the per-PBI 13-value status enum stored in
 # .scrum/backlog.json.items[].status.
 set -euo pipefail
 

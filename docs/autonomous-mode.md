@@ -253,7 +253,7 @@ report contains:
 - Run metadata (run_id, started_at, exit reason, final phase,
   iterations, total cost, last lead session id).
 - Completed Sprints from `.scrum/sprint-history.json`.
-- PBI status buckets: `done`, `escalated`, `blocked`.
+- PBI status buckets: `done`, `escalated`, `blocked`, `cancelled`.
 - An inline copy of `.scrum/po/attention.md` (human-only items).
 - Pointers to every `iter-<N>.json` so you can drill in.
 

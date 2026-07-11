@@ -29,7 +29,7 @@
               "in_progress_design", "in_progress_impl", "in_progress_pbi_review",
               "in_progress_ut_run", "in_progress_merge",
               "awaiting_cross_review", "cross_review",
-              "escalated", "done"
+              "escalated", "done", "cancelled"
             ]
           },
           "priority": {"type": ["integer", "null"], "minimum": 0},

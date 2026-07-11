@@ -53,11 +53,12 @@ STARTED_AT="$(jq -r '.started_at // empty' "$SPRINT")"
 COMPLETED_AT="$(jq -r '.completed_at // empty' "$SPRINT")"
 
 # Derive PBI counts from the Sprint Backlog (best-effort; omitted if absent).
+# cancelled PBIs are descoped work, not undelivered work — excluded from total.
 PBIS_TOTAL=""
 PBIS_COMPLETED=""
 if [ -f "$BACKLOG" ]; then
   PBIS_TOTAL="$(jq --arg id "$SPRINT_ID" \
-    '[.items[]? | select(.sprint_id == $id)] | length' "$BACKLOG" 2>/dev/null || echo "")"
+    '[.items[]? | select(.sprint_id == $id and .status != "cancelled")] | length' "$BACKLOG" 2>/dev/null || echo "")"
   PBIS_COMPLETED="$(jq --arg id "$SPRINT_ID" \
     '[.items[]? | select(.sprint_id == $id and .status == "done")] | length' "$BACKLOG" 2>/dev/null || echo "")"
 fi

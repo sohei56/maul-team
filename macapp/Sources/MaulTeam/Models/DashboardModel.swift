@@ -194,6 +194,10 @@ final class DashboardModel: ObservableObject {
     /// Done count within the current sprint (for the sprint progress bar).
     var doneCount: Int { sprintItems.filter { $0.status == "done" }.count }
 
+    /// Progress denominator — `cancelled` is terminal non-delivery, so it is
+    /// excluded from the ratio (mirrors dashboard/app.py).
+    var deliverableCount: Int { sprintItems.filter { $0.status != "cancelled" }.count }
+
     func refresh() {
         state = decode("state.json", as: ScrumState.self)
         sprint = decode("sprint.json", as: Sprint.self)
@@ -301,6 +305,7 @@ enum PBIStatus {
             "in_progress_pbi_review": "pbi-review", "in_progress_ut_run": "ut-run",
             "in_progress_merge": "merge", "awaiting_cross_review": "await-x-rev",
             "cross_review": "x-review", "escalated": "escalated", "done": "done",
+            "cancelled": "cancelled",
         ][s] ?? s
     }
 
@@ -313,7 +318,7 @@ enum PBIStatus {
         case "in_progress_impl", "in_progress_pbi_review": return .blue
         case "in_progress_ut_run": return .teal
         case "in_progress_merge": return .purple
-        case "draft": return .secondary
+        case "draft", "cancelled": return .secondary
         default: return .secondary
         }
     }

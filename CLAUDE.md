@@ -107,9 +107,12 @@ sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md 
 - All state persisted to `.scrum/` JSON files for resume capability
 - Design documents governed by `docs/design/catalog.md` (read-only type reference) + `docs/design/catalog-config.json` (editable enabled list)
 - Developer teammates named with Sprint suffix: `dev-001-s{N}`
-- PBI status flow (12 values, actor-split; status is sole SSOT):
+- PBI status flow (13 values, actor-split; status is sole SSOT):
   - SM-managed: `draft → refined → … → awaiting_cross_review → cross_review → done` (happy path)
   - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
+  - `cancelled` is the SM-only terminal state for PBIs merged into
+    another PBI or no longer needed (incl. escalation `abandon`);
+    `blocked` remains strictly hold-and-resume on an external blocker
   - Full graph (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
 - On a **new project (both modes)**, `scrum-start.sh` co-authors a
@@ -209,7 +212,7 @@ files via Bash are blocked as usual. The PBI state schema
 gained worktree / merge fields (`branch`, `worktree`, `base_sha`,
 `head_sha`, `paths_touched`, `ready_at`, `merged_sha`, `merged_at`,
 `merge_failure`, `merge_failure_count`); all PBI lifecycle is driven
-by the 12-value `backlog.json.items[].status` enum. Merge-failure
+by the 13-value `backlog.json.items[].status` enum. Merge-failure
 detail is preserved in `pbi-state.json.merge_failure` /
 `escalation_reason`; see `skills/pbi-merge/SKILL.md` for the
 `merge_failure.kind → escalation_reason` mapping and the 3-strike

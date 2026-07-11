@@ -105,14 +105,14 @@ Valid phases:
 | `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
 | `merged_at` | ISO 8601 string \| absent | Mirror of `pbi/<id>/state.json.merged_at`; written by `mark-pbi-merged.sh` |
 
-### State Transitions: `status` (12-value enum, actor-split)
+### State Transitions: `status` (13-value enum, actor-split)
 
 `status` is the sole SSOT for PBI lifecycle. Two actors own disjoint
 slices of the enum:
 
 ```
-SM-managed (7):  draft, refined, blocked, awaiting_cross_review,
-                 cross_review, escalated, done
+SM-managed (8):  draft, refined, blocked, awaiting_cross_review,
+                 cross_review, escalated, done, cancelled
 Dev-managed (5): in_progress_design, in_progress_impl,
                  in_progress_pbi_review, in_progress_ut_run,
                  in_progress_merge
@@ -148,6 +148,10 @@ ASCII transition graph:
   [SM] escalated → [Dev] in_progress_design  (SM retry; round counters reset)
   [SM] escalated → [SM] blocked              (SM hold / human-escalate)
   [SM] blocked   → [Dev] in_progress_design  (external blocker resolved)
+
+  [SM] {draft, refined, escalated, blocked} → [SM] cancelled
+       (terminal: PBI merged into another PBI, or no longer needed —
+        e.g. the escalation-handler "abandon" verdict)
 ```
 
 **kind=docs override:** when `items[].kind == "docs"`, the pipeline
@@ -195,7 +199,8 @@ State descriptions:
 - `cross_review` — Sprint-end `cross-review` ceremony running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
 - `done` — Sprint-end ceremony complete. The PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
 - `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
-- `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears.
+- `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears. **Not** for PBIs that will never resume — those go to `cancelled`.
+- `cancelled` — SM-decided terminal state: the PBI was merged into another PBI, superseded, or is no longer needed (including the `pbi-escalation-handler` **abandon** verdict). No outbound transitions. Completion gates and Sprint carry-over treat `cancelled` like `done` (no remaining work), but it is never counted as delivered.
 
 ### Validation Rules
 - `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — the per-PBI aspect review is spawned by the Developer conductor inside `pbi-pipeline` (the Integrity stage), and the Sprint-end whole-repo audit is owned by the Scrum Master (see the `cross-review` / `codebase-audit` skills, FR-009).
@@ -238,7 +243,7 @@ State descriptions:
 | `sub_agents` | string[] | Names of specialist sub-agents actually invoked via the Task tool (runtime-populated, not candidates) |
 
 > **Note**: The Developer's current PBI status is derived from
-> `backlog.json.items[<current_pbi>].status` (12-value enum) — single
+> `backlog.json.items[<current_pbi>].status` (13-value enum) — single
 > source of truth, no mirror field to drift.
 
 ---
@@ -655,7 +660,7 @@ context.
 | `updated_at` | ISO 8601 string | Last state mutation timestamp |
 
 > **Note**: The legacy `phase` field was removed in v2. Lifecycle is
-> driven by `backlog.json.items[].status` (12-value enum, see PBI
+> driven by `backlog.json.items[].status` (13-value enum, see PBI
 > entity above).
 
 `escalation_reason` enum:

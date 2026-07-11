@@ -319,7 +319,20 @@ the sole broker — sub-agents never address the PO directly.
    ```bash
    .scrum/scripts/update-backlog-status.sh "$PBI_ID" refined
    ```
-5. Report: count refined, total refined WIP
+
+   **Superseded drafts → `cancelled`.** If refinement absorbed a draft
+   PBI into another PBI, replaced it with child PBIs (its scope is
+   fully covered by items carrying `parent_pbi_id`), or the PO ruled
+   it no longer needed, do not leave it lingering as `draft` (and
+   never park it as `blocked` — that status is hold-and-resume only):
+   ```bash
+   .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" \
+     description "Superseded by <pbi-ids / reason>. <original description>"
+   .scrum/scripts/update-backlog-status.sh "$PBI_ID" cancelled
+   ```
+   `cancelled` is terminal; record the superseding pbi-ids in the
+   description first so the audit trail survives.
+5. Report: count refined, total refined WIP, count cancelled (superseded)
 
 Ref: FR-003
 

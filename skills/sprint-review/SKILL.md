@@ -86,7 +86,7 @@ on `read` from stdin in this mode.
    c. "Will be prioritized in next Sprint via Backlog Refinement→Sprint Planning"
    d. After user confirms "that's all"→proceed
    - **po_mode=agent**: replace the "repeat until user says that's all" loop with **one** PO pass. SM sends `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[high,medium,low,reject] recommendation=<...>` once; the PO returns a single message listing (a) gaps against `docs/product/vision.md` and (b) demo-observed defects, terminated by `FEEDBACK_COMPLETE`. Each listed defect produces a separate `kind=defect_triage` decision + a draft PBI via `add-backlog-item.sh`. No further round-trips.
-10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status != "done"` (any `in_progress_*` / `awaiting_cross_review` / `cross_review` / `escalated` / `blocked` / refined-but-not-started):
+10. **Carry-over PBIs (mandatory)**: For every PBI in this sprint where `status` is neither `"done"` nor `"cancelled"` (any `in_progress_*` / `awaiting_cross_review` / `cross_review` / `escalated` / `blocked` / refined-but-not-started — `cancelled` PBIs have no remaining work and are never carried over):
     a. Create a new draft PBI capturing the remaining work via `add-backlog-item.sh` — embed origin in description (`Carry-over from <pbi-id>: <what is left>`).
     b. Original PBI keeps its current status (immutable historical record of this Sprint).
     c. Track each new pbi-id for the Leftover Summary.

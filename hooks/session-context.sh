@@ -74,7 +74,7 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   fi
 
   # PBI Pipeline awareness: derive active pipelines from backlog.json (the
-  # 12-value status SSOT) so spawned sub-agents know which PBI(s) are in
+  # 13-value status SSOT) so spawned sub-agents know which PBI(s) are in
   # flight. Any status starting with `in_progress_` counts as active. Full
   # env propagation (SCRUM_PBI_ID) is not possible via this hook — sub-agent
   # prompts must include the PBI id explicitly.

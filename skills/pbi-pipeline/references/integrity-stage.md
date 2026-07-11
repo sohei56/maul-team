@@ -27,7 +27,7 @@ kind=docs:  ... impl-reviewer PASS ──▶ [Integrity stage] ──▶ ready-t
                                      in_progress_impl (next Round)
 ```
 
-It does **not** have its own backlog status value (the 12-value enum
+It does **not** have its own backlog status value (the 13-value enum
 is fixed). It executes while the backlog status is still the Round's
 terminal stage — `in_progress_ut_run` for kind=code, `in_progress_pbi_review`
 for kind=docs — and only advances the status when it either hands off

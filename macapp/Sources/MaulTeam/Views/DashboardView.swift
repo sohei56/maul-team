@@ -121,7 +121,7 @@ struct DashboardView: View {
                 Text("following \(sid) · closed")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            let total = model.sprintItems.count
+            let total = model.deliverableCount
             if total > 0 {
                 Text("\(model.doneCount)/\(total) PBIs delivered")
                     .font(.caption).foregroundStyle(.secondary)
@@ -158,7 +158,7 @@ struct DashboardView: View {
             }
             Text(sprint.goal ?? "No goal").font(.subheadline).foregroundStyle(.secondary)
 
-            let total = model.sprintItems.count
+            let total = model.deliverableCount
             let done = model.doneCount
             VStack(alignment: .leading, spacing: 3) {
                 HStack {

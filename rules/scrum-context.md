@@ -76,7 +76,7 @@ Schemas under `docs/contracts/scrum-state/` are authoritative.
 |---|---|
 | Project workflow phase (Sprint-level ceremony) | `.scrum/state.json` |
 | Current Sprint, base_sha, member list | `.scrum/sprint.json` |
-| All PBIs, statuses (12-value enum), paths_touched | `.scrum/backlog.json` |
+| All PBIs, statuses (13-value enum), paths_touched | `.scrum/backlog.json` |
 | Your PBI's internal pipeline state, round counters, merge fields | `.scrum/pbi/<pbi-id>/state.json` |
 | PBI lifecycle graph, status semantics | `docs/data-model.md` |
 | Inter-agent message contracts, envelope schema | `docs/contracts/agent-interfaces.md`, `docs/contracts/sub-agents.md` |
@@ -98,8 +98,9 @@ Before doing any work, in this order:
    ask before acting.
 3. **If you are PBI-scoped**, read `.scrum/backlog.json` (your PBI's
    status) and `.scrum/pbi/<pbi-id>/state.json` (round counters,
-   prior verdicts, escalation_reason). A status of `escalated` or
-   `blocked` means do not proceed — surface it to your caller.
+   prior verdicts, escalation_reason). A status of `escalated`,
+   `blocked`, or `cancelled` means do not proceed — surface it to
+   your caller.
 4. **If you are a reviewer**, read the prior round's feedback file
    (`feedback/<role>-r{n-1}.md`) and metrics
    (`metrics/coverage-r{n-1}.json`) — your job is to react to those,

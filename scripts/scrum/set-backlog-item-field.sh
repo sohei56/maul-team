@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/scrum/set-backlog-item-field.sh — set one schema-allowed field on
 # `.scrum/backlog.json` items[]. Status is **not** writable here — it has its
-# own dedicated wrapper (`update-backlog-status.sh`) because the 12-value enum
+# own dedicated wrapper (`update-backlog-status.sh`) because the 13-value enum
 # governs lifecycle and validation.
 #
 # Usage:
@@ -121,7 +121,7 @@ case "$FIELD" in
     esac
     ;;
   status)
-    fail E_INVALID_ARG "use update-backlog-status.sh to write status (12-value enum has its own wrapper)"
+    fail E_INVALID_ARG "use update-backlog-status.sh to write status (13-value enum has its own wrapper)"
     ;;
   *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind)" ;;
 esac

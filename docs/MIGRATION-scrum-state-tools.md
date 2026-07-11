@@ -11,7 +11,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Old (raw) | New (validated wrapper) |
 |---|---|
 | `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
-| Same pattern for any of the 12 v2 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done}` |
+| Same pattern for any of the 13 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done\|cancelled}` |
 | `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
@@ -183,7 +183,8 @@ The v1 schema split PBI lifecycle across two fields:
 `backlog.json.items[].status` (6 values) and
 `pbi-state.json.phase` (10 values, including merge sub-states). v2
 unifies these into a single 12-value `status` enum and removes the
-`phase` field entirely.
+`phase` field entirely. (The enum has since grown to 13 values with
+the terminal `cancelled` status.)
 
 The one-shot migration is now performed via
 `scripts/scrum/migrate-legacy.sh`, which folds the v1→v2 status remap

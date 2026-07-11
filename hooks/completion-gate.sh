@@ -399,7 +399,7 @@ current_sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
 
 case "$phase" in
   review)
-    # All Sprint PBIs must have status "done"
+    # All Sprint PBIs must have status "done" (or "cancelled" — no remaining work)
     if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
       # Allow stop when state files are missing — blocking would trap users
       stderr_log "completion-gate" "WARNING" "sprint.json or backlog.json missing; cannot verify PBI status."
@@ -410,7 +410,7 @@ case "$phase" in
     while IFS= read -r pbi_id; do
       [ -z "$pbi_id" ] && continue
       status="$(get_pbi_status "$pbi_id")"
-      if [ "$status" != "done" ]; then
+      if [ "$status" != "done" ] && [ "$status" != "cancelled" ]; then
         incomplete_pbis="${incomplete_pbis}${incomplete_pbis:+, }${pbi_id} (status: ${status})"
       fi
     done <<EOF
@@ -419,7 +419,7 @@ EOF
 
     if [ -n "$incomplete_pbis" ]; then
       block_stop \
-        "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' before stopping." \
+        "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' (or 'cancelled') before stopping." \
         "review_incomplete" \
         "$incomplete_pbis"
     fi
@@ -554,7 +554,7 @@ EOF
     ;;
 
   pbi_pipeline_active)
-    # Active pipelines are derived from backlog.json (12-value SSOT): any
+    # Active pipelines are derived from backlog.json (13-value SSOT): any
     # PBI whose status starts with `in_progress_` is mid-pipeline. The
     # filter excludes `in_progress_merge` (handoff awaiting SM action, not
     # a stuck pipeline) so it does not count toward the in-flight total.

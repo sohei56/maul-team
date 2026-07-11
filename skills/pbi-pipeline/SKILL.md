@@ -42,7 +42,7 @@ disable-model-invocation: false
   summaries, pipeline.log, ut/ac-coverage-r{n}.json)
 - backlog.json `items[].status` driven via
   `.scrum/scripts/update-backlog-status.sh` (Developer manages the
-  `in_progress_*` range; SM owns the rest of the 12-value enum).
+  `in_progress_*` range; SM owns the rest of the 13-value enum).
 - Notification to SM via Agent Teams
 
 ## Status range owned by this skill (Developer side)
@@ -52,7 +52,7 @@ in_progress_design  → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progr
                                                                                   → escalated  (any stage; via termination gate)
 ```
 
-The 7 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-12-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Stages (decision tree)
 

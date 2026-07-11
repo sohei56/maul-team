@@ -474,5 +474,5 @@ by default).
 - Catalog write contention: 3-layer defense (sprint-planning
   pre-separation, runtime flock, mtime conflict detection).
 - TUI: dashboard PBI Board reads `backlog.json.items[].status`
-  (12-value SSOT) and per-PBI round counters from
+  (13-value SSOT) and per-PBI round counters from
   `.scrum/pbi/<pbi-id>/state.json`.

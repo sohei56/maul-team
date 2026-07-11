@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # tests/unit/scrum-state/test_update-backlog-status.bats —
-# 12-value status enum is the sole SSOT; the wrapper accepts every value.
+# 13-value status enum is the sole SSOT; the wrapper accepts every value.
 
 setup() {
   export SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli
@@ -86,6 +86,12 @@ backlog_status() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 blocked
   [ "$status" -eq 0 ]
   [ "$(backlog_status pbi-001)" = "blocked" ]
+}
+
+@test "update-backlog-status: accepts cancelled" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 cancelled
+  [ "$status" -eq 0 ]
+  [ "$(backlog_status pbi-001)" = "cancelled" ]
 }
 
 @test "update-backlog-status: accepts done" {

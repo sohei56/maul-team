@@ -113,32 +113,32 @@ load '../test_helper/common-setup'
   assert_success
 }
 
-@test "PBI status in fixture is one of the 12 unified status values" {
+@test "PBI status in fixture is one of the 13 unified status values" {
   local file="$FIXTURES_DIR/valid-backlog.json"
 
-  # Every PBI status must be one of the 12 unified enum values.
+  # Every PBI status must be one of the 13 unified enum values.
   run jq -e '
     [.items[].status] | all(. as $s |
       ["draft","refined","blocked",
        "in_progress_design","in_progress_impl","in_progress_pbi_review",
        "in_progress_ut_run","in_progress_merge",
        "awaiting_cross_review","cross_review",
-       "escalated","done"] | index($s) != null)
+       "escalated","done","cancelled"] | index($s) != null)
   ' "$file"
   assert_success
 }
 
-@test "12-value status enum covers all SM and Developer managed states" {
-  # Sanity check that the canonical 12-value enum has exactly the SM (7) +
+@test "13-value status enum covers all SM and Developer managed states" {
+  # Sanity check that the canonical 13-value enum has exactly the SM (8) +
   # Developer (5) split documented in the plan.
   run bash -c '
-    cat <<EOF | jq -e "length == 12"
+    cat <<EOF | jq -e "length == 13"
 [
   "draft","refined","blocked",
   "in_progress_design","in_progress_impl","in_progress_pbi_review",
   "in_progress_ut_run","in_progress_merge",
   "awaiting_cross_review","cross_review",
-  "escalated","done"
+  "escalated","done","cancelled"
 ]
 EOF
 '
@@ -146,14 +146,14 @@ EOF
 }
 
 @test "legacy PBI status values are no longer accepted" {
-  # Old 6-value enum values must NOT appear in the 12-value canonical list.
+  # Old 6-value enum values must NOT appear in the 13-value canonical list.
   for legacy in "in_progress" "review"; do
     run jq -en --arg s "$legacy" '
       ["draft","refined","blocked",
        "in_progress_design","in_progress_impl","in_progress_pbi_review",
        "in_progress_ut_run","in_progress_merge",
        "awaiting_cross_review","cross_review",
-       "escalated","done"] | index($s) == null
+       "escalated","done","cancelled"] | index($s) == null
     '
     assert_success
   done

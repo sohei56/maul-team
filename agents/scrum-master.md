@@ -89,22 +89,23 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 
 Self-run ceremonies (sprint-review, retrospective) handle the transition in their own step 1. (The `phase` key here is the Sprint-level ceremony phase in `state.json`, distinct from per-PBI status on `backlog.json`.)
 
-## Status Ownership (12-value status SSOT)
+## Status Ownership (13-value status SSOT)
 
-Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-12-value-enum-actor-split).
+Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
 
 SM owns these `backlog.json.items[].status` values: `draft`,
 `refined`, `blocked`, `awaiting_cross_review`, `cross_review`,
-`escalated`, `done`. Per-status semantics are in the linked
-data-model § State Transitions; the SM-specific transition rules
-follow.
+`escalated`, `done`, `cancelled`. Per-status semantics are in the
+linked data-model § State Transitions; the SM-specific transition
+rules follow.
 
 **Transition rules:**
 
 - Sprint planning: `refined → in_progress_design` (handed off to Developer)
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
 - cross-review PASS → `done`; FAIL → `in_progress_impl` (Developer fixes on top of merged code)
-- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`)
+- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`, abandon → `cancelled`)
+- Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked`). Never park such PBIs at `blocked` — `blocked` is strictly for hold-and-resume on an external blocker.
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
   a failure **leaves status `in_progress_merge`** for the Developer to
   fix & retry, and only the **3rd consecutive** failure flips status
