@@ -975,15 +975,17 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <div><h3>PBI Pipeline<span class="phase-tag">parallel</span></h3>
         <p>Each Developer conducts rounds of design → implementation + black-box unit tests →
            cross-model Codex review, in its own git worktree, with deterministic termination
-           gates and real C0/C1 coverage.</p></div></article>
+           gates, real C0/C1 coverage, and a final 5-aspect integrity gate — requirements,
+           functionality, security, maintainability, docs — before merge.</p></div></article>
       <article class="step reveal" style="--d:.14s"><span class="step-num">05</span>
         <div><h3>Per-PBI Merge</h3>
         <p><span class="mono">--no-ff</span> merge plus a regression gate; three strikes and
            the PBI escalates instead of limping forward.</p></div></article>
       <article class="step reveal" style="--d:.17s"><span class="step-num">06</span>
         <div><h3>Cross-Review</h3>
-        <p>Five aspect-specialized reviewer agents — requirements, functionality, security,
-           maintainability, docs — run in parallel over the Increment.</p></div></article>
+        <p>A whole-repo audit: four parallel auditors hunt spec drift, wiring-level logic
+           defects, dead code, and cross-cutting security gaps that per-PBI review
+           structurally can't see. Findings become next-Sprint PBIs.</p></div></article>
       <article class="step reveal" style="--d:.20s"><span class="step-num">07</span>
         <div><h3>Sprint Review</h3>
         <p>The team demos the working Increment to you. You inspect the product, not a diff.</p></div></article>
@@ -1235,7 +1237,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <span class="f-ico" aria-hidden="true">◎</span>
         <h3>AI-native adaptations</h3>
         <p>Dynamic team sizing, mandatory requirement definition first, no work without a
-           PBI, and independent 5-aspect cross-review — Scrum re-derived for agents.</p>
+           PBI, a per-PBI 5-aspect integrity gate, and a Sprint-end whole-repo audit —
+           Scrum re-derived for agents.</p>
       </article>
     </div>
   </section>
