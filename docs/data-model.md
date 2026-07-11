@@ -16,7 +16,7 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `product_goal` | string | User-defined desired future state of the product |
+| `product_goal` | string \| null | Vestigial — seeded `null` by `init-state.sh` and never written by any wrapper; retained for schema compatibility. SSOT is `backlog.json.product_goal` |
 | `current_sprint_id` | string \| null | ID of the active Sprint, null if none |
 | `phase` | enum | Current workflow phase (see State Transitions) |
 | `created_at` | ISO 8601 string | Project creation timestamp |
@@ -73,7 +73,7 @@ Valid phases:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `product_goal` | string | Duplicated from state for self-contained reads |
+| `product_goal` | string | SSOT for the Product Goal, written by `init-backlog.sh --product-goal` (state's copy is vestigial) |
 | `items` | PBI[] | Ordered list of Product Backlog Items |
 | `next_pbi_id` | integer | Auto-increment counter for PBI IDs |
 

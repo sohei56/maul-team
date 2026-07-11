@@ -55,7 +55,14 @@ autonomous_prologue() {
 if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   phase="$(jq -r '.phase // "unknown"' "$STATE_FILE")"
   sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
-  product_goal="$(jq -r '.product_goal // "Not yet defined"' "$STATE_FILE")"
+  # product_goal SSOT is backlog.json (set by init-backlog.sh
+  # --product-goal); state.json's copy is vestigial and always null in
+  # wrapper-governed projects.
+  product_goal="Not yet defined"
+  if [ -f "$BACKLOG_FILE" ]; then
+    product_goal="$(jq -r '.product_goal // "Not yet defined"' "$BACKLOG_FILE" 2>/dev/null || true)"
+    [ -n "$product_goal" ] || product_goal="Not yet defined"
+  fi
 
   # Get Sprint Goal if sprint file exists
   sprint_goal="No active Sprint"

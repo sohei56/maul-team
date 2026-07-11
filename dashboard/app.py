@@ -290,7 +290,9 @@ class SprintOverview(Static):
             return
 
         phase = state.get("phase", "unknown")
-        product_goal = state.get("product_goal", "Not defined")
+        # product_goal SSOT is backlog.json (init-backlog.sh --product-goal);
+        # state.json's copy is vestigial and always null under the wrappers.
+        product_goal = (backlog or {}).get("product_goal") or "Not defined"
 
         lines = [f"[bold]Product Goal:[/bold] {product_goal}"]
         lines.append(format_phase(phase))
