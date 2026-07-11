@@ -43,7 +43,19 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$status" -eq 0 ]
 }
 
-@test "cleanup: refuses if status not in {awaiting_cross_review, cross_review, escalated, done}" {
+@test "cleanup: allowed for status=cancelled — succeeds and is idempotent" {
+  jq '(.items[] | select(.id=="pbi-001")).status = "cancelled"' .scrum/backlog.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/backlog.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/cleanup-pbi-worktree.sh" pbi-001
+  [ "$status" -eq 0 ]
+  [ ! -d .scrum/worktrees/pbi-001 ]
+  run git branch --list pbi/pbi-001
+  [ -z "$output" ]
+  # retry after the status flip (e.g. partial removal) must still succeed
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/cleanup-pbi-worktree.sh" pbi-001
+  [ "$status" -eq 0 ]
+}
+
+@test "cleanup: refuses if status not in {awaiting_cross_review, cross_review, escalated, done, cancelled}" {
   jq '(.items[] | select(.id=="pbi-001")).status = "in_progress_merge"' .scrum/backlog.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/backlog.json
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/cleanup-pbi-worktree.sh" pbi-001
   [ "$status" -ne 0 ]
