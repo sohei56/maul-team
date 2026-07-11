@@ -10,6 +10,10 @@
 # FAKE_CODEX_FINDINGS (newline-separated "signature|severity|criterion|description").
 set -euo pipefail
 
+# Fast-path the availability probe: codex_is_available (codex-invoke.sh)
+# runs `$cmd --version` before every review call.
+[ "${1:-}" = "--version" ] && { echo "codex-cli 0.0-stub"; exit 0; }
+
 # Assert the subcommand switched to `exec` (was `review` in the old
 # broken invocation).
 [ "${1:-}" = "exec" ] || { echo "fake-codex: expected 'exec' subcommand, got '${1:-}'" >&2; exit 1; }
