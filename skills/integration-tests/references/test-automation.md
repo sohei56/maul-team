@@ -20,7 +20,7 @@ tier. A lower tier requires a stated reason recorded in the case's
   established HTTP-test approach, a Node project its, a Go project
   `go test`). Confirm the current, maintained test/HTTP-client library
   for the stack with a Web search at implementation time rather than
-  from memory (same discipline as `agents/pbi-designer.md` §
+  from memory (same discipline as `../../../agents/pbi-designer.md` §
   Mandatory library selection).
 - **UI cases** → implement as **Playwright test code** (`npx
   playwright test`, not the MCP) and commit under `tests/e2e/`. This

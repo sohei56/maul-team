@@ -66,7 +66,7 @@ Black-box test author. Spawned by Developer per impl+UT Round.
     satisfies which criterion)
   Guessing IS permitted for: test names, fixture data values, AAA
   arrangement style, helper extraction. See
-  `rules/scrum-context.md` § "When you don't know" for the
+  `../rules/scrum-context.md` § "When you don't know" for the
   escalation route (UT author → Developer → SM → PO).
 
 ## AC coverage map (mandatory per Round)
@@ -103,7 +103,7 @@ Rules:
 - **Final self-check (do not skip).** This map is a load-bearing
   artifact: the conductor gates the Round on it and re-spawns you if
   it is missing or has any empty `tests` array (Step-1b guard in
-  `skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
+  `../skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
   re-open the emitted `ac-coverage-r{n}.json` with the Read tool and
   visually confirm: (1) the file exists, (2) `criteria` is a non-empty
   array, (3) every entry's `tests` array is non-empty. Fix it if any

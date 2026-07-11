@@ -18,14 +18,14 @@ flags only. There is no `phase` field; status is the sole SSOT.
 | Ready-to-merge handoff | `in_progress_merge` |
 | Termination-gate escalation | `escalated` |
 
-The 8 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [../../../docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Schema: `.scrum/pbi/<pbi-id>/state.json`
 
 The canonical schema is
 [docs/contracts/scrum-state/pbi-state.schema.json](../../../docs/contracts/scrum-state/pbi-state.schema.json)
 (field semantics in
-[docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate)).
+[../../../docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate)).
 Do not copy it here — the compact listing below covers only the fields
 the conductor writes, with enums transcribed from the schema:
 
@@ -47,7 +47,7 @@ fields are owned by other scripts (see § New fields below).
 
 `escalation_reason` enum (only set when backlog status is
 `escalated`): canonical value list in
-[docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate).
+[../../../docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate).
 
 The merge-* values are written by SM-side `mark-pbi-merge-failure.sh`,
 not by this skill. `reviewer_unavailable` and `stale_review_snapshot`

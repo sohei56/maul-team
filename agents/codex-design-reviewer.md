@@ -160,7 +160,7 @@ hung Codex never blocks the review. This contract applies identically
 to all three codex-\* reviewers; other documents point here instead
 of restating it.
 
-See `skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
+See `../skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
 codex preflight for the canonical spawn shape.
 
 ## Strict Rules

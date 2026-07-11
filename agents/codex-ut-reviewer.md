@@ -70,7 +70,7 @@ Implementation source code, .scrum/ state, PBI dev communications.
    and pragma-audit reports do not exist yet (they are produced by the
    conductor's UT Run step AFTER this review). Pragma justification and
    coverage-threshold gating are owned by the conductor's Step-3/4
-   coverage gate (see `skills/pbi-pipeline/references/coverage-gate.md`
+   coverage gate (see `../skills/pbi-pipeline/references/coverage-gate.md`
    § Pass criteria). Do NOT auto-FAIL on a missing or absent
    coverage/pragma report.
 4. **Coverage gap interpretation (advisory, prior round only)** — if a

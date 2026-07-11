@@ -19,13 +19,13 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
 in the numbered Steps below re-targets to the `product-owner` teammate
-per `rules/scrum-context.md` § PO seat resolution; the ceremony shape
+per `../../rules/scrum-context.md` § PO seat resolution; the ceremony shape
 is unchanged. The user-approval points are re-targeted as follows:
 
 | Step | Phrase in human mode | Agent-mode override |
 |---|---|---|
 | 3 | SM presents change request to user in natural language | SM sends `[<scope>] PO_DECISION_REQUEST kind=change_request options=[approve,reject] recommendation=<...>` with the frozen doc path, the proposed delta, the reason, and the affected PBI ids as payload. `<scope>` is `pbi-NNN` when a single PBI is affected, otherwise `sprint-N` or `product`. |
-| 4 | User approves or rejects | PO judges the request against `docs/product/vision.md` Scope In/Out and the measurable release criteria. Approval requires a concrete tie-back to a brief/vision clause; YAGNI applies otherwise (`agents/product-owner.md` § Decision principles). **Both approve and reject** are persisted by the PO via `.scrum/scripts/append-po-decision.sh`, and the resulting `dec_id` is echoed in the `PO_DECISION` reply — this is the PO's responsibility, not the SM's. |
+| 4 | User approves or rejects | PO judges the request against `docs/product/vision.md` Scope In/Out and the measurable release criteria. Approval requires a concrete tie-back to a brief/vision clause; YAGNI applies otherwise (`../../agents/product-owner.md` § Decision principles). **Both approve and reject** are persisted by the PO via `.scrum/scripts/append-po-decision.sh`, and the resulting `dec_id` is echoed in the `PO_DECISION` reply — this is the PO's responsibility, not the SM's. |
 | 5 | If approved → update doc + revision_history | Unchanged in shape. The `revision_history` entry's `summary` field should reference the `dec_id` returned in row 4 so the doc edit is traceable to the decision log. |
 | 7 | Notify all Developers of approved change | Unchanged; SM remains the broker for all SM ↔ Developer traffic. |
 

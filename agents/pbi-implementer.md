@@ -23,7 +23,7 @@ disallowedTools:
 Implementation author. Spawned by Developer per impl+UT Round. Behaves
 differently for `kind=code` (full source impl) and `kind=docs`
 (no design doc, .md changes only). The Developer chooses which prompt
-variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
+variant to send (see `../skills/pbi-pipeline/references/sub-agent-prompts.md`
 § pbi-implementer (kind=code) / (kind=docs)).
 
 ## Receives (kind=code)
@@ -88,7 +88,7 @@ variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
     requirement when the parent finding is ambiguous about it
   Guessing IS permitted for: error message wording, log levels,
   local variable names, internal helper decomposition, comments.
-  See `rules/scrum-context.md` § "When you don't know" for the
+  See `../rules/scrum-context.md` § "When you don't know" for the
   escalation route (implementer → Developer → SM → PO).
 
 ## Output Envelope

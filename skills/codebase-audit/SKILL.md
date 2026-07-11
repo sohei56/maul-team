@@ -111,7 +111,7 @@ does **not** re-review single-PBI diff-local security.
   audit). The audit is a no-op on an empty repo.
 - `requirements.md` and the enabled design specs exist.
 - Context (a): invoked inside the `cross-review` ceremony (see
-  `skills/cross-review/SKILL.md` Steps 6–7). Context (b): invoked at
+  `../cross-review/SKILL.md` Steps 6–7). Context (b): invoked at
   the top of `integration-tests` Step 1.
 
 ## PO Mode (po_mode: "agent")
@@ -119,7 +119,7 @@ does **not** re-review single-PBI diff-local security.
 Under `po_mode=agent`, every "ask the user" / "PO decides" phrase
 below resolves to a `PO_DECISION_REQUEST` / `PO_DECISION` exchange
 with the `product-owner` teammate, per the uniform rule in
-`rules/scrum-context.md` § PO seat resolution (flow unchanged; never
+`../../rules/scrum-context.md` § PO seat resolution (flow unchanged; never
 block on human input). Skill-specific overrides:
 
 | Context | Override (po_mode=agent) |
@@ -226,7 +226,7 @@ falls through to a fresh audit; a standalone invocation runs it as-is.
   a Stop-hook block (`completion-gate.sh` "PBIs not done") during the
   wait is not a failure. Synthesis is Step 3's job, after
   `Status = completed` — do NOT wait for the report file to appear.
-  See `agents/scrum-master.md` § Background Subagent + Stop Hook
+  See `../../agents/scrum-master.md` § Background Subagent + Stop Hook
   Reading.
 - **Axes are single-shot.** `Status = completed` is the success signal
   — do NOT apply the Teammate Liveness Protocol re-spawn rule meant

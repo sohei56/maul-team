@@ -80,7 +80,7 @@ PATTERN="$(jq -r '.pragma_pattern' "$CFG")"
 
 `.scrum/pbi/$PBI_ID/ut/ac-coverage-r{n}.json` is emitted by
 `pbi-ut-author` at the end of each impl+UT Round (see
-`agents/pbi-ut-author.md` § "AC coverage map" for full schema and
+`../../../agents/pbi-ut-author.md` § "AC coverage map" for full schema and
 rules). Shape (summary):
 
 ```json

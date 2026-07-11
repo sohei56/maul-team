@@ -169,6 +169,6 @@ content (Output Format above — markdown, no JSON envelope) as your
 final assistant message. The Developer (pipeline conductor) collects your
 returned message during the Integrity stage and consolidates all
 aspect reviews verbatim into `.scrum/reviews/<pbi-id>-review.md` (see
-`skills/pbi-pipeline/references/integrity-stage.md`). Do not refuse to
+`../skills/pbi-pipeline/references/integrity-stage.md`). Do not refuse to
 produce content because the file is not yours to write — your output
 is the final message itself.

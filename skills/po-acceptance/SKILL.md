@@ -156,7 +156,7 @@ a time):
      added for stories needing console-error, network-failure, or
      display/performance inspection. Full protocol and evidence
      format:
-     `skills/uat-release/references/po-browser-uat.md` (canonical).
+     `../uat-release/references/po-browser-uat.md` (canonical).
    - Data assertion → query the persistence store the AC/story
      names (e.g., `sqlite3`, `psql`, `redis-cli`).
 2. **Execute** the command. Capture the full command line, exit

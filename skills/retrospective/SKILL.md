@@ -26,7 +26,7 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
 below re-targets to the `product-owner` teammate per
-`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+`../../rules/scrum-context.md` § PO seat resolution; the ceremony shape is
 unchanged. Skill-specific: with no human at the keyboard, the Step 7
 "recommend `/clear` or session restart to the user" line cannot be
 acted on by anyone in-session (human mode keeps that recommendation
@@ -59,7 +59,7 @@ Overrides in agent mode:
 - **Assumption-flagged Sprint Review decisions feed improvements.**
   Any `PO_DECISION` from the current Sprint whose rationale begins
   with `ASSUMPTION:` (or which sets the wrapper's `assumption=true`
-  flag — see `agents/product-owner.md` § Anti-loop rules) is a
+  flag — see `../../agents/product-owner.md` § Anti-loop rules) is a
   candidate improvement: record an entry pointing to the `dec_id`
   so the next refinement / planning cycle revisits the unverified
   premise.
@@ -130,7 +130,7 @@ comes next and advances the workflow:
    ```
 
    The `recommendation` follows the same precedence the PO uses
-   (see `agents/product-owner.md` § Sprint continuation): default
+   (see `../../agents/product-owner.md` § Sprint continuation): default
    `next_sprint` while feature PBIs remain and Sprints are left.
 
 2. On `PO_DECISION ... decision=choice:<label> dec_id=dec-NNNN`,

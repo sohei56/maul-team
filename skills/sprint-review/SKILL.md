@@ -26,7 +26,7 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
 in the Steps below re-targets to the `product-owner` teammate per
-`rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+`../../rules/scrum-context.md` § PO seat resolution; the ceremony shape is
 unchanged, and Steps not overridden in this table run verbatim.
 
 | Step                             | Override (po_mode=agent)                                                                                                                                                                                                                                                                                                                                                  |

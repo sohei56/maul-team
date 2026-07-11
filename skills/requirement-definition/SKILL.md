@@ -41,7 +41,7 @@ disable-model-invocation: false
   requirements-analyst lifecycle (step 2 spawn, step 10 terminate),
   `backlog.json` initialization (step 7), user confirmation prompts
   (steps 5, 8, 9a).
-- **Requirements Analyst** (`agents/requirements-analyst.md`) — reads
+- **Requirements Analyst** (`../../agents/requirements-analyst.md`) — reads
   `docs/product/brief.md` and anchors the interview to it (step 3), user
   dialogue (steps 3, 4), mandatory benchmark web-search research (step
   5), `docs/requirements.md` + `docs/requirements-benchmark.md`
@@ -54,9 +54,9 @@ disable-model-invocation: false
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
 in the numbered Steps below re-targets to the `product-owner` teammate
-per `rules/scrum-context.md` § PO seat resolution; the ceremony shape
+per `../../rules/scrum-context.md` § PO seat resolution; the ceremony shape
 is unchanged. Skill-specific context: the SM has already spawned the
-`product-owner` teammate per `agents/scrum-master.md` § Autonomous PO
+`product-owner` teammate per `../../agents/scrum-master.md` § Autonomous PO
 Mode, and the PO has already produced `docs/product/vision.md` (Vision
 / target users / Scope In · Out / measurable release criteria) from
 `docs/product/brief.md` — the single human-authored input placed at
@@ -68,7 +68,7 @@ re-targeted as follows:
 
 | Step | Phrase in human mode | Agent-mode override |
 |---|---|---|
-| 3, 4 | Requirements Analyst engages user in natural-language dialogue; follow-up questions until clear | The Analyst's counterpart is the **PO teammate** via the direct `[req] INTERVIEW_QUESTION` / `[req] INTERVIEW_ANSWER` channel (the only sanctioned PO ↔ requirements-analyst direct route; see `rules/scrum-context.md` § Communication protocol). Total questions **≤ 15**, same-topic exchanges **≤ 2 round-trips**. The PO answers from `docs/product/brief.md` plus product judgment; anything not anchored in the brief is answered **"out of scope" (YAGNI)** and the rejection is appended to the `Out` section of `docs/product/vision.md`. |
+| 3, 4 | Requirements Analyst engages user in natural-language dialogue; follow-up questions until clear | The Analyst's counterpart is the **PO teammate** via the direct `[req] INTERVIEW_QUESTION` / `[req] INTERVIEW_ANSWER` channel (the only sanctioned PO ↔ requirements-analyst direct route; see `../../rules/scrum-context.md` § Communication protocol). Total questions **≤ 15**, same-topic exchanges **≤ 2 round-trips**. The PO answers from `docs/product/brief.md` plus product judgment; anything not anchored in the brief is answered **"out of scope" (YAGNI)** and the rejection is appended to the `Out` section of `docs/product/vision.md`. |
 | 5 | Present benchmark findings → user picks `adopt`/`adapt`/`reject` per item | The Analyst still runs the mandatory web search (`WebSearch` is not gated by mode). SM sends `[product] PO_DECISION_REQUEST kind=spec_clarification options=[adopt,adapt,reject] recommendation=<per-item>` with `docs/requirements-benchmark.md` as payload; the PO returns the per-item dispositions (grounded in `brief.md`) and the Analyst records them. Proceeds on `PO_DECISION`. |
 | 8 | Present requirements summary + initial backlog → user confirmation | SM sends `[product] PO_DECISION_REQUEST kind=backlog_approval options=[approve,reject] recommendation=approve` with the requirements summary and the draft backlog as payload, and proceeds on `PO_DECISION`. |
 | 9a | CLAUDE.md initialization 3-way choice (overwrite / append / skip) | **Not** routed to the PO. This is an operational default, not a product judgment: if `CLAUDE.md` is absent → create; if present → append. Skip is not used in agent mode. The PO is not consulted. |
@@ -120,7 +120,7 @@ re-targeted as follows:
      outcome), **stop**. Do NOT substitute internal knowledge. Report
      the incident: `po_mode=human` → surface to the user and wait;
      `po_mode=agent` → append to `.scrum/po/attention.md` and stop.
-     (Mirrors `rules/scrum-context.md` § Agent tool unavailability.)
+     (Mirrors `../../rules/scrum-context.md` § Agent tool unavailability.)
 6. Produce `docs/requirements.md` with structured sections (create
    `docs/` dir if missing). Functional / non-functional requirements
    that originate from an adopted benchmark item carry a provenance ref

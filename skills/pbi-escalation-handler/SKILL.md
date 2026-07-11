@@ -64,8 +64,8 @@ disable-model-invocation: false
 When `.scrum/config.json.po_mode == "agent"`, every Response Matrix
 row that would "present the user with options" or "human-escalate"
 re-targets the same decision to the `product-owner` teammate per
-`rules/scrum-context.md` § PO seat resolution (canonical message
-shapes: `agents/product-owner.md` § Communication protocol); the
+`../../rules/scrum-context.md` § PO seat resolution (canonical message
+shapes: `../../agents/product-owner.md` § Communication protocol); the
 matrix actions themselves are unchanged.
 
 Override map (apply per row of the Response Matrix above):
@@ -130,7 +130,7 @@ Rules common to every row above:
    resume differently — design and coverage never ran, so their
    `*_status` carry `skipped`, `ut_status` stays `pending`, and the
    resume status is `in_progress_impl` (design is not the failed stage).
-   Canonical: `docs/data-model.md` § kind=docs status semantics.
+   Canonical: `../../docs/data-model.md` § kind=docs status semantics.
    ```bash
    .scrum/scripts/update-pbi-state.sh "$PBI_ID" \
      escalation_reason null \

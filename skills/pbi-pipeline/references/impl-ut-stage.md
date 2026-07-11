@@ -395,7 +395,7 @@ must exist in the supplied test files — dangling id → FAIL).
 `test_id` in `failures[]` is whatever the test runner emits (e.g.
 pytest produces `tests/unit/test_foo.py::test_bar`). The UT author
 MUST use the same `<file>::<test-name>` form so the comparison is
-direct (see `agents/pbi-ut-author.md` § "AC coverage map"). If a
+direct (see `../../../agents/pbi-ut-author.md` § "AC coverage map"). If a
 project's runner uses a divergent test_id format, declare the
 mapping convention in the design doc's `runtime-override` block;
 absent that, the format above is the contract.

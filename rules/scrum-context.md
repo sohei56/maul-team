@@ -78,8 +78,8 @@ Schemas under `docs/contracts/scrum-state/` are authoritative.
 | Current Sprint, base_sha, member list | `.scrum/sprint.json` |
 | All PBIs, statuses (13-value enum) | `.scrum/backlog.json` |
 | Your PBI's internal pipeline state, round counters, merge fields, paths_touched | `.scrum/pbi/<pbi-id>/state.json` |
-| PBI lifecycle graph, status semantics | `docs/data-model.md` |
-| Inter-agent message contracts, envelope schema | `docs/contracts/agent-interfaces.md`, `docs/contracts/sub-agents.md` |
+| PBI lifecycle graph, status semantics | `../docs/data-model.md` |
+| Inter-agent message contracts, envelope schema | `../docs/contracts/agent-interfaces.md`, `../docs/contracts/sub-agents.md` |
 | Project-wide conventions, git workflow, state-write rules | `CLAUDE.md` |
 
 **State writes go through `.scrum/scripts/*.sh` wrappers only.**
@@ -125,7 +125,7 @@ returning to your caller):
 **PO-channel prefixes** (SM ↔ product-owner teammate when
 `po_mode=agent`). All are prefixed `[<scope>]` where `<scope>` ∈
 `{pbi-NNN, sprint-N, product}`. Full syntax, the `kind` enum, and the
-clarification cap are **canonical in `agents/product-owner.md`
+clarification cap are **canonical in `../agents/product-owner.md`
 § Communication protocol / § Anti-loop rules** — do not restate field
 formats here. Message shapes:
 
@@ -137,11 +137,11 @@ formats here. Message shapes:
 - `[req] INTERVIEW_QUESTION` / `[req] INTERVIEW_ANSWER` — the **only**
   sanctioned direct requirements-analyst ↔ PO channel, active solely
   during Requirement Definition (also documented in
-  `agents/requirements-analyst.md`). The Sprint Developer has no such
+  `../agents/requirements-analyst.md`). The Sprint Developer has no such
   channel; every other Developer ↔ PO exchange traverses SM.
 - `PO_ACCEPTANCE_REPORT` — PO → SM, aggregated once by the
   `po-acceptance` skill after every AC / release criterion is decided
-  (canonical: `skills/po-acceptance/SKILL.md`).
+  (canonical: `../skills/po-acceptance/SKILL.md`).
 
 Escalation routes are fixed — do not invent new ones:
 
@@ -151,7 +151,7 @@ Escalation routes are fixed — do not invent new ones:
 - Per-PBI merge failure (SM-owned) → `mark-pbi-merge-failure.sh`
   records `merge_failure.kind` ∈ `{conflict, artifact_missing,
   regression}`; 3 consecutive failures flip status to `escalated`.
-  See `skills/pbi-merge/SKILL.md` § Outputs for the kind →
+  See `../skills/pbi-merge/SKILL.md` § Outputs for the kind →
   `escalation_reason` mapping.
 - Requirements unclear (designer/implementer) → raise to Developer →
   SM → PO. Never guess requirements from code. Full route: see
@@ -183,7 +183,7 @@ Rules that apply uniformly to both modes:
 - **In `po_mode=agent`, do not wait on human input.** Any code path
   that would `read` from stdin or otherwise block awaiting a human
   reply is invalid. If a decision is genuinely human-only (auth
-  secrets, billing, legal — see `agents/product-owner.md` §
+  secrets, billing, legal — see `../agents/product-owner.md` §
   Decision principles), the PO appends to `.scrum/po/attention.md`
   and continues without blocking the team.
 - **Informational reports to the user are still allowed.** Lines
@@ -200,7 +200,7 @@ Rules that apply uniformly to both modes:
 Canonical sources: the `po_mode` schema is in
 `docs/contracts/scrum-state/config.schema.json`; the PO message
 shapes and `kind` enum are normative in
-`agents/product-owner.md` § Communication protocol; the wrapper
+`../agents/product-owner.md` § Communication protocol; the wrapper
 contract is in `scripts/scrum/append-po-decision.sh` (deployed as
 `.scrum/scripts/append-po-decision.sh`).
 
@@ -285,7 +285,7 @@ list, or any sub-agent spawn raises a harness-level failure (not a PBI
 content issue), this is a **harness incident**, not a PBI termination
 condition.
 
-**The following terms are NOT defined anywhere in `skills/pbi-pipeline/`
+**The following terms are NOT defined anywhere in `../skills/pbi-pipeline/`
 or any other skill. Do not write them to `pipeline.log`, `state.json`,
 or any review file. They are not valid states:**
 
@@ -337,7 +337,7 @@ Surface, don't paper over.
 
 - **Your role, allowed tools, strict rules** → `.claude/agents/<your-name>.md`
 - **Your skill's full protocol** (when invoked) → `.claude/skills/<skill>/SKILL.md`
-- **PBI lifecycle, status enum, transitions** → `docs/data-model.md`
-- **Inter-agent contracts, envelope schemas** → `docs/contracts/agent-interfaces.md`
+- **PBI lifecycle, status enum, transitions** → `../docs/data-model.md`
+- **Inter-agent contracts, envelope schemas** → `../docs/contracts/agent-interfaces.md`
 - **Code style, git workflow, state-write rules** → `CLAUDE.md`
-- **Why a wrapper script behaves a given way** → `.scrum/scripts/<name>.sh` source + `docs/MIGRATION-scrum-state-tools.md`
+- **Why a wrapper script behaves a given way** → `.scrum/scripts/<name>.sh` source and the schema files under `docs/contracts/scrum-state/`

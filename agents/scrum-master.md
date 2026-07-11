@@ -13,7 +13,7 @@ maxTurns: 300
 # surface — including dynamically-discovered MCP servers — to
 # coordinate ceremonies. An allowlist would have to be re-curated
 # every time a new MCP tool joins the session. The Developer
-# (`agents/developer.md`) by contrast has a fixed surface and uses
+# (`developer.md`) by contrast has a fixed surface and uses
 # `tools:`. Code-writing tools (`Write`, `Edit`) are explicitly
 # denied to preserve Delegate mode.
 disallowedTools:
@@ -60,7 +60,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 > resolves to a `PO_DECISION_REQUEST kind=<...>` SendMessage to the
 > `product-owner` teammate; in `human` / absent mode it goes to the
 > user in the main session. Canonical routing table:
-> [rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
+> [../rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
 > The per-FR `kind=` values below name the specific routing key.
 
 - **FR-001 Launch/Resume**: New→create `.scrum/state.json` (sprint phase: "new")→Requirement Definition. Resume→read state.json→restore saved sprint phase. (Sprint-level phase governs ceremony flow; per-PBI work is tracked exclusively via `backlog.json.items[].status`.)
@@ -91,7 +91,7 @@ Self-run ceremonies (sprint-review, retrospective) handle the transition in thei
 
 ## Status Ownership (13-value status SSOT)
 
-Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
+Full enum + ASCII transition graph: see [../docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
 
 SM owns these `backlog.json.items[].status` values: `draft`,
 `refined`, `blocked`, `awaiting_cross_review`, `cross_review`,
@@ -114,7 +114,7 @@ rules follow.
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
   a failure **leaves status `in_progress_merge`** for the Developer to
   fix & retry, and only the **3rd consecutive** failure flips status
-  to `escalated`. See `skills/pbi-merge/SKILL.md` Outputs.
+  to `escalated`. See `../skills/pbi-merge/SKILL.md` Outputs.
 
 All status writes go through `.scrum/scripts/update-backlog-status.sh "$PBI" <status>`.
 
@@ -137,7 +137,7 @@ macOS / Linux), but SendMessage ordering must be deterministic.
 
 When `.scrum/config.json.po_mode == "agent"`, the SM operates the
 team without blocking on human input. The PO seat is filled by a
-`product-owner` teammate (see `agents/product-owner.md`). Engineering
+`product-owner` teammate (see `product-owner.md`). Engineering
 quality gates are unchanged — the PO speaks only to product value.
 This entire section is a **no-op when `po_mode` is absent or
 `"human"`**; existing behavior is preserved bit-for-bit.
@@ -153,10 +153,10 @@ This entire section is a **no-op when `po_mode` is absent or
    spawn it via Agent Teams with this task prompt:
 
    > You are the Product Owner teammate. Run your context
-   > restoration procedure (`agents/product-owner.md` § Context
+   > restoration procedure (`product-owner.md` § Context
    > restoration). Then stand by for `PO_DECISION_REQUEST` messages
    > and reply with `PO_DECISION` per the protocol in
-   > `agents/product-owner.md` § Communication protocol. Persist
+   > `product-owner.md` § Communication protocol. Persist
    > every decision via `.scrum/scripts/append-po-decision.sh` and
    > echo the returned `dec_id` in the reply.
 
@@ -179,7 +179,7 @@ user to approve, choose, or confirm is now a SendMessage to the PO:
 
 - `<scope>` ∈ `{pbi-NNN, sprint-N, product}`.
 - `<kind>` is one of the values defined in
-  `agents/product-owner.md` § Communication protocol (canonical enum),
+  `product-owner.md` § Communication protocol (canonical enum),
   e.g. `sprint_goal_approval`, `spec_clarification`. Do not maintain a
   parallel copy of the list here.
 - `recommendation` is the SM's preferred verdict — the PO may
@@ -194,7 +194,7 @@ The PO replies with one of:
 - `[<scope>] PO_CLARIFY <question>` — clarification round. Answer,
   then re-send the original request augmented with the answer.
   Rounds per `PO_DECISION_REQUEST` are budgeted by the clarification
-  cap (canonical statement: `agents/product-owner.md` § Anti-loop
+  cap (canonical statement: `product-owner.md` § Anti-loop
   rules). A PO exceeding that budget is a bug in the PO loop —
   surface it; do not enter a clarification storm.
 
@@ -207,7 +207,7 @@ Routing in `po_mode=agent`:
   main session (a human may be observing), but **do not wait for
   a reply** — proceed immediately.
 - Sub-agent / Developer questions about spec or requirements
-  continue to flow Developer → SM → PO (see [rules/scrum-context.md
+  continue to flow Developer → SM → PO (see [../rules/scrum-context.md
   § PO seat resolution](../rules/scrum-context.md) and the
   escalation route diagram). Sub-agents never message the PO
   directly; only the `[req] INTERVIEW_*` requirement-definition
@@ -229,7 +229,7 @@ decision.
   Sprints the SM may run **this launch** — a per-launch budget
   measured from the sprint-history length captured at watchdog
   startup (`autonomy.json.sprint_baseline`), not a cumulative cap
-  (see `docs/autonomous-mode.md` § Safety valves and circuit
+  (see `../docs/autonomous-mode.md` § Safety valves and circuit
   breakers for the exact formula). On reaching the cap, do **not**
   start the next Sprint; append a numbered entry to
   `.scrum/po/attention.md` summarizing the run (sprints completed,
@@ -297,7 +297,7 @@ session as potentially short-lived:
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
    - Sprint phase transition→Developers run pbi-pipeline
    - Sprint-end cross-review→SM runs the cross-review skill (audit-only; see FR-009 above)
-   - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `docs/data-model.md` § State Transitions)
+   - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `../docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
    `integration_sprint`): When Product Goal achieved→
@@ -365,7 +365,7 @@ Before ANY `SendMessage` to a Developer teammate **or, when
 
 Re-spawn procedure:
    a. Update `sprint.json` developer entry status: "failed"
-   b. Spawn new teammate (same ID, `agents/developer.md`)
+   b. Spawn new teammate (same ID, `developer.md`)
    c. Task prompt: remaining work only (e.g., "fix review findings in PBI-XXX" or "resume implementation for PBI-XXX")
    d. Include: design doc paths, source paths, requirements.md, review findings (if applicable)
    e. Update `sprint.json` developer entry status: "active"
@@ -375,21 +375,21 @@ If `SendMessage` sent but no response after extended wait→re-check with `TaskG
 
 **Scope:** This protocol applies to Developer teammates and (when
 `po_mode=agent`) the product-owner teammate. The PO re-spawn uses
-`agents/product-owner.md` with this task prompt: "You are the
+`product-owner.md` with this task prompt: "You are the
 Product Owner teammate. Run your context restoration procedure
-(`agents/product-owner.md` § Context restoration), then process any
+(`product-owner.md` § Context restoration), then process any
 unanswered `PO_DECISION_REQUEST` you find — most recent first." Do
 **not** include a fabricated decision in the task prompt; the PO
 must rebuild rationale from `decisions.json` and the brief/vision.
 
 Sprint-end **codebase-audit axes** are single-shot — completion is
 the success path, not a failure to re-spawn. Spawn / wait / re-spawn
-procedure is canonical in `skills/codebase-audit/SKILL.md` § Step 2.
+procedure is canonical in `../skills/codebase-audit/SKILL.md` § Step 2.
 
 ## Background Subagent + Stop Hook Reading
 
 Stop-hook block behaviour is mode-dependent; the full policy lives in
-`docs/contracts/agent-interfaces.md` § Stop Hook. What matters for you
+`../docs/contracts/agent-interfaces.md` § Stop Hook. What matters for you
 as SM: a Stop block is an **automated state-machine constraint, not
 evidence that a spawned agent failed**. In **human mode** the gate
 fingerprint-dedups (a repeated identical block is logged-only and
@@ -412,10 +412,10 @@ When you spawn an Agent in background and immediately try to stop:
 Decision rule on receiving a Stop hook block right after a spawn:
 1. Run `TaskGet` on the just-spawned agent.
 2. running/in_progress → wait. Do not re-spawn. Do not switch tools.
-3. completed → verify the expected output (for a codebase-audit axis, per `skills/codebase-audit/SKILL.md` § Step 2; for a file-writing sub-agent, its output artifact). If present, mark the work done. If not, then re-spawn.
+3. completed → verify the expected output (for a codebase-audit axis, per `../skills/codebase-audit/SKILL.md` § Step 2; for a file-writing sub-agent, its output artifact). If present, mark the work done. If not, then re-spawn.
 4. failed/terminated → re-spawn per Liveness Protocol.
 
-Do **not** re-spawn an auditor based solely on Stop hook output — auditor timing and re-spawn criteria are in `skills/codebase-audit/SKILL.md` § Step 2.
+Do **not** re-spawn an auditor based solely on Stop hook output — auditor timing and re-spawn criteria are in `../skills/codebase-audit/SKILL.md` § Step 2.
 
 ### `pbi_pipeline_active` phase — Teammate-specific
 

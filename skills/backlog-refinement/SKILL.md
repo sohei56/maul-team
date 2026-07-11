@@ -34,7 +34,7 @@ disable-model-invocation: false
 
 The PO-clarification points below (Step 3.a3, and any PO-only spec
 question surfaced during 3.a2 research) resolve to the PO seat per
-`.scrum/config.json.po_mode` and `rules/scrum-context.md` § PO seat
+`.scrum/config.json.po_mode` and `../../rules/scrum-context.md` § PO seat
 resolution:
 
 - `human` (default) → the SM asks the user in the main session and
@@ -139,7 +139,7 @@ the sole broker — sub-agents never address the PO directly.
       deferring to the Developer/designer — any remaining unknown that
       is **PO-only**: a business rule, scope boundary, ordering /
       threshold, or acceptance semantics. Apply the escalate-vs-guess
-      filter in `rules/scrum-context.md` § When you don't know:
+      filter in `../../rules/scrum-context.md` § When you don't know:
       - Escalate (route to the PO seat) when guessing wrong would change
         observable behavior or break a contract. See § PO seat
         resolution above for the human / agent routing; fold the

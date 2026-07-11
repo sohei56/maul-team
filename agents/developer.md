@@ -73,7 +73,7 @@ When assigned→execute Steps 3–6 of the `integration-tests` skill:
 1. Run `smoke-test` skill (regression of existing test assets)
 2. Derive the test-case matrix from the enabled design specs —
    boundary values, decision tables, state-transition coverage
-   (`skills/integration-tests/references/test-case-design.md`)
+   (`../skills/integration-tests/references/test-case-design.md`)
 3. Build stubs for non-reproducible external IFs (`tests/stubs/`)
 4. Automate: API cases→`tests/integration/`, UI cases→Playwright
    code in `tests/e2e/`; only non-automatable cases fall back to
@@ -87,12 +87,12 @@ When assigned→execute Steps 3–6 of the `integration-tests` skill:
 - **No work before Sprint start.** No code until status enters `in_progress_impl`. During Planning→estimation + clarification only.
 - **Worktree boundary.** All file operations must be inside the PBI worktree at `.scrum/worktrees/<pbi-id>`. Never edit files in the main worktree. *Exception*: Integration Tests has no PBI worktree — the testing Developer writes `tests/integration/`, `tests/e2e/`, `tests/stubs/` (and `.scrum/` state via wrappers) in the main worktree. Product source stays untouched there too.
 - **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
-- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report. Integration Tests test assets are the one exception: commit them via `commit-integration-tests.sh` (stages `tests/` paths only; refuses product source).
+- **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `../skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report. Integration Tests test assets are the one exception: commit them via `commit-integration-tests.sh` (stages `tests/` paths only; refuses product source).
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
 
 ## Status Ownership (13-value status SSOT)
 
-Full enum + ASCII transition graph: see [docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
+Full enum + ASCII transition graph: see [../docs/data-model.md § State Transitions: status](../docs/data-model.md#state-transitions-status-13-value-enum-actor-split).
 
 Developer owns these `backlog.json.items[].status` values:
 `in_progress_design`, `in_progress_impl`, `in_progress_pbi_review`,
@@ -117,7 +117,7 @@ catalog_lock_timeout / reviewer_unavailable / stale_review_snapshot) →
 notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
 `pbi-escalation-handler`. (Merge-side reasons are SM-owned, set by
 `mark-pbi-merge-failure.sh`; Developer never writes those — see
-`skills/pbi-merge/SKILL.md`.)
+`../skills/pbi-merge/SKILL.md`.)
 
 ## Communication
 

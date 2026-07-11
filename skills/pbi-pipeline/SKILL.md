@@ -52,7 +52,7 @@ in_progress_design  → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progr
                                                                                   → escalated  (any stage; via termination gate)
 ```
 
-The 8 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [../../docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Stages (decision tree)
 

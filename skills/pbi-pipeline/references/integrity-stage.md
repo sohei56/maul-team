@@ -143,7 +143,7 @@ SH_FILES="$(echo "$CHANGED" | grep -E '\.sh$' || true)"
 #   (cd "$WT" && ruff check --select F401,F841,ARG,B --output-format json $PY_FILES)
 #   (cd "$WT" && shellcheck -f json $SH_FILES)
 # Normalize both tools' output into one static-analysis-r$n.json matching
-# agents/maintainability-reviewer.md § Receives (one tools[] entry per
+# ../../../agents/maintainability-reviewer.md § Receives (one tools[] entry per
 # tool; kind ∈ {unused_import,unused_variable,unused_argument,dead_branch,
 # other}; F401→unused_import, F841→unused_variable, ARG→unused_argument,
 # else other). On any tool failure set that tools[].exit_code non-zero and

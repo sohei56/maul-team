@@ -102,7 +102,7 @@ Rules:
 - Every AC from the backlog entry MUST appear exactly once.
 - Every AC MUST map to ≥1 interface. If you cannot identify which
   interface satisfies an AC, that is a **must-escalate spec question**
-  (see `rules/scrum-context.md` § "What counts as 'must escalate' vs
+  (see `../rules/scrum-context.md` § "What counts as 'must escalate' vs
   'guess ok'" — "Acceptance-criterion → interface mapping" is in the
   must-escalate column). Raise to Developer; do not guess a mapping.
 
@@ -131,7 +131,7 @@ repository, release notes). Do not select "library X is best" or write
   `.scrum/locks/catalog-S-070.lock.d` mkdir lock, 60s timeout, before
   writing — the lock is per catalog ID, so serialize S-070 writes on a
   single lock; protocol in
-  `skills/pbi-pipeline/references/catalog-contention.md` § Layer 2).
+  `../skills/pbi-pipeline/references/catalog-contention.md` § Layer 2).
   Include **only web-verified facts**: library + version,
   the exact API surface this PBI uses (signatures, parameters, return /
   error semantics), gotchas to avoid, and a **source URL for every
@@ -150,7 +150,7 @@ repository, release notes). Do not select "library X is best" or write
 harness level (not a "no results" content outcome), **stop** and raise
 to the Developer (status=error, `next_actions` naming the incident). Do
 NOT substitute internal knowledge or fabricate an S-070 spec. This
-mirrors `rules/scrum-context.md` § Agent tool unavailability.
+mirrors `../rules/scrum-context.md` § Agent tool unavailability.
 
 ## Strict Rules
 

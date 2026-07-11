@@ -10,7 +10,7 @@ indefinitely, the SM cannot tell stall from slow review, and
 `completion-gate.sh` keeps blocking session exit.
 
 Every reviewer spawn is **synchronous** (`run_in_background: false`;
-see `skills/pbi-pipeline/SKILL.md` § Sub-agents spawned). The
+see `../../pbi-pipeline/SKILL.md` § Sub-agents spawned). The
 conductor is blocked inside the Agent call until it returns, so there
 is no in-flight observation point: all stall handling happens **after
 the call returns**. The only in-flight bound is the codex helper's

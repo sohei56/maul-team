@@ -12,7 +12,7 @@ to different developers in parallel. SM either:
 - Assigns overlapping PBIs to the same Developer (sequential), or
 - Splits the PBI to remove overlap.
 
-This is enforced in `skills/sprint-planning/SKILL.md`. Verify in your
+This is enforced in `../../sprint-planning/SKILL.md`. Verify in your
 own pipeline run via:
 
 ```bash
@@ -86,7 +86,7 @@ If a Developer dies mid-write, its
 the next writer until the 60s timeout, which escalates as
 `catalog_lock_timeout`. On that escalation the SM force-releases by
 `rmdir`-ing the stale lock dir (see
-`skills/pbi-escalation-handler/SKILL.md` § Response Matrix
+`../../pbi-escalation-handler/SKILL.md` § Response Matrix
 `catalog_lock_timeout` row) and retries. The SM may also sweep
 `.scrum/locks/` for orphaned `catalog-*.lock.d` directories
 periodically (scope the sweep to the `catalog-` prefix — the state

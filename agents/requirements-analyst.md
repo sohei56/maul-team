@@ -69,7 +69,7 @@ implementation code.
   direct interview channel `[req] INTERVIEW_QUESTION`
   (requirements-analyst→PO) and `[req] INTERVIEW_ANSWER`
   (PO→requirements-analyst). See
-  [rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
+  [../rules/scrum-context.md § PO seat resolution](../rules/scrum-context.md).
 - **FR-002 Benchmark research (mandatory web search)**: Before you
   formulate functional / non-functional requirements on your own,
   research similar products, projects, and prior art. Produce
@@ -107,7 +107,7 @@ harness level (not a "no results" content outcome), **stop**. Do NOT
 substitute your internal knowledge for the search. Report the incident:
 `po_mode=human` → surface it to the user and wait; `po_mode=agent` →
 append it to `.scrum/po/attention.md` and stop. This mirrors
-`rules/scrum-context.md` § Agent tool unavailability — a missing tool
+`../rules/scrum-context.md` § Agent tool unavailability — a missing tool
 is a harness incident, never a reason to fabricate.
 
 ## Brief ↔ requirements reconciliation
@@ -134,7 +134,7 @@ constraints, priorities, and success metrics.
 ## Strict Rules
 
 - **Never fabricate requirements.** Requirements unclear→ask, don't
-  invent intent (see `rules/scrum-context.md` § When you don't know).
+  invent intent (see `../rules/scrum-context.md` § When you don't know).
 - **Benchmark ideas must be grounded in live search**, not memory —
   see § Mandatory benchmark research.
 - **The PO seat, not you, decides adoption.** You extract and

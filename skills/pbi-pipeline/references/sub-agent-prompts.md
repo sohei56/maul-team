@@ -141,7 +141,7 @@ Write the design to:
 Select any third-party libraries via mandatory web search and record
 web-verified specs to docs/design/specs/technology/S-070-<lib>.md; emit
 the design.md `Library Selection` section (or the stdlib-only line).
-See agents/pbi-designer.md § Mandatory library selection &
+See ../../../agents/pbi-designer.md § Mandatory library selection &
 verified-spec research.
 
 On catalog-lock timeout, exit with status=error, escalation_reason
@@ -280,7 +280,7 @@ you return — a missing AC coverage map fails the Round:
   2. The AC coverage map at:
        .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
 
-AC coverage map schema (see agents/pbi-ut-author.md § "AC coverage
+AC coverage map schema (see ../../../agents/pbi-ut-author.md § "AC coverage
 map" for full rules): one entry per AC from the design doc's
 `Acceptance Criteria Mapping` table; each entry has `index` (1-based),
 `text` (verbatim), and `tests` (non-empty array of

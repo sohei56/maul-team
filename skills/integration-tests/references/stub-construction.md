@@ -61,7 +61,7 @@ time, run a Web search to confirm the current, actively maintained
 tool** for the chosen method and the project's language before
 adopting one — do not select a library from training-data memory.
 This is the same library-selection discipline the `pbi-designer`
-applies (see `agents/pbi-designer.md` § Mandatory library selection &
+applies (see `../../../agents/pbi-designer.md` § Mandatory library selection &
 verified-spec research): prefer a proven track record and use-case
 fit, and verify API facts from the tool's own docs.
 

@@ -30,7 +30,7 @@ integrity**. Two things changed the shape of this ceremony:
    scans the **accumulated codebase at HEAD** — the scope no per-PBI
    diff review can reach — along the four audit axes
    (`spec-conformance`, `logic-defect`, `redundancy`,
-   `product-security`) defined in `skills/codebase-audit/SKILL.md`
+   `product-security`) defined in `../codebase-audit/SKILL.md`
    § Role (axis table lives there).
 
 The audit is **non-blocking**: PBIs already passed their per-PBI aspect
@@ -39,8 +39,8 @@ Its Critical/High findings become draft PBIs for the **next** Sprint
 (separate `codebase-audit-s{N}.md` report, identity-deduped across
 Sprints). At ceremony end every reviewed PBI transitions
 `cross_review → done`. Full audit protocol:
-`skills/codebase-audit/SKILL.md` (context (a)) +
-`skills/codebase-audit/references/axes.md`.
+`../codebase-audit/SKILL.md` (context (a)) +
+`../codebase-audit/references/axes.md`.
 
 ## Inputs
 
@@ -56,8 +56,8 @@ Sprints). At ceremony end every reviewed PBI transitions
 - Sprint base SHA: `sprint.base_sha` (static-analysis Pass A diff scope).
 - Project source code + test suites (whole repo at HEAD — the audit
   scope).
-- `skills/codebase-audit/SKILL.md` (context (a)) +
-  `skills/codebase-audit/references/axes.md` — the 4-axis protocol.
+- `../codebase-audit/SKILL.md` (context (a)) +
+  `../codebase-audit/references/axes.md` — the 4-axis protocol.
 
 ## Outputs
 
@@ -185,7 +185,7 @@ Sprints). At ceremony end every reviewed PBI transitions
    configured"`); the `redundancy` axis will degrade accordingly.
 6. **Run the audit barrage (codebase-audit § Steps 0–2,
    `context=cross_review`).** Resolve scope and assemble the shared
-   read set per `skills/codebase-audit/SKILL.md` Steps 0–1, then
+   read set per `../codebase-audit/SKILL.md` Steps 0–1, then
    execute its **§ Step 2** — the canonical announce / 4-axis parallel
    spawn / file-ownership / wait-barrier / single-shot / git-clean
    procedure — with `<label>` = `Cross-review` in the duration notice.
@@ -194,7 +194,7 @@ Sprints). At ceremony end every reviewed PBI transitions
    proceed until Step 2's wait barrier reports all 4 axes
    `Status = completed`.
 7. **Synthesize the audit report + file next-Sprint PBIs** per
-   `skills/codebase-audit/SKILL.md` context (a), Steps 3–5:
+   `../codebase-audit/SKILL.md` context (a), Steps 3–5:
    - Read the 4 axis final messages; dedup within the audit (a
      cross-boundary defect landing on two axes counts once, keep the
      higher severity, note both axes); write the report to
@@ -208,7 +208,7 @@ Sprints). At ceremony end every reviewed PBI transitions
      the finding's `identity`; `[REGRESSION]` if a closed one recurred);
      Medium/Low at PO discretion. No PBI revert, no phase transition
      (per § Role). Full rules + the dedup `jq` live in
-     `skills/codebase-audit/SKILL.md`.
+     `../codebase-audit/SKILL.md`.
    - PO routing is mode-agnostic — in `po_mode=agent` it resolves to one
      `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage
      options=[next_sprint,defer,reject]` carrying the finding list; the

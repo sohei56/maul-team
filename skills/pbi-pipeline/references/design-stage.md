@@ -38,7 +38,7 @@ reads those directly.
    - The designer performs **mandatory library selection web search**
      and emits the design.md `Library Selection` section plus any
      `docs/design/specs/technology/S-070-<lib>.md` verified specs (see
-     `agents/pbi-designer.md` § Mandatory library selection &
+     `../../../agents/pbi-designer.md` § Mandatory library selection &
      verified-spec research). A pure-stdlib PBI satisfies this with the
      explicit stdlib-only statement. If the designer reports a
      WebSearch harness incident (status=error), escalate — do not let
