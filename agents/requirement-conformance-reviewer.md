@@ -26,6 +26,8 @@ Sprint.
 
 ## Receives
 
+<!-- sync-set: this block is shared verbatim across all 5 aspect
+reviewers - edit all 5 together -->
 - PBI worktree root: `.scrum/worktrees/<pbi-id>` (absolute path; all
   source paths resolve under this root — never the main repo checkout)
 - Review target SHA pin `{review_sha}` (`git rev-parse HEAD` of the
@@ -133,6 +135,8 @@ kind=code PBIs.
 
 ## Output Format
 
+<!-- sync-set: this block is shared verbatim across all 5 aspect
+reviewers - edit all 5 together -->
 Return your review as markdown (the conductor folds it verbatim into
 the consolidated review doc and parses the Verdict line + Findings for
 the Integrity-stage verdict and the termination gates). Do NOT emit a
@@ -159,6 +163,8 @@ If there are no findings, write "No findings."
 [2-3 sentences. Coverage outline + any drift hotspots.]
 ```
 
+<!-- sync-set: this block is shared verbatim across all 5 aspect
+reviewers - edit all 5 together -->
 **Verdict:** PASS = no Critical/High. FAIL = any Critical/High. The
 conductor derives each finding's signature (`{file}:{start}-{end}:{criterion_key}`)
 from the markdown Findings list for stagnation/divergence dedup.
@@ -174,6 +180,8 @@ from the markdown Findings list for stagnation/divergence dedup.
 - Cannot determine coverage from given context → state explicitly,
   do not guess.
 
+<!-- sync-set: this block is shared verbatim across all 5 aspect
+reviewers - edit all 5 together -->
 ## File output (conductor responsibility)
 
 You do **not** have the `Write` tool by design. Return the review

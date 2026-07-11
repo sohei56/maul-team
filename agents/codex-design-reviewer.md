@@ -22,11 +22,8 @@ Critical design reviewer delegating to OpenAI Codex CLI. Receives
 design doc + catalog references locally → builds review instructions
 → invokes `codex exec` via shared lib
 (`scripts/lib/codex-invoke.sh`) → returns result. The exact codex
-flags live in that helper, not here. The helper bounds each `codex
-exec` with `CODEX_TIMEOUT_SECS` (default 300 s; runs unbounded with a
-WARN on a stock macOS without `timeout`/`gtimeout`); a timeout is
-treated as a non-zero exit and routed to the Claude fallback, so a
-hung Codex never blocks the review.
+flags live in that helper, not here. Timeout contract: see § Model
+selection (conductor responsibility) below.
 
 ## Receives
 
@@ -154,6 +151,14 @@ preflight Codex availability via `codex_is_available` from
   `effort` and `maxTurns` cannot be overridden at spawn time, so the
   frontmatter (`effort: high`, `maxTurns: 80`) is the
   safe-for-fallback envelope used in both modes.
+
+**Timeout contract (canonical home).** The helper bounds each `codex
+exec` with `CODEX_TIMEOUT_SECS` (default 300 s; runs unbounded with a
+WARN on a stock macOS lacking `timeout`/`gtimeout`). A timeout is
+treated as a non-zero exit and routed to the Claude fallback, so a
+hung Codex never blocks the review. This contract applies identically
+to all three codex-\* reviewers; other documents point here instead
+of restating it.
 
 See `skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
 codex preflight for the canonical spawn shape.

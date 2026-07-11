@@ -101,9 +101,14 @@ rules follow.
 
 **Transition rules:**
 
-- Sprint planning: `refined → in_progress_design` (handed off to Developer)
+- Sprint planning: hand each `refined` PBI to a Developer. The first
+  in-progress status is written by the **Developer's** pbi-pipeline
+  Init, not by SM: `in_progress_design` (`in_progress_impl` for
+  kind=docs PBIs, which skip Design).
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
-- cross-review PASS → `done`; FAIL → `in_progress_impl` (Developer fixes on top of merged code)
+- cross-review end: every `cross_review` PBI → `done`. The audit is
+  non-blocking — Critical/High findings become next-Sprint draft
+  PBIs; there is no revert edge back to `in_progress_impl`.
 - Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, hold → `blocked`, human-escalate stays `escalated`, abandon → `cancelled`)
 - Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked`). Never park such PBIs at `blocked` — `blocked` is strictly for hold-and-resume on an external blocker.
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
@@ -125,7 +130,7 @@ Developer / escalation).
 arrive close together when several PBIs finish in parallel. Process
 them strictly in receive order. Do not invoke `pbi-merge` twice in
 parallel — the underlying `merge-pbi.sh` wrapper has an `mkdir`-based
-directory-lock backstop (`.scrum/.locks/merge.lock.d`; portable across
+directory-lock backstop (`.scrum/locks/merge.lock.d`; portable across
 macOS / Linux), but SendMessage ordering must be deterministic.
 
 ## Autonomous PO Mode (po_mode: "agent")
@@ -442,7 +447,19 @@ Decision rule:
 3. Do NOT re-spawn just because the Stop hook fired or a stall nudge arrived.
 4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) no recent pipeline progress — the `.scrum/pbi/<id>/pipeline.log` tail is stale (mtime not advancing) AND no newer stage review (`.scrum/pbi/<id>/{design,impl,ut}/review-r{n}.md`) has appeared.
 
-Note: Teammates (Agent tool) do NOT fire `SubagentStart` / `SubagentStop` hooks — only sub-agents (Task tool) do. The `in_flight_hint` augmentation that decorates cross-review block messages is therefore inactive in `pbi_pipeline_active`. In autonomous mode the block message's PBI in-flight count is the source of truth; in human mode use `.scrum/backlog.json` mtime, `.scrum/dashboard.json` mtime, and the deepest mtime inside `.scrum/pbi/` (recursive walk) — `scripts/stall-watchdog.sh` reads all three, so manual SM diagnosis should consider the same set.
+Note: Teammates (Agent tool) do NOT fire `SubagentStart` /
+`SubagentStop` hooks in the SM session — only sub-agents (Task tool)
+do. However, Developer teammates spawn Task sub-agents whose
+`subagent_start` / `subagent_stop` events land in the shared
+`.scrum/dashboard.json`, so the `in_flight_hint` augmentation that
+decorates block messages MAY also be active during
+`pbi_pipeline_active` (not yet verified against a live run — treat
+its presence or absence as informational, not authoritative). In
+autonomous mode the block message's PBI in-flight count is the
+source of truth; in human mode use `.scrum/backlog.json` mtime,
+`.scrum/dashboard.json` mtime, and the deepest mtime inside
+`.scrum/pbi/` (recursive walk) — `scripts/stall-watchdog.sh` reads
+all three, so manual SM diagnosis should consider the same set.
 
 ## Recovery Wrappers
 
