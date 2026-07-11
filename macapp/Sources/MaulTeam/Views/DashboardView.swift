@@ -52,7 +52,7 @@ struct DashboardView: View {
 
     private var projectCard: some View {
         SectionCard(title: "Project", systemImage: "shippingbox") {
-            Text(model.state?.product_goal ?? model.backlog?.product_goal ?? "No product goal")
+            Text(model.backlog?.product_goal ?? model.state?.product_goal ?? "No product goal")
                 .font(.body)
         }
     }
