@@ -27,9 +27,12 @@ designer's reported actions.
 
 `mkdir` is atomic on POSIX filesystems and needs no `flock` — this
 mirrors the framework's portable lock idiom (`scripts/scrum/lib/atomic.sh`
-`_acquire_lock`, and merge-pbi's `.scrum/.locks/merge.lock.d`). `flock`
-and the Bash-4.1 `exec {FD}>` redirect are unavailable on stock macOS,
-so this protocol uses `mkdir` and runs on Bash 3.2:
+`_acquire_lock`, and merge-pbi's `merge.lock.d`). All locks share the
+single root `.scrum/locks/`; name families cannot collide (wrapper
+locks end `.json.lock.d`, the merge lock is `merge.lock.d`, catalog
+locks are `catalog-*.lock.d`). `flock` and the Bash-4.1 `exec {FD}>`
+redirect are unavailable on stock macOS, so this protocol uses `mkdir`
+and runs on Bash 3.2:
 
 ```bash
 _catalog_lock_dir() {
@@ -85,4 +88,7 @@ the next writer until the 60s timeout, which escalates as
 `rmdir`-ing the stale lock dir (see
 `skills/pbi-escalation-handler/SKILL.md` § Response Matrix
 `catalog_lock_timeout` row) and retries. The SM may also sweep
-`.scrum/locks/` for orphaned `*.lock.d` directories periodically.
+`.scrum/locks/` for orphaned `catalog-*.lock.d` directories
+periodically (scope the sweep to the `catalog-` prefix — the state
+wrappers' `*.json.lock.d` and merge-pbi's `merge.lock.d` share this
+root and are held only for the duration of a live write).

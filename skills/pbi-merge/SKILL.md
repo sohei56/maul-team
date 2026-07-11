@@ -64,7 +64,7 @@ disable-model-invocation: false
    invocation is in flight (multiple ready-to-merge notifications
    arrived close together), do not run them in parallel. Process them
    in receive order. The wrapper itself uses an `mkdir`-based directory
-   lock at `.scrum/.locks/merge.lock.d` as a backstop (portable across
+   lock at `.scrum/locks/merge.lock.d` as a backstop (portable across
    macOS / Linux; `flock(2)` is unavailable on stock macOS).
 
 2. **Run the wrapper:**
@@ -129,9 +129,16 @@ disable-model-invocation: false
 
 ## Exit Criteria
 
-- backlog.json `items[].status ∈ {awaiting_cross_review, escalated}`
-  for the PBI, and the corresponding SendMessage / handler invocation
-  has been issued.
+One of the following outcomes holds for the PBI:
+
+- backlog.json `items[].status ∈ {awaiting_cross_review, escalated}`,
+  and the corresponding SendMessage / handler invocation has been
+  issued.
+- backlog.json `items[].status == "in_progress_merge"` (recoverable
+  failure, `merge_failure_count < 3`), `state.merge_failure` recorded,
+  and the per-kind SendMessage from step 3 issued — retry pending; the
+  next `PBI_READY_TO_MERGE` re-notification triggers a fresh
+  invocation.
 
 ## Strict Rules
 

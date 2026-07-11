@@ -10,7 +10,10 @@ _SCRUM_ATOMIC_SH_LOADED=1
 
 LOCK_TIMEOUT_SEC="${SCRUM_LOCK_TIMEOUT:-10}"
 LOCK_POLL_SEC="${SCRUM_LOCK_POLL:-0.05}"
-SCRUM_LOCK_DIR=".scrum/.locks"
+# Unified lock root (shared with catalog locks and merge-pbi's merge.lock.d).
+# Name families cannot collide: wrapper locks are `<file>.json.lock.d`,
+# the merge lock is `merge.lock.d`, catalog locks are `catalog-*.md.lock.d`.
+SCRUM_LOCK_DIR=".scrum/locks"
 
 # Resolve directory holding this script (used to locate sibling check-validator.sh)
 _SCRUM_ATOMIC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

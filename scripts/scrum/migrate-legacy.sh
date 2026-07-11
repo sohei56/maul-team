@@ -194,5 +194,20 @@ STATE_EXPR='
 '
 apply_migration_with_args "$SCRUM_DIR/state.json" "$STATE_EXPR" "$SCHEMA_DIR/state.schema.json" || true
 
+# --- legacy lock root ---
+# Lock roots were unified on .scrum/locks/ (OD-6a); the old wrapper lock
+# root .scrum/.locks/ is obsolete. Locks are transient, so anything left
+# in the legacy dir can only be stale — remove the dir if present.
+if [ -d "$SCRUM_DIR/.locks" ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "  would remove legacy lock root: $SCRUM_DIR/.locks (dry-run)"
+  else
+    rm -rf "$SCRUM_DIR/.locks"
+    echo "  removed legacy lock root: $SCRUM_DIR/.locks"
+  fi
+else
+  echo "  ok: no legacy lock root ($SCRUM_DIR/.locks absent)"
+fi
+
 echo ""
 echo "Migration done. Backups saved as <name>.legacy.bak alongside each migrated file."

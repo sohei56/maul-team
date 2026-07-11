@@ -114,7 +114,7 @@ The threat model is **honest agent**, not adversary. Sophisticated obfuscation (
 |---|---|---|
 | `64` | `E_INVALID_ARG` | Bad CLI argument (unknown field, malformed PBI id, wrong arity, etc.) |
 | `65` | `E_SCHEMA` | The post-mutation document violates its JSON Schema |
-| `66` | `E_LOCK_TIMEOUT` | Could not acquire `.scrum/.locks/<file>.lock.d` within `SCRUM_LOCK_TIMEOUT` seconds (default 10) |
+| `66` | `E_LOCK_TIMEOUT` | Could not acquire `.scrum/locks/<file>.lock.d` within `SCRUM_LOCK_TIMEOUT` seconds (default 10) |
 | `67` | `E_FILE_MISSING` | The target `.scrum/*.json` file does not exist (init it via the relevant ceremony first) |
 | `68` | `E_NO_VALIDATOR` | No JSON Schema validator was found on the host |
 
