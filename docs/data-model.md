@@ -87,10 +87,10 @@ Valid phases:
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"pbi-001"`) |
 | `title` | string | Short description (e.g., "User Management") |
-| `description` | string | Full description; coarse-grained when `draft`, detailed when `refined` |
+| `description` | string \| null | Full description; coarse-grained when `draft`, detailed when `refined`. `null` until set (`add-backlog-item.sh` writes `null` by default) |
 | `acceptance_criteria` | string[] | Testable conditions that define when the PBI is complete. Empty array when `draft`, non-empty when `refined` |
 | `status` | enum | Lifecycle state (see below) |
-| `priority` | integer | Order in backlog (1 = highest) |
+| `priority` | integer \| null | Order in backlog (lower = higher priority, 1 = highest by convention; schema permits 0). `null` until assigned (`add-backlog-item.sh` writes `null` by default) |
 | `sprint_id` | string \| null | Sprint this PBI is assigned to, null if in backlog |
 | `implementer_id` | string \| null | Developer teammate assigned to implement |
 | `design_doc_paths` | string[] | Paths to design documents relative to project root (catalog specs in `docs/design/specs/`, plus PBI working design at `.scrum/pbi/<pbi-id>/design/design.md`) |
@@ -145,8 +145,17 @@ ASCII transition graph:
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
   in_progress_merge       → [SM] escalated  (SM merge failed)
-  [SM] escalated → [Dev] in_progress_design  (SM retry; round counters reset)
-  [SM] escalated → [SM] blocked              (SM hold / human-escalate)
+  [SM] escalated → [Dev] in_progress_design  (SM retry, kind=code; round
+                                              counters reset. kind=docs
+                                              retries to in_progress_impl —
+                                              see kind=docs override below)
+  [SM] escalated → [SM] escalated            (SM hold / human-escalate:
+                                              no transition — the PBI stays
+                                              escalated until the condition
+                                              clears, then SM resumes it)
+  [SM] escalated → [SM] blocked              (SM parks the PBI on an external
+                                              dependency — blocked is only
+                                              for hold-and-resume)
   [SM] blocked   → [Dev] in_progress_design  (external blocker resolved)
 
   [SM] {draft, refined, escalated, blocked} → [SM] cancelled
@@ -203,6 +212,14 @@ State descriptions:
 - `cancelled` — SM-decided terminal state: the PBI was merged into another PBI, superseded, or is no longer needed (including the `pbi-escalation-handler` **abandon** verdict). No outbound transitions. Completion gates and Sprint carry-over treat `cancelled` like `done` (no remaining work), but it is never counted as delivered.
 
 ### Validation Rules
+
+These are **orchestration-enforced policy**, upheld by the SM / skill
+flow (`sprint-planning`, `backlog-refinement`) — **not** by the SSOT
+wrappers or the JSON Schema. `update-backlog-status.sh` and
+`set-backlog-item-field.sh` accept any schema-valid value and do not
+check these cross-field invariants; a caller that skips the ceremony
+can violate them without a wrapper error.
+
 - `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — the per-PBI aspect review is spawned by the Developer conductor inside `pbi-pipeline` (the Integrity stage), and the Sprint-end whole-repo audit is owned by the Scrum Master (see the `cross-review` / `codebase-audit` skills, FR-009).
 - `design_doc_paths` is populated when design documents are produced (before `in_progress`).
 - `acceptance_criteria` MUST be non-empty when transitioning from `draft` to `refined`.
@@ -223,8 +240,8 @@ State descriptions:
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"sprint-001"`) |
 | `goal` | string \| null | Sprint Goal text |
-| `base_sha` | string \| null | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Set once by `freeze-sprint-base.sh`; never re-written. |
-| `base_sha_captured_at` | ISO 8601 string \| null | When `base_sha` was captured (set by `freeze-sprint-base.sh`). |
+| `base_sha` | string \| absent | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Non-required in the schema and omitted by the writer until freeze; set once by `freeze-sprint-base.sh`, never re-written (not nullable — absent, not `null`, before capture). |
+| `base_sha_captured_at` | ISO 8601 string \| absent | When `base_sha` was captured (set by `freeze-sprint-base.sh`). Non-required; absent until freeze. |
 | `type` | enum | `"development"` or `"integration"` |
 | `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"`, `"failed"` |
 | `developers` | Developer[] | Active Developer teammate definitions. Sprint PBI membership is derived from `backlog.items[]` where `sprint_id == sprint.id`; the developer count is `developers \| length`. (The legacy `pbi_ids` / `developer_count` fields were removed in the OD-4 single-source pass; pre-existing files retaining them keep validating because `sprint.schema.json.additionalProperties` is `true`, but no reader consults them.) |
@@ -639,8 +656,8 @@ context.
 | Field | Type | Description |
 |-------|------|-------------|
 | `pbi_id` | string | PBI identifier (matches `backlog.json.items[].id`) |
-| `design_round` | integer | Current/last design Round (1..5; 0 before first) |
-| `impl_round` | integer | Current/last impl+UT Round (1..5; 0 before first) |
+| `design_round` | integer | Current/last design Round (0 before first Design Round; 1..5, no remediation latch — schema maximum 5) |
+| `impl_round` | integer | Current/last impl+UT Round (0 before first; 1..5 normal, plus at most one technical-error remediation Round → absolute bound 6. See `skills/pbi-pipeline/references/termination-gates.md`) |
 | `design_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
 | `impl_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
 | `ut_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` is schema-allowed but never written — a kind=docs PBI keeps `"pending"`) |
@@ -768,7 +785,7 @@ documents them and is copied verbatim by `setup-user.sh`).
   resolves to the human.
 - The PO **cannot** mutate this file (`pre-tool-use-path-guard.sh`
   fences PO writes to `docs/product/**` and `.scrum/po/**`); the
-  engineering-quality keys (`coverage`, `merge_regression`,
+  engineering-quality keys (`coverage_tool`, `merge_regression`,
   `path_guard`, cross-review routing) are SM/engineering territory.
 
 ---

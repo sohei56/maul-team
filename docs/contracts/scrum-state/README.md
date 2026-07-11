@@ -1,6 +1,6 @@
 # `.scrum/` Sprint State Schemas (SSOT)
 
-Each schema corresponds to one file under `.scrum/` and is the single source of truth for its on-disk shape today. Both the validated wrapper scripts (`.scrum/scripts/*.sh` in deployed projects; `scripts/scrum/*.sh` in this framework's source tree) and readers (dashboard, hooks) MUST validate against these schemas.
+Each schema corresponds to one file under `.scrum/` and is the single source of truth for its on-disk shape today. **Normative target:** the validated wrapper scripts (`.scrum/scripts/*.sh` in deployed projects; `scripts/scrum/*.sh` in this framework's source tree) validate against these schemas on every write. Two documented exceptions to that rule (see the table below): (1) the hot-path, hook-owned appenders — `communications.json`, `dashboard.json`, `autonomy.json` (rows for those files) — validate the schema only when the file is first created (or on rotation), not per append, to keep the latency-sensitive path cheap; and (2) readers (dashboard, hooks, statusline) do **not** re-validate — they trust the wrapper-written shape. Treat "wrappers validate on write" as the invariant to preserve; the per-append and reader skips are deliberate, table-documented carve-outs, not a license to add unvalidated writers.
 
 | File                                | Schema                                | Permitted writers (`.scrum/scripts/*.sh`)             |
 |-------------------------------------|---------------------------------------|-------------------------------------------------------|
