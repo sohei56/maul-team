@@ -547,23 +547,73 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .board-caption{display:flex; justify-content:center; gap:8px; margin-top:18px;
   font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); text-align:center; padding:0 16px}
 
-/* ---------- terminal ---------- */
-.term-grid{display:grid; grid-template-columns:1.25fr 1fr; gap:28px; align-items:center; margin-top:72px}
-@media (max-width:920px){ .term-grid{grid-template-columns:1fr} }
+/* ---------- terminal (tmux, two panes) ---------- */
+.term-grid{margin-top:72px}
+.term-copy{max-width:720px; margin:0 auto 34px; text-align:center}
+.term-copy h3{font-family:var(--font-display); font-size:clamp(22px,3vw,28px); font-weight:700; letter-spacing:-.02em; margin-bottom:12px}
+.term-copy p{color:var(--text-2); font-size:15.5px; margin-bottom:14px}
 .terminal{border:1px solid var(--line-strong); border-radius:14px; overflow:hidden; background:#0a142a;
-  box-shadow:0 30px 70px -28px rgba(0,0,0,.8); font-family:var(--font-mono); font-size:13px}
+  box-shadow:0 30px 70px -28px rgba(0,0,0,.8); font-family:var(--font-mono); font-size:11.5px}
 .term-head{display:flex; align-items:center; gap:8px; padding:11px 14px; background:#0e1a32;
   border-bottom:1px solid var(--line)}
 .term-head .term-title{margin:0 auto; transform:translateX(-26px); font-size:11.5px; color:var(--text-3)}
-.term-body{padding:18px 20px 22px; min-height:264px; line-height:1.75; color:var(--text-2); white-space:pre-wrap; word-break:break-word}
+/* tmux split */
+.tmux-panes{display:grid; grid-template-columns:1fr 1.16fr}
+@media (max-width:840px){
+  .tmux-panes{grid-template-columns:1fr}
+  .tmux-pane.tp-right{border-left:none; border-top:1px solid var(--line-strong)}
+}
+.tmux-pane{display:flex; flex-direction:column; padding:13px 15px 10px; line-height:1.68;
+  color:var(--text-2); overflow:hidden; min-width:0}
+.tmux-pane.tp-right{border-left:1px solid var(--line-strong); background:#081124}
+/* left: Claude Code session */
+.cc-brand{display:flex; gap:11px; align-items:center; margin-bottom:11px}
+.cc-logo{color:#e8825a; font-size:9px; line-height:1.3; letter-spacing:1px; flex:none; white-space:pre}
+.cc-brand b{color:var(--text); font-weight:650}
+.cc-brand .cc-meta{font-size:10.8px}
+.cc-prompt{background:#141f3c; border:1px solid var(--line); border-radius:7px; padding:7px 10px;
+  color:var(--text-3); margin-bottom:12px; font-size:10.8px; line-height:1.6}
+.cc-prompt .t-p{color:var(--text-2)}
+.term-body{min-height:200px; white-space:pre-wrap; word-break:break-word}
 .term-body .t-p{color:var(--text-3)} .term-body .t-cmd{color:var(--text)}
 .term-body .t-ok{color:var(--green)} .term-body .t-dim{color:var(--text-3)}
 .term-body .t-amber{color:var(--amber-hi)} .term-body .t-blue{color:#8ab8e8}
-.cursor{display:inline-block; width:8px; height:15px; background:var(--amber-hi); vertical-align:-2px;
+.term-body .t-b{color:var(--text)}
+.cursor{display:inline-block; width:7px; height:13px; background:var(--amber-hi); vertical-align:-2px;
   animation:curblink 1s steps(1) infinite}
 @keyframes curblink{0%,49%{opacity:1}50%,100%{opacity:0}}
-.term-copy h3{font-family:var(--font-display); font-size:clamp(22px,3vw,28px); font-weight:700; letter-spacing:-.02em; margin-bottom:12px}
-.term-copy p{color:var(--text-2); font-size:15.5px; margin-bottom:14px}
+.cc-foot{margin-top:auto; padding-top:10px}
+.cc-tag{display:flex; justify-content:flex-end; margin-bottom:3px}
+.cc-tag span{background:#233152; color:var(--text-2); font-size:9.5px; padding:1px 8px; border-radius:3px}
+.cc-input{border-top:1px solid var(--line); padding-top:6px; color:var(--text-3); margin-bottom:6px}
+.cc-status{color:var(--text-3); font-size:10px; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cc-status .t-auto{color:var(--green)}
+/* right: Maul Team Dashboard (Textual TUI) */
+.dash-title{text-align:center; color:var(--text); margin-bottom:8px; font-size:10.5px; letter-spacing:.08em}
+.dash-box{border:1px solid rgba(248,184,48,.4); border-radius:5px; padding:6px 10px; margin-bottom:9px;
+  font-size:10.4px; line-height:1.66; min-width:0; overflow-x:auto}
+.dash-key{color:var(--text); font-weight:600}
+.dash-badge{background:#2743a8; color:#fff; padding:0 7px; border-radius:3px}
+.dash-label{font-size:10px; color:var(--text); margin:0 0 4px 2px; font-weight:600}
+.dash-label .t-dim{color:var(--text-3); font-weight:400}
+.dash-row{display:grid; grid-template-columns:54px minmax(120px,1fr) 106px 18px 74px 50px; gap:8px;
+  font-size:10.2px; line-height:1.95; white-space:nowrap}
+.dash-row > span{overflow:hidden; text-overflow:ellipsis; min-width:0}
+.dash-row.dr-head{background:rgba(122,84,240,.75); color:#fff; border-radius:2px; padding:0 6px; margin:0 -6px 2px}
+.dash-row.dr-sel{background:#1d4ed8; border-radius:2px; padding:0 6px; margin:0 -6px}
+.dash-row.dr-sel, .dash-row.dr-sel .st-done{color:#fff}
+.st-done{color:var(--green)} .st-prog{color:var(--amber-hi)}
+.st-ref{color:#f8a24a} .st-draft{color:var(--text-3)}
+.rd-hot{color:#ff6b5e}
+.dash-log{flex:1; margin-bottom:0}
+.log-row{display:flex; gap:9px; white-space:nowrap; overflow:hidden; line-height:1.9; font-size:10.2px}
+.log-t{color:var(--text-3); flex:none}
+.log-sm{color:var(--amber-hi); flex:none; min-width:92px}
+.log-dev{color:#8ab8e8; flex:none; min-width:92px}
+/* tmux status bar */
+.tmux-bar{display:flex; justify-content:space-between; gap:12px; background:#53c452; color:#0a2608;
+  font-size:10.5px; padding:2px 10px; white-space:nowrap; overflow:hidden}
+.tmux-bar span{overflow:hidden; text-overflow:ellipsis}
 
 /* ---------- PO section ---------- */
 .po-rows{margin-top:48px; display:flex; flex-direction:column; gap:10px}
@@ -1049,24 +1099,80 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <p class="board-caption">This is the product: open the app and watch PBIs move across the board.</p>
     </div>
 
-    <!-- ===== faux terminal ===== -->
+    <!-- ===== faux terminal (tmux, two panes) ===== -->
     <div class="term-grid">
-      <div class="terminal reveal" style="--d:.05s">
-        <div class="term-head">
-          <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
-          <span class="term-title">scrum-master — tmux</span>
-        </div>
-        <div class="term-body" id="termBody" aria-label="Terminal transcript of the Scrum Master starting a Sprint"></div>
-      </div>
-      <div class="term-copy reveal" style="--d:.14s">
+      <div class="term-copy reveal" style="--d:.05s">
         <p class="kicker">Or skip the GUI</p>
         <h3>One command. Same team.</h3>
         <p>The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
            launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
-           identical pipeline in tmux. Everything runs on your machine, on your Claude
+           identical pipeline in tmux: the Scrum Master on the left, the live team dashboard on
+           the right. Everything runs on your machine, on your Claude
            subscription — self-hosted by construction.</p>
         <p>Agents report facts, not vibes: status transitions, coverage numbers, merge results.
            When something is genuinely unclear, the team escalates to you instead of guessing.</p>
+      </div>
+      <div class="terminal reveal" style="--d:.12s"
+           aria-label="tmux session with two panes: left, a Claude Code session running the Scrum Master; right, the Maul Team Dashboard TUI showing the Sprint summary, the PBI board, and a live work log. A green tmux status bar runs along the bottom.">
+        <div class="term-head">
+          <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
+          <span class="term-title">tmux — scrum-start.sh</span>
+        </div>
+        <div class="tmux-panes">
+          <!-- left pane: Claude Code / scrum-master -->
+          <div class="tmux-pane tp-left">
+            <div class="cc-brand">
+              <span class="cc-logo" aria-hidden="true"> ▐▛███▜▌
+▝▜█████▛▘
+  ▘▘ ▝▝</span>
+              <span class="cc-meta"><b>Claude Code</b><br>
+                <span class="t-dim">Opus 4.8 · Claude Max</span><br>
+                <span class="t-dim">@scrum-master · ~/work/test_demo</span></span>
+            </div>
+            <div class="cc-prompt"><span class="t-p">&gt; </span>Start Sprint 1 — plan the Sprint, spawn the
+              developers, and drive every PBI to done. Escalate to me only when a decision is
+              genuinely mine.</div>
+            <div class="term-body" id="termBody" aria-label="Terminal transcript of the Scrum Master driving a Sprint"></div>
+            <div class="cc-foot" aria-hidden="true">
+              <div class="cc-tag"><span>scrum-master</span></div>
+              <div class="cc-input">›</div>
+              <div class="cc-status">Sprint 1 &quot;Walking skeleton&quot; | Phase: pbi_pipeline_active | 1/3 PBIs done<br>
+                <span class="t-auto">▶▶ auto mode on</span> (shift+tab to cycle) · ⏎ for agents</div>
+            </div>
+          </div>
+          <!-- right pane: Maul Team Dashboard -->
+          <div class="tmux-pane tp-right" aria-hidden="true">
+            <div class="dash-title">Maul Team Dashboard</div>
+            <div class="dash-box">
+              <div><span class="dash-key">Product Goal:</span> Team task board with sprint analytics —
+                local-first, offline-friendly, single static build.</div>
+              <div><span class="dash-key">Phase:</span> <span class="dash-badge">PBI Pipeline</span>
+                &nbsp;<span class="dash-key">Sprint:</span> sprint-1 · <span class="st-done">active</span></div>
+              <div><span class="dash-key">PBIs:</span> 1/3 done &nbsp;|&nbsp; <span class="dash-key">Developers:</span> 3</div>
+              <div><span class="dash-key">Agents:</span> dev-001-s1:idle · dev-002-s1:active(pbi-002) · dev-003-s1:active(pbi-003)</div>
+            </div>
+            <div class="dash-label">PBI Board <span class="t-dim">(status · round · dev · updated)</span></div>
+            <div class="dash-box">
+              <div class="dash-row dr-head"><span>ID</span><span>Title</span><span>Status</span><span>R</span><span>Dev</span><span>Updated</span></div>
+              <div class="dash-row"><span>pbi-001</span><span>Task CRUD + local persistence</span><span class="st-done">◇ done</span><span>2</span><span>dev-001-s1</span><span>2m ago</span></div>
+              <div class="dash-row dr-sel"><span>pbi-002</span><span>Sprint board drag &amp; drop</span><span>◆ in_progress_impl</span><span>1</span><span>dev-002-s1</span><span>now</span></div>
+              <div class="dash-row"><span>pbi-003</span><span>Burndown chart panel</span><span class="st-prog">◆ in_progress_ut_run</span><span class="rd-hot">3</span><span>dev-003-s1</span><span>4m ago</span></div>
+              <div class="dash-row"><span>pbi-004</span><span>Keyboard-first quick add</span><span class="st-ref">◇ refined</span><span>–</span><span>–</span><span>–</span></div>
+              <div class="dash-row"><span>pbi-005</span><span>CSV import / export</span><span class="st-ref">◇ refined</span><span>–</span><span>–</span><span>–</span></div>
+              <div class="dash-row"><span>pbi-006</span><span>[cross-review-followup:pbi-001] docs drift</span><span class="st-draft">◇ draft</span><span>–</span><span>–</span><span>–</span></div>
+            </div>
+            <div class="dash-label">Work Log <span class="t-dim">(all)</span></div>
+            <div class="dash-box dash-log">
+              <div class="log-row"><span class="log-t">13:26:43</span><span class="log-dev">dev-001-s1</span><span>[pbi-001] PBI_READY_TO_MERGE branch=pbi/pbi-001</span></div>
+              <div class="log-row"><span class="log-t">13:26:58</span><span class="log-sm">scrum-master</span><span>pbi-merge --no-ff · regression gate green</span></div>
+              <div class="log-row"><span class="log-t">13:27:04</span><span class="log-sm">scrum-master</span><span>status pbi-001 → done</span></div>
+              <div class="log-row"><span class="log-t">13:27:31</span><span class="log-dev">dev-002-s1</span><span>[pbi-002] impl round 1 — codex-impl-reviewer PASS</span></div>
+              <div class="log-row"><span class="log-t">13:28:02</span><span class="log-dev">dev-003-s1</span><span>[pbi-003] black-box UT run — C0/C1 100%</span></div>
+              <div class="log-row"><span class="log-t">13:28:19</span><span class="log-sm">scrum-master</span><span>spawned agent: functional-quality-reviewer</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tmux-bar" aria-hidden="true"><span>[scrum-team] 0:claude*</span><span>&quot;· scrum-master&quot; 13:28</span></div>
       </div>
     </div>
   </section>
@@ -1621,14 +1727,14 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   var termBody = document.getElementById("termBody");
   if (termBody) {
     var LINES = [
-      [{t:"$ ", c:"t-p"}, {t:"sh scrum-start.sh", c:"t-cmd"}],
-      [{t:"✓ ", c:"t-ok"}, {t:"prerequisites — claude ≥ 2.1.172 · python 3.9+ · tmux", c:"t-dim"}],
-      [{t:"[scrum-master] ", c:"t-amber"}, {t:"Sprint 1 planned — Sprint Goal approved by PO", c:""}],
-      [{t:"[scrum-master] ", c:"t-amber"}, {t:"spawning dev-001-s1 · dev-002-s1 · dev-003-s1", c:""}],
-      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[PBI-001] design.md emitted — codex-design-reviewer: PASS", c:""}],
-      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[PBI-001] impl + black-box UT green — C0/C1 100%", c:""}],
-      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[PBI-001] PBI_READY_TO_MERGE branch=pbi/PBI-001", c:""}],
-      [{t:"[scrum-master] ", c:"t-amber"}, {t:"pbi-merge --no-ff · regression gate ", c:""}, {t:"green", c:"t-ok"}, {t:" → PBI-001 done", c:""}]
+      [{t:"● ", c:"t-b"}, {t:"I'll read the three state files to see where the Sprint stands.", c:""}],
+      [{t:"  Read 3 files", c:"t-dim"}],
+      [{t:"● ", c:"t-b"}, {t:"Sprint 1 planned — Goal approved by PO. Spawning dev-001-s1 · dev-002-s1 · dev-003-s1.", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] design.md emitted — codex-design-reviewer: PASS", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] impl + black-box UT green — C0/C1 100%", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] PBI_READY_TO_MERGE branch=pbi/pbi-001", c:""}],
+      [{t:"● ", c:"t-b"}, {t:"pbi-merge --no-ff · regression gate ", c:""}, {t:"green", c:"t-ok"}, {t:" → pbi-001 ", c:""}, {t:"done", c:"t-ok"}],
+      [{t:"✳ ", c:"t-amber"}, {t:"Clauding… (43s · ↓ 2.0k tokens)", c:"t-dim"}]
     ];
     var cursor = document.createElement("span");
     cursor.className = "cursor";
