@@ -759,31 +759,84 @@ EOF
 # quality-gate.sh
 # ---------------------------------------------------------------------------
 
-@test "quality-gate.sh skips checks when no PBI ID in event" {
+# Write a one-item backlog.json for the quality-gate tests. Args:
+#   $1 id, $2 kind, $3 design_doc_paths (JSON array), $4 review_doc_path (JSON),
+#   $5 status (optional, default "in_progress_merge" — a merge-ready status so
+#   failed checks block; pass a mid-pipeline status to exercise the advisory path)
+_qg_backlog() {
   mkdir -p .scrum
+  jq -n --arg id "$1" --arg kind "$2" \
+        --argjson docs "$3" --argjson review "$4" \
+        --arg status "${5:-in_progress_merge}" '
+    {items: [{
+      id: $id, title: "t", status: $status, kind: $kind,
+      design_doc_paths: $docs, review_doc_path: $review
+    }]}' > .scrum/backlog.json
+}
 
-  local event_json='{"hook_type":"TaskCompleted"}'
+@test "quality-gate.sh exits 0 when task_name has no PBI id" {
+  _qg_backlog "pbi-001" "code" '[]' 'null'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-9","task_name":"Wave 1b: general cleanup","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
-@test "quality-gate.sh skips checks when no backlog exists" {
+@test "quality-gate.sh exits 0 (advisory) when no backlog exists" {
   mkdir -p .scrum
 
-  local event_json='{"hook_type":"TaskCompleted","pbi_id":"pbi-001"}'
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] implement X","task_status":"completed"}'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
-@test "quality-gate.sh runs DoD checks and always exits 0" {
-  mkdir -p .scrum
-  cp "$FIXTURES_DIR/valid-backlog.json" .scrum/backlog.json
+@test "quality-gate.sh exits 0 (advisory) when PBI id not in backlog" {
+  _qg_backlog "pbi-001" "code" '[]' 'null'
 
-  local event_json='{"hook_type":"TaskCompleted","pbi_id":"pbi-001"}'
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-999] implement X","task_status":"completed"}'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  assert_success
+}
+
+@test "quality-gate.sh blocks (exit 2) a merge-ready kind=code PBI missing its design doc" {
+  # status in_progress_merge => DoD is claimable => failure hard-blocks.
+  _qg_backlog "pbi-003" "code" '[]' 'null' "in_progress_merge"
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] implement X","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  [ "$status" -eq 2 ]
+  assert_output --partial "PBI-003"
+  assert_output --partial "design"
+}
+
+@test "quality-gate.sh does NOT block a mid-pipeline PBI; failure is advisory" {
+  # Same missing-design failure, but status in_progress_design => DoD is not
+  # yet claimable => advisory stderr + exit 0 (per-stage task must not block).
+  _qg_backlog "pbi-003" "code" '[]' 'null' "in_progress_design"
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] design","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  assert_success
+  assert_output --partial "advisory"
+  assert_output --partial "design"
+}
+
+@test "quality-gate.sh does NOT block a kind=docs PBI for a missing design doc" {
+  # Same missing-design situation as the kind=code block test, but kind=docs:
+  # design-doc and test-file checks are skipped, and the applicable Integrity
+  # review check is satisfied, so the gate must not block.
+  mkdir -p .scrum/pbi/pbi-003
+  printf 'review\n' > .scrum/pbi/pbi-003/review.md
+  _qg_backlog "pbi-003" "docs" '[]' '".scrum/pbi/pbi-003/review.md"'
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] update docs","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
