@@ -43,7 +43,7 @@
       "sameAs": ["https://github.com/sohei56/maul-team"],
       "featureList": [
         "Multi-agent Scrum Master + Developer orchestration on Claude Code",
-        "Full Sprint lifecycle: requirements, planning, PBI pipeline, cross-review, retrospective, UAT",
+        "Full Sprint lifecycle: requirements, planning, development pipeline, sprint review, retrospective, UAT",
         "Native SwiftUI Mac app with live Sprint board",
         "Autonomous PO mode",
         "Optional Codex cross-model review with Claude-based fallback"
@@ -490,21 +490,76 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .pane-card h3{font-family:var(--font-display); font-size:17px; font-weight:650; margin:9px 0 8px; letter-spacing:-.01em}
 .pane-card p{color:var(--text-2); font-size:14px}
 
-/* ---------- how it works ---------- */
-.steps{display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; margin-top:44px; counter-reset:step}
-@media (max-width:760px){ .steps{grid-template-columns:1fr} }
-.step{display:flex; gap:18px; border:1px solid var(--line); border-radius:var(--radius);
-  background:linear-gradient(180deg, var(--panel), transparent); padding:20px 22px;
-  transition:border-color .25s var(--ease-out), transform .25s var(--ease-out)}
-.step:hover{border-color:rgba(40,200,230,.35); transform:translateY(-2px)}
-.step-num{font-family:var(--font-mono); font-size:13px; color:var(--cyan-hi); flex:none; padding-top:3px}
-.step h3{font-family:var(--font-display); font-size:16.5px; font-weight:650; letter-spacing:-.01em; margin-bottom:5px}
-.step p{color:var(--text-2); font-size:13.8px; line-height:1.55}
-.step .phase-tag{font-family:var(--font-mono); font-size:10.5px; color:var(--purple-hi); letter-spacing:.09em;
+/* ---------- how it works : the sprint loop ---------- */
+.loop-flow{display:grid; align-items:center; gap:0 12px; margin-top:56px; justify-content:center;
+  grid-template-columns:minmax(130px,160px) 36px minmax(320px,540px) 36px minmax(270px,308px)}
+.loop-gate-col{display:flex; flex-direction:column; gap:12px}
+.gate-col-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--text-3)}
+/* out-of-loop steps: same chevron language as the wheel segments */
+.gate-chip{display:block; width:100%; background:none; border:0; padding:0; cursor:pointer;
+  opacity:.87; transition:opacity .3s var(--ease-out), filter .3s var(--ease-out)}
+.gate-chip:hover{opacity:1}
+.gate-chip.on{opacity:1; filter:drop-shadow(0 0 12px var(--c))}
+.gc-body{display:flex; flex-direction:column; align-items:center; gap:1px; padding:11px 26px 12px;
+  background:var(--c); color:#06101f;
+  clip-path:polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%)}
+.gc-num{font-family:var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.08em; opacity:.72}
+.gc-label{font-family:var(--font-display); font-size:14.5px; font-weight:700; letter-spacing:-.01em; white-space:nowrap}
+.gate-row{display:flex; gap:5px}
+.gate-row .gate-chip{flex:1 1 auto}
+.gate-row .gc-body{padding-left:16px; padding-right:16px}
+.loop-connector{position:relative; height:2px; align-self:center;
+  background:repeating-linear-gradient(90deg, var(--line-strong) 0 7px, transparent 7px 13px)}
+.loop-connector::after{content:""; position:absolute; right:-2px; top:50%; transform:translateY(-50%);
+  border-left:9px solid var(--cyan); border-top:5.5px solid transparent; border-bottom:5.5px solid transparent;
+  filter:drop-shadow(0 0 6px rgba(40,200,230,.55))}
+.loop-ring{position:relative}
+.loop-ring svg{display:block; width:100%; height:auto}
+.loop-orbit{animation:orbitSpin 90s linear infinite; transform-origin:320px 320px}
+@keyframes orbitSpin{to{transform:rotate(360deg)}}
+.loop-seg{cursor:pointer}
+.loop-seg path{opacity:.87; transition:opacity .3s var(--ease-out), filter .3s var(--ease-out), transform .3s var(--ease-out);
+  transform-box:fill-box; transform-origin:center}
+.loop-seg text{pointer-events:none; user-select:none; -webkit-user-select:none}
+.loop-seg:hover path{opacity:1}
+.loop-seg.on path{opacity:1; filter:drop-shadow(0 0 14px var(--c)); transform:scale(1.015)}
+.seg-num{font-family:var(--font-mono); font-size:12px; font-weight:600; letter-spacing:.08em; opacity:.72}
+.seg-label{font-family:var(--font-display); font-size:19px; font-weight:700; letter-spacing:-.01em}
+.seg-label.sm{font-size:18px}
+.hub-t1{font-family:var(--font-display); font-size:30px; font-weight:800; letter-spacing:.2em; fill:var(--text)}
+.hub-t2{font-family:var(--font-mono); font-size:12.5px; fill:var(--text-3); letter-spacing:.14em}
+.loop-detail{margin-top:26px; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--panel); overflow:hidden}
+.ld-item{display:none; padding:18px 22px; border-left:3px solid var(--c)}
+.ld-item.on{display:block; animation:ldIn .35s var(--ease-out)}
+.ld-row{display:flex; gap:16px}
+@keyframes ldIn{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+.ld-num{font-family:var(--font-mono); font-size:13px; color:var(--c); flex:none; padding-top:3px}
+.ld-item h3{font-family:var(--font-display); font-size:16px; font-weight:650; letter-spacing:-.01em; margin-bottom:4px}
+.ld-item p{color:var(--text-2); font-size:13.8px; line-height:1.55}
+.phase-tag{font-family:var(--font-mono); font-size:10.5px; color:var(--purple-hi); letter-spacing:.09em;
   text-transform:uppercase; margin-left:8px; vertical-align:2px}
+@media (prefers-reduced-motion: reduce){
+  .loop-orbit{animation:none}
+  .ld-item.on{animation:none}
+  .loop-seg path{transition:opacity .3s var(--ease-out)}
+}
+@media (max-width:940px){
+  .loop-flow{grid-template-columns:minmax(0,480px); gap:18px 0}
+  .loop-gate-col{width:min(100%, 320px); justify-self:center}
+  .gate-col-label{align-self:center}
+  .loop-gate-col > .gate-chip .gc-body{padding:15px 20px 20px;
+    clip-path:polygon(0 0, 50% 12px, 100% 0, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px))}
+  .loop-connector{width:2px; height:38px; justify-self:center;
+    background:repeating-linear-gradient(180deg, var(--line-strong) 0 7px, transparent 7px 13px)}
+  .loop-connector::after{right:auto; top:auto; bottom:-2px; left:50%; transform:translateX(-50%);
+    border-top:9px solid var(--cyan); border-left:5.5px solid transparent; border-right:5.5px solid transparent;
+    border-bottom:0}
+}
 
 /* ---------- SPRINT BOARD (signature) ---------- */
-.board-wrap{margin-top:64px; position:relative}
+.board-wrap{margin-top:18px; position:relative}
 .board-frame{border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;
   background:#0d1730;
   box-shadow:0 34px 80px -30px rgba(0,0,0,.8), 0 0 60px -30px rgba(40,200,230,.25)}
@@ -516,7 +571,7 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .board-titlebar .bt-live i{width:6px;height:6px;border-radius:50%;background:var(--green);
   box-shadow:0 0 8px rgba(52,211,153,.9); animation:blinkdot 2s infinite}
 .board-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
-.board{display:grid; grid-template-columns:repeat(8, minmax(130px, 1fr)); gap:0; min-width:1040px;
+.board{display:grid; grid-template-columns:repeat(8, minmax(124px, 1fr)); gap:0; min-width:1000px;
   padding:18px 10px 22px; position:relative}
 .board-col{padding:0 6px; border-right:1px dashed rgba(255,255,255,.06)}
 .board-col:last-child{border-right:0}
@@ -1062,50 +1117,111 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       wearing a Scrum costume.
     </p>
 
-    <div class="steps">
-      <article class="step reveal" style="--d:.02s"><span class="step-num">01</span>
+    <div class="loop-flow reveal" style="--d:.05s">
+      <div class="loop-gate-col">
+        <span class="gate-col-label">Before the loop</span>
+        <button class="gate-chip" type="button" data-step="01" style="--c:#a48af0"
+                aria-label="Step 01 — Requirements Definition">
+          <span class="gc-body"><span class="gc-num">01</span><span class="gc-label">Requirements</span></span>
+        </button>
+      </div>
+      <div class="loop-connector" aria-hidden="true"></div>
+      <div class="loop-ring" id="sprintLoop">
+        <svg viewBox="0 0 640 640" role="group"
+             aria-label="The Sprint loop: backlog refinement, sprint planning, development pipeline, sprint review, retrospective — then around again.">
+          <defs>
+            <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(40,200,230,.14)"/>
+              <stop offset="100%" stop-color="rgba(40,200,230,0)"/>
+            </radialGradient>
+          </defs>
+          <circle class="loop-orbit" cx="320" cy="320" r="284" fill="none"
+                  stroke="rgba(154,190,255,.16)" stroke-width="1.5" stroke-dasharray="3 12"/>
+          <g class="loop-seg" style="--c:#4a90d9" tabindex="0" role="button" data-step="02"
+             aria-label="Step 02 — Backlog Refinement">
+            <path fill="#4a90d9" d="M80.8 411.3 A256.0 256.0 0 0 1 148.4 130.1 L209.1 149.9 L219.4 208.7 A150.0 150.0 0 0 0 179.9 373.5 L121.4 361.9 Z"/>
+            <text class="seg-num" x="127" y="241" text-anchor="middle" fill="#06101f">02</text>
+            <text class="seg-label" x="127" y="267" text-anchor="middle" fill="#06101f">Refinement</text>
+          </g>
+          <g class="loop-seg" style="--c:#38b6e0" tabindex="0" role="button" data-step="03"
+             aria-label="Step 03 — Sprint Planning">
+            <path fill="#38b6e0" d="M159.2 120.8 A256.0 256.0 0 0 1 447.6 98.1 L447.5 162.0 L394.8 190.0 A150.0 150.0 0 0 0 225.8 203.3 L218.8 144.0 Z"/>
+            <text class="seg-num" x="320" y="101" text-anchor="middle" fill="#06101f">03</text>
+            <text class="seg-label" x="320" y="127" text-anchor="middle" fill="#06101f">Planning</text>
+          </g>
+          <g class="loop-seg on" style="--c:#28c8e6" tabindex="0" role="button" data-step="04"
+             aria-label="Step 04 — Development Pipeline">
+            <path fill="#28c8e6" d="M459.8 105.5 A256.0 256.0 0 0 1 570.5 372.8 L509.6 392.4 L466.8 350.9 A150.0 150.0 0 0 0 401.9 194.3 L456.1 169.4 Z"/>
+            <text class="seg-num" x="513" y="232" text-anchor="middle" fill="#06101f">04</text>
+            <text class="seg-label sm" x="513" y="255" text-anchor="middle" fill="#06101f">Development</text>
+            <text class="seg-label sm" x="513" y="276" text-anchor="middle" fill="#06101f">Pipeline</text>
+          </g>
+          <g class="loop-seg" style="--c:#2ed2c0" tabindex="0" role="button" data-step="05"
+             aria-label="Step 05 — Sprint Review">
+            <path fill="#2ed2c0" d="M567.2 386.7 A256.0 256.0 0 0 1 347.2 574.6 L309.7 522.7 L335.9 469.2 A150.0 150.0 0 0 0 464.8 359.1 L505.3 402.9 Z"/>
+            <text class="seg-num" x="439" y="468" text-anchor="middle" fill="#06101f">05</text>
+            <text class="seg-label" x="439" y="494" text-anchor="middle" fill="#06101f">Sprint Review</text>
+          </g>
+          <g class="loop-seg" style="--c:#34d399" tabindex="0" role="button" data-step="06"
+             aria-label="Step 06 — Retrospective">
+            <path fill="#34d399" d="M333.0 575.7 A256.0 256.0 0 0 1 86.3 424.5 L124.0 372.9 L183.1 381.2 A150.0 150.0 0 0 0 327.6 469.8 L298.4 521.9 Z"/>
+            <text class="seg-num" x="201" y="468" text-anchor="middle" fill="#06101f">06</text>
+            <text class="seg-label" x="201" y="494" text-anchor="middle" fill="#06101f">Retrospective</text>
+          </g>
+          <circle cx="320" cy="320" r="130" fill="#081226" stroke="rgba(154,190,255,.22)"/>
+          <circle cx="320" cy="320" r="130" fill="url(#hubGlow)"/>
+          <text class="hub-t1" x="323" y="316" text-anchor="middle">SPRINT</text>
+          <text class="hub-t2" x="320" y="348" text-anchor="middle">n → n+1</text>
+        </svg>
+      </div>
+      <div class="loop-connector" aria-hidden="true"></div>
+      <div class="loop-gate-col">
+        <span class="gate-col-label">Release train</span>
+        <div class="gate-row">
+          <button class="gate-chip" type="button" data-step="07" style="--c:#f8c838"
+                  aria-label="Step 07 — Integration Tests">
+            <span class="gc-body"><span class="gc-num">07</span><span class="gc-label">Integration Tests</span></span>
+          </button>
+          <button class="gate-chip" type="button" data-step="08" style="--c:#f2984f"
+                  aria-label="Step 08 — UAT &amp; Release">
+            <span class="gc-body"><span class="gc-num">08</span><span class="gc-label">UAT &amp; Release</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="loop-detail reveal" id="loopDetail" style="--d:.1s" role="region" aria-label="Lifecycle step details">
+      <div class="ld-item" data-step="01" style="--c:#a48af0">
+        <div class="ld-row"><span class="ld-num">01</span>
         <div><h3>Requirements Definition<span class="phase-tag">Sprint 0</span></h3>
         <p>A Requirements Analyst interviews you, researches similar products on the web,
-           and writes <span class="mono">requirements.md</span>.</p></div></article>
-      <article class="step reveal" style="--d:.05s"><span class="step-num">02</span>
+           and writes <span class="mono">requirements.md</span>.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="02" style="--c:#4a90d9">
+        <div class="ld-row"><span class="ld-num">02</span>
         <div><h3>Backlog Refinement</h3>
-        <p>Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></article>
-      <article class="step reveal" style="--d:.08s"><span class="step-num">03</span>
+        <p>Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="03" style="--c:#38b6e0">
+        <div class="ld-row"><span class="ld-num">03</span>
         <div><h3>Sprint Planning</h3>
-        <p>You approve the Sprint Goal as Product Owner; PBIs are assigned to Developer agents.</p></div></article>
-      <article class="step reveal" style="--d:.11s"><span class="step-num">04</span>
-        <div><h3>PBI Pipeline<span class="phase-tag">parallel</span></h3>
+        <p>You approve the Sprint Goal as Product Owner; PBIs are assigned to Developer agents.</p></div></div>
+      </div>
+      <div class="ld-item on" data-step="04" style="--c:#28c8e6">
+        <div class="ld-row"><span class="ld-num">04</span>
+        <div><h3>Development Pipeline<span class="phase-tag">parallel</span></h3>
         <p>Each Developer conducts rounds of design → implementation + black-box unit tests →
            review — cross-model via Codex when available, with a Claude-based fallback —
            in its own git worktree, with deterministic termination gates, real C0/C1 coverage,
-           and a final 5-aspect integrity gate — requirements,
-           functionality, security, maintainability, docs — before merge.</p></div></article>
-      <article class="step reveal" style="--d:.14s"><span class="step-num">05</span>
-        <div><h3>Per-PBI Merge</h3>
-        <p><span class="mono">--no-ff</span> merge plus a regression gate; three strikes and
-           the PBI escalates instead of limping forward.</p></div></article>
-      <article class="step reveal" style="--d:.17s"><span class="step-num">06</span>
-        <div><h3>Cross-Review</h3>
-        <p>A whole-repo audit: four parallel auditors hunt spec drift, wiring-level logic
-           defects, dead code, and cross-cutting security gaps that per-PBI review
-           structurally can't see. Findings become next-Sprint PBIs.</p></div></article>
-      <article class="step reveal" style="--d:.20s"><span class="step-num">07</span>
-        <div><h3>Sprint Review</h3>
-        <p>The team demos the working Increment to you. You inspect the product, not a diff.</p></div></article>
-      <article class="step reveal" style="--d:.23s"><span class="step-num">08</span>
-        <div><h3>Retrospective</h3>
-        <p>The team inspects its own process and carries improvements into the next Sprint.</p></div></article>
-      <article class="step reveal" style="--d:.26s"><span class="step-num">09</span>
-        <div><h3>Integration Tests<span class="phase-tag">release train</span></h3>
-        <p>Design-driven boundary and branch cases, smoke tests, and API/UI automation.</p></div></article>
-      <article class="step reveal" style="--d:.29s"><span class="step-num">10</span>
-        <div><h3>UAT &amp; Release</h3>
-        <p>Story-driven UAT walkthrough, defect routing, and the go/no-go release decision.</p></div></article>
-    </div>
-
-    <!-- ===== signature: animated sprint board ===== -->
-    <div class="board-wrap reveal" style="--d:.08s">
-      <div class="board-frame">
+           and a final 5-aspect integrity gate. Finished PBIs land via
+           <span class="mono">--no-ff</span> merge plus a regression gate — three strikes and
+           the PBI escalates instead of limping forward. At Sprint end, four parallel auditors
+           sweep the whole repo for spec drift, wiring-level logic defects, dead code, and
+           cross-cutting security gaps per-PBI review structurally can't see; findings become
+           next-Sprint PBIs.</p></div></div>
+        <!-- ===== signature: animated sprint board (shown with this step) ===== -->
+        <div class="board-wrap">
+          <div class="board-frame">
         <div class="board-titlebar">
           <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
           <span class="bt-label">Scrum Board — sprint-001</span>
@@ -1149,7 +1265,29 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           </div>
         </div>
       </div>
-      <p class="board-caption">Open the app to follow every PBI from backlog to done.</p>
+          <p class="board-caption">Open the app to follow every PBI from backlog to done.</p>
+        </div>
+      </div>
+      <div class="ld-item" data-step="05" style="--c:#2ed2c0">
+        <div class="ld-row"><span class="ld-num">05</span>
+        <div><h3>Sprint Review</h3>
+        <p>The team demos the working Increment to you. You inspect the product, not a diff.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="06" style="--c:#34d399">
+        <div class="ld-row"><span class="ld-num">06</span>
+        <div><h3>Retrospective</h3>
+        <p>The team inspects its own process and carries improvements into the next Sprint.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="07" style="--c:#f8c838">
+        <div class="ld-row"><span class="ld-num">07</span>
+        <div><h3>Integration Tests<span class="phase-tag">release train</span></h3>
+        <p>Design-driven boundary and branch cases, smoke tests, and API/UI automation.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="08" style="--c:#f2984f">
+        <div class="ld-row"><span class="ld-num">08</span>
+        <div><h3>UAT &amp; Release<span class="phase-tag">release train</span></h3>
+        <p>Story-driven UAT walkthrough, defect routing, and the go/no-go release decision.</p></div></div>
+      </div>
     </div>
 
   </section>
@@ -1692,6 +1830,47 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     });
   }
 
+  /* ---------- sprint loop wheel ---------- */
+  var wheel = document.getElementById("sprintLoop");
+  var loopPanel = document.getElementById("loopDetail");
+  if (wheel && loopPanel) {
+    var loopTriggers = [].slice.call(document.querySelectorAll("#how .loop-seg, #how .gate-chip"));
+    var loopItems = [].slice.call(loopPanel.querySelectorAll(".ld-item"));
+
+    function loopSet(step){
+      loopTriggers.forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-step") === step); });
+      loopItems.forEach(function(it){ it.classList.toggle("on", it.getAttribute("data-step") === step); });
+    }
+    loopTriggers.forEach(function(t){
+      var step = t.getAttribute("data-step");
+      ["mouseenter", "focus", "click"].forEach(function(ev){
+        t.addEventListener(ev, function(){ loopSet(step); });
+      });
+      t.addEventListener("keydown", function(e){
+        if (e.key === "Enter" || e.key === " "){ e.preventDefault(); loopSet(step); }
+      });
+    });
+
+    /* pin the panel to its tallest text-only item so switching stays calm;
+       the Development Pipeline item (with the board) grows past it naturally */
+    function loopSize(){
+      var h = 0;
+      loopItems.forEach(function(it){
+        if (it.querySelector(".board-wrap")) return;
+        var on = it.classList.contains("on");
+        it.classList.add("on");
+        h = Math.max(h, it.offsetHeight);
+        if (!on) it.classList.remove("on");
+      });
+      loopPanel.style.minHeight = h + "px";
+    }
+    loopSize();
+    var loopRsz = null;
+    window.addEventListener("resize", function(){
+      clearTimeout(loopRsz); loopRsz = setTimeout(loopSize, 180);
+    });
+  }
+
   /* ==========================================================
      Signature: animated Sprint board (FLIP transitions)
      ========================================================== */
@@ -1837,7 +2016,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         }, {threshold: 0.15}).observe(board);
       } else { start(); }
       document.addEventListener("visibilitychange", function(){
-        document.hidden ? stop() : start();
+        if (document.hidden){ stop(); }
+        else if (board.offsetParent){ start(); }
       });
     }
   }
