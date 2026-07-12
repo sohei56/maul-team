@@ -46,7 +46,7 @@
         "Full Sprint lifecycle: requirements, planning, PBI pipeline, cross-review, retrospective, UAT",
         "Native SwiftUI Mac app with live Sprint board",
         "Autonomous PO mode",
-        "Cross-model (Codex) review of every artifact"
+        "Optional Codex cross-model review with Claude-based fallback"
       ]
     },
     {
@@ -63,7 +63,7 @@
           "name": "How do AI agents actually run a Scrum sprint?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree, with a different model family reviewing every artifact. Merges are gated by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a prompt chain."
+            "text": "A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree. Codex provides cross-model review when available, with a Claude-based fallback. Merges are gated by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a prompt chain."
           }
         },
         {
@@ -76,10 +76,10 @@
         },
         {
           "@type": "Question",
-          "name": "Is MaulTeam.app free and self-hosted?",
+          "name": "What is the license, and where does MaulTeam.app run?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Free and source-available, built on the MIT-licensed maul-team framework, and it runs entirely on your Mac against your own Claude Code install. No SaaS; no code leaves your machine except to the Claude API you already use."
+            "text": "The framework is MIT-licensed. The Mac app is source-available and free for personal and internal business use under its commercial license. Workflow and project state stay on your Mac; model requests go through Claude Code and, when configured, Codex."
           }
         },
         {
@@ -95,7 +95,7 @@
           "name": "How is this different from Devin or other AI software engineers?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; source-available and self-hosted, not closed SaaS; and you hold the Product Owner seat."
+            "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat."
           }
         }
       ]
@@ -745,6 +745,38 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between;
   font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
 
+/* ---------- loop engineering ---------- */
+#loop .loop-lineage{margin-top:14px; font-family:var(--font-mono); font-size:12px; letter-spacing:.03em;
+  color:var(--text-3)}
+#loop .loop-lineage b{color:var(--cyan-hi); font-weight:600}
+#loop .loop-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:44px}
+@media (max-width:880px){ #loop .loop-grid{grid-template-columns:1fr} }
+#loop .loop-card{position:relative; border:1px solid var(--line); border-radius:var(--radius);
+  background:linear-gradient(180deg, var(--panel), var(--bg-2)); padding:26px 24px; overflow:hidden;
+  transition:border-color .25s var(--ease-out), transform .25s var(--ease-out)}
+#loop .loop-card:hover{border-color:rgba(40,200,230,.35); transform:translateY(-3px)}
+#loop .loop-card::before{content:""; position:absolute; top:0; left:0; width:2px; height:100%;
+  background:linear-gradient(180deg, var(--cyan), transparent 70%); opacity:.6}
+#loop .loop-depth{font-family:var(--font-mono); font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--text-3); display:block; margin-bottom:14px}
+#loop .loop-card h3{font-family:var(--font-display); font-size:18px; font-weight:650; letter-spacing:-.015em; margin-bottom:10px}
+#loop .loop-card p{color:var(--text-2); font-size:14px; line-height:1.55}
+#loop .loop-map{display:inline-block; margin-top:16px; font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.03em; color:var(--cyan-hi); border:1px solid rgba(40,200,230,.3);
+  background:var(--cyan-soft); border-radius:999px; padding:5px 12px}
+#loop .loop-quote{margin:44px 0 0; border-left:2px solid var(--purple); padding:4px 0 4px 24px; max-width:720px}
+#loop .loop-quote p{font-family:var(--font-display); font-size:clamp(18px,2.4vw,22px); font-weight:600;
+  letter-spacing:-.015em; color:var(--text); line-height:1.42; text-wrap:pretty}
+#loop .loop-quote cite{display:block; margin-top:14px; font-style:normal; font-family:var(--font-mono);
+  font-size:12px; letter-spacing:.03em; color:var(--text-3)}
+#loop .loop-closer{margin-top:36px; font-size:clamp(15px,1.9vw,17px); color:var(--text-2); max-width:700px; text-wrap:pretty}
+#loop .loop-closer strong{color:var(--text); font-weight:650}
+#loop .loop-sources{margin-top:28px; display:flex; flex-wrap:wrap; gap:8px 20px;
+  font-family:var(--font-mono); font-size:11.5px; color:var(--text-3)}
+#loop .loop-sources a{color:var(--text-3); text-decoration:none; border-bottom:1px dashed rgba(154,190,255,.25);
+  padding-bottom:1px; transition:color .18s}
+#loop .loop-sources a:hover{color:var(--cyan-hi)}
+
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
   .aurora, .hero-badge .dot, .bt-live i, .cursor, .po-arrow .flow,
@@ -779,6 +811,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <a href="#why">Why</a>
       <a href="#demo">Demo</a>
       <a href="#how">How it works</a>
+      <a href="#loop">Loop engineering</a>
       <a href="#features">Features</a>
       <a href="#install">Install</a>
       <a class="nav-gh" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
@@ -794,9 +827,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · source-available</p>
     <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
     <p class="hero-sub hload d3">
-      A native Mac app — or one shell command — puts a full, autonomous AI Scrum team on your project,
-      powered by Claude Code Agent Teams. A Scrum&nbsp;Master coordinates Developer agents
-      through Sprint cycles. You stay in the <strong>Product&nbsp;Owner</strong> seat.
+      A native Mac app — or one shell command — runs a multi-agent Scrum team on your project,
+      powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>,
+      or delegate that role in autonomous mode.
     </p>
     <div class="hero-ctas hload d4">
       <a class="btn btn-primary" href="#install">Get started</a>
@@ -807,7 +840,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <span class="chip">Swift 5.9+</span>
       <span class="chip">Python 3.9+</span>
       <span class="chip">Claude Code Agent Teams</span>
-      <span class="chip">Free · Source-available</span>
+      <span class="chip">Free for personal/internal use · Source-available</span>
     </div>
 
     <div class="hero-stage hload d6">
@@ -958,8 +991,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <span class="why-x" aria-hidden="true">✕</span>
         <span class="why-tag">Spec-Driven Development</span>
         <h3>Ordered, but upfront-everything</h3>
-        <p>SDD keeps order — but demands you define the whole system before writing a line.
-           Real projects rarely know that much on day one.</p>
+        <p>SDD keeps order, but can require more upfront definition than an evolving project
+           can provide. Real projects rarely know everything on day one.</p>
       </article>
       <article class="why-card answer reveal" style="--d:.19s">
         <span class="why-x" aria-hidden="true">✓</span>
@@ -1025,7 +1058,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <h2 id="how-h" class="reveal" style="--d:.06s">Real Scrum. Real gates.<br>No hand-waving.</h2>
     <p class="lede reveal" style="--d:.12s">
       Every Sprint runs the full ceremony loop — with deterministic termination gates,
-      measured coverage, and cross-model review. Not a prompt chain wearing a Scrum costume.
+      measured coverage, and review with an optional cross-model pass. Not a prompt chain
+      wearing a Scrum costume.
     </p>
 
     <div class="steps">
@@ -1042,8 +1076,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="step reveal" style="--d:.11s"><span class="step-num">04</span>
         <div><h3>PBI Pipeline<span class="phase-tag">parallel</span></h3>
         <p>Each Developer conducts rounds of design → implementation + black-box unit tests →
-           cross-model Codex review, in its own git worktree, with deterministic termination
-           gates, real C0/C1 coverage, and a final 5-aspect integrity gate — requirements,
+           review — cross-model via Codex when available, with a Claude-based fallback —
+           in its own git worktree, with deterministic termination gates, real C0/C1 coverage,
+           and a final 5-aspect integrity gate — requirements,
            functionality, security, maintainability, docs — before merge.</p></div></article>
       <article class="step reveal" style="--d:.14s"><span class="step-num">05</span>
         <div><h3>Per-PBI Merge</h3>
@@ -1114,7 +1149,295 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           </div>
         </div>
       </div>
-      <p class="board-caption">This is the product: open the app and watch PBIs move across the board.</p>
+      <p class="board-caption">Open the app to follow every PBI from backlog to done.</p>
+    </div>
+
+  </section>
+
+  <!-- ============ LOOP ENGINEERING ============ -->
+  <section class="section" id="loop" aria-labelledby="loop-h">
+    <p class="kicker reveal">Loop engineering</p>
+    <h2 id="loop-h" class="reveal" style="--d:.06s">Stop prompting agents.<br>Engineer the loops instead.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Loop engineering means designing a system in which agents repeatedly plan, act,
+      verify, and improve instead of relying on isolated prompts. Maul Team implements
+      it at three levels: Development pipeline, Sprint, and autonomous execution.
+    </p>
+    <p class="loop-lineage reveal" style="--d:.16s">
+      prompt engineering <b>→</b> context engineering <b>→</b> loop engineering
+    </p>
+
+    <div class="loop-grid">
+      <article class="loop-card reveal" style="--d:.05s">
+        <span class="loop-depth">Innermost · build &amp; verify</span>
+        <h3>The Development pipeline loop</h3>
+        <p>Per PBI: design, then implementation with black-box unit tests, then review —
+           repeated in Rounds until deterministic termination gates pass (success,
+           stagnation, divergence, hard cap). Codex provides cross-model review when
+           available, with a Claude-based fallback; coverage is measured by real tooling.</p>
+        <span class="loop-map">≈ agent loop + verification loop</span>
+      </article>
+      <article class="loop-card reveal" style="--d:.12s">
+        <span class="loop-depth">Middle · drift detection</span>
+        <h3>The Sprint loop</h3>
+        <p>Every Sprint ends with a whole-repo, four-axis audit that catches drift between
+           the merged code and its requirements. Critical findings become draft PBIs for the
+           next Sprint; the retrospective feeds process fixes forward the same way. Product
+           and process both hill-climb.</p>
+        <span class="loop-map">≈ hill-climbing loop</span>
+      </article>
+      <article class="loop-card reveal" style="--d:.19s">
+        <span class="loop-depth">Outermost · unattended</span>
+        <h3>The Autonomous execution loop</h3>
+        <p>Write a product brief and even the Product Owner seat becomes an agent. An outer
+           Ralph-Loop watchdog re-launches headless sessions iteration after iteration,
+           enforces safety valves, sleeps through API rate limits and resumes, and leaves you
+           a morning report. The loop keeps turning while you sleep.</p>
+        <span class="loop-map">≈ event-driven loop</span>
+      </article>
+    </div>
+
+    <blockquote class="loop-quote reveal" style="--d:.08s">
+      <p>“You shouldn't be prompting coding agents anymore. You should be designing loops
+         that prompt your agents.”</p>
+      <cite>— Peter Steinberger, quoted in Addy Osmani, “Loop Engineering”</cite>
+    </blockquote>
+
+    <p class="loop-closer reveal" style="--d:.10s">
+      The risk in any loop is <strong>cognitive surrender</strong> — letting it run and
+      quietly accepting whatever comes back. Our answer is gates, not trust: hooks enforce
+      the rules, termination is deterministic, coverage is real, and unclear requirements
+      escalate to the PO seat instead of being guessed.
+    </p>
+
+    <div class="loop-sources reveal" style="--d:.14s">
+      <a href="https://addyosmani.com/blog/loop-engineering/" target="_blank" rel="noopener">Addy Osmani · “Loop Engineering” ↗</a>
+      <a href="https://www.oreilly.com/radar/loop-engineering/" target="_blank" rel="noopener">O'Reilly Radar ↗</a>
+      <a href="https://www.langchain.com/blog/the-art-of-loop-engineering" target="_blank" rel="noopener">LangChain · “The Art of Loop Engineering” ↗</a>
+      <a href="https://ghuntley.com/ralph/" target="_blank" rel="noopener">Geoffrey Huntley · “Ralph” ↗</a>
+    </div>
+  </section>
+
+  <!-- ============ PO SECTION ============ -->
+  <section class="section" id="po" aria-labelledby="po-h">
+    <p class="kicker reveal">Your seat</p>
+    <h2 id="po-h" class="reveal" style="--d:.06s">You set product direction.<br>The team runs delivery.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      In the default mode, you approve goals, review working software, and make release
+      decisions. The team handles requirements, planning, implementation, review, and testing.
+    </p>
+
+    <div class="po-headline reveal" aria-hidden="true">
+      <span class="h-you">You do</span>
+      <span class="h-team">The AI team does</span>
+    </div>
+    <div class="po-rows">
+      <div class="po-row reveal" style="--d:.02s">
+        <div class="po-cell po-you">Describe what you want to build</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Elicit and write detailed requirements</div>
+      </div>
+      <div class="po-row reveal" style="--d:.06s">
+        <div class="po-cell po-you">Approve Sprint Goals</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Plan Sprints and assign PBIs</div>
+      </div>
+      <div class="po-row reveal" style="--d:.10s">
+        <div class="po-cell po-you">Review demos in the running app</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Design, implement, and cross-review the Increment</div>
+      </div>
+      <div class="po-row reveal" style="--d:.14s">
+        <div class="po-cell po-you">Report defects during UAT</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Fix defects and re-test automatically</div>
+      </div>
+      <div class="po-row reveal" style="--d:.18s">
+        <div class="po-cell po-you">Make release decisions</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Run automated test suites</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="section" id="features" aria-labelledby="features-h">
+    <p class="kicker reveal">Under the hood</p>
+    <h2 id="features-h" class="reveal" style="--d:.06s">Built like infrastructure,<br>not a demo.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Hooks enforce the process. State survives restarts. Reviews cross model families.
+      The framework assumes agents will be confidently wrong — and catches it.
+    </p>
+
+    <div class="feature-grid">
+
+      <!-- orchestration diagram -->
+      <article class="feature orch reveal" style="--d:.03s">
+        <h3>Multi-agent orchestration, native to Claude Code</h3>
+        <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
+           orchestrating up to 6 parallel Developer agents, one per PBI. Each Developer is
+           itself a conductor, spawning per-round specialist sub-agents.</p>
+        <svg viewBox="0 0 880 430" role="img"
+             aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents. Codex cross-model review is used when available, with a Claude-based fallback.">
+          <!-- SM -> devs wires -->
+          <path class="wire wire-hot" d="M440 66 C440 100 100 96 100 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 102 236 100 236 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 106 372 104 372 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 106 508 104 508 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 102 644 100 644 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 100 780 96 780 138"/>
+          <!-- dev-002 -> sub-agents -->
+          <path class="wire wire-cool" d="M236 180 C236 226 240 224 240 268"/>
+          <path class="wire wire-cool" d="M236 180 C236 230 440 226 440 268"/>
+          <path class="wire wire-cool" d="M236 180 C236 232 640 228 640 268"/>
+          <!-- sub -> codex chips -->
+          <line class="wire" x1="240" y1="310" x2="240" y2="342"/>
+          <line class="wire" x1="440" y1="310" x2="440" y2="342"/>
+          <line class="wire" x1="640" y1="310" x2="640" y2="342"/>
+
+          <!-- SM node -->
+          <g class="sm-pulse">
+            <rect class="node node-sm" x="330" y="22" width="220" height="44" rx="10"/>
+            <text class="lbl-sm" x="440" y="49" text-anchor="middle">scrum-master · delegate</text>
+          </g>
+          <!-- dev row -->
+          <rect class="node" x="42" y="138" width="116" height="42" rx="9"/>
+          <text x="100" y="163" text-anchor="middle">dev-001-s1</text>
+          <rect class="node node-active" x="178" y="138" width="116" height="42" rx="9"/>
+          <text x="236" y="163" text-anchor="middle" fill="#f8b830">dev-002-s1</text>
+          <rect class="node" x="314" y="138" width="116" height="42" rx="9"/>
+          <text x="372" y="163" text-anchor="middle">dev-003-s1</text>
+          <rect class="node" x="450" y="138" width="116" height="42" rx="9"/>
+          <text x="508" y="163" text-anchor="middle">dev-004-s1</text>
+          <rect class="node" x="586" y="138" width="116" height="42" rx="9"/>
+          <text x="644" y="163" text-anchor="middle">dev-005-s1</text>
+          <rect class="node" x="722" y="138" width="116" height="42" rx="9"/>
+          <text x="780" y="163" text-anchor="middle">dev-006-s1</text>
+          <text class="lbl-chip" x="236" y="212" text-anchor="middle">spawns per-round sub-agents ↓</text>
+          <!-- sub-agent row -->
+          <rect class="node node-sub" x="160" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="240" y="293" text-anchor="middle">pbi-designer</text>
+          <rect class="node node-sub" x="360" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="440" y="293" text-anchor="middle">pbi-implementer</text>
+          <rect class="node node-sub" x="560" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="640" y="293" text-anchor="middle">pbi-ut-author</text>
+          <!-- codex chips -->
+          <rect class="node" x="155" y="342" width="170" height="34" rx="17"/>
+          <text class="lbl-chip" x="240" y="363" text-anchor="middle">codex-design-reviewer</text>
+          <rect class="node" x="358" y="342" width="164" height="34" rx="17"/>
+          <text class="lbl-chip" x="440" y="363" text-anchor="middle">codex-impl-reviewer</text>
+          <rect class="node" x="562" y="342" width="156" height="34" rx="17"/>
+          <text class="lbl-chip" x="640" y="363" text-anchor="middle">codex-ut-reviewer</text>
+          <text class="lbl-chip" x="440" y="408" text-anchor="middle">optional Codex cross-model review · Claude fallback</text>
+        </svg>
+      </article>
+
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">⌘</span>
+        <h3>Native Mac app</h3>
+        <p>Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
+           and dashboard. SwiftUI, not Electron.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">19</span>
+        <h3>19 Skills, full lifecycle</h3>
+        <p>Every ceremony — from requirement definition through retrospective to UAT and
+           release — is a versioned, inspectable Skill.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">∞</span>
+        <h3>Autonomous PO mode</h3>
+        <p>Run <span class="f-mono">--autonomous</span> from the command line: a Ralph-Loop watchdog drives the team
+           end-to-end with an AI Product Owner, safety valves, and a morning report.</p>
+      </article>
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">§</span>
+        <h3>Design-doc governance</h3>
+        <p>An immutable document catalog with editable enablement — hooks enforce which
+           design docs may exist and who may touch them.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">⛨</span>
+        <h3>Quality-enforcement hooks</h3>
+        <p>Status gates, path guards, branch-ops guard, completion-flow and
+           Definition-of-Done checks — process rules the agents cannot skip.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">⟳</span>
+        <h3>State persistence</h3>
+        <p>All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
+           relaunch, and the team resumes exactly where it stopped.</p>
+      </article>
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">✓</span>
+        <h3>Automated testing</h3>
+        <p>Design-driven integration tests plus story-driven UAT — boundary cases derived
+           from the design docs, not guessed.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">↻</span>
+        <h3>Retrospective-driven improvement</h3>
+        <p>The team retrospects every Sprint and feeds process improvements forward —
+           the loop applies to the team itself.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">◎</span>
+        <h3>AI-native adaptations</h3>
+        <p>Dynamic team sizing, mandatory requirement definition first, no work without a
+           PBI, a per-PBI 5-aspect integrity gate, and a Sprint-end whole-repo audit —
+           Scrum re-derived for agents.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ INSTALL ============ -->
+  <section class="section" id="install" aria-labelledby="install-h">
+    <p class="kicker reveal">Get started</p>
+    <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      MaulTeam.app is source-available, free for personal and internal business use under
+      its commercial license, and built on the MIT-licensed open-source framework. It is
+      not yet notarized; today the working path is a source build — four commands, no surprises.
+    </p>
+
+    <div class="install-grid">
+      <div class="install-main reveal" style="--d:.05s">
+        <div class="install-main-inner">
+          <span class="install-flag">● Available now</span>
+          <h3>Build from source</h3>
+          <p>Clone, build, launch. <span class="mono" style="font-size:.9em">make-app.sh release</span> produces a universal2 build for Apple&nbsp;Silicon and Intel.</p>
+          <div class="codeblock">
+            <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
+            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
+<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
+<span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span> release</span>
+<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
+          </div>
+          <p class="install-note">First build fetches SwiftTerm from the network. Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
+          <div class="reqs">
+            <h4>Requirements</h4>
+            <ul>
+              <li><span class="mono">macOS 13+</span> and <span class="mono">Xcode 15+</span> (Swift 5.9+) for the source build</li>
+              <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
+              <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
+              <li><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="install-side">
+        <div class="soon-card reveal" style="--d:.1s">
+          <span class="soon-pill">Coming soon</span>
+          <h3>.dmg direct download</h3>
+          <p>Signed and notarized drag-to-Applications build — pending Apple Developer notarization.</p>
+        </div>
+        <div class="soon-card reveal" style="--d:.16s">
+          <span class="soon-pill">Coming soon</span>
+          <h3>Homebrew tap</h3>
+          <p>One-line cask install once the notarized build ships.</p>
+          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask maul-team</div>
+        </div>
+      </div>
     </div>
 
     <!-- ===== faux terminal (tmux, two panes) ===== -->
@@ -1125,8 +1448,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <p>The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
            launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
            identical pipeline in tmux: the Scrum Master on the left, the live team dashboard on
-           the right. Everything runs on your machine, on your Claude
-           subscription — self-hosted by construction.</p>
+           the right. Workflow and project state stay on your machine; model requests go
+           through your installed Claude Code and, when configured, Codex.</p>
         <p>Agents report facts, not vibes: status transitions, coverage numbers, merge results.
            When something is genuinely unclear, the team escalates to you instead of guessing.</p>
       </div>
@@ -1195,228 +1518,6 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     </div>
   </section>
 
-  <!-- ============ PO SECTION ============ -->
-  <section class="section" id="po" aria-labelledby="po-h">
-    <p class="kicker reveal">Your seat</p>
-    <h2 id="po-h" class="reveal" style="--d:.06s">You are the Product Owner.<br>That's the whole job.</h2>
-    <p class="lede reveal" style="--d:.12s">
-      Every decision that shapes the product stays with you. Everything else —
-      elicitation, planning, building, reviewing, testing — is the team's problem.
-    </p>
-
-    <div class="po-headline reveal" aria-hidden="true">
-      <span class="h-you">You do</span>
-      <span class="h-team">The AI team does</span>
-    </div>
-    <div class="po-rows">
-      <div class="po-row reveal" style="--d:.02s">
-        <div class="po-cell po-you">Describe what you want to build</div>
-        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Elicit and write detailed requirements</div>
-      </div>
-      <div class="po-row reveal" style="--d:.06s">
-        <div class="po-cell po-you">Approve Sprint Goals</div>
-        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Plan Sprints and assign PBIs</div>
-      </div>
-      <div class="po-row reveal" style="--d:.10s">
-        <div class="po-cell po-you">Review demos in the running app</div>
-        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Design, implement, and cross-review the Increment</div>
-      </div>
-      <div class="po-row reveal" style="--d:.14s">
-        <div class="po-cell po-you">Report defects during UAT</div>
-        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Fix defects and re-test automatically</div>
-      </div>
-      <div class="po-row reveal" style="--d:.18s">
-        <div class="po-cell po-you">Make release decisions</div>
-        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Run automated test suites</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FEATURES ============ -->
-  <section class="section" id="features" aria-labelledby="features-h">
-    <p class="kicker reveal">Under the hood</p>
-    <h2 id="features-h" class="reveal" style="--d:.06s">Built like infrastructure,<br>not a demo.</h2>
-    <p class="lede reveal" style="--d:.12s">
-      Hooks enforce the process. State survives restarts. Reviews cross model families.
-      The framework assumes agents will be confidently wrong — and catches it.
-    </p>
-
-    <div class="feature-grid">
-
-      <!-- orchestration diagram -->
-      <article class="feature orch reveal" style="--d:.03s">
-        <h3>Multi-agent orchestration, native to Claude Code</h3>
-        <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
-           orchestrating up to 6 parallel Developer agents, one per PBI. Each Developer is
-           itself a conductor, spawning per-round specialist sub-agents.</p>
-        <svg viewBox="0 0 880 430" role="img"
-             aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents, each checked by a Codex cross-model reviewer.">
-          <!-- SM -> devs wires -->
-          <path class="wire wire-hot" d="M440 66 C440 100 100 96 100 138"/>
-          <path class="wire wire-hot" d="M440 66 C440 102 236 100 236 138"/>
-          <path class="wire wire-hot" d="M440 66 C440 106 372 104 372 138"/>
-          <path class="wire wire-hot" d="M440 66 C440 106 508 104 508 138"/>
-          <path class="wire wire-hot" d="M440 66 C440 102 644 100 644 138"/>
-          <path class="wire wire-hot" d="M440 66 C440 100 780 96 780 138"/>
-          <!-- dev-002 -> sub-agents -->
-          <path class="wire wire-cool" d="M236 180 C236 226 240 224 240 268"/>
-          <path class="wire wire-cool" d="M236 180 C236 230 440 226 440 268"/>
-          <path class="wire wire-cool" d="M236 180 C236 232 640 228 640 268"/>
-          <!-- sub -> codex chips -->
-          <line class="wire" x1="240" y1="310" x2="240" y2="342"/>
-          <line class="wire" x1="440" y1="310" x2="440" y2="342"/>
-          <line class="wire" x1="640" y1="310" x2="640" y2="342"/>
-
-          <!-- SM node -->
-          <g class="sm-pulse">
-            <rect class="node node-sm" x="330" y="22" width="220" height="44" rx="10"/>
-            <text class="lbl-sm" x="440" y="49" text-anchor="middle">scrum-master · delegate</text>
-          </g>
-          <!-- dev row -->
-          <rect class="node" x="42" y="138" width="116" height="42" rx="9"/>
-          <text x="100" y="163" text-anchor="middle">dev-001-s1</text>
-          <rect class="node node-active" x="178" y="138" width="116" height="42" rx="9"/>
-          <text x="236" y="163" text-anchor="middle" fill="#f8b830">dev-002-s1</text>
-          <rect class="node" x="314" y="138" width="116" height="42" rx="9"/>
-          <text x="372" y="163" text-anchor="middle">dev-003-s1</text>
-          <rect class="node" x="450" y="138" width="116" height="42" rx="9"/>
-          <text x="508" y="163" text-anchor="middle">dev-004-s1</text>
-          <rect class="node" x="586" y="138" width="116" height="42" rx="9"/>
-          <text x="644" y="163" text-anchor="middle">dev-005-s1</text>
-          <rect class="node" x="722" y="138" width="116" height="42" rx="9"/>
-          <text x="780" y="163" text-anchor="middle">dev-006-s1</text>
-          <text class="lbl-chip" x="236" y="212" text-anchor="middle">spawns per-round sub-agents ↓</text>
-          <!-- sub-agent row -->
-          <rect class="node node-sub" x="160" y="268" width="160" height="42" rx="9"/>
-          <text class="lbl-sub" x="240" y="293" text-anchor="middle">pbi-designer</text>
-          <rect class="node node-sub" x="360" y="268" width="160" height="42" rx="9"/>
-          <text class="lbl-sub" x="440" y="293" text-anchor="middle">pbi-implementer</text>
-          <rect class="node node-sub" x="560" y="268" width="160" height="42" rx="9"/>
-          <text class="lbl-sub" x="640" y="293" text-anchor="middle">pbi-ut-author</text>
-          <!-- codex chips -->
-          <rect class="node" x="155" y="342" width="170" height="34" rx="17"/>
-          <text class="lbl-chip" x="240" y="363" text-anchor="middle">codex-design-reviewer</text>
-          <rect class="node" x="358" y="342" width="164" height="34" rx="17"/>
-          <text class="lbl-chip" x="440" y="363" text-anchor="middle">codex-impl-reviewer</text>
-          <rect class="node" x="562" y="342" width="156" height="34" rx="17"/>
-          <text class="lbl-chip" x="640" y="363" text-anchor="middle">codex-ut-reviewer</text>
-          <text class="lbl-chip" x="440" y="408" text-anchor="middle">cross-model review: a different model family checks every artifact</text>
-        </svg>
-      </article>
-
-      <article class="feature reveal" style="--d:.04s">
-        <span class="f-ico" aria-hidden="true">⌘</span>
-        <h3>Native Mac app</h3>
-        <p>Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
-           and dashboard. SwiftUI, not Electron.</p>
-      </article>
-      <article class="feature reveal" style="--d:.08s">
-        <span class="f-ico" aria-hidden="true">19</span>
-        <h3>19 Skills, full lifecycle</h3>
-        <p>Every ceremony — from requirement definition through retrospective to UAT and
-           release — is a versioned, inspectable Skill.</p>
-      </article>
-      <article class="feature reveal" style="--d:.12s">
-        <span class="f-ico" aria-hidden="true">∞</span>
-        <h3>Autonomous PO mode</h3>
-        <p>Run <span class="f-mono">--autonomous</span> from the command line: a Ralph-Loop watchdog drives the team
-           end-to-end with an AI Product Owner, safety valves, and a morning report.</p>
-      </article>
-      <article class="feature reveal" style="--d:.04s">
-        <span class="f-ico" aria-hidden="true">§</span>
-        <h3>Design-doc governance</h3>
-        <p>An immutable document catalog with editable enablement — hooks enforce which
-           design docs may exist and who may touch them.</p>
-      </article>
-      <article class="feature reveal" style="--d:.08s">
-        <span class="f-ico" aria-hidden="true">⛨</span>
-        <h3>Quality-enforcement hooks</h3>
-        <p>Status gates, path guards, branch-ops guard, completion-flow and
-           Definition-of-Done checks — process rules the agents cannot skip.</p>
-      </article>
-      <article class="feature reveal" style="--d:.12s">
-        <span class="f-ico" aria-hidden="true">⟳</span>
-        <h3>State persistence</h3>
-        <p>All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
-           relaunch, and the team resumes exactly where it stopped.</p>
-      </article>
-      <article class="feature reveal" style="--d:.04s">
-        <span class="f-ico" aria-hidden="true">✓</span>
-        <h3>Automated testing</h3>
-        <p>Design-driven integration tests plus story-driven UAT — boundary cases derived
-           from the design docs, not guessed.</p>
-      </article>
-      <article class="feature reveal" style="--d:.08s">
-        <span class="f-ico" aria-hidden="true">↻</span>
-        <h3>Retrospective-driven improvement</h3>
-        <p>The team retrospects every Sprint and feeds process improvements forward —
-           the loop applies to the team itself.</p>
-      </article>
-      <article class="feature reveal" style="--d:.12s">
-        <span class="f-ico" aria-hidden="true">◎</span>
-        <h3>AI-native adaptations</h3>
-        <p>Dynamic team sizing, mandatory requirement definition first, no work without a
-           PBI, a per-PBI 5-aspect integrity gate, and a Sprint-end whole-repo audit —
-           Scrum re-derived for agents.</p>
-      </article>
-    </div>
-  </section>
-
-  <!-- ============ INSTALL ============ -->
-  <section class="section" id="install" aria-labelledby="install-h">
-    <p class="kicker reveal">Get started</p>
-    <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
-    <p class="lede reveal" style="--d:.12s">
-      MaulTeam.app is free, source-available, and pre-notarization, built on the MIT-licensed
-      open-source framework. Today the working path is a
-      source build — four commands, no surprises.
-    </p>
-
-    <div class="install-grid">
-      <div class="install-main reveal" style="--d:.05s">
-        <div class="install-main-inner">
-          <span class="install-flag">● Available now</span>
-          <h3>Build from source</h3>
-          <p>Clone, build, launch. <span class="mono" style="font-size:.9em">make-app.sh release</span> produces a universal2 build for Apple&nbsp;Silicon and Intel.</p>
-          <div class="codeblock">
-            <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
-            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
-<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
-<span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span></span>
-<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
-          </div>
-          <p class="install-note">First build fetches SwiftTerm from the network. Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
-          <div class="reqs">
-            <h4>Requirements</h4>
-            <ul>
-              <li><span class="mono">macOS 13+</span> and <span class="mono">Xcode 15+</span> (Swift 5.9+) for the source build</li>
-              <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
-              <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="install-side">
-        <div class="soon-card reveal" style="--d:.1s">
-          <span class="soon-pill">Coming soon</span>
-          <h3>.dmg direct download</h3>
-          <p>Signed and notarized drag-to-Applications build — pending Apple Developer notarization.</p>
-        </div>
-        <div class="soon-card reveal" style="--d:.16s">
-          <span class="soon-pill">Coming soon</span>
-          <h3>Homebrew tap</h3>
-          <p>One-line cask install once the notarized build ships.</p>
-          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask maul-team</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ============ FAQ ============ -->
   <section class="section" id="faq" aria-labelledby="faq-h">
     <p class="kicker reveal">Questions</p>
@@ -1431,9 +1532,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <h3>How do AI agents actually run a Scrum sprint?</h3>
         <p>A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
            item. Each Developer designs, implements, and writes black-box unit tests in its own
-           git worktree, with a different model family reviewing every artifact. Merges are gated
-           by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a
-           prompt chain.</p>
+           git worktree. Codex provides cross-model review when available, with a Claude-based
+           fallback. Merges are gated by regression tests; the Sprint ends with a demo to you.
+           It's the ceremony loop, not a prompt chain.</p>
       </article>
       <article class="feature reveal" style="--d:.06s">
         <span class="f-ico" aria-hidden="true">?</span>
@@ -1443,10 +1544,11 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       </article>
       <article class="feature reveal" style="--d:.09s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>Is MaulTeam.app free and self-hosted?</h3>
-        <p>Free and source-available, built on the MIT-licensed <span class="mono">maul-team</span>
-           framework, and it runs entirely on your Mac against your own Claude Code install.
-           No SaaS; no code leaves your machine except to the Claude API you already use.</p>
+        <h3>What is the license, and where does MaulTeam.app run?</h3>
+        <p>The <span class="mono">maul-team</span> framework is MIT-licensed. The Mac app is
+           source-available and free for personal and internal business use under its commercial
+           license. Workflow and project state stay on your Mac; model requests go through
+           Claude Code and, when configured, Codex.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">?</span>
@@ -1458,7 +1560,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <span class="f-ico" aria-hidden="true">?</span>
         <h3>How is this different from Devin or other AI software engineers?</h3>
         <p>A whole team of agents with real Scrum gates, not a single autonomous engineer;
-           source-available and self-hosted, not closed SaaS; and you hold the Product Owner seat.</p>
+           source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat.</p>
       </article>
     </div>
   </section>
@@ -1481,7 +1583,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div>
         <h5>Project</h5>
         <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub repository ↗</a>
-        <a href="https://github.com/sohei56/maul-team/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT + Commercial)</a>
+        <a href="https://github.com/sohei56/maul-team#license" target="_blank" rel="noopener">Licenses (framework + app)</a>
         <a href="./terms.html">Terms of Use</a>
       </div>
       <div>
@@ -1493,6 +1595,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <h5>On this page</h5>
         <a href="#why">Why</a>
         <a href="#how">How it works</a>
+        <a href="#loop">Loop engineering</a>
         <a href="#install">Install</a>
       </div>
     </nav>

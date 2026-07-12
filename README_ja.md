@@ -25,6 +25,7 @@
   <a href="#why">Why?</a> &bull;
   <a href="#デモ">デモ</a> &bull;
   <a href="#はじめに">はじめに</a> &bull;
+  <a href="#loop-engineering">Loop Engineering</a> &bull;
   <a href="#機能">機能</a> &bull;
   <a href="#コマンドライン-上級">コマンドライン</a> &bull;
   <a href="#アーキテクチャ">アーキテクチャ</a> &bull;
@@ -62,33 +63,46 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 
 ### インストール (early access — ソースからビルド)
 
-> TODO: Mac Appのインストール方法を列挙（dmg、homebrew,git release）
+現在、MaulTeam.app はソースからビルドして利用できます。署名・公証済みの `.dmg` と Homebrew でのインストールは、最初の公開リリースで提供予定です。
+
+```bash
+git clone git@github.com:sohei56/maul-team.git
+cd maul-team
+sh macapp/scripts/make-app.sh release
+open macapp/build/MaulTeam.app
+```
 
 **必要要件:**
-
-> TODO: ローカルビルドとかは不要。Mac Appを使う上で必要なOSやライブラリなどの前提に絞って。Codexについては任意だけど推奨として記載しておいて。
 
 | 要件 | バージョン | 用途・備考 |
 |------|-----------|-----------|
 | **macOS + Xcode** | macOS 13+ / Xcode 15+ (Swift 5.9+) | ソースビルド用。初回ビルド時は [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) 取得のためネットワークアクセスが必要 |
 | **Claude Code CLI** | 2.1.172 以上 (PATH 上) | アプリは `scrum-start.sh` を実行し、その PBI パイプラインはサブエージェントがさらにサブエージェントを spawn する機能 (2.1.172 で解禁) に依存。[Claude Code のバージョン](#claude-code-のバージョン) 参照 |
 | **Python** | 3.9+ | `scrum-start.sh` が起動時に検証し、無ければ `textual` + `watchdog` を導入 (Mac App 自身のダッシュボードは native SwiftUI だが、ランチャは依然これらを確認する) |
+| **Codex CLI** | 任意・推奨 | クロスモデルレビューを有効化。未導入の場合、レビュー工程は Claude ベースのレビューにフォールバック |
 
 エディタ、バックグラウンドセッション、同梱フレームワークの解決、配布状況を含むアーキテクチャ全体は [macapp/README.md](macapp/README.md) を参照。
 
 ### Scrum 開発の流れ
 
+概要は、**要件を整理 → Sprint を計画 → PBI を並列で開発・レビュー → 動くプロダクトをデモ → 改善して反復**、という流れです。
+
+<details>
+<summary>詳細なライフサイクル</summary>
+
 1. **プロダクトブリーフを共同作成する** — 新規プロジェクトでは `docs/product/brief.md` を対話的に共同執筆する。ブリーフが以降の開発の土台になる
 2. **要件定義** — Scrum Master が Requirements Analyst を spawn し、要件を引き出して `requirements.md` を書く
 3. **Backlog Refinement** — SM が要件から PBI を作成・洗練する
 4. **Sprint Planning** — SM が Sprint Goal を提案し、あなたが承認または調整する
-5. **PBI Development (PBI ごとに並列)** — 各 Developer は conductor として、自分が担当する PBI 専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で `pbi-pipeline` スキルを走らせる。design → implementation + black-box UT → cross-model (Codex) review のラウンドを、決定論的な終了ゲートと実測の C0/C1 カバレッジで回す。ready-to-merge の前には Integrity ステージとして 5 つの観点別レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff に対して走る。PBI 完了時には SM がマージする。
+5. **PBI Development (PBI ごとに並列)** — 各 Developer は conductor として、自分が担当する PBI 専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で `pbi-pipeline` スキルを走らせる。design → implementation + black-box UT → review（Codex が利用可能ならクロスモデル、未導入なら Claude ベースにフォールバック）のラウンドを、決定論的な終了ゲートと実測の C0/C1 カバレッジで回す。ready-to-merge の前には Integrity ステージとして 5 つの観点別レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff に対して走る。PBI 完了時には SM がマージする。
 6. **Cross-Review** — 全 PBI のマージ後、SM が監査専任の cross-review を実行: リポジトリ全体への 4 軸 `codebase-audit` (spec-conformance / logic-defect / redundancy / product-security)。non-blocking で、Critical/High の指摘は次 Sprint の draft PBI になる
 7. **Sprint Review** — SM がアプリを起動し、完了した PBI を順にデモ。あなたがそれぞれの動作を確認する
 8. **Retrospective** — チームが振り返り、次 Sprint 以降への改善を記録する
 9. Product Goal を達成するまで 3 に戻って**反復**。達成後、以下の 2 フェーズへ進む:
 10. **Integration Tests** — 設計書から境界値・分岐網羅のテストケースを導出して実行 (smoke + API/UI 自動化)
 11. **UAT & Release** — ユーザーストーリー駆動 UAT とリリース可否判定
+
+</details>
 
 ## Product Owner としてのあなたの役割
 
@@ -101,6 +115,18 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 | リリース判断を下す | 自動テストスイートを実行する |
 
 > PO の席は `po_mode=agent` (自律モード) で `product-owner` エージェントに委譲することもできます。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)。
+
+## Loop Engineering
+
+**Loop engineering (ループエンジニアリング)** は、単発のプロンプトではなく、エージェントが計画・実行・検証・改善を繰り返す仕組みを設計する考え方です。Maul Team はこれを **Development pipeline**、**Sprint**、**自律実行**の 3 層で実装しています。
+
+- **Development pipeline ループ (最内 — 構築と検証)。** PBI ごとに design → implementation + black-box unit test → review を、決定論的な終了ゲート (success / stagnation / divergence / hard cap) が通るまで Round として反復する。Codex が利用可能ならクロスモデルレビューを行い、未導入なら Claude ベースのレビューにフォールバックする。C0/C1 カバレッジは実測ツールで計測する。
+- **Sprint ループ (中間 — ドリフト検出と自己改善)。** 各 Sprint の末尾で、マージ済みコードと要件・設計の乖離を検出するリポジトリ全体・4 軸の `codebase-audit` を実行する。Critical/High の指摘は次 Sprint の draft PBI として起票され、Retrospective も同じ形でプロセス改善を前へ送る。プロダクトとプロセスの双方が hill-climb する。*(LangChain の hill-climbing ループ。)*
+- **自律実行ループ (最外 — イベント駆動・無人)。** プロダクトブリーフを共同作成すれば、PO の席さえエージェントになる (`po_mode=agent`)。外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
+
+主なリスクは、ループの出力をそのまま受け入れてしまう **cognitive surrender (認知的な明け渡し)** です。Maul Team は、state-write とブランチのルール、決定論的なゲート、実測カバレッジ、曖昧な要件のエスカレーションによってこれを抑えます。
+
+背景資料: [Addy Osmani「Loop Engineering」](https://addyosmani.com/blog/loop-engineering/)、[O'Reilly Radar](https://www.oreilly.com/radar/loop-engineering/)、[LangChain「The Art of Loop Engineering」](https://www.langchain.com/blog/the-art-of-loop-engineering)。
 
 ## 機能
 
@@ -121,7 +147,7 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 **AI の強みを活かす拡張:**
 
 - **動的なチームサイジング** — Developer エージェントの数は、PBI 数と複雑度に応じて Sprint ごとに最適化される
-- **二層の独立レビュー** — Increment を 2 つの粒度で検査する: マージ前に各 PBI の diff (5 観点の Integrity ゲート)、続いて Sprint 末にマージ後の Increment 全体へのリポジトリ全体 codebase audit。加えて PBI 単位の Codex cross-model review を実施。観点・軸の一覧は [Scrum 開発の流れ](#scrum-開発の流れ) を参照
+- **二層の独立レビュー** — Increment を 2 つの粒度で検査する: マージ前に各 PBI の diff (5 観点の Integrity ゲート)、続いて Sprint 末にマージ後の Increment 全体へのリポジトリ全体 codebase audit。加えて、Codex が利用可能なら PBI 単位のクロスモデルレビューを実施し、未導入なら Claude ベースのレビューにフォールバックする。観点・軸の一覧は [Scrum 開発の流れ](#scrum-開発の流れ) を参照
 
 **AI の弱点を抑え込む制約:**
 
@@ -151,7 +177,7 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
  │          ▼                                                  │
  │  5. PBI Pipeline      Per Developer / per PBI, in parallel: │
  │                         design → impl + black-box UT →      │
- │                         cross-model (Codex) review, with    │
+ │                         review (Codex when available), with │
  │                         deterministic termination gates     │
  │                         and real C0/C1 coverage,            │
  │                         then a 5-aspect Integrity stage     │

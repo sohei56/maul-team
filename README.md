@@ -25,6 +25,7 @@
   <a href="#why">Why?</a> &bull;
   <a href="#demo">Demo</a> &bull;
   <a href="#get-started">Get Started</a> &bull;
+  <a href="#loop-engineering">Loop Engineering</a> &bull;
   <a href="#features">Features</a> &bull;
   <a href="#command-line-advanced">Command line</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
@@ -59,33 +60,46 @@ The easiest way in is the **Mac App** — a native macOS app that wraps the whol
 
 ### Install (early access — build from source)
 
-> TODO: enumerate the Mac App install methods (.dmg, Homebrew, GitHub release)
+MaulTeam.app is currently available as a source build. Signed and notarized `.dmg` and Homebrew installation are planned for the first public release.
+
+```bash
+git clone git@github.com:sohei56/maul-team.git
+cd maul-team
+sh macapp/scripts/make-app.sh release
+open macapp/build/MaulTeam.app
+```
 
 **Requirements:**
-
-> TODO: a local build shouldn't be required — narrow this to the OS/library prerequisites for *running* the Mac App. List Codex as optional-but-recommended.
 
 | Requirement | Version | Purpose / notes |
 |------|-----------|-----------|
 | **macOS + Xcode** | macOS 13+ / Xcode 15+ (Swift 5.9+) | For the source build; the first build needs network access to fetch [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) |
 | **Claude Code CLI** | 2.1.172 or later (on PATH) | The app runs `scrum-start.sh`, whose PBI pipeline relies on sub-agents spawning further sub-agents (unlocked in 2.1.172). See [Claude Code version](#claude-code-version) |
 | **Python** | 3.9+ | `scrum-start.sh` validates it at launch and installs `textual` + `watchdog` if missing (the Mac App's dashboard is native SwiftUI, but the launcher still checks these) |
+| **Codex CLI** | Optional, recommended | Enables cross-model review; without it, the review stages fall back to Claude-based review |
 
 See [macapp/README.md](macapp/README.md) for the full architecture — editor, background sessions, bundled-framework resolution, and distribution status.
 
 ### What a Sprint looks like
 
+In short: **shape the requirements → plan a Sprint → develop and review PBIs in parallel → demo the working product → improve and repeat**.
+
+<details>
+<summary>Detailed lifecycle</summary>
+
 1. **Co-author a product brief** — for a new project, `docs/product/brief.md` is co-written interactively; the brief becomes the foundation for everything that follows
 2. **Requirement Definition** — the Scrum Master spawns a Requirements Analyst to elicit requirements and write `requirements.md`
 3. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
 4. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
-5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → cross-model (Codex) review, with deterministic termination gates and real C0/C1 coverage; before ready-to-merge, an Integrity stage runs 5 aspect reviewers (requirement-conformance, functional-quality, security, maintainability, docs-consistency) over the PBI's diff. The SM merges each PBI on completion.
+5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → review (cross-model via Codex when available, with a Claude-based fallback), with deterministic termination gates and real C0/C1 coverage; before ready-to-merge, an Integrity stage runs 5 aspect reviewers (requirement-conformance, functional-quality, security, maintainability, docs-consistency) over the PBI's diff. The SM merges each PBI on completion.
 6. **Cross-Review** — once all PBIs are merged, the SM runs an audit-only cross-review: a whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). It is non-blocking — Critical/High findings become draft PBIs for the next Sprint
 7. **Sprint Review** — the SM launches the app and demos each completed PBI in turn; you confirm each works
 8. **Retrospective** — the team reflects and records improvements for future Sprints
 9. **Repeat** from step 3 until the Product Goal is achieved; then advance to the two closing phases:
 10. **Integration Tests** — derive boundary-value and branch-coverage test cases from the design specs and run them (smoke + API/UI automation)
 11. **UAT & Release** — a user-story-driven UAT and the go/no-go release decision
+
+</details>
 
 ## Your role as Product Owner
 
@@ -98,6 +112,18 @@ See [macapp/README.md](macapp/README.md) for the full architecture — editor, b
 | Make release decisions | Run automated test suites |
 
 > The PO seat can also be delegated to the `product-owner` agent via `po_mode=agent` (autonomous mode). See [docs/autonomous-mode.md](docs/autonomous-mode.md).
+
+## Loop Engineering
+
+**Loop engineering** means designing a system in which agents repeatedly plan, act, verify, and improve instead of relying on isolated prompts. Maul Team implements it at three levels: **Development pipeline**, **Sprint**, and **autonomous execution**.
+
+- **Development pipeline loop (innermost — build & verify).** Per PBI: design → implementation + black-box unit tests → review, repeated in Rounds until deterministic termination gates pass (success / stagnation / divergence / hard cap). Codex provides cross-model review when available, with a Claude-based fallback; C0/C1 coverage is measured by real tooling.
+- **Sprint loop (middle — drift detection & self-improvement).** Every Sprint ends with a whole-repo, 4-axis `codebase-audit` that detects drift between the merged code and the requirements/design; its Critical/High findings are filed as draft PBIs for the next Sprint, and the Retrospective feeds process improvements forward the same way. The product and the process both hill-climb. *(LangChain's hill-climbing loop.)*
+- **Autonomous execution loop (outermost — event-driven, unattended).** Co-author a product brief and even the PO seat becomes an agent (`po_mode=agent`); an outer [Ralph-Loop](https://ghuntley.com/ralph/) watchdog re-launches headless sessions iteration after iteration, enforces safety valves (iterations / wall-clock / Sprints / failure budgets), sleeps through API rate limits and resumes, and writes you a morning report. *(LangChain's event-driven loop.)*
+
+The main risk is **cognitive surrender**: accepting whatever an autonomous loop produces. Maul Team counters it with enforced state and branch rules, deterministic gates, measured coverage, and escalation of unclear requirements.
+
+Background: [Addy Osmani, “Loop Engineering”](https://addyosmani.com/blog/loop-engineering/), [O'Reilly Radar](https://www.oreilly.com/radar/loop-engineering/), and [LangChain, “The Art of Loop Engineering”](https://www.langchain.com/blog/the-art-of-loop-engineering).
 
 ## Features
 
@@ -118,7 +144,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Two-tier independent review** — the Increment is inspected at two altitudes: each PBI's diff before merge (the 5-aspect Integrity gate), then a Sprint-end whole-repo codebase audit over the merged Increment, complemented by per-PBI Codex cross-model review. See [What a Sprint looks like](#what-a-sprint-looks-like) for the full aspect and axis catalog
+- **Two-tier independent review** — the Increment is inspected at two altitudes: each PBI's diff before merge (the 5-aspect Integrity gate), then a Sprint-end whole-repo codebase audit over the merged Increment, complemented by optional per-PBI Codex cross-model review with a Claude-based fallback. See [What a Sprint looks like](#what-a-sprint-looks-like) for the full aspect and axis catalog
 
 **Constraints addressing AI weaknesses:**
 
@@ -148,7 +174,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  │          ▼                                                  │
  │  5. PBI Pipeline      Per Developer / per PBI, in parallel: │
  │                         design → impl + black-box UT →      │
- │                         cross-model (Codex) review, with    │
+ │                         review (Codex when available), with │
  │                         deterministic termination gates     │
  │                         and real C0/C1 coverage,            │
  │                         then a 5-aspect Integrity stage     │
