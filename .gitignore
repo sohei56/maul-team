@@ -34,6 +34,12 @@ Thumbs.db
 *.tmp
 *.log
 
+# Internal planning / design scratch (kept on disk, NOT published). These
+# dev-only working docs can accumulate operational detail (Team IDs, hostnames,
+# ad-hoc runbooks); ignoring the tree prevents accidentally committing that to
+# the public repo. Canonical guidance/state lives in memory + deployed docs.
+docs/superpowers/
+
 # Source screen recordings + the demo video (hosted on GitHub, embedded in the
 # README by URL — not committed). Deliverables are the derived .png in images/.
 # These files are large (tens–hundreds of MB) and must not be committed.
