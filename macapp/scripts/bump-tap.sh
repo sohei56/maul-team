@@ -57,8 +57,8 @@ if git diff --quiet -- Casks/maul-team.rb; then
   exit 0
 fi
 
-git -c user.name="scrum-team-release-bot" \
+git -c user.name="maul-team-release-bot" \
     -c user.email="release-bot@users.noreply.github.com" \
-    commit -am "chore(cask): scrum-team ${VERSION}"
+    commit -am "chore(cask): maul-team ${VERSION}"
 git push origin HEAD
-echo "==> pushed scrum-team ${VERSION} to $TAP_REPO"
+echo "==> pushed maul-team ${VERSION} to $TAP_REPO"
