@@ -64,12 +64,7 @@ case "$FIELD" in
     fi
     ;;
   sub_agents)
-    if ! VALUE_JSON="$(printf '%s' "$VALUE" | jq -ce '.')"; then
-      fail E_INVALID_ARG "sub_agents: not valid JSON: $VALUE"
-    fi
-    if ! printf '%s' "$VALUE_JSON" | jq -e 'type == "array" and all(.[]; type == "string")' >/dev/null; then
-      fail E_INVALID_ARG "sub_agents: must be a JSON array of strings"
-    fi
+    VALUE_JSON="$(parse_json_string_array sub_agents "$VALUE")"
     ;;
   *) fail E_INVALID_ARG "unknown field: $FIELD (expected status|current_pbi|assigned_work|sub_agents)" ;;
 esac

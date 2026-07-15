@@ -23,6 +23,18 @@ field_value() {
   jq -c --arg id "$1" --arg f "$2" '.items[] | select(.id==$id) | .[$f]' "$TEST_TMP/.scrum/backlog.json"
 }
 
+@test "set-backlog-item-field: restamps updated_at on the mutated item" {
+  before="$(jq -r '.items[] | select(.id=="pbi-001").updated_at' "$TEST_TMP/.scrum/backlog.json")"
+  [ "$before" = "2026-03-01T12:00:00Z" ]
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 priority 5
+  [ "$status" -eq 0 ]
+  after="$(jq -r '.items[] | select(.id=="pbi-001").updated_at' "$TEST_TMP/.scrum/backlog.json")"
+  [ "$after" != "$before" ]
+  [[ "$after" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+  # the field itself was still written
+  [ "$(field_value pbi-001 priority)" = "5" ]
+}
+
 @test "set-backlog-item-field: sets sprint_id" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 sprint_id sprint-007
   [ "$status" -eq 0 ]
@@ -157,4 +169,16 @@ field_value() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 kind bogus
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad kind"* ]]
+}
+
+@test "set-backlog-item-field: sets demo_plan" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan 'make run; curl -sf http://localhost:8080/healthz; observe "ok"'
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 demo_plan)" = '"make run; curl -sf http://localhost:8080/healthz; observe \"ok\""' ]
+}
+
+@test "set-backlog-item-field: clears demo_plan via null" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan null
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 demo_plan)" = "null" ]
 }

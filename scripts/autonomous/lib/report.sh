@@ -32,6 +32,12 @@ if [ "${_AUTON_REPORT_SH_LOADED:-}" = "1" ]; then
 fi
 _AUTON_REPORT_SH_LOADED=1
 
+# Shared fall-through JSON scalar reader (jq_cfg_or). Sourced here so this
+# lib stays self-contained even though watchdog.sh also sources jq-read.sh
+# (double-source guarded).
+# shellcheck source=../../lib/jq-read.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../lib/jq-read.sh"
+
 # Files (overridable by the watchdog if it ever needs to redirect).
 : "${AUTON_REPORT_AUTONOMY_FILE:=.scrum/autonomy.json}"
 : "${AUTON_REPORT_STATE_FILE:=.scrum/state.json}"
@@ -43,19 +49,12 @@ _AUTON_REPORT_SH_LOADED=1
 : "${AUTON_REPORT_ITER_DIR:=.scrum/autonomous}"
 
 # _jq_safe <file> <expr> <fallback>
-# Run jq on <file>; if the file is missing or unparseable, echo <fallback>.
+# Run jq on <file>; if the file is missing or unparseable, or the value is
+# empty / literal "null", echo <fallback>. Thin alias over the shared
+# jq_cfg_or (scripts/lib/jq-read.sh), kept so the many call sites here and
+# in watchdog.sh read naturally.
 _jq_safe() {
-  local f="$1" expr="$2" fb="$3"
-  if [ ! -f "$f" ]; then
-    printf '%s\n' "$fb"
-    return 0
-  fi
-  local out
-  if ! out="$(jq -r "$expr" "$f" 2>/dev/null)" || [ -z "$out" ] || [ "$out" = "null" ]; then
-    printf '%s\n' "$fb"
-    return 0
-  fi
-  printf '%s\n' "$out"
+  jq_cfg_or "$1" "$2" "$3"
 }
 
 # generate_morning_report <exit_reason>
@@ -129,7 +128,7 @@ generate_morning_report() {
     local bucket
     # Quoted "done" so shellcheck does not flag the loop word as the closing
     # keyword of the surrounding `do … done`.
-    for bucket in "done" escalated blocked; do
+    for bucket in "done" escalated blocked cancelled; do
       printf '### %s\n\n' "$bucket" >> "$report_path"
       statuses="$(jq -r --arg s "$bucket" '
         [(.items // [])[] | select((.status // "") == $s)

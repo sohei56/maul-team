@@ -40,3 +40,27 @@ teardown() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/freeze-sprint-base.sh"
   [ "$status" -ne 0 ]
 }
+
+@test "freeze-sprint-base: refuses while docs/design/ has uncommitted changes" {
+  mkdir -p docs/design/specs
+  echo "stub" > docs/design/specs/S-001-example.md
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/freeze-sprint-base.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"uncommitted docs/design/"* ]]
+  [[ "$output" == *"S-001-example.md"* ]]
+  run jq -e 'has("base_sha") | not' .scrum/sprint.json
+  [ "$status" -eq 0 ]
+}
+
+@test "freeze-sprint-base: proceeds once docs/design/ scaffold is committed" {
+  mkdir -p docs/design/specs
+  echo "stub" > docs/design/specs/S-001-example.md
+  git add docs/design/
+  git commit -q -m "scaffold"
+  # Dirt outside docs/design/ must not block the freeze.
+  echo "unrelated" > note.txt
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/freeze-sprint-base.sh"
+  [ "$status" -eq 0 ]
+  run jq -r '.base_sha' .scrum/sprint.json
+  [ "${#output}" -ge 7 ]
+}

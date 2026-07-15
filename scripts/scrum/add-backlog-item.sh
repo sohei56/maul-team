@@ -49,10 +49,7 @@ case "$KIND" in
 esac
 
 if [ -n "$PARENT" ]; then
-  case "$PARENT" in
-    pbi-[0-9]*) ;;
-    *) fail E_INVALID_ARG "bad --parent: $PARENT" ;;
-  esac
+  assert_pbi_id "$PARENT" --parent
 fi
 
 PATHF=".scrum/backlog.json"
@@ -77,7 +74,7 @@ INCREMENTED=$((NEXT_NUM + 1))
 if [ "${#ACS[@]}" -eq 0 ]; then
   AC_JSON='[]'
 else
-  AC_JSON="$(printf '%s\n' "${ACS[@]}" | jq -R . | jq -s .)"
+  AC_JSON="$(printf '%s\n' "${ACS[@]}" | json_lines_to_array)"
 fi
 
 NOW="$(_iso_utc_now)"
@@ -105,6 +102,7 @@ NEW_ITEM_JSON="$(
       review_doc_path: null,
       depends_on_pbi_ids: [],
       ux_change: $ux,
+      demo_plan: null,
       kind: $kind,
       parent_pbi_id: (if $parent == "" then null else $parent end),
       created_at: $now,

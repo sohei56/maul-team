@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020610">
+<link rel="icon" type="image/png" href="./assets/app-icon.png">
+<title>MaulTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
+<meta name="description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<link rel="canonical" href="https://sohei56.github.io/maul-team/">
+<meta property="og:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<meta property="og:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sohei56.github.io/maul-team/">
+<meta property="og:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Maul Team — AI Scrum Team for Claude Code">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
+<meta name="twitter:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<meta name="twitter:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
+<meta name="twitter:image:alt" content="Maul Team — AI Scrum Team for Claude Code">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "MaulTeam.app",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS 13+",
+      "url": "https://sohei56.github.io/maul-team/",
+      "description": "Native Mac app that hands your project to a full AI Scrum team powered by Claude Code Agent Teams. A Scrum Master coordinates Developer agents through Sprint cycles while you act as Product Owner.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "license": "https://github.com/sohei56/maul-team/blob/main/macapp/LICENSE",
+      "author": { "@type": "Person", "name": "sohei56", "url": "https://github.com/sohei56" },
+      "downloadUrl": "https://github.com/sohei56/maul-team",
+      "alternateName": ["claude-scrum-team", "Claude Scrum Team"],
+      "applicationSubCategory": "AI Agent Orchestration",
+      "keywords": "AI scrum team, Claude Code multi-agent, autonomous AI development team, AI dev team Mac app, open-source AI framework",
+      "screenshot": "https://sohei56.github.io/maul-team/assets/macapp-hero.png",
+      "sameAs": ["https://github.com/sohei56/maul-team"],
+      "featureList": [
+        "Multi-agent Scrum Master + Developer orchestration on Claude Code",
+        "Full Sprint lifecycle: requirements, planning, development pipeline, sprint review, retrospective, UAT",
+        "Native SwiftUI Mac app with live Sprint board",
+        "Autonomous PO mode",
+        "Optional Codex cross-model review with Claude-based fallback"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "name": "MaulTeam.app",
+      "alternateName": "Claude Scrum Team",
+      "url": "https://sohei56.github.io/maul-team/"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do AI agents actually run a Scrum sprint?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree. Codex provides cross-model review when available, with a Claude-based fallback. Merges are gated by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a prompt chain."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is this autonomous AI development, or am I babysitting prompts?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sprint execution is hands-off; you make Product-Owner decisions at the gates. --autonomous mode runs fully unattended."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the license, and where does MaulTeam.app run?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The framework is MIT-licensed. The Mac app is source-available and free for personal and internal business use under its commercial license. Workflow and project state stay on your Mac; model requests go through Claude Code and, when configured, Codex."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need the Mac app, or can I use the terminal?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "One shell command runs the identical pipeline in tmux. The Mac app is the friendly front door, not a requirement."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is this different from Devin or other AI software engineers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<style>
+/* ============================================================
+   MaulTeam.app — mission-control landing
+   Palette matched to the app icon: deep-navy field, cyan #28c8e6
+   hub accent, purple #8058e0 worker accent, amber #f8b830 kept as
+   the in-app "active work" highlight, green as a status-dot only.
+   ============================================================ */
+:root{
+  --bg: #020610;
+  --bg-2: #040b1a;
+  --panel: #081226;
+  --panel-2: #0d1830;
+  --line: rgba(154,190,255,.13);
+  --line-strong: rgba(154,190,255,.24);
+  --text: #f4f8ff;
+  --text-2: #c7d2ea;
+  --text-3: #8d9ac0;
+  --cyan: #1cb5da;
+  --cyan-hi: #3edcf5;
+  --cyan-soft: rgba(40,200,230,.13);
+  --purple: #8058e0;
+  --purple-hi: #a48af0;
+  --amber: #eaa722;
+  --amber-hi: #f8b830;
+  --amber-soft: rgba(248,184,48,.13);
+  --blue: #4a90d9;
+  --blue-soft: rgba(74,144,217,.13);
+  --green: #34d399;
+  --red: #ff5f57; --yellow:#febc2e; --green-dot:#28c840;
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, monospace;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --ease-move: cubic-bezier(.4,.1,.2,1);
+  --radius: 12px;
+  --maxw: 1120px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+::selection{background:rgba(40,200,230,.30); color:#fff}
+a{color:inherit}
+img{max-width:100%; display:block}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--cyan-hi); outline-offset:3px; border-radius:4px}
+
+/* ---------- atmosphere ---------- */
+.atmosphere{position:fixed; inset:0; z-index:-2; overflow:hidden; pointer-events:none}
+.aurora{position:absolute; border-radius:50%; filter:blur(90px); opacity:.5; will-change:transform}
+.aurora-a{width:52vw;height:52vw; min-width:560px;min-height:560px; top:-24vw; left:-10vw;
+  background:radial-gradient(circle at 40% 40%, rgba(40,200,230,.17), transparent 62%);
+  animation:driftA 26s ease-in-out infinite alternate}
+.aurora-b{width:44vw;height:44vw; min-width:460px;min-height:460px; top:-8vw; right:-14vw;
+  background:radial-gradient(circle at 60% 40%, rgba(128,88,224,.16), transparent 62%);
+  animation:driftB 34s ease-in-out infinite alternate}
+.aurora-c{width:40vw;height:40vw; min-width:420px;min-height:420px; top:52vh; left:32vw;
+  background:radial-gradient(circle at 50% 50%, rgba(248,184,48,.07), transparent 65%);
+  animation:driftC 40s ease-in-out infinite alternate}
+@keyframes driftA{from{transform:translate(0,0) rotate(0deg)} to{transform:translate(6vw,4vh) rotate(12deg)}}
+@keyframes driftB{from{transform:translate(0,0)} to{transform:translate(-5vw,6vh)}}
+@keyframes driftC{from{transform:translate(0,0) scale(1)} to{transform:translate(-4vw,-5vh) scale(1.12)}}
+.grid-lines{position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(154,190,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(154,190,255,.035) 1px, transparent 1px);
+  background-size:72px 72px;
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, transparent 78%);
+  -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.25) 40%, transparent 78%);
+}
+.grain{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- nav ---------- */
+.nav{position:sticky; top:0; z-index:60;
+  backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  background:rgba(2,6,16,.78); border-bottom:1px solid var(--line)}
+.nav-inner{max-width:var(--maxw); margin:0 auto; padding:0 24px; height:56px;
+  display:flex; align-items:center; gap:28px}
+.wordmark{display:flex; align-items:center; gap:10px; text-decoration:none;
+  font-family:var(--font-mono); font-size:14px; font-weight:600; letter-spacing:-.01em}
+.wordmark .glyph{width:22px;height:22px; border-radius:6px; flex:none;
+  background:linear-gradient(135deg, var(--cyan-hi), var(--cyan) 60%, #0d6d8c);
+  box-shadow:0 0 14px rgba(40,200,230,.45), inset 0 1px 0 rgba(255,255,255,.35);
+  display:grid; place-items:center; font-size:11px; color:#03121f; font-weight:800}
+.wordmark .tld{color:var(--text-3)}
+.wm-icon{width:22px;height:22px;border-radius:6px;flex:none;object-fit:cover;
+  box-shadow:0 0 10px rgba(40,200,230,.30), inset 0 1px 0 rgba(255,255,255,.15)}
+.nav-links{display:flex; gap:4px; margin-left:auto; align-items:center}
+.nav-links a{font-size:13.5px; color:var(--text-2); text-decoration:none; padding:7px 11px;
+  border-radius:8px; transition:color .18s var(--ease-out), background .18s var(--ease-out)}
+.nav-links a:hover{color:var(--text); background:rgba(255,255,255,.05)}
+.nav-gh{display:inline-flex; align-items:center; gap:7px; margin-left:10px;
+  font-size:13px; font-family:var(--font-mono); text-decoration:none;
+  color:var(--text); background:var(--panel-2); border:1px solid var(--line-strong);
+  padding:7px 14px; border-radius:999px; transition:border-color .18s, background .18s, transform .18s var(--ease-out)}
+.nav-gh:hover{border-color:rgba(62,220,245,.55); background:#152340; transform:translateY(-1px)}
+@media (max-width:760px){ .nav-links a:not(.nav-gh){display:none} }
+
+/* ---------- shared layout ---------- */
+.section{max-width:var(--maxw); margin:0 auto; padding:104px 24px 0}
+.kicker{font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--cyan-hi); display:inline-flex; align-items:center; gap:10px}
+.kicker::before{content:""; width:26px; height:1px; background:linear-gradient(90deg, var(--cyan), transparent)}
+h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-weight:700;
+  letter-spacing:-.025em; line-height:1.12; margin:16px 0 14px; text-wrap:balance}
+.lede{color:var(--text-2); font-size:clamp(16px,2vw,18px); max-width:640px; text-wrap:pretty}
+.mono{font-family:var(--font-mono)}
+
+/* scroll-reveal */
+.reveal{opacity:0; transform:translateY(22px); transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
+  transition-delay:var(--d, 0s)}
+.reveal.in{opacity:1; transform:none}
+
+/* ---------- hero ---------- */
+.hero{position:relative; max-width:var(--maxw); margin:0 auto; padding:88px 24px 0; text-align:center}
+.hero-appicon{display:block; width:92px; height:92px; margin:0 auto 26px; border-radius:21px;
+  border:1px solid rgba(255,255,255,.1); object-fit:cover;
+  box-shadow:0 16px 40px -10px rgba(0,0,0,.6), 0 0 52px -10px rgba(40,200,230,.42)}
+.hero-badge{display:inline-flex; align-items:center; gap:9px; font-family:var(--font-mono); font-size:12.5px;
+  color:var(--text-2); border:1px solid var(--line-strong); background:rgba(13,21,40,.6);
+  padding:7px 16px; border-radius:999px; margin-bottom:30px}
+.hero-badge .dot{width:7px;height:7px;border-radius:50%; background:var(--green);
+  box-shadow:0 0 8px rgba(52,211,153,.8); animation:blinkdot 2.4s ease-in-out infinite}
+@keyframes blinkdot{0%,100%{opacity:1}50%{opacity:.35}}
+.hero h1{font-family:var(--font-display); font-weight:700; letter-spacing:-.035em; line-height:1.04;
+  font-size:clamp(40px, 7.2vw, 78px); max-width:900px; margin:0 auto; text-wrap:balance}
+.hero h1 .accent{background:linear-gradient(100deg, #8ff0ff 0%, var(--cyan-hi) 38%, var(--cyan) 72%, #8058e0 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent}
+.hero-sub{color:var(--text-2); font-size:clamp(16px, 2.2vw, 19px); max-width:660px; margin:24px auto 0; text-wrap:pretty}
+.hero-sub .mono{font-size:.92em; color:var(--text); background:rgba(154,190,255,.08);
+  padding:1px 7px; border-radius:6px; border:1px solid var(--line)}
+.hero-ctas{display:flex; gap:14px; justify-content:center; margin-top:36px; flex-wrap:wrap}
+.btn{display:inline-flex; align-items:center; gap:9px; text-decoration:none; font-weight:600;
+  font-size:15px; padding:13px 26px; border-radius:11px; transition:transform .2s var(--ease-out), box-shadow .2s, background .2s, border-color .2s}
+.btn-primary{color:#02131f; background:linear-gradient(180deg, var(--cyan-hi), var(--cyan));
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 8px 28px rgba(40,200,230,.35)}
+.btn-primary:hover{transform:translateY(-2px); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 12px 36px rgba(40,200,230,.5)}
+.btn-ghost{color:var(--text); border:1px solid var(--line-strong); background:rgba(13,21,40,.5)}
+.btn-ghost:hover{transform:translateY(-2px); border-color:rgba(154,190,255,.28); background:#14213c}
+.trust-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:34px}
+.chip{font-family:var(--font-mono); font-size:12px; color:var(--text-3);
+  border:1px solid var(--line); background:rgba(9,16,32,.55); padding:5px 12px; border-radius:999px}
+
+/* hero window frame */
+.hero-stage{perspective:1400px; margin-top:64px; padding-bottom:8px}
+.mac-window{position:relative; max-width:1020px; margin:0 auto; border-radius:14px;
+  background:#0f1a33; border:1px solid rgba(154,190,255,.14);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 40px 90px -20px rgba(0,0,0,.75), 0 24px 60px -18px rgba(40,200,230,.14);
+  transform-style:preserve-3d; will-change:transform;
+  transition:transform .35s var(--ease-out)}
+.mac-window::before{content:""; position:absolute; inset:-1px; border-radius:15px; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.09), transparent 20%);}
+.mac-titlebar{display:flex; align-items:center; gap:8px; padding:11px 14px;
+  border-bottom:1px solid rgba(255,255,255,.06); border-radius:14px 14px 0 0; background:#14203a}
+.tl-dot{width:12px;height:12px;border-radius:50%}
+.tl-dot.r{background:var(--red)} .tl-dot.y{background:var(--yellow)} .tl-dot.g{background:var(--green-dot)}
+.mac-title{margin:0 auto; transform:translateX(-26px); font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+.mac-window img{border-radius:0 0 13px 13px}
+.hero-glow{position:absolute; left:50%; bottom:-70px; transform:translateX(-50%);
+  width:70%; height:130px; background:radial-gradient(ellipse at center, rgba(40,200,230,.20), transparent 70%);
+  filter:blur(24px); pointer-events:none}
+
+/* hero load choreography */
+.hload{opacity:0; transform:translateY(18px); animation:hin .9s var(--ease-out) forwards}
+.hload.d1{animation-delay:.05s}.hload.d2{animation-delay:.15s}.hload.d3{animation-delay:.28s}
+.hload.d4{animation-delay:.42s}.hload.d5{animation-delay:.55s}.hload.d6{animation-delay:.75s}
+@keyframes hin{to{opacity:1; transform:none}}
+
+/* ---------- hero app (animated reproduction of the Mac app screen) ---------- */
+.hero-app{display:flex; flex-direction:column; min-height:512px; background:#0a1326;
+  border-radius:0 0 13px 13px; overflow:hidden; text-align:left}
+/* window toolbar (Projects · project · path · info) */
+.ha-toolbar{display:flex; align-items:center; gap:13px; height:36px; padding:0 14px; flex:none;
+  background:#0f1c36; border-bottom:1px solid var(--line); font-family:var(--font-mono);
+  font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden}
+.ha-tb-back{color:var(--text-2)}
+.ha-tb-proj{color:var(--text); font-weight:600; display:inline-flex; align-items:center; gap:6px}
+.ha-tb-proj i{color:var(--blue)}
+.ha-tb-path{color:var(--text-3); overflow:hidden; text-overflow:ellipsis; min-width:0}
+.ha-tb-info{margin-left:auto; color:var(--text-3)}
+/* three-pane body */
+.ha-body{flex:1 1 auto; display:grid; grid-template-columns:186px 1fr 274px; min-height:0}
+@media (max-width:1000px){ .ha-body{grid-template-columns:1fr 262px} .ha-explorer{display:none} }
+@media (max-width:720px){ .ha-body{display:flex; flex-direction:column} .ha-explorer{display:none}
+  .ha-center{border-right:0; border-bottom:1px solid var(--line)} }
+/* shared column head (aligned across the three panes) */
+.ha-colhead{display:flex; align-items:center; gap:7px; height:34px; padding:0 13px; flex:none;
+  background:#0e1a32; border-bottom:1px solid var(--line);
+  font-family:var(--font-mono); font-size:11px; color:var(--text-2)}
+.ha-colhead .ha-ico{color:var(--amber-hi)}
+
+/* --- left: Explorer + editor --- */
+.ha-explorer{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#0c1730}
+.ha-ex-head{letter-spacing:.12em; text-transform:uppercase; font-size:10px; color:var(--text-3)}
+.ha-tree{padding:7px 5px; flex:none; display:flex; flex-direction:column; gap:1px;
+  font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
+.ha-row{display:flex; align-items:center; gap:5px; padding:1.5px 6px; border-radius:5px;
+  white-space:nowrap; overflow:hidden}
+.ha-row .ha-nm{overflow:hidden; text-overflow:ellipsis}
+.ha-row .ha-tw{color:var(--text-3); width:9px; display:inline-block; flex:none;
+  font-size:8.5px; text-align:center}
+.ha-row .ha-fi{flex:none; width:12px; text-align:center; color:var(--text-3); font-size:9.5px}
+.ha-row .ha-fi.fi-json{color:#e8c66a} .ha-row .ha-fi.fi-html{color:#e0885e}
+.ha-row.active{background:var(--amber-soft); color:var(--text)}
+.ha-i1{padding-left:15px} .ha-i2{padding-left:28px} .ha-i3{padding-left:41px}
+/* CSS-drawn macOS-style folder icon (blue; amber when framework-locked) */
+.ha-fico{position:relative; flex:none; width:12px; height:8.5px; margin-top:2px;
+  border-radius:1px 2px 2px 2px; background:linear-gradient(180deg,#6aa6e0,#3f7fc0)}
+.ha-fico::before{content:""; position:absolute; top:-2.5px; left:0; width:5.5px; height:3px;
+  border-radius:1.5px 1px 0 0; background:#6aa6e0}
+.ha-row.lock .ha-fico{background:linear-gradient(180deg,#d9a94e,#b07f2c)}
+.ha-row.lock .ha-fico::before{background:#d9a94e}
+/* tiny padlock badge after locked framework dirs */
+.ha-lock{flex:none; width:7px; height:5.5px; margin:2px 0 0 2px; border-radius:1.5px;
+  background:var(--amber-hi); opacity:.85; position:relative}
+.ha-lock::before{content:""; position:absolute; top:-3px; left:1px; width:5px; height:4px;
+  border:1px solid var(--amber-hi); border-bottom:0; border-radius:3px 3px 0 0}
+.ha-editor{flex:1 1 auto; min-height:0; border-top:1px solid var(--line); display:flex; flex-direction:column}
+.ha-ed-tab{display:flex; align-items:center; justify-content:space-between; padding:7px 11px; flex:none;
+  border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
+.ha-save{font-size:9px; color:var(--text-3); border:1px solid var(--line-strong); background:var(--panel-2);
+  border-radius:5px; padding:2px 9px}
+.ha-ed-body{padding:9px 11px; overflow:hidden; font-family:var(--font-mono); font-size:9.5px;
+  line-height:1.62; color:var(--text-3); white-space:pre-wrap}
+.ha-ed-body b{color:var(--text-2); font-weight:600}
+
+/* --- center: Scrum Master terminal + Work Log --- */
+.ha-center{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#091224}
+.ha-term{flex:1 1 auto; min-height:0; overflow:hidden; padding:11px 15px 9px;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  font-family:var(--font-mono); font-size:11.4px; line-height:1.55; color:var(--text-2)}
+@media (max-width:720px){ .ha-term{flex:none; height:172px} }
+.ha-line{margin-bottom:8px; white-space:pre-wrap; word-break:break-word}
+.ha-line.he{opacity:0; transform:translateY(4px)}
+.ha-line.show{opacity:1; transform:none; transition:opacity .3s var(--ease-out), transform .3s var(--ease-out)}
+.ha-term .t-p{color:var(--text-3)} .ha-term .t-cmd{color:var(--text)}
+.ha-term .t-ok{color:var(--green)} .ha-term .t-dim{color:var(--text-3)}
+.ha-term .t-amber{color:var(--amber-hi)} .ha-term .t-blue{color:#8ab8e8}
+.ha-term .t-hot{color:var(--amber-hi); font-weight:600}
+.hc-tcursor{display:inline-block; width:7px; height:13px; background:var(--amber-hi);
+  vertical-align:-2px; margin-left:1px; animation:curblink 1s steps(1) infinite}
+.ha-term-input{flex:none; display:flex; align-items:center; gap:8px; padding:8px 14px;
+  border-top:1px solid var(--line); background:#0c1830; font-family:var(--font-mono); font-size:11px}
+.hc-caret{color:var(--amber-hi)}
+.ha-ph{flex:1; min-width:0; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#heroInput{color:var(--text)}
+.ha-ph .hc-tcursor{height:12px; vertical-align:-2px}
+.ha-owner{font-size:9.5px; color:var(--text-3); border:1px solid var(--line-strong);
+  background:var(--panel-2); padding:2px 8px; border-radius:6px; flex:none}
+.ha-term-status{flex:none; display:flex; align-items:center; gap:13px; padding:6px 14px;
+  border-top:1px solid var(--line); background:#091224; font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.hc-am{color:var(--amber-hi)}
+.ha-br{display:inline-flex; align-items:center; gap:6px}
+.ha-br i{width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.85)}
+.ha-tok{margin-left:auto}
+/* work log */
+.ha-worklog{flex:none; display:flex; flex-direction:column; border-top:1px solid var(--line); background:#0a1326}
+.ha-wl-head{display:flex; align-items:center; gap:10px; padding:8px 14px; flex:none;
+  font-family:var(--font-mono); font-size:10.5px; color:var(--text-2); border-bottom:1px solid var(--line)}
+.ha-wl-tabs{margin-left:auto; display:inline-flex; gap:4px; font-size:9px}
+.ha-wl-tabs i{font-style:normal; padding:2px 8px; border-radius:6px; color:var(--text-3)}
+.ha-wl-tabs i.on{color:#dfe7ef; background:var(--blue); }
+.ha-wl-list{flex:none; height:112px; overflow:hidden}
+.ha-wl-row{display:flex; gap:10px; padding:6px 14px; border-bottom:1px solid rgba(255,255,255,.045); align-items:flex-start}
+.ha-wl-row.enter{animation:wlin .42s var(--ease-out)}
+@keyframes wlin{from{opacity:0; transform:translateY(-7px)} to{opacity:1; transform:none}}
+.ha-wl-time{flex:none; width:52px; font-family:var(--font-mono); font-size:9px; color:var(--text-3); padding-top:1px}
+.ha-wl-body{min-width:0; flex:1}
+.ha-wl-tagline{display:flex; align-items:center; gap:8px; margin-bottom:3px}
+.ha-wl-tag{font-family:var(--font-mono); font-size:8.5px; padding:1.5px 7px; border-radius:5px; border:1px solid; white-space:nowrap}
+.wl-prog{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.wl-spawn{color:#5eead4; border-color:rgba(45,212,191,.45); background:rgba(45,212,191,.1)}
+.wl-stop{color:var(--amber-hi); border-color:rgba(248,184,48,.45); background:var(--amber-soft)}
+.wl-file{color:var(--text-3); border-color:var(--line-strong); background:rgba(255,255,255,.04)}
+.wl-merge{color:#c4b5fd; border-color:rgba(167,139,250,.45); background:rgba(167,139,250,.12)}
+.ha-wl-who{font-family:var(--font-mono); font-size:9px; color:var(--text-2)}
+.ha-wl-msg{font-size:10px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+/* --- right: Dashboard --- */
+.ha-dash{display:flex; flex-direction:column; min-width:0; background:#0c1730}
+.ha-dash-head{justify-content:space-between; font-family:var(--font-display); font-size:13px; font-weight:650; color:var(--text)}
+.hc-asof{font-family:var(--font-mono); font-size:9.5px; font-weight:400; color:var(--text-3)}
+.ha-scroll{flex:1 1 auto; overflow:hidden; padding:9px 11px 9px; display:flex; flex-direction:column; gap:8px}
+.ha-card{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:9px 12px}
+.ha-card-h{display:flex; align-items:center; gap:7px; margin-bottom:6px;
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; color:var(--text-2)}
+.ha-card-h .ha-ico{color:var(--amber-hi)}
+.ha-proj{font-size:10.3px; line-height:1.5; color:var(--text-2)}
+.hc-sprint-top{display:flex; align-items:center; gap:9px}
+.hc-sprint-id{font-family:var(--font-mono); font-size:12.5px; font-weight:600; color:var(--text)}
+.hc-pill{font-family:var(--font-mono); font-size:9px; letter-spacing:.02em; padding:2px 8px; border-radius:999px;
+  border:1px solid; white-space:nowrap}
+.hc-pill-active{color:var(--green); border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.1)}
+.hc-pill-phase{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.ha-phase-row{margin:7px 0; display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  font-family:var(--font-mono); font-size:9px; color:var(--text-3)}
+.hc-progress{height:6px; border-radius:999px; background:rgba(255,255,255,.07); overflow:hidden}
+.hc-progress i{display:block; height:100%; border-radius:999px; width:0;
+  background:linear-gradient(90deg, var(--amber), var(--amber-hi));
+  box-shadow:0 0 10px rgba(248,184,48,.5); transition:width .7s var(--ease-out)}
+.hc-done-count{margin-bottom:7px; font-family:var(--font-mono); font-size:10px; color:var(--text-3)}
+.hc-done-count b{color:var(--amber-hi)}
+.ha-member{margin-top:7px; font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.ha-pbicard{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+.ha-pb-h{justify-content:space-between; margin-bottom:8px}
+.hc-pb-tabs{display:inline-flex; gap:5px; font-family:var(--font-mono); font-size:9px}
+.hc-pb-tabs span{padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--text-3)}
+.hc-pb-tabs span.on{color:#8ab8e8; border-color:rgba(74,144,217,.45); background:var(--blue-soft)}
+.hc-pbi-list{display:flex; flex-direction:column; gap:6px}
+.hc-pbi{display:flex; align-items:flex-start; gap:8px; padding:7px 9px; border-radius:9px;
+  border:1px solid var(--line); background:var(--panel-2);
+  transition:border-color .3s var(--ease-out), background .3s var(--ease-out)}
+.hc-pbi.hc-active{border-color:rgba(248,184,48,.5); background:rgba(248,184,48,.07)}
+.hc-pbi-main{min-width:0; flex:1}
+.hc-pbi-meta{display:flex; align-items:center; gap:7px; margin-bottom:2px}
+.hc-pbi-id{font-family:var(--font-mono); font-size:9.5px; color:var(--text-3)}
+.hc-pbi-scope{font-family:var(--font-mono); font-size:9px; color:#8ab8e8}
+.hc-pbi-scope.hc-scope-bl{color:var(--text-3)}
+.hc-pbi-title{font-size:11px; line-height:1.32; color:var(--text); font-weight:500}
+.hc-pbi-upd{font-family:var(--font-mono); font-size:8.5px; color:var(--text-3); margin-top:2px}
+.hc-pbi-right{display:flex; align-items:center; gap:6px; flex:none; align-self:center}
+.hc-iter{font-family:var(--font-mono); font-size:8.5px; color:var(--text-3)}
+.hc-badge{flex:none; font-size:8.5px; padding:2px 7px; letter-spacing:.02em}
+.hc-badge.flip{animation:hcbadge .5s var(--ease-out)}
+@keyframes hcbadge{0%{transform:scale(.82); opacity:.4} 60%{transform:scale(1.08)} 100%{transform:none; opacity:1}}
+
+/* ---------- why ---------- */
+.why-grid{display:grid; grid-template-columns:1fr 1fr 1.15fr; gap:16px; margin-top:44px}
+@media (max-width:880px){ .why-grid{grid-template-columns:1fr} }
+.why-card{position:relative; border:1px solid var(--line); border-radius:var(--radius);
+  background:linear-gradient(180deg, var(--panel), var(--bg-2)); padding:28px 26px; overflow:hidden}
+.why-card h3{font-family:var(--font-display); font-size:19px; font-weight:650; letter-spacing:-.015em; margin-bottom:10px}
+.why-card p{color:var(--text-2); font-size:14.5px}
+.why-tag{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-3); display:block; margin-bottom:14px}
+.why-card.answer{border-color:rgba(40,200,230,.4);
+  background:linear-gradient(180deg, rgba(40,200,230,.10), rgba(40,200,230,.02) 55%, var(--bg-2))}
+.why-card.answer .why-tag{color:var(--cyan-hi)}
+.why-card.answer::after{content:""; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, transparent, var(--cyan), transparent)}
+.why-x{position:absolute; top:22px; right:22px; font-family:var(--font-mono); font-size:13px; color:var(--text-3)}
+.why-card.answer .why-x{color:var(--cyan-hi)}
+
+/* ---------- demo ---------- */
+.video-shell{position:relative; margin-top:44px; border-radius:14px; overflow:hidden;
+  border:1px solid var(--line-strong); background:#0e1832;
+  box-shadow:0 30px 70px -24px rgba(0,0,0,.7); aspect-ratio:16/9}
+.video-shell video{width:100%; height:100%; object-fit:contain; display:block; background:#0a1326}
+.video-cover{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:18px; cursor:pointer; border:0; width:100%;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(40,200,230,.14), transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(128,88,224,.12), transparent 55%),
+    linear-gradient(180deg, #101c36, #091124);
+  transition:opacity .4s var(--ease-out)}
+.video-cover .fake-panes{display:flex; gap:6px; width:min(420px, 70%); height:38%; opacity:.6}
+.video-cover .fake-panes span{background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:6px}
+.video-cover .fake-panes span:nth-child(1){flex:1.1}
+.video-cover .fake-panes span:nth-child(2){flex:2; border-color:rgba(40,200,230,.35)}
+.video-cover .fake-panes span:nth-child(3){flex:1.3; border-color:rgba(128,88,224,.35)}
+.play-pill{display:inline-flex; align-items:center; gap:11px; font-family:var(--font-mono); font-size:14px;
+  color:#fff; font-weight:700; background:linear-gradient(180deg, var(--purple-hi), var(--purple));
+  padding:13px 26px; border-radius:999px; box-shadow:0 10px 32px rgba(128,88,224,.5)}
+.play-pill .tri{width:0;height:0;border-style:solid;border-width:6px 0 6px 10px;border-color:transparent transparent transparent #fff}
+.video-cover:hover .play-pill{transform:scale(1.04)}
+.video-cover small{color:var(--text-3); font-size:12.5px; font-family:var(--font-mono)}
+.video-fallback-link{display:inline-flex; align-items:center; gap:8px; margin-top:18px;
+  font-family:var(--font-mono); font-size:13.5px; color:var(--text-2); text-decoration:none;
+  border-bottom:1px dashed rgba(255,255,255,.25); padding-bottom:2px; transition:color .18s}
+.video-fallback-link:hover{color:var(--cyan-hi)}
+.pane-cards{display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:26px}
+@media (max-width:880px){ .pane-cards{grid-template-columns:1fr} }
+.pane-card{border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); padding:24px 22px}
+.pane-card .pane-num{font-family:var(--font-mono); font-size:11px; color:var(--cyan-hi); letter-spacing:.12em}
+.pane-card h3{font-family:var(--font-display); font-size:17px; font-weight:650; margin:9px 0 8px; letter-spacing:-.01em}
+.pane-card p{color:var(--text-2); font-size:14px}
+
+/* ---------- how it works : the sprint loop ---------- */
+.loop-flow{display:grid; align-items:center; gap:0 12px; margin-top:56px; justify-content:center;
+  grid-template-columns:minmax(130px,160px) 36px minmax(320px,540px) 36px minmax(270px,308px)}
+.loop-gate-col{display:flex; flex-direction:column; gap:12px}
+.gate-col-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--text-3)}
+/* out-of-loop steps: same chevron language as the wheel segments */
+.gate-chip{display:block; width:100%; background:none; border:0; padding:0; cursor:pointer;
+  opacity:.87; transition:opacity .3s var(--ease-out), filter .3s var(--ease-out)}
+.gate-chip:hover{opacity:1}
+.gate-chip.on{opacity:1; filter:drop-shadow(0 0 12px var(--c))}
+.gc-body{display:flex; flex-direction:column; align-items:center; gap:1px; padding:11px 26px 12px;
+  background:var(--c); color:#06101f;
+  clip-path:polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%)}
+.gc-num{font-family:var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.08em; opacity:.72}
+.gc-label{font-family:var(--font-display); font-size:14.5px; font-weight:700; letter-spacing:-.01em; white-space:nowrap}
+.gate-row{display:flex; gap:5px}
+.gate-row .gate-chip{flex:1 1 auto}
+.gate-row .gc-body{padding-left:16px; padding-right:16px}
+.loop-connector{position:relative; height:2px; align-self:center;
+  background:repeating-linear-gradient(90deg, var(--line-strong) 0 7px, transparent 7px 13px)}
+.loop-connector::after{content:""; position:absolute; right:-2px; top:50%; transform:translateY(-50%);
+  border-left:9px solid var(--cyan); border-top:5.5px solid transparent; border-bottom:5.5px solid transparent;
+  filter:drop-shadow(0 0 6px rgba(40,200,230,.55))}
+.loop-ring{position:relative}
+.loop-ring svg{display:block; width:100%; height:auto}
+.loop-orbit{animation:orbitSpin 90s linear infinite; transform-origin:320px 320px}
+@keyframes orbitSpin{to{transform:rotate(360deg)}}
+.loop-seg{cursor:pointer}
+.loop-seg path{opacity:.87; transition:opacity .3s var(--ease-out), filter .3s var(--ease-out), transform .3s var(--ease-out);
+  transform-box:fill-box; transform-origin:center}
+.loop-seg text{pointer-events:none; user-select:none; -webkit-user-select:none}
+.loop-seg:hover path{opacity:1}
+.loop-seg.on path{opacity:1; filter:drop-shadow(0 0 14px var(--c)); transform:scale(1.015)}
+.seg-num{font-family:var(--font-mono); font-size:12px; font-weight:600; letter-spacing:.08em; opacity:.72}
+.seg-label{font-family:var(--font-display); font-size:19px; font-weight:700; letter-spacing:-.01em}
+.seg-label.sm{font-size:18px}
+.hub-t1{font-family:var(--font-display); font-size:30px; font-weight:800; letter-spacing:.2em; fill:var(--text)}
+.hub-t2{font-family:var(--font-mono); font-size:12.5px; fill:var(--text-3); letter-spacing:.14em}
+.loop-detail{margin-top:26px; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--panel); overflow:hidden}
+.ld-item{display:none; padding:18px 22px; border-left:3px solid var(--c)}
+.ld-item.on{display:block; animation:ldIn .35s var(--ease-out)}
+.ld-row{display:flex; gap:16px}
+@keyframes ldIn{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+.ld-num{font-family:var(--font-mono); font-size:13px; color:var(--c); flex:none; padding-top:3px}
+.ld-item h3{font-family:var(--font-display); font-size:16px; font-weight:650; letter-spacing:-.01em; margin-bottom:4px}
+.ld-item p{color:var(--text-2); font-size:13.8px; line-height:1.55}
+.phase-tag{font-family:var(--font-mono); font-size:10.5px; color:var(--purple-hi); letter-spacing:.09em;
+  text-transform:uppercase; margin-left:8px; vertical-align:2px}
+@media (prefers-reduced-motion: reduce){
+  .loop-orbit{animation:none}
+  .ld-item.on{animation:none}
+  .loop-seg path{transition:opacity .3s var(--ease-out)}
+}
+@media (max-width:940px){
+  .loop-flow{grid-template-columns:minmax(0,480px); gap:18px 0}
+  .loop-gate-col{width:min(100%, 320px); justify-self:center}
+  .gate-col-label{align-self:center}
+  .loop-gate-col > .gate-chip .gc-body{padding:15px 20px 20px;
+    clip-path:polygon(0 0, 50% 12px, 100% 0, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px))}
+  .loop-connector{width:2px; height:38px; justify-self:center;
+    background:repeating-linear-gradient(180deg, var(--line-strong) 0 7px, transparent 7px 13px)}
+  .loop-connector::after{right:auto; top:auto; bottom:-2px; left:50%; transform:translateX(-50%);
+    border-top:9px solid var(--cyan); border-left:5.5px solid transparent; border-right:5.5px solid transparent;
+    border-bottom:0}
+}
+
+/* ---------- SPRINT BOARD (signature) ---------- */
+.board-wrap{margin-top:18px; position:relative}
+.board-frame{border:1px solid var(--line-strong); border-radius:16px; overflow:hidden;
+  background:#0d1730;
+  box-shadow:0 34px 80px -30px rgba(0,0,0,.8), 0 0 60px -30px rgba(40,200,230,.25)}
+.board-titlebar{display:flex; align-items:center; gap:8px; padding:12px 16px; background:#101d38;
+  border-bottom:1px solid var(--line)}
+.board-titlebar .bt-label{margin-left:6px; font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+.board-titlebar .bt-live{margin-left:auto; display:inline-flex; align-items:center; gap:7px;
+  font-family:var(--font-mono); font-size:11px; color:var(--green); letter-spacing:.1em}
+.board-titlebar .bt-live i{width:6px;height:6px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px rgba(52,211,153,.9); animation:blinkdot 2s infinite}
+.board-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+.board{display:grid; grid-template-columns:repeat(8, minmax(124px, 1fr)); gap:0; min-width:1000px;
+  padding:18px 10px 22px; position:relative}
+.board-col{padding:0 6px; border-right:1px dashed rgba(255,255,255,.06)}
+.board-col:last-child{border-right:0}
+.col-head{display:flex; align-items:center; gap:6px; padding:4px 6px 14px}
+.col-head .col-dot{width:8px; height:8px; border-radius:2.5px; flex:none}
+.col-head h4{font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:.03em;
+  text-transform:uppercase; color:var(--text-2); white-space:nowrap}
+.col-count{margin-left:auto; font-family:var(--font-mono); font-size:10.5px; color:var(--text-3);
+  background:rgba(255,255,255,.05); border-radius:999px; padding:1px 7px; min-width:22px; text-align:center}
+/* column dots mirror the app's PipelineStage.accent */
+.col-backlog .col-dot{background:#67718c}
+.col-design .col-dot{background:#3cc9d6; box-shadow:0 0 8px rgba(60,201,214,.5)}
+.col-impl .col-dot{background:var(--blue); box-shadow:0 0 8px rgba(74,144,217,.5)}
+.col-pbireview .col-dot{background:var(--blue); box-shadow:0 0 8px rgba(74,144,217,.5)}
+.col-ut .col-dot{background:#2dd4bf; box-shadow:0 0 8px rgba(45,212,191,.5)}
+.col-merge .col-dot{background:#a78bfa; box-shadow:0 0 8px rgba(167,139,250,.5)}
+.col-xreview .col-dot{background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.5)}
+.col-done .col-dot{background:var(--green); box-shadow:0 0 8px rgba(52,211,153,.5)}
+.col-cards{display:flex; flex-direction:column; gap:9px; min-height:250px}
+.pbi-card{background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+  padding:10px 11px 11px; will-change:transform; position:relative;
+  box-shadow:0 4px 14px -8px rgba(0,0,0,.7)}
+/* dev-managed stages carry the app's amber card border */
+.pbi-card.dev{border-color:rgba(248,184,48,.42)}
+.pbi-card .pbi-id{font-family:var(--font-mono); font-size:10px; color:var(--text-3); letter-spacing:.04em}
+.pbi-card .pbi-title{font-size:12.5px; font-weight:550; line-height:1.32; margin:4px 0 9px; color:var(--text)}
+.pbi-badge{display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:9.5px;
+  padding:2.5px 8px; border-radius:999px; border:1px solid; letter-spacing:.02em; white-space:nowrap}
+/* badges mirror the app's PBIStatus.label + color */
+.b-backlog{color:#a8b0c6; border-color:rgba(255,255,255,.16); background:rgba(255,255,255,.04)}
+.b-design{color:#6fd8e2; border-color:rgba(60,201,214,.5); background:rgba(60,201,214,.12)}
+.b-impl{color:#8ab8e8; border-color:rgba(74,144,217,.5); background:var(--blue-soft)}
+.b-pbireview{color:#8ab8e8; border-color:rgba(74,144,217,.5); background:var(--blue-soft)}
+.b-ut{color:#5eead4; border-color:rgba(45,212,191,.5); background:rgba(45,212,191,.12)}
+.b-merge{color:#c4b5fd; border-color:rgba(167,139,250,.5); background:rgba(167,139,250,.13)}
+.b-xreview{color:var(--green); border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.09)}
+.b-done{color:var(--green); border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.09)}
+.pbi-card.just-moved{border-color:rgba(248,184,48,.55); animation:cardglow 1.4s var(--ease-out)}
+@keyframes cardglow{0%{box-shadow:0 0 0 3px rgba(248,184,48,.25), 0 8px 24px -8px rgba(248,184,48,.5)}
+  100%{box-shadow:0 4px 14px -8px rgba(0,0,0,.7)}}
+.pbi-card.leaving{transition:opacity .5s var(--ease-out), transform .5s var(--ease-out); opacity:0; transform:scale(.9)}
+.pbi-card.entering{animation:cardenter .55s var(--ease-out)}
+@keyframes cardenter{from{opacity:0; transform:translateY(-10px) scale(.96)} to{opacity:1; transform:none}}
+.board-caption{display:flex; justify-content:center; gap:8px; margin-top:18px;
+  font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); text-align:center; padding:0 16px}
+
+/* ---------- terminal (tmux, two panes) ---------- */
+.term-grid{margin-top:72px}
+.term-copy{max-width:720px; margin:0 auto 34px; text-align:center}
+.term-copy h3{font-family:var(--font-display); font-size:clamp(22px,3vw,28px); font-weight:700; letter-spacing:-.02em; margin-bottom:12px}
+.term-copy p{color:var(--text-2); font-size:15.5px; margin-bottom:14px}
+.terminal{border:1px solid var(--line-strong); border-radius:14px; overflow:hidden; background:#0a142a;
+  box-shadow:0 30px 70px -28px rgba(0,0,0,.8); font-family:var(--font-mono); font-size:11.5px}
+.term-head{display:flex; align-items:center; gap:8px; padding:11px 14px; background:#0e1a32;
+  border-bottom:1px solid var(--line)}
+.term-head .term-title{margin:0 auto; transform:translateX(-26px); font-size:11.5px; color:var(--text-3)}
+/* tmux split */
+.tmux-panes{display:grid; grid-template-columns:1fr 1.16fr}
+@media (max-width:840px){
+  .tmux-panes{grid-template-columns:1fr}
+  .tmux-pane.tp-right{border-left:none; border-top:1px solid var(--line-strong)}
+}
+.tmux-pane{display:flex; flex-direction:column; padding:13px 15px 10px; line-height:1.68;
+  color:var(--text-2); overflow:hidden; min-width:0}
+.tmux-pane.tp-right{border-left:1px solid var(--line-strong); background:#081124}
+/* left: Claude Code session */
+.cc-brand{display:flex; gap:11px; align-items:center; margin-bottom:11px}
+.cc-logo{color:#e8825a; font-size:9px; line-height:1.3; letter-spacing:1px; flex:none; white-space:pre}
+.cc-brand b{color:var(--text); font-weight:650}
+.cc-brand .cc-meta{font-size:10.8px}
+.cc-prompt{background:#141f3c; border:1px solid var(--line); border-radius:7px; padding:7px 10px;
+  color:var(--text-3); margin-bottom:12px; font-size:10.8px; line-height:1.6}
+.cc-prompt .t-p{color:var(--text-2)}
+.term-body{min-height:200px; white-space:pre-wrap; word-break:break-word}
+.term-body .t-p{color:var(--text-3)} .term-body .t-cmd{color:var(--text)}
+.term-body .t-ok{color:var(--green)} .term-body .t-dim{color:var(--text-3)}
+.term-body .t-amber{color:var(--amber-hi)} .term-body .t-blue{color:#8ab8e8}
+.term-body .t-b{color:var(--text)}
+.cursor{display:inline-block; width:7px; height:13px; background:var(--amber-hi); vertical-align:-2px;
+  animation:curblink 1s steps(1) infinite}
+@keyframes curblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.cc-foot{margin-top:auto; padding-top:10px}
+.cc-tag{display:flex; justify-content:flex-end; margin-bottom:3px}
+.cc-tag span{background:#233152; color:var(--text-2); font-size:9.5px; padding:1px 8px; border-radius:3px}
+.cc-input{border-top:1px solid var(--line); padding-top:6px; color:var(--text-3); margin-bottom:6px}
+.cc-status{color:var(--text-3); font-size:10px; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cc-status .t-auto{color:var(--green)}
+/* right: Maul Team Dashboard (Textual TUI) */
+.dash-title{text-align:center; color:var(--text); margin-bottom:8px; font-size:10.5px; letter-spacing:.08em}
+.dash-box{border:1px solid rgba(248,184,48,.4); border-radius:5px; padding:6px 10px; margin-bottom:9px;
+  font-size:10.4px; line-height:1.66; min-width:0; overflow-x:auto}
+.dash-key{color:var(--text); font-weight:600}
+.dash-badge{background:#2743a8; color:#fff; padding:0 7px; border-radius:3px}
+.dash-label{font-size:10px; color:var(--text); margin:0 0 4px 2px; font-weight:600}
+.dash-label .t-dim{color:var(--text-3); font-weight:400}
+.dash-row{display:grid; grid-template-columns:54px minmax(120px,1fr) 106px 18px 74px 50px; gap:8px;
+  font-size:10.2px; line-height:1.95; white-space:nowrap}
+.dash-row > span{overflow:hidden; text-overflow:ellipsis; min-width:0}
+.dash-row.dr-head{background:rgba(122,84,240,.75); color:#fff; border-radius:2px; padding:0 6px; margin:0 -6px 2px}
+.dash-row.dr-sel{background:#1d4ed8; border-radius:2px; padding:0 6px; margin:0 -6px}
+.dash-row.dr-sel, .dash-row.dr-sel .st-done{color:#fff}
+.st-done{color:var(--green)} .st-prog{color:var(--amber-hi)}
+.st-ref{color:#f8a24a} .st-draft{color:var(--text-3)}
+.rd-hot{color:#ff6b5e}
+.dash-log{flex:1; margin-bottom:0}
+.log-row{display:flex; gap:9px; white-space:nowrap; overflow:hidden; line-height:1.9; font-size:10.2px}
+.log-t{color:var(--text-3); flex:none}
+.log-sm{color:var(--amber-hi); flex:none; min-width:92px}
+.log-dev{color:#8ab8e8; flex:none; min-width:92px}
+/* tmux status bar */
+.tmux-bar{display:flex; justify-content:space-between; gap:12px; background:#53c452; color:#0a2608;
+  font-size:10.5px; padding:2px 10px; white-space:nowrap; overflow:hidden}
+.tmux-bar span{overflow:hidden; text-overflow:ellipsis}
+
+/* ---------- PO section ---------- */
+.po-rows{margin-top:48px; display:flex; flex-direction:column; gap:10px}
+.po-row{display:grid; grid-template-columns:1fr 78px 1fr; align-items:stretch; gap:0}
+@media (max-width:720px){
+  .po-row{grid-template-columns:1fr; gap:6px}
+  .po-arrow{transform:rotate(90deg); height:34px !important}
+}
+.po-cell{border:1px solid var(--line); border-radius:var(--radius); padding:18px 22px; display:flex; align-items:center}
+.po-you{background:linear-gradient(180deg, rgba(40,200,230,.10), rgba(40,200,230,.03)); border-color:rgba(40,200,230,.35);
+  font-weight:600; font-size:15px}
+.po-team{background:var(--panel); color:var(--text-2); font-size:14.5px}
+.po-arrow{display:flex; align-items:center; justify-content:center; color:var(--text-3)}
+.po-arrow svg{width:34px; height:14px; overflow:visible}
+.po-arrow .flow{stroke:var(--cyan); stroke-width:1.5; stroke-dasharray:3 5; animation:dashflow 1.6s linear infinite}
+@keyframes dashflow{to{stroke-dashoffset:-16}}
+.po-headline{display:grid; grid-template-columns:1fr 78px 1fr; margin-top:40px; margin-bottom:2px}
+@media (max-width:720px){ .po-headline{display:none} }
+.po-headline span{font-family:var(--font-mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; padding:0 4px}
+.po-headline .h-you{color:var(--cyan-hi)} .po-headline .h-team{grid-column:3; color:var(--purple-hi)}
+
+/* ---------- features ---------- */
+.feature-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:44px}
+@media (max-width:960px){ .feature-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:620px){ .feature-grid{grid-template-columns:1fr} }
+.feature{border:1px solid var(--line); border-radius:var(--radius); padding:24px 22px;
+  background:linear-gradient(180deg, var(--panel), rgba(8,17,36,.4)); position:relative; overflow:hidden;
+  transition:border-color .25s var(--ease-out), transform .25s var(--ease-out)}
+.feature:hover{border-color:rgba(40,200,230,.38); transform:translateY(-3px)}
+.feature .f-ico{font-family:var(--font-mono); font-size:12px; color:var(--cyan-hi);
+  border:1px solid rgba(40,200,230,.35); background:var(--cyan-soft); border-radius:8px;
+  width:34px; height:34px; display:grid; place-items:center; margin-bottom:16px}
+.feature h3{font-family:var(--font-display); font-size:16.5px; font-weight:650; letter-spacing:-.01em; margin-bottom:7px}
+.feature p{color:var(--text-2); font-size:13.8px; line-height:1.55}
+.feature .f-mono{font-family:var(--font-mono); font-size:.92em; color:var(--text)}
+
+/* orchestration diagram */
+.orch{grid-column:1 / -1; padding:30px 26px 20px}
+.orch h3{margin-bottom:4px}
+.orch p{margin-bottom:18px}
+.orch svg{width:100%; height:auto; display:block}
+.orch .node{fill:#14203a; stroke:rgba(154,190,255,.16); rx:8}
+.orch .node-sm{stroke:var(--cyan); stroke-width:1.4; filter:drop-shadow(0 0 10px rgba(40,200,230,.35))}
+.orch .node-active{stroke:rgba(248,184,48,.65)}
+.orch .node-sub{stroke:rgba(128,88,224,.55)}
+.orch text{font-family:var(--font-mono); fill:var(--text-2); font-size:11.5px}
+.orch .lbl-sm{fill:var(--cyan-hi); font-weight:600; font-size:12.5px}
+.orch .lbl-sub{fill:#b9a5f5}
+.orch .lbl-chip{fill:var(--text-3); font-size:10px}
+.orch .wire{stroke:rgba(154,190,255,.18); stroke-width:1.2; fill:none}
+.orch .wire-hot{stroke:var(--cyan); stroke-opacity:.75; stroke-dasharray:4 7; animation:dashflow 1.5s linear infinite}
+.orch .wire-cool{stroke:var(--purple); stroke-opacity:.6; stroke-dasharray:3 6; animation:dashflow 1.9s linear infinite}
+.orch .sm-pulse{animation:smpulse 3s ease-in-out infinite}
+@keyframes smpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(40,200,230,.25))}50%{filter:drop-shadow(0 0 16px rgba(40,200,230,.55))}}
+
+/* ---------- install ---------- */
+.install-grid{display:grid; grid-template-columns:1.5fr 1fr; gap:16px; margin-top:44px}
+@media (max-width:880px){ .install-grid{grid-template-columns:1fr} }
+.install-main{border:1px solid rgba(62,220,245,.65); border-radius:16px; overflow:hidden;
+  background:linear-gradient(180deg, rgba(40,200,230,.14), rgba(8,17,36,.6) 45%);
+  box-shadow:0 0 40px -10px rgba(40,200,230,.35);
+  animation:installglow 3.6s ease-in-out infinite}
+@keyframes installglow{0%,100%{box-shadow:0 0 34px -12px rgba(40,200,230,.32)}
+  50%{box-shadow:0 0 68px -8px rgba(40,200,230,.60)}}
+.install-main-inner{padding:30px 30px 28px}
+.install-flag{display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--cyan-hi);
+  border:1px solid rgba(40,200,230,.4); background:var(--cyan-soft); padding:4px 12px; border-radius:999px; margin-bottom:16px}
+.install-main h3{font-family:var(--font-display); font-size:24px; font-weight:700; letter-spacing:-.02em; margin-bottom:8px}
+.install-main > .install-main-inner > p{color:var(--text-2); font-size:14.5px; margin-bottom:22px}
+.codeblock{position:relative; background:#091224; border:1px solid var(--line-strong); border-radius:12px;
+  padding:20px 22px; font-family:var(--font-mono); font-size:13.5px; line-height:1.9; overflow-x:auto}
+.codeblock #installCmds{white-space:pre}
+.codeblock .c-p{color:var(--text-3); user-select:none}
+.codeblock .c-cmd{color:var(--text)}
+.codeblock .c-hl{color:var(--cyan-hi)}
+.copy-btn{position:absolute; top:12px; right:12px; font-family:var(--font-mono); font-size:11.5px;
+  color:var(--text-2); background:#14213c; border:1px solid var(--line-strong); border-radius:8px;
+  padding:6px 12px; cursor:pointer; transition:color .18s, border-color .18s, background .18s}
+.copy-btn:hover{color:var(--text); border-color:rgba(62,220,245,.5)}
+.copy-btn.copied{color:var(--green); border-color:rgba(52,211,153,.5)}
+.install-note{font-size:12.5px; color:var(--text-3); margin-top:14px; font-family:var(--font-mono)}
+.install-side{display:flex; flex-direction:column; gap:16px}
+.soon-card{border:1px solid var(--line); border-radius:16px; padding:26px 26px; background:var(--panel);
+  position:relative; opacity:.75}
+.soon-card h3{font-family:var(--font-display); font-size:17px; font-weight:650; margin-bottom:6px; color:var(--text-2)}
+.soon-card p{color:var(--text-3); font-size:13.5px}
+.soon-pill{position:absolute; top:20px; right:20px; font-family:var(--font-mono); font-size:10.5px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--text-3);
+  border:1px dashed rgba(255,255,255,.22); padding:4px 10px; border-radius:999px}
+.soon-card .fake-cmd{font-family:var(--font-mono); font-size:12.5px; color:var(--text-3);
+  background:rgba(255,255,255,.03); border:1px dashed var(--line); border-radius:8px;
+  padding:10px 14px; margin-top:14px; text-decoration:line-through; text-decoration-color:rgba(255,255,255,.2)}
+.reqs{margin-top:26px; border-top:1px solid var(--line); padding-top:22px}
+.reqs h4{font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--text-3); margin-bottom:14px}
+.reqs ul{list-style:none; display:flex; flex-direction:column; gap:9px}
+.reqs li{display:flex; gap:11px; font-size:13.5px; color:var(--text-2); align-items:baseline}
+.reqs li::before{content:"▸"; color:var(--cyan); font-family:var(--font-mono); flex:none}
+.reqs .mono{color:var(--text); font-size:.94em}
+
+/* ---------- footer ---------- */
+footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gradient(180deg, transparent, rgba(40,200,230,.04))}
+.footer-inner{max-width:var(--maxw); margin:0 auto; padding:52px 24px 60px;
+  display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; justify-content:space-between}
+.footer-brand{display:flex; flex-direction:column; gap:12px}
+.footer-links{display:flex; gap:36px; flex-wrap:wrap}
+.footer-links div{display:flex; flex-direction:column; gap:9px}
+.footer-links h5{font-family:var(--font-mono); font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--text-3); margin-bottom:3px}
+.footer-links a{font-size:13.5px; color:var(--text-2); text-decoration:none; transition:color .18s}
+.footer-links a:hover{color:var(--cyan-hi)}
+.footer-meta{width:100%; margin-top:16px; padding-top:24px; border-top:1px solid var(--line);
+  display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between;
+  font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+
+/* ---------- loop engineering ---------- */
+#loop .loop-lineage{margin-top:14px; font-family:var(--font-mono); font-size:12px; letter-spacing:.03em;
+  color:var(--text-3)}
+#loop .loop-lineage b{color:var(--cyan-hi); font-weight:600}
+#loop .loop-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:44px}
+@media (max-width:880px){ #loop .loop-grid{grid-template-columns:1fr} }
+#loop .loop-card{position:relative; border:1px solid var(--line); border-radius:var(--radius);
+  background:linear-gradient(180deg, var(--panel), var(--bg-2)); padding:26px 24px; overflow:hidden;
+  transition:border-color .25s var(--ease-out), transform .25s var(--ease-out)}
+#loop .loop-card:hover{border-color:rgba(40,200,230,.35); transform:translateY(-3px)}
+#loop .loop-card::before{content:""; position:absolute; top:0; left:0; width:2px; height:100%;
+  background:linear-gradient(180deg, var(--cyan), transparent 70%); opacity:.6}
+#loop .loop-depth{font-family:var(--font-mono); font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--text-3); display:block; margin-bottom:14px}
+#loop .loop-card h3{font-family:var(--font-display); font-size:18px; font-weight:650; letter-spacing:-.015em; margin-bottom:10px}
+#loop .loop-card p{color:var(--text-2); font-size:14px; line-height:1.55}
+#loop .loop-map{display:inline-block; margin-top:16px; font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.03em; color:var(--cyan-hi); border:1px solid rgba(40,200,230,.3);
+  background:var(--cyan-soft); border-radius:999px; padding:5px 12px}
+#loop .loop-quote{margin:44px 0 0; border-left:2px solid var(--purple); padding:4px 0 4px 24px; max-width:720px}
+#loop .loop-quote p{font-family:var(--font-display); font-size:clamp(18px,2.4vw,22px); font-weight:600;
+  letter-spacing:-.015em; color:var(--text); line-height:1.42; text-wrap:pretty}
+#loop .loop-quote cite{display:block; margin-top:14px; font-style:normal; font-family:var(--font-mono);
+  font-size:12px; letter-spacing:.03em; color:var(--text-3)}
+#loop .loop-closer{margin-top:36px; font-size:clamp(15px,1.9vw,17px); color:var(--text-2); max-width:700px; text-wrap:pretty}
+#loop .loop-closer strong{color:var(--text); font-weight:650}
+#loop .loop-sources{margin-top:28px; display:flex; flex-wrap:wrap; gap:8px 20px;
+  font-family:var(--font-mono); font-size:11.5px; color:var(--text-3)}
+#loop .loop-sources a{color:var(--text-3); text-decoration:none; border-bottom:1px dashed rgba(154,190,255,.25);
+  padding-bottom:1px; transition:color .18s}
+#loop .loop-sources a:hover{color:var(--cyan-hi)}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  .aurora, .hero-badge .dot, .bt-live i, .cursor, .po-arrow .flow,
+  .hc-tcursor, .ha-br i, .hc-badge.flip, .ha-wl-row.enter,
+  .orch .wire-hot, .orch .wire-cool, .orch .sm-pulse, .install-main{animation:none !important}
+  .ha-line{opacity:1; transform:none}
+  .hc-progress i{transition:none}
+  .hload{animation:none; opacity:1; transform:none}
+  .reveal{opacity:1; transform:none; transition:none}
+  .mac-window{transition:none}
+  .step:hover, .feature:hover, .btn:hover{transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="atmosphere" aria-hidden="true">
+  <div class="aurora aurora-a"></div>
+  <div class="aurora aurora-b"></div>
+  <div class="aurora aurora-c"></div>
+  <div class="grid-lines"></div>
+</div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="wordmark" href="#top" aria-label="MaulTeam.app home">
+      <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
+      MaulTeam<span class="tld">.app</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#why">Why</a>
+      <a href="#demo">Demo</a>
+      <a href="#how">How it works</a>
+      <a href="#loop">Loop engineering</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a class="nav-gh" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" aria-label="Introduction">
+    <img class="hero-appicon hload d1" src="./assets/app-icon.png" alt="MaulTeam.app app icon" width="92" height="92">
+    <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · source-available</p>
+    <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
+    <p class="hero-sub hload d3">
+      A native Mac app — or one shell command — runs a multi-agent Scrum team on your project,
+      powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>,
+      or delegate that role in autonomous mode.
+    </p>
+    <div class="hero-ctas hload d4">
+      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">View on GitHub ↗</a>
+    </div>
+    <div class="trust-row hload d5" aria-label="Technology requirements">
+      <span class="chip">macOS 13+</span>
+      <span class="chip">Swift 5.9+</span>
+      <span class="chip">Python 3.9+</span>
+      <span class="chip">Claude Code Agent Teams</span>
+      <span class="chip">Free for personal/internal use · Source-available</span>
+    </div>
+
+    <div class="hero-stage hload d6">
+      <div class="mac-window" id="heroWindow">
+        <div class="mac-titlebar" aria-hidden="true">
+          <span class="tl-dot r"></span><span class="tl-dot y"></span><span class="tl-dot g"></span>
+          <span class="mac-title">MaulTeam — test_demo</span>
+        </div>
+        <div class="hero-app" role="img"
+             aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: you type 'Build a retro 8-bit Snake game in a single index.html' into the Scrum Master's input bar; it answers 'Understood — starting Sprint 1', plans the backlog, spawns two Developer agents, and streams status — design review PASS, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and no-fast-forward merges — above a live Work Log of agent events. Right: the Dashboard, where the Sprint phase advances Planning → PBI Development → Sprint Review, the progress bar fills from 0 to 2 of 2 PBIs done, and the pbi-001/pbi-002 badges advance refined → design → impl → pbi-review → merge → done as the terminal reports each step.">
+          <div class="ha-toolbar" aria-hidden="true">
+            <span class="ha-tb-back">‹ Projects</span>
+            <span class="ha-tb-proj"><i>▦</i> test_demo</span>
+            <span class="ha-tb-path">/Users/inouesouhei/work/test_demo</span>
+            <span class="ha-tb-info">ⓘ</span>
+          </div>
+          <div class="ha-body">
+            <!-- LEFT: Explorer + editor -->
+            <div class="ha-explorer" aria-hidden="true">
+              <div class="ha-colhead ha-ex-head">Explorer</div>
+              <div class="ha-tree">
+                <div class="ha-row"><span class="ha-tw">▾</span><span class="ha-fico"></span><span class="ha-nm">test_demo</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.claude</span></div>
+                <div class="ha-row lock ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.scrum</span><span class="ha-lock"></span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">.tmp</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▾</span><span class="ha-fico"></span><span class="ha-nm">docs</span></div>
+                <div class="ha-row ha-i2"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">contracts</span></div>
+                <div class="ha-row ha-i2"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">design</span></div>
+                <div class="ha-row active ha-i2"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">requirements.md</span></div>
+                <div class="ha-row lock ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">scripts</span><span class="ha-lock"></span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw">▸</span><span class="ha-fico"></span><span class="ha-nm">tests</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">.gitignore</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-json">{}</span><span class="ha-nm">.mcp.json</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-json">{}</span><span class="ha-nm">.scrum-config.example.json</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">CLAUDE.md</span></div>
+                <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-html">&lt;&gt;</span><span class="ha-nm">index.html</span></div>
+              </div>
+              <div class="ha-editor">
+                <div class="ha-ed-tab"><span>▤ requirements.md</span><span class="ha-save">Save</span></div>
+                <div class="ha-ed-body"><b># Snake — Requirements</b>
+
+<b>## Goals</b>
+- G1: A complete, playable Snake
+  game in a single index.html.
+- G2: Faithful 8-bit arcade feel.</div>
+              </div>
+            </div>
+
+            <!-- CENTER: Scrum Master terminal + Work Log -->
+            <div class="ha-center">
+              <div class="ha-colhead" aria-hidden="true"><span class="ha-ico">▣</span>Scrum Master</div>
+              <div class="ha-term" id="heroTerm"></div>
+              <div class="ha-term-input" aria-hidden="true">
+                <span class="hc-caret">›</span>
+                <span class="ha-ph"><span id="heroInput"></span><span class="hc-tcursor"></span></span>
+                <span class="ha-owner">scrum-master</span>
+              </div>
+              <div class="ha-term-status" aria-hidden="true">
+                <span class="hc-am">▶▶ auto mode on</span>
+                <span>← for agents</span>
+                <span class="ha-br"><i></i>main</span>
+                <span class="ha-tok">↓ 212.0k tokens</span>
+              </div>
+              <div class="ha-worklog" aria-hidden="true">
+                <div class="ha-wl-head"><span>▤ Work Log</span>
+                  <span class="ha-wl-tabs"><i class="on">All</i><i>Messages</i><i>Events</i></span></div>
+                <div class="ha-wl-list" id="heroLog"></div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Dashboard -->
+            <div class="ha-dash" aria-hidden="true">
+              <div class="ha-colhead ha-dash-head"><span>Dashboard</span>
+                <span class="hc-asof">as of 15:05:49</span></div>
+              <div class="ha-scroll">
+                <div class="ha-card">
+                  <div class="ha-card-h"><span class="ha-ico">▤</span>Project</div>
+                  <p class="ha-proj">A retro 8-bit Snake game — HTML5 Canvas + vanilla JS, no build step. A playable Lean MVP with scoring, collisions, and pause/restart.</p>
+                </div>
+                <div class="ha-card">
+                  <div class="ha-card-h"><span class="ha-ico">▚</span>Sprint</div>
+                  <div class="hc-sprint-top">
+                    <span class="hc-sprint-id">sprint-001</span>
+                    <span class="hc-pill hc-pill-active">active</span>
+                  </div>
+                  <div class="ha-phase-row">Phase <span class="hc-pill hc-pill-phase" id="heroPhase">Planning</span></div>
+                  <div class="hc-done-count"><b id="heroDone">0</b>/2 PBIs done</div>
+                  <div class="hc-progress"><i id="heroProgress" style="width:0%"></i></div>
+                  <div class="ha-member">👥 <span id="heroMembers">—</span></div>
+                </div>
+                <div class="ha-card ha-pbicard">
+                  <div class="ha-card-h ha-pb-h"><span><span class="ha-ico">▤</span> PBI Board</span>
+                    <span class="hc-pb-tabs"><span class="on" id="heroCurTab">Current&nbsp;0</span><span>All&nbsp;5</span></span></div>
+                  <div class="hc-pbi-list" id="heroPbi">
+                    <div class="hc-pbi" data-pbi="1">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-001</span><span class="hc-pbi-scope hc-scope-bl" id="heroScope1">backlog</span></div>
+                        <div class="hc-pbi-title">Canvas grid, game loop, and snake rendering</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:54:44</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="hc-iter" id="heroIter1" style="visibility:hidden">i1</span><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                    </div>
+                    <div class="hc-pbi" data-pbi="2">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-002</span><span class="hc-pbi-scope hc-scope-bl" id="heroScope2">backlog</span></div>
+                        <div class="hc-pbi-title">Directional controls and no-reverse constraint</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:14:35</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="hc-iter" id="heroIter2" style="visibility:hidden">i1</span><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                    </div>
+                    <div class="hc-pbi" data-pbi="3">
+                      <div class="hc-pbi-main">
+                        <div class="hc-pbi-meta"><span class="hc-pbi-id">pbi-003</span><span class="hc-pbi-scope hc-scope-bl">backlog</span></div>
+                        <div class="hc-pbi-title">Food spawn, eat, growth, and scoring</div>
+                        <div class="hc-pbi-upd">updated 07-04 14:14:36</div>
+                      </div>
+                      <div class="hc-pbi-right"><span class="pbi-badge b-backlog hc-badge">◇ refined</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-glow" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHY ============ -->
+  <section class="section" id="why" aria-labelledby="why-h">
+    <p class="kicker reveal">The problem</p>
+    <h2 id="why-h" class="reveal" style="--d:.06s">Vibe coding decays.<br>Spec-driven suffocates.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Most real projects live between the two extremes. Maul Team brings Scrum's
+      inspect-and-adapt loop to Claude Code — structured iteration without a complete
+      spec on day one.
+    </p>
+    <div class="why-grid">
+      <article class="why-card reveal" style="--d:.05s">
+        <span class="why-x" aria-hidden="true">✕</span>
+        <span class="why-tag">Vibe coding</span>
+        <h3>Fast, then fragile</h3>
+        <p>Prompt, accept, repeat. Speed is real — but as the project runs longer,
+           order erodes. No requirements, no tests, no memory of why anything is the way it is.</p>
+      </article>
+      <article class="why-card reveal" style="--d:.12s">
+        <span class="why-x" aria-hidden="true">✕</span>
+        <span class="why-tag">Spec-Driven Development</span>
+        <h3>Ordered, but upfront-everything</h3>
+        <p>SDD keeps order, but can require more upfront definition than an evolving project
+           can provide. Real projects rarely know everything on day one.</p>
+      </article>
+      <article class="why-card answer reveal" style="--d:.19s">
+        <span class="why-x" aria-hidden="true">✓</span>
+        <span class="why-tag">The Scrum loop</span>
+        <h3>Inspect and adapt, every Sprint</h3>
+        <p>An AI team plans a Sprint, builds a working Increment, demos it to you,
+           and adapts from your feedback. Requirements sharpen as the product grows —
+           and you never leave the Product Owner seat.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo" aria-labelledby="demo-h">
+    <p class="kicker reveal">See it run</p>
+    <h2 id="demo-h" class="reveal" style="--d:.06s">Your whole team, one window.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Watch a real session: the Scrum Master plans, Developers build in parallel,
+      and PBIs move across the board — while you review the working product.
+    </p>
+
+    <div class="video-shell reveal" style="--d:.1s">
+      <video id="demoVideo" controls preload="none" playsinline
+             aria-label="Screen recording of MaulTeam.app running a Sprint">
+        <source src="https://github.com/user-attachments/assets/e71c5fc3-b269-4df3-a585-f5da03e292bc" type="video/mp4">
+      </video>
+      <button class="video-cover" id="videoCover" type="button" aria-label="Play the MaulTeam.app demo video">
+        <div class="fake-panes" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span class="play-pill"><span class="tri" aria-hidden="true"></span>Play the demo</span>
+        <small>2-minute screen recording · real session</small>
+      </button>
+    </div>
+    <p class="reveal" style="--d:.16s">
+      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/e71c5fc3-b269-4df3-a585-f5da03e292bc"
+         target="_blank" rel="noopener">Video not loading? Watch the demo on GitHub ↗</a>
+    </p>
+
+    <div class="pane-cards">
+      <article class="pane-card reveal" style="--d:.05s">
+        <span class="pane-num">PANE 01 — LEFT</span>
+        <h3>Your code, live</h3>
+        <p>File tree and a tabbed code editor with syntax highlighting. Tabs detach into
+           their own windows; framework files are lock-marked so you always know what's yours.</p>
+      </article>
+      <article class="pane-card reveal" style="--d:.12s">
+        <span class="pane-num">PANE 02 — CENTER</span>
+        <h3>The Scrum Master, embedded</h3>
+        <p>A real terminal running the Scrum Master, plus a native Work Log streaming every
+           agent spawn, file change, and message as it happens.</p>
+      </article>
+      <article class="pane-card reveal" style="--d:.19s">
+        <span class="pane-num">PANE 03 — RIGHT</span>
+        <h3>Mission-control dashboard</h3>
+        <p>Native sprint overview and PBI board — click any PBI for details — plus
+           integration test results, updating as the team works.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="section" id="how" aria-labelledby="how-h">
+    <p class="kicker reveal">The lifecycle</p>
+    <h2 id="how-h" class="reveal" style="--d:.06s">Real Scrum. Real gates.<br>No hand-waving.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Every Sprint runs the full ceremony loop — with deterministic termination gates,
+      measured coverage, and review with an optional cross-model pass. Not a prompt chain
+      wearing a Scrum costume.
+    </p>
+
+    <div class="loop-flow reveal" style="--d:.05s">
+      <div class="loop-gate-col">
+        <span class="gate-col-label">Before the loop</span>
+        <button class="gate-chip" type="button" data-step="01" style="--c:#a48af0"
+                aria-label="Step 01 — Requirements Definition">
+          <span class="gc-body"><span class="gc-num">01</span><span class="gc-label">Requirements</span></span>
+        </button>
+      </div>
+      <div class="loop-connector" aria-hidden="true"></div>
+      <div class="loop-ring" id="sprintLoop">
+        <svg viewBox="0 0 640 640" role="group"
+             aria-label="The Sprint loop: backlog refinement, sprint planning, development pipeline, sprint review, retrospective — then around again.">
+          <defs>
+            <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(40,200,230,.14)"/>
+              <stop offset="100%" stop-color="rgba(40,200,230,0)"/>
+            </radialGradient>
+          </defs>
+          <circle class="loop-orbit" cx="320" cy="320" r="284" fill="none"
+                  stroke="rgba(154,190,255,.16)" stroke-width="1.5" stroke-dasharray="3 12"/>
+          <g class="loop-seg" style="--c:#4a90d9" tabindex="0" role="button" data-step="02"
+             aria-label="Step 02 — Backlog Refinement">
+            <path fill="#4a90d9" d="M80.8 411.3 A256.0 256.0 0 0 1 148.4 130.1 L209.1 149.9 L219.4 208.7 A150.0 150.0 0 0 0 179.9 373.5 L121.4 361.9 Z"/>
+            <text class="seg-num" x="127" y="241" text-anchor="middle" fill="#06101f">02</text>
+            <text class="seg-label" x="127" y="267" text-anchor="middle" fill="#06101f">Refinement</text>
+          </g>
+          <g class="loop-seg" style="--c:#38b6e0" tabindex="0" role="button" data-step="03"
+             aria-label="Step 03 — Sprint Planning">
+            <path fill="#38b6e0" d="M159.2 120.8 A256.0 256.0 0 0 1 447.6 98.1 L447.5 162.0 L394.8 190.0 A150.0 150.0 0 0 0 225.8 203.3 L218.8 144.0 Z"/>
+            <text class="seg-num" x="320" y="101" text-anchor="middle" fill="#06101f">03</text>
+            <text class="seg-label" x="320" y="127" text-anchor="middle" fill="#06101f">Planning</text>
+          </g>
+          <g class="loop-seg on" style="--c:#28c8e6" tabindex="0" role="button" data-step="04"
+             aria-label="Step 04 — Development Pipeline">
+            <path fill="#28c8e6" d="M459.8 105.5 A256.0 256.0 0 0 1 570.5 372.8 L509.6 392.4 L466.8 350.9 A150.0 150.0 0 0 0 401.9 194.3 L456.1 169.4 Z"/>
+            <text class="seg-num" x="513" y="232" text-anchor="middle" fill="#06101f">04</text>
+            <text class="seg-label sm" x="513" y="255" text-anchor="middle" fill="#06101f">Development</text>
+            <text class="seg-label sm" x="513" y="276" text-anchor="middle" fill="#06101f">Pipeline</text>
+          </g>
+          <g class="loop-seg" style="--c:#2ed2c0" tabindex="0" role="button" data-step="05"
+             aria-label="Step 05 — Sprint Review">
+            <path fill="#2ed2c0" d="M567.2 386.7 A256.0 256.0 0 0 1 347.2 574.6 L309.7 522.7 L335.9 469.2 A150.0 150.0 0 0 0 464.8 359.1 L505.3 402.9 Z"/>
+            <text class="seg-num" x="439" y="468" text-anchor="middle" fill="#06101f">05</text>
+            <text class="seg-label" x="439" y="494" text-anchor="middle" fill="#06101f">Sprint Review</text>
+          </g>
+          <g class="loop-seg" style="--c:#34d399" tabindex="0" role="button" data-step="06"
+             aria-label="Step 06 — Retrospective">
+            <path fill="#34d399" d="M333.0 575.7 A256.0 256.0 0 0 1 86.3 424.5 L124.0 372.9 L183.1 381.2 A150.0 150.0 0 0 0 327.6 469.8 L298.4 521.9 Z"/>
+            <text class="seg-num" x="201" y="468" text-anchor="middle" fill="#06101f">06</text>
+            <text class="seg-label" x="201" y="494" text-anchor="middle" fill="#06101f">Retrospective</text>
+          </g>
+          <circle cx="320" cy="320" r="130" fill="#081226" stroke="rgba(154,190,255,.22)"/>
+          <circle cx="320" cy="320" r="130" fill="url(#hubGlow)"/>
+          <text class="hub-t1" x="323" y="316" text-anchor="middle">SPRINT</text>
+          <text class="hub-t2" x="320" y="348" text-anchor="middle">n → n+1</text>
+        </svg>
+      </div>
+      <div class="loop-connector" aria-hidden="true"></div>
+      <div class="loop-gate-col">
+        <span class="gate-col-label">Release train</span>
+        <div class="gate-row">
+          <button class="gate-chip" type="button" data-step="07" style="--c:#f8c838"
+                  aria-label="Step 07 — Integration Tests">
+            <span class="gc-body"><span class="gc-num">07</span><span class="gc-label">Integration Tests</span></span>
+          </button>
+          <button class="gate-chip" type="button" data-step="08" style="--c:#f2984f"
+                  aria-label="Step 08 — UAT &amp; Release">
+            <span class="gc-body"><span class="gc-num">08</span><span class="gc-label">UAT &amp; Release</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="loop-detail reveal" id="loopDetail" style="--d:.1s" role="region" aria-label="Lifecycle step details">
+      <div class="ld-item" data-step="01" style="--c:#a48af0">
+        <div class="ld-row"><span class="ld-num">01</span>
+        <div><h3>Requirements Definition<span class="phase-tag">Sprint 0</span></h3>
+        <p>A Requirements Analyst interviews you, researches similar products on the web,
+           and writes <span class="mono">requirements.md</span>.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="02" style="--c:#4a90d9">
+        <div class="ld-row"><span class="ld-num">02</span>
+        <div><h3>Backlog Refinement</h3>
+        <p>Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="03" style="--c:#38b6e0">
+        <div class="ld-row"><span class="ld-num">03</span>
+        <div><h3>Sprint Planning</h3>
+        <p>You approve the Sprint Goal as Product Owner; PBIs are assigned to Developer agents.</p></div></div>
+      </div>
+      <div class="ld-item on" data-step="04" style="--c:#28c8e6">
+        <div class="ld-row"><span class="ld-num">04</span>
+        <div><h3>Development Pipeline<span class="phase-tag">parallel</span></h3>
+        <p>Each Developer conducts rounds of design → implementation + black-box unit tests →
+           review — cross-model via Codex when available, with a Claude-based fallback —
+           in its own git worktree, with deterministic termination gates, real C0/C1 coverage,
+           and a final 5-aspect integrity gate. Finished PBIs land via
+           <span class="mono">--no-ff</span> merge plus a regression gate — three strikes and
+           the PBI escalates instead of limping forward. At Sprint end, four parallel auditors
+           sweep the whole repo for spec drift, wiring-level logic defects, dead code, and
+           cross-cutting security gaps per-PBI review structurally can't see; findings become
+           next-Sprint PBIs.</p></div></div>
+        <!-- ===== signature: animated sprint board (shown with this step) ===== -->
+        <div class="board-wrap">
+          <div class="board-frame">
+        <div class="board-titlebar">
+          <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
+          <span class="bt-label">Scrum Board — sprint-001</span>
+          <span class="bt-live"><i aria-hidden="true"></i>LIVE</span>
+        </div>
+        <div class="board-scroll">
+          <div class="board" id="sprintBoard" role="img"
+               aria-label="Animated Scrum Board mirroring the app: PBI cards flow across the real pipeline — Backlog, Design, Implement, PBI Review, Unit Tests, Merge, Cross-Review, Done.">
+            <div class="board-col col-backlog">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Backlog</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="0"></div>
+            </div>
+            <div class="board-col col-design">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Design</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="1"></div>
+            </div>
+            <div class="board-col col-impl">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Implement</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="2"></div>
+            </div>
+            <div class="board-col col-pbireview">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>PBI Review</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="3"></div>
+            </div>
+            <div class="board-col col-ut">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Unit Tests</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="4"></div>
+            </div>
+            <div class="board-col col-merge">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Merge</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="5"></div>
+            </div>
+            <div class="board-col col-xreview">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Cross-Review</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="6"></div>
+            </div>
+            <div class="board-col col-done">
+              <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Done</h4><span class="col-count">0</span></div>
+              <div class="col-cards" data-col="7"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+          <p class="board-caption">Open the app to follow every PBI from backlog to done.</p>
+        </div>
+      </div>
+      <div class="ld-item" data-step="05" style="--c:#2ed2c0">
+        <div class="ld-row"><span class="ld-num">05</span>
+        <div><h3>Sprint Review</h3>
+        <p>The team demos the working Increment to you. You inspect the product, not a diff.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="06" style="--c:#34d399">
+        <div class="ld-row"><span class="ld-num">06</span>
+        <div><h3>Retrospective</h3>
+        <p>The team inspects its own process and carries improvements into the next Sprint.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="07" style="--c:#f8c838">
+        <div class="ld-row"><span class="ld-num">07</span>
+        <div><h3>Integration Tests<span class="phase-tag">release train</span></h3>
+        <p>Design-driven boundary and branch cases, smoke tests, and API/UI automation.</p></div></div>
+      </div>
+      <div class="ld-item" data-step="08" style="--c:#f2984f">
+        <div class="ld-row"><span class="ld-num">08</span>
+        <div><h3>UAT &amp; Release<span class="phase-tag">release train</span></h3>
+        <p>Story-driven UAT walkthrough, defect routing, and the go/no-go release decision.</p></div></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============ LOOP ENGINEERING ============ -->
+  <section class="section" id="loop" aria-labelledby="loop-h">
+    <p class="kicker reveal">Loop engineering</p>
+    <h2 id="loop-h" class="reveal" style="--d:.06s">Stop prompting agents.<br>Engineer the loops instead.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Loop engineering means designing a system in which agents repeatedly plan, act,
+      verify, and improve instead of relying on isolated prompts. Maul Team implements
+      it at three levels: Development pipeline, Sprint, and autonomous execution.
+    </p>
+    <p class="loop-lineage reveal" style="--d:.16s">
+      prompt engineering <b>→</b> context engineering <b>→</b> loop engineering
+    </p>
+
+    <div class="loop-grid">
+      <article class="loop-card reveal" style="--d:.05s">
+        <span class="loop-depth">Innermost · build &amp; verify</span>
+        <h3>The Development pipeline loop</h3>
+        <p>Per PBI: design, then implementation with black-box unit tests, then review —
+           repeated in Rounds until deterministic termination gates pass (success,
+           stagnation, divergence, hard cap). Codex provides cross-model review when
+           available, with a Claude-based fallback; coverage is measured by real tooling.</p>
+        <span class="loop-map">≈ agent loop + verification loop</span>
+      </article>
+      <article class="loop-card reveal" style="--d:.12s">
+        <span class="loop-depth">Middle · drift detection</span>
+        <h3>The Sprint loop</h3>
+        <p>Every Sprint ends with a whole-repo, four-axis audit that catches drift between
+           the merged code and its requirements. Critical findings become draft PBIs for the
+           next Sprint; the retrospective feeds process fixes forward the same way. Product
+           and process both hill-climb.</p>
+        <span class="loop-map">≈ hill-climbing loop</span>
+      </article>
+      <article class="loop-card reveal" style="--d:.19s">
+        <span class="loop-depth">Outermost · unattended</span>
+        <h3>The Autonomous execution loop</h3>
+        <p>Write a product brief and even the Product Owner seat becomes an agent. An outer
+           Ralph-Loop watchdog re-launches headless sessions iteration after iteration,
+           enforces safety valves, sleeps through API rate limits and resumes, and leaves you
+           a morning report. The loop keeps turning while you sleep.</p>
+        <span class="loop-map">≈ event-driven loop</span>
+      </article>
+    </div>
+
+    <blockquote class="loop-quote reveal" style="--d:.08s">
+      <p>“You shouldn't be prompting coding agents anymore. You should be designing loops
+         that prompt your agents.”</p>
+      <cite>— Peter Steinberger, quoted in Addy Osmani, “Loop Engineering”</cite>
+    </blockquote>
+
+    <p class="loop-closer reveal" style="--d:.10s">
+      The risk in any loop is <strong>cognitive surrender</strong> — letting it run and
+      quietly accepting whatever comes back. Our answer is gates, not trust: hooks enforce
+      the rules, termination is deterministic, coverage is real, and unclear requirements
+      escalate to the PO seat instead of being guessed.
+    </p>
+
+    <div class="loop-sources reveal" style="--d:.14s">
+      <a href="https://addyosmani.com/blog/loop-engineering/" target="_blank" rel="noopener">Addy Osmani · “Loop Engineering” ↗</a>
+      <a href="https://www.oreilly.com/radar/loop-engineering/" target="_blank" rel="noopener">O'Reilly Radar ↗</a>
+      <a href="https://www.langchain.com/blog/the-art-of-loop-engineering" target="_blank" rel="noopener">LangChain · “The Art of Loop Engineering” ↗</a>
+      <a href="https://ghuntley.com/ralph/" target="_blank" rel="noopener">Geoffrey Huntley · “Ralph” ↗</a>
+    </div>
+  </section>
+
+  <!-- ============ PO SECTION ============ -->
+  <section class="section" id="po" aria-labelledby="po-h">
+    <p class="kicker reveal">Your seat</p>
+    <h2 id="po-h" class="reveal" style="--d:.06s">You set product direction.<br>The team runs delivery.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      In the default mode, you approve goals, review working software, and make release
+      decisions. The team handles requirements, planning, implementation, review, and testing.
+    </p>
+
+    <div class="po-headline reveal" aria-hidden="true">
+      <span class="h-you">You do</span>
+      <span class="h-team">The AI team does</span>
+    </div>
+    <div class="po-rows">
+      <div class="po-row reveal" style="--d:.02s">
+        <div class="po-cell po-you">Describe what you want to build</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Elicit and write detailed requirements</div>
+      </div>
+      <div class="po-row reveal" style="--d:.06s">
+        <div class="po-cell po-you">Approve Sprint Goals</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Plan Sprints and assign PBIs</div>
+      </div>
+      <div class="po-row reveal" style="--d:.10s">
+        <div class="po-cell po-you">Review demos in the running app</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Design, implement, and cross-review the Increment</div>
+      </div>
+      <div class="po-row reveal" style="--d:.14s">
+        <div class="po-cell po-you">Report defects during UAT</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Fix defects and re-test automatically</div>
+      </div>
+      <div class="po-row reveal" style="--d:.18s">
+        <div class="po-cell po-you">Make release decisions</div>
+        <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
+        <div class="po-cell po-team">Run automated test suites</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="section" id="features" aria-labelledby="features-h">
+    <p class="kicker reveal">Under the hood</p>
+    <h2 id="features-h" class="reveal" style="--d:.06s">Built like infrastructure,<br>not a demo.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Hooks enforce the process. State survives restarts. Reviews cross model families.
+      The framework assumes agents will be confidently wrong — and catches it.
+    </p>
+
+    <div class="feature-grid">
+
+      <!-- orchestration diagram -->
+      <article class="feature orch reveal" style="--d:.03s">
+        <h3>Multi-agent orchestration, native to Claude Code</h3>
+        <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
+           orchestrating up to 6 parallel Developer agents, one per PBI. Each Developer is
+           itself a conductor, spawning per-round specialist sub-agents.</p>
+        <svg viewBox="0 0 880 430" role="img"
+             aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents. Codex cross-model review is used when available, with a Claude-based fallback.">
+          <!-- SM -> devs wires -->
+          <path class="wire wire-hot" d="M440 66 C440 100 100 96 100 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 102 236 100 236 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 106 372 104 372 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 106 508 104 508 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 102 644 100 644 138"/>
+          <path class="wire wire-hot" d="M440 66 C440 100 780 96 780 138"/>
+          <!-- dev-002 -> sub-agents -->
+          <path class="wire wire-cool" d="M236 180 C236 226 240 224 240 268"/>
+          <path class="wire wire-cool" d="M236 180 C236 230 440 226 440 268"/>
+          <path class="wire wire-cool" d="M236 180 C236 232 640 228 640 268"/>
+          <!-- sub -> codex chips -->
+          <line class="wire" x1="240" y1="310" x2="240" y2="342"/>
+          <line class="wire" x1="440" y1="310" x2="440" y2="342"/>
+          <line class="wire" x1="640" y1="310" x2="640" y2="342"/>
+
+          <!-- SM node -->
+          <g class="sm-pulse">
+            <rect class="node node-sm" x="330" y="22" width="220" height="44" rx="10"/>
+            <text class="lbl-sm" x="440" y="49" text-anchor="middle">scrum-master · delegate</text>
+          </g>
+          <!-- dev row -->
+          <rect class="node" x="42" y="138" width="116" height="42" rx="9"/>
+          <text x="100" y="163" text-anchor="middle">dev-001-s1</text>
+          <rect class="node node-active" x="178" y="138" width="116" height="42" rx="9"/>
+          <text x="236" y="163" text-anchor="middle" fill="#f8b830">dev-002-s1</text>
+          <rect class="node" x="314" y="138" width="116" height="42" rx="9"/>
+          <text x="372" y="163" text-anchor="middle">dev-003-s1</text>
+          <rect class="node" x="450" y="138" width="116" height="42" rx="9"/>
+          <text x="508" y="163" text-anchor="middle">dev-004-s1</text>
+          <rect class="node" x="586" y="138" width="116" height="42" rx="9"/>
+          <text x="644" y="163" text-anchor="middle">dev-005-s1</text>
+          <rect class="node" x="722" y="138" width="116" height="42" rx="9"/>
+          <text x="780" y="163" text-anchor="middle">dev-006-s1</text>
+          <text class="lbl-chip" x="236" y="212" text-anchor="middle">spawns per-round sub-agents ↓</text>
+          <!-- sub-agent row -->
+          <rect class="node node-sub" x="160" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="240" y="293" text-anchor="middle">pbi-designer</text>
+          <rect class="node node-sub" x="360" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="440" y="293" text-anchor="middle">pbi-implementer</text>
+          <rect class="node node-sub" x="560" y="268" width="160" height="42" rx="9"/>
+          <text class="lbl-sub" x="640" y="293" text-anchor="middle">pbi-ut-author</text>
+          <!-- codex chips -->
+          <rect class="node" x="155" y="342" width="170" height="34" rx="17"/>
+          <text class="lbl-chip" x="240" y="363" text-anchor="middle">codex-design-reviewer</text>
+          <rect class="node" x="358" y="342" width="164" height="34" rx="17"/>
+          <text class="lbl-chip" x="440" y="363" text-anchor="middle">codex-impl-reviewer</text>
+          <rect class="node" x="562" y="342" width="156" height="34" rx="17"/>
+          <text class="lbl-chip" x="640" y="363" text-anchor="middle">codex-ut-reviewer</text>
+          <text class="lbl-chip" x="440" y="408" text-anchor="middle">optional Codex cross-model review · Claude fallback</text>
+        </svg>
+      </article>
+
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">⌘</span>
+        <h3>Native Mac app</h3>
+        <p>Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
+           and dashboard. SwiftUI, not Electron.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">19</span>
+        <h3>19 Skills, full lifecycle</h3>
+        <p>Every ceremony — from requirement definition through retrospective to UAT and
+           release — is a versioned, inspectable Skill.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">∞</span>
+        <h3>Autonomous PO mode</h3>
+        <p>Run <span class="f-mono">--autonomous</span> from the command line: a Ralph-Loop watchdog drives the team
+           end-to-end with an AI Product Owner, safety valves, and a morning report.</p>
+      </article>
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">§</span>
+        <h3>Design-doc governance</h3>
+        <p>An immutable document catalog with editable enablement — hooks enforce which
+           design docs may exist and who may touch them.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">⛨</span>
+        <h3>Quality-enforcement hooks</h3>
+        <p>Status gates, path guards, branch-ops guard, completion-flow and
+           Definition-of-Done checks — process rules the agents cannot skip.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">⟳</span>
+        <h3>State persistence</h3>
+        <p>All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
+           relaunch, and the team resumes exactly where it stopped.</p>
+      </article>
+      <article class="feature reveal" style="--d:.04s">
+        <span class="f-ico" aria-hidden="true">✓</span>
+        <h3>Automated testing</h3>
+        <p>Design-driven integration tests plus story-driven UAT — boundary cases derived
+           from the design docs, not guessed.</p>
+      </article>
+      <article class="feature reveal" style="--d:.08s">
+        <span class="f-ico" aria-hidden="true">↻</span>
+        <h3>Retrospective-driven improvement</h3>
+        <p>The team retrospects every Sprint and feeds process improvements forward —
+           the loop applies to the team itself.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">◎</span>
+        <h3>AI-native adaptations</h3>
+        <p>Dynamic team sizing, mandatory requirement definition first, no work without a
+           PBI, a per-PBI 5-aspect integrity gate, and a Sprint-end whole-repo audit —
+           Scrum re-derived for agents.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ INSTALL ============ -->
+  <section class="section" id="install" aria-labelledby="install-h">
+    <p class="kicker reveal">Get started</p>
+    <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      MaulTeam.app is source-available, free for personal and internal business use under
+      its commercial license, and built on the MIT-licensed open-source framework. It is
+      not yet notarized; today the working path is a source build — four commands, no surprises.
+    </p>
+
+    <div class="install-grid">
+      <div class="install-main reveal" style="--d:.05s">
+        <div class="install-main-inner">
+          <span class="install-flag">● Available now</span>
+          <h3>Build from source</h3>
+          <p>Clone, build, launch. <span class="mono" style="font-size:.9em">make-app.sh release</span> produces a universal2 build for Apple&nbsp;Silicon and Intel.</p>
+          <div class="codeblock">
+            <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
+            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
+<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
+<span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span> release</span>
+<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
+          </div>
+          <p class="install-note">First build fetches SwiftTerm from the network. Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
+          <div class="reqs">
+            <h4>Requirements</h4>
+            <ul>
+              <li><span class="mono">macOS 13+</span> and <span class="mono">Xcode 15+</span> (Swift 5.9+) for the source build</li>
+              <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
+              <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
+              <li><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="install-side">
+        <div class="soon-card reveal" style="--d:.1s">
+          <span class="soon-pill">Coming soon</span>
+          <h3>.dmg direct download</h3>
+          <p>Signed and notarized drag-to-Applications build — pending Apple Developer notarization.</p>
+        </div>
+        <div class="soon-card reveal" style="--d:.16s">
+          <span class="soon-pill">Coming soon</span>
+          <h3>Homebrew tap</h3>
+          <p>One-line cask install once the notarized build ships.</p>
+          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask maul-team</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== faux terminal (tmux, two panes) ===== -->
+    <div class="term-grid">
+      <div class="term-copy reveal" style="--d:.05s">
+        <p class="kicker">Or skip the GUI</p>
+        <h3>One command. Same team.</h3>
+        <p>The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
+           launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
+           identical pipeline in tmux: the Scrum Master on the left, the live team dashboard on
+           the right. Workflow and project state stay on your machine; model requests go
+           through your installed Claude Code and, when configured, Codex.</p>
+        <p>Agents report facts, not vibes: status transitions, coverage numbers, merge results.
+           When something is genuinely unclear, the team escalates to you instead of guessing.</p>
+      </div>
+      <div class="terminal reveal" style="--d:.12s"
+           aria-label="tmux session with two panes: left, a Claude Code session running the Scrum Master; right, the Maul Team Dashboard TUI showing the Sprint summary, the PBI board, and a live work log. A green tmux status bar runs along the bottom.">
+        <div class="term-head">
+          <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
+          <span class="term-title">tmux — scrum-start.sh</span>
+        </div>
+        <div class="tmux-panes">
+          <!-- left pane: Claude Code / scrum-master -->
+          <div class="tmux-pane tp-left">
+            <div class="cc-brand">
+              <span class="cc-logo" aria-hidden="true"> ▐▛███▜▌
+▝▜█████▛▘
+  ▘▘ ▝▝</span>
+              <span class="cc-meta"><b>Claude Code</b><br>
+                <span class="t-dim">Opus 4.8 · Claude Max</span><br>
+                <span class="t-dim">@scrum-master · ~/work/test_demo</span></span>
+            </div>
+            <div class="cc-prompt"><span class="t-p">&gt; </span>Start Sprint 1 — plan the Sprint, spawn the
+              developers, and drive every PBI to done. Escalate to me only when a decision is
+              genuinely mine.</div>
+            <div class="term-body" id="termBody" aria-label="Terminal transcript of the Scrum Master driving a Sprint"></div>
+            <div class="cc-foot" aria-hidden="true">
+              <div class="cc-tag"><span>scrum-master</span></div>
+              <div class="cc-input">›</div>
+              <div class="cc-status">Sprint 1 &quot;Walking skeleton&quot; | Phase: pbi_pipeline_active | 1/3 PBIs done<br>
+                <span class="t-auto">▶▶ auto mode on</span> (shift+tab to cycle) · ⏎ for agents</div>
+            </div>
+          </div>
+          <!-- right pane: Maul Team Dashboard -->
+          <div class="tmux-pane tp-right" aria-hidden="true">
+            <div class="dash-title">Maul Team Dashboard</div>
+            <div class="dash-box">
+              <div><span class="dash-key">Product Goal:</span> Team task board with sprint analytics —
+                local-first, offline-friendly, single static build.</div>
+              <div><span class="dash-key">Phase:</span> <span class="dash-badge">PBI Pipeline</span>
+                &nbsp;<span class="dash-key">Sprint:</span> sprint-1 · <span class="st-done">active</span></div>
+              <div><span class="dash-key">PBIs:</span> 1/3 done &nbsp;|&nbsp; <span class="dash-key">Developers:</span> 3</div>
+              <div><span class="dash-key">Agents:</span> dev-001-s1:idle · dev-002-s1:active(pbi-002) · dev-003-s1:active(pbi-003)</div>
+            </div>
+            <div class="dash-label">PBI Board <span class="t-dim">(status · round · dev · updated)</span></div>
+            <div class="dash-box">
+              <div class="dash-row dr-head"><span>ID</span><span>Title</span><span>Status</span><span>R</span><span>Dev</span><span>Updated</span></div>
+              <div class="dash-row"><span>pbi-001</span><span>Task CRUD + local persistence</span><span class="st-done">◇ done</span><span>2</span><span>dev-001-s1</span><span>2m ago</span></div>
+              <div class="dash-row dr-sel"><span>pbi-002</span><span>Sprint board drag &amp; drop</span><span>◆ in_progress_impl</span><span>1</span><span>dev-002-s1</span><span>now</span></div>
+              <div class="dash-row"><span>pbi-003</span><span>Burndown chart panel</span><span class="st-prog">◆ in_progress_ut_run</span><span class="rd-hot">3</span><span>dev-003-s1</span><span>4m ago</span></div>
+              <div class="dash-row"><span>pbi-004</span><span>Keyboard-first quick add</span><span class="st-ref">◇ refined</span><span>–</span><span>–</span><span>–</span></div>
+              <div class="dash-row"><span>pbi-005</span><span>CSV import / export</span><span class="st-ref">◇ refined</span><span>–</span><span>–</span><span>–</span></div>
+              <div class="dash-row"><span>pbi-006</span><span>[cross-review-followup:pbi-001] docs drift</span><span class="st-draft">◇ draft</span><span>–</span><span>–</span><span>–</span></div>
+            </div>
+            <div class="dash-label">Work Log <span class="t-dim">(all)</span></div>
+            <div class="dash-box dash-log">
+              <div class="log-row"><span class="log-t">13:26:43</span><span class="log-dev">dev-001-s1</span><span>[pbi-001] PBI_READY_TO_MERGE branch=pbi/pbi-001</span></div>
+              <div class="log-row"><span class="log-t">13:26:58</span><span class="log-sm">scrum-master</span><span>pbi-merge --no-ff · regression gate green</span></div>
+              <div class="log-row"><span class="log-t">13:27:04</span><span class="log-sm">scrum-master</span><span>status pbi-001 → done</span></div>
+              <div class="log-row"><span class="log-t">13:27:31</span><span class="log-dev">dev-002-s1</span><span>[pbi-002] impl round 1 — codex-impl-reviewer PASS</span></div>
+              <div class="log-row"><span class="log-t">13:28:02</span><span class="log-dev">dev-003-s1</span><span>[pbi-003] black-box UT run — C0/C1 100%</span></div>
+              <div class="log-row"><span class="log-t">13:28:19</span><span class="log-sm">scrum-master</span><span>spawned agent: functional-quality-reviewer</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tmux-bar" aria-hidden="true"><span>[scrum-team] 0:claude*</span><span>&quot;· scrum-master&quot; 13:28</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <p class="kicker reveal">Questions</p>
+    <h2 id="faq-h" class="reveal" style="--d:.06s">The parts people<br>ask about twice.</h2>
+    <p class="lede reveal" style="--d:.12s">
+      Short answers to what a "team of AI agents running Scrum" actually means in practice.
+    </p>
+
+    <div class="feature-grid">
+      <article class="feature reveal" style="--d:.03s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>How do AI agents actually run a Scrum sprint?</h3>
+        <p>A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
+           item. Each Developer designs, implements, and writes black-box unit tests in its own
+           git worktree. Codex provides cross-model review when available, with a Claude-based
+           fallback. Merges are gated by regression tests; the Sprint ends with a demo to you.
+           It's the ceremony loop, not a prompt chain.</p>
+      </article>
+      <article class="feature reveal" style="--d:.06s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Is this autonomous AI development, or am I babysitting prompts?</h3>
+        <p>Sprint execution is hands-off; you make Product-Owner decisions at the gates.
+           <span class="f-mono">--autonomous</span> mode runs fully unattended.</p>
+      </article>
+      <article class="feature reveal" style="--d:.09s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>What is the license, and where does MaulTeam.app run?</h3>
+        <p>The <span class="mono">maul-team</span> framework is MIT-licensed. The Mac app is
+           source-available and free for personal and internal business use under its commercial
+           license. Workflow and project state stay on your Mac; model requests go through
+           Claude Code and, when configured, Codex.</p>
+      </article>
+      <article class="feature reveal" style="--d:.12s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Do I need the Mac app, or can I use the terminal?</h3>
+        <p>One shell command runs the identical pipeline in tmux. The Mac app is the friendly
+           front door, not a requirement.</p>
+      </article>
+      <article class="feature reveal" style="--d:.15s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>How is this different from Devin or other AI software engineers?</h3>
+        <p>A whole team of agents with real Scrum gates, not a single autonomous engineer;
+           source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat.</p>
+      </article>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="wordmark" href="#top" aria-label="MaulTeam.app home">
+        <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
+        MaulTeam<span class="tld">.app</span>
+      </a>
+      <p style="color:var(--text-3); font-size:13px; max-width:320px">
+        The native Mac app of the open-source <span class="mono" style="font-size:.92em">maul-team</span> framework.
+      </p>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <div>
+        <h5>Project</h5>
+        <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub repository ↗</a>
+        <a href="https://github.com/sohei56/maul-team#license" target="_blank" rel="noopener">Licenses (framework + app)</a>
+        <a href="./terms.html">Terms of Use</a>
+      </div>
+      <div>
+        <h5>Docs</h5>
+        <a href="https://github.com/sohei56/maul-team#readme" target="_blank" rel="noopener">README (English)</a>
+        <a href="https://github.com/sohei56/maul-team/blob/main/README_ja.md" target="_blank" rel="noopener">README（日本語）</a>
+      </div>
+      <div>
+        <h5>On this page</h5>
+        <a href="#why">Why</a>
+        <a href="#how">How it works</a>
+        <a href="#loop">Loop engineering</a>
+        <a href="#install">Install</a>
+      </div>
+    </nav>
+    <div class="footer-meta">
+      <span>© 2026 sohei56 · MIT (framework) + Commercial (app)</span>
+      <span>Built with Claude Code Agent Teams</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- scroll reveal ---------- */
+  var revealEls = document.querySelectorAll(".reveal");
+  if (REDUCED || !("IntersectionObserver" in window)) {
+    revealEls.forEach(function(el){ el.classList.add("in"); });
+  } else {
+    var ro = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){ e.target.classList.add("in"); ro.unobserve(e.target); }
+      });
+    }, {threshold: 0.12, rootMargin: "0px 0px -40px 0px"});
+    revealEls.forEach(function(el){ ro.observe(el); });
+  }
+
+  /* ---------- hero parallax ---------- */
+  var heroWin = document.getElementById("heroWindow");
+  var isTouch = window.matchMedia("(pointer: coarse)").matches;
+  if (heroWin && !REDUCED && !isTouch) {
+    var hero = document.querySelector(".hero");
+    var raf = null, tx = 0, ty = 0;
+    hero.addEventListener("mousemove", function(ev){
+      var r = hero.getBoundingClientRect();
+      tx = ((ev.clientX - r.left) / r.width - 0.5);
+      ty = ((ev.clientY - r.top) / r.height - 0.5);
+      if (!raf) raf = requestAnimationFrame(apply);
+    });
+    hero.addEventListener("mouseleave", function(){
+      tx = 0; ty = 0;
+      if (!raf) raf = requestAnimationFrame(apply);
+    });
+    function apply(){
+      raf = null;
+      heroWin.style.transform =
+        "rotateX(" + (-ty * 3.2) + "deg) rotateY(" + (tx * 4.2) + "deg) translateY(" + (ty * -5) + "px)";
+    }
+  }
+
+  /* ---------- video cover ---------- */
+  var cover = document.getElementById("videoCover");
+  var video = document.getElementById("demoVideo");
+  if (cover && video) {
+    cover.addEventListener("click", function(){
+      cover.style.opacity = "0";
+      cover.style.pointerEvents = "none";
+      setTimeout(function(){ cover.remove(); }, 420);
+      var p = video.play();
+      if (p && p.catch) p.catch(function(){ /* CSP / offline: controls remain, link below works */ });
+    });
+    video.addEventListener("error", function(){
+      var small = cover.querySelector("small");
+      if (small) small.textContent = "Video blocked here — use the GitHub link below";
+    }, true);
+  }
+
+  /* ---------- copy install commands ---------- */
+  var copyBtn = document.getElementById("copyBtn");
+  if (copyBtn) {
+    var CMDS = [
+      "git clone git@github.com:sohei56/maul-team.git",
+      "cd maul-team",
+      "sh macapp/scripts/make-app.sh",
+      "open macapp/build/MaulTeam.app"
+    ].join("\n");
+    copyBtn.addEventListener("click", function(){
+      function done(){
+        copyBtn.textContent = "copied ✓";
+        copyBtn.classList.add("copied");
+        setTimeout(function(){ copyBtn.textContent = "copy"; copyBtn.classList.remove("copied"); }, 1800);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(CMDS).then(done, fallback);
+      } else { fallback(); }
+      function fallback(){
+        var ta = document.createElement("textarea");
+        ta.value = CMDS; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); done(); } catch(e){}
+        document.body.removeChild(ta);
+      }
+    });
+  }
+
+  /* ---------- sprint loop wheel ---------- */
+  var wheel = document.getElementById("sprintLoop");
+  var loopPanel = document.getElementById("loopDetail");
+  if (wheel && loopPanel) {
+    var loopTriggers = [].slice.call(document.querySelectorAll("#how .loop-seg, #how .gate-chip"));
+    var loopItems = [].slice.call(loopPanel.querySelectorAll(".ld-item"));
+
+    function loopSet(step){
+      loopTriggers.forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-step") === step); });
+      loopItems.forEach(function(it){ it.classList.toggle("on", it.getAttribute("data-step") === step); });
+    }
+    loopTriggers.forEach(function(t){
+      var step = t.getAttribute("data-step");
+      ["mouseenter", "focus", "click"].forEach(function(ev){
+        t.addEventListener(ev, function(){ loopSet(step); });
+      });
+      t.addEventListener("keydown", function(e){
+        if (e.key === "Enter" || e.key === " "){ e.preventDefault(); loopSet(step); }
+      });
+    });
+
+    /* pin the panel to its tallest text-only item so switching stays calm;
+       the Development Pipeline item (with the board) grows past it naturally */
+    function loopSize(){
+      var h = 0;
+      loopItems.forEach(function(it){
+        if (it.querySelector(".board-wrap")) return;
+        var on = it.classList.contains("on");
+        it.classList.add("on");
+        h = Math.max(h, it.offsetHeight);
+        if (!on) it.classList.remove("on");
+      });
+      loopPanel.style.minHeight = h + "px";
+    }
+    loopSize();
+    var loopRsz = null;
+    window.addEventListener("resize", function(){
+      clearTimeout(loopRsz); loopRsz = setTimeout(loopSize, 180);
+    });
+  }
+
+  /* ==========================================================
+     Signature: animated Sprint board (FLIP transitions)
+     ========================================================== */
+  var board = document.getElementById("sprintBoard");
+  if (board) {
+    var colEls = [].slice.call(board.querySelectorAll(".col-cards"));
+    var countEls = [].slice.call(board.querySelectorAll(".col-count"));
+    var BADGES = [
+      {cls:"b-backlog",   txt:"refined"},
+      {cls:"b-design",    txt:"design"},
+      {cls:"b-impl",      txt:"impl"},
+      {cls:"b-pbireview", txt:"pbi-review"},
+      {cls:"b-ut",        txt:"ut-run"},
+      {cls:"b-merge",     txt:"merge"},
+      {cls:"b-xreview",   txt:"x-review"},
+      {cls:"b-done",      txt:"done ✓"}
+    ];
+    // Developer-managed stages (mirrors the app's PBIStatus.isDevManaged) get the amber card border.
+    var DEV = {1:true, 2:true, 3:true, 4:true, 5:true};
+    var TITLES = [
+      "User onboarding flow", "Webhook retry queue", "Search-as-you-type",
+      "CSV export pipeline", "Session resume", "Dark-mode theming",
+      "Rate-limit middleware", "Audit log viewer", "Keyboard shortcuts",
+      "Payment receipts email", "Image thumbnailing", "Offline cache sync"
+    ];
+    var nextId = 1, titleIdx = 0;
+
+    function makeCard(colIdx){
+      var el = document.createElement("div");
+      el.className = "pbi-card";
+      var id = "pbi-" + String(nextId++).padStart(3, "0");
+      var title = TITLES[titleIdx++ % TITLES.length];
+      el.innerHTML =
+        '<span class="pbi-id">' + id + '</span>' +
+        '<div class="pbi-title">' + title + '</div>' +
+        '<span class="pbi-badge"></span>';
+      setBadge(el, colIdx);
+      return el;
+    }
+    function setBadge(card, colIdx){
+      var b = card.querySelector(".pbi-badge");
+      b.className = "pbi-badge " + BADGES[colIdx].cls;
+      b.textContent = BADGES[colIdx].txt;
+      card.classList.toggle("dev", !!DEV[colIdx]);
+    }
+    function updateCounts(){
+      colEls.forEach(function(c, i){
+        countEls[i].textContent = c.querySelectorAll(".pbi-card:not(.leaving)").length;
+      });
+    }
+
+    // initial seed: spread a few PBIs across the real pipeline stages
+    [0,0,1,2,3,4,5,6,7].forEach(function(c){ colEls[c].appendChild(makeCard(c)); });
+    updateCounts();
+
+    function flipMove(card, fromCol, toColIdx){
+      // FLIP: first
+      var first = card.getBoundingClientRect();
+      var siblingsFirst = new Map();
+      [].slice.call(fromCol.children).forEach(function(sib){
+        if (sib !== card) siblingsFirst.set(sib, sib.getBoundingClientRect());
+      });
+      // move
+      colEls[toColIdx].appendChild(card);
+      setBadge(card, toColIdx);
+      // last + invert
+      var last = card.getBoundingClientRect();
+      var dx = first.left - last.left, dy = first.top - last.top;
+      card.style.transition = "none";
+      card.style.transform = "translate(" + dx + "px," + dy + "px)";
+      siblingsFirst.forEach(function(rect, sib){
+        var l2 = sib.getBoundingClientRect();
+        var sdx = rect.left - l2.left, sdy = rect.top - l2.top;
+        if (sdx || sdy){
+          sib.style.transition = "none";
+          sib.style.transform = "translate(" + sdx + "px," + sdy + "px)";
+        }
+      });
+      // play
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          card.style.transition = "transform .65s cubic-bezier(.22,1,.36,1)";
+          card.style.transform = "";
+          card.classList.remove("just-moved"); void card.offsetWidth;
+          card.classList.add("just-moved");
+          siblingsFirst.forEach(function(_, sib){
+            sib.style.transition = "transform .5s cubic-bezier(.22,1,.36,1)";
+            sib.style.transform = "";
+          });
+        });
+      });
+      updateCounts();
+    }
+
+    var LAST = 7;
+    function firstCard(colIdx){
+      return colEls[colIdx].querySelector(".pbi-card:not(.leaving)");
+    }
+    function tick(){
+      // retire finished work from Done, refill the backlog to keep it flowing
+      var doneCards = colEls[LAST].querySelectorAll(".pbi-card:not(.leaving)");
+      if (doneCards.length > 1){
+        var old = doneCards[0];
+        old.classList.add("leaving");
+        setTimeout(function(){
+          old.remove();
+          var fresh = makeCard(0);
+          fresh.classList.add("entering");
+          colEls[0].appendChild(fresh);
+          updateCounts();
+        }, 520);
+      }
+      // occasionally a review sends work back to Implement — the app's
+      // impl ⇄ pbi-review ⇄ ut-run loop, made visible.
+      if (Math.random() < 0.22){
+        var bounceFrom = Math.random() < 0.5 ? 4 : 3;   // ut-run or pbi-review
+        var bc = firstCard(bounceFrom);
+        if (bc){ flipMove(bc, colEls[bounceFrom], 2); return; }
+      }
+      // otherwise advance one card a stage toward Done, picking among non-empty
+      // source columns (0..LAST-1) with a mild downstream bias so work lands.
+      var nonEmpty = [];
+      for (var ci = 0; ci < LAST; ci++){
+        if (firstCard(ci)) nonEmpty.push(ci);
+      }
+      if (!nonEmpty.length) return;
+      var pool = nonEmpty;
+      var downstream = nonEmpty.filter(function(c){ return c >= 3; });
+      if (downstream.length && Math.random() < 0.5) pool = downstream;
+      var src = pool[Math.floor(Math.random() * pool.length)];
+      var cards = colEls[src].querySelectorAll(".pbi-card:not(.leaving)");
+      var pick = cards[Math.floor(Math.random() * cards.length)];
+      flipMove(pick, colEls[src], src + 1);
+    }
+
+    if (!REDUCED){
+      var timer = null;
+      function start(){ if (!timer) timer = setInterval(tick, 1900); }
+      function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+      if ("IntersectionObserver" in window){
+        new IntersectionObserver(function(entries){
+          entries.forEach(function(e){ e.isIntersecting ? start() : stop(); });
+        }, {threshold: 0.15}).observe(board);
+      } else { start(); }
+      document.addEventListener("visibilitychange", function(){
+        if (document.hidden){ stop(); }
+        else if (board.offsetParent){ start(); }
+      });
+    }
+  }
+
+  /* ==========================================================
+     Faux terminal typewriter
+     ========================================================== */
+  var termBody = document.getElementById("termBody");
+  if (termBody) {
+    var LINES = [
+      [{t:"● ", c:"t-b"}, {t:"I'll read the three state files to see where the Sprint stands.", c:""}],
+      [{t:"  Read 3 files", c:"t-dim"}],
+      [{t:"● ", c:"t-b"}, {t:"Sprint 1 planned — Goal approved by PO. Spawning dev-001-s1 · dev-002-s1 · dev-003-s1.", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] design.md emitted — codex-design-reviewer: PASS", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] impl + black-box UT green — C0/C1 100%", c:""}],
+      [{t:"[dev-001-s1] ", c:"t-blue"}, {t:"[pbi-001] PBI_READY_TO_MERGE branch=pbi/pbi-001", c:""}],
+      [{t:"● ", c:"t-b"}, {t:"pbi-merge --no-ff · regression gate ", c:""}, {t:"green", c:"t-ok"}, {t:" → pbi-001 ", c:""}, {t:"done", c:"t-ok"}],
+      [{t:"✳ ", c:"t-amber"}, {t:"Clauding… (43s · ↓ 2.0k tokens)", c:"t-dim"}]
+    ];
+    var cursor = document.createElement("span");
+    cursor.className = "cursor";
+    cursor.setAttribute("aria-hidden", "true");
+
+    function renderInstant(){
+      termBody.textContent = "";
+      LINES.forEach(function(line){
+        var div = document.createElement("div");
+        line.forEach(function(seg){
+          var s = document.createElement("span");
+          if (seg.c) s.className = seg.c;
+          s.textContent = seg.t;
+          div.appendChild(s);
+        });
+        termBody.appendChild(div);
+      });
+      termBody.appendChild(cursor);
+    }
+
+    if (REDUCED){
+      renderInstant();
+    } else {
+      var li = 0, si = 0, chi = 0, curLine = null, curSpan = null, playing = false;
+      function typeStep(){
+        if (li >= LINES.length){
+          // loop: hold, then clear and restart
+          setTimeout(function(){
+            termBody.textContent = "";
+            li = 0; si = 0; chi = 0; curLine = null; curSpan = null;
+            typeStep();
+          }, 5200);
+          return;
+        }
+        if (!curLine){
+          curLine = document.createElement("div");
+          termBody.appendChild(curLine);
+          termBody.appendChild(cursor);
+        }
+        var segs = LINES[li];
+        if (si >= segs.length){
+          li++; si = 0; chi = 0; curLine = null; curSpan = null;
+          setTimeout(typeStep, li === 1 ? 420 : 620);
+          return;
+        }
+        if (!curSpan){
+          curSpan = document.createElement("span");
+          if (segs[si].c) curSpan.className = segs[si].c;
+          curLine.appendChild(curSpan);
+          curLine.appendChild(cursor);
+        }
+        var txt = segs[si].t;
+        curSpan.textContent = txt.slice(0, ++chi);
+        if (chi >= txt.length){ si++; chi = 0; curSpan = null; }
+        setTimeout(typeStep, 14 + Math.random() * 22);
+      }
+      // start when visible
+      if ("IntersectionObserver" in window){
+        var to = new IntersectionObserver(function(entries){
+          entries.forEach(function(e){
+            if (e.isIntersecting && !playing){ playing = true; typeStep(); to.disconnect(); }
+          });
+        }, {threshold: 0.3});
+        to.observe(termBody);
+      } else { typeStep(); }
+    }
+  }
+
+  /* ==========================================================
+     Hero app: the real Mac app screen, animated. The Scrum Master
+     terminal streams status + Work Log events, driving the
+     Dashboard's Sprint bar and pbi-001's PBI Board status badge.
+     ========================================================== */
+  (function(){                               // own scope: avoid clashing with the faux terminal's LINES/cursor/li
+  var heroTerm = document.getElementById("heroTerm");
+  var heroPbi  = document.getElementById("heroPbi");
+  var heroLog  = document.getElementById("heroLog");
+  if (heroTerm && heroPbi && heroLog) {
+    // PBIStatus vocabulary → badge (mirrors the app's PBIStatus.label + color)
+    var HS = {
+      refined:      {cls:"b-backlog",   txt:"◇ refined",    dev:false},
+      design:       {cls:"b-design",    txt:"◈ design",     dev:true},
+      impl:         {cls:"b-impl",      txt:"◆ impl",       dev:true},
+      "pbi-review": {cls:"b-pbireview", txt:"◆ pbi-review", dev:true},
+      merge:        {cls:"b-merge",     txt:"◆ merge",      dev:true},
+      done:         {cls:"b-done",      txt:"✓ done",       dev:false}
+    };
+    var rows   = {1: heroPbi.querySelector('.hc-pbi[data-pbi="1"]'), 2: heroPbi.querySelector('.hc-pbi[data-pbi="2"]')};
+    var iters  = {1: document.getElementById("heroIter1"),  2: document.getElementById("heroIter2")};
+    var scopes = {1: document.getElementById("heroScope1"), 2: document.getElementById("heroScope2")};
+    var progEl    = document.getElementById("heroProgress");
+    var doneEl    = document.getElementById("heroDone");
+    var phaseEl   = document.getElementById("heroPhase");
+    var membersEl = document.getElementById("heroMembers");
+    var curTabEl  = document.getElementById("heroCurTab");
+    var inputEl   = document.getElementById("heroInput");
+
+    function setStatus(n, key){                      // pbi-001 and pbi-002 run in parallel this Sprint
+      var s = HS[key], row = rows[n], b = row.querySelector(".hc-badge");
+      b.className = "pbi-badge hc-badge " + s.cls;
+      b.textContent = s.txt;
+      row.classList.toggle("hc-active", s.dev);
+      if (iters[n]) iters[n].style.visibility = (key === "refined") ? "hidden" : "visible";
+      if (!REDUCED){ void b.offsetWidth; b.classList.add("flip"); }
+    }
+    function setProgress(done){
+      if (progEl) progEl.style.width = (done * 50) + "%";
+      if (doneEl) doneEl.textContent = done;
+    }
+    function setPhase(p){ if (phaseEl) phaseEl.textContent = p; }
+    function joinSprint(){                           // Planning picked pbi-001/002 → they enter sprint-001
+      [1, 2].forEach(function(n){ scopes[n].textContent = "sprint-001"; scopes[n].classList.remove("hc-scope-bl"); });
+      if (curTabEl)  curTabEl.innerHTML = "Current&nbsp;2";
+      if (membersEl) membersEl.textContent = "dev-001-s1, dev-002-s1";
+    }
+    function addLog(o, animate){
+      var r = document.createElement("div");
+      r.className = "ha-wl-row" + (animate ? " enter" : "");
+      r.innerHTML =
+        '<span class="ha-wl-time">' + o.time + '</span>' +
+        '<div class="ha-wl-body">' +
+          '<div class="ha-wl-tagline"><span class="ha-wl-tag ' + o.cls + '">' + o.tag + '</span>' +
+          '<span class="ha-wl-who">' + o.who + '</span></div>' +
+          '<div class="ha-wl-msg">' + o.msg + '</div>' +
+        '</div>';
+      heroLog.insertBefore(r, heroLog.firstChild);
+      while (heroLog.children.length > 3) heroLog.removeChild(heroLog.lastChild);
+    }
+    function startBoard(animate){
+      setStatus(1, "refined"); setStatus(2, "refined");
+      setProgress(0); setPhase("Planning");
+      [1, 2].forEach(function(n){ scopes[n].textContent = "backlog"; scopes[n].classList.add("hc-scope-bl"); });
+      if (curTabEl)  curTabEl.innerHTML = "Current&nbsp;0";
+      if (membersEl) membersEl.textContent = "—";
+      heroLog.textContent = "";
+      addLog({time:"15:03:12", tag:"progress update", cls:"wl-prog", who:"scrum-master", msg:"session started — awaiting your instruction"}, animate);
+    }
+
+    // You brief the Scrum Master, then its transcript drives the Dashboard + Work Log
+    var USER_MSG = "Build a retro 8-bit Snake game in a single index.html.";
+    var LINES = [
+      {seg:[{t:"› ",c:"t-amber"},{t:USER_MSG,c:"t-cmd"}], gap:1300},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"Understood — starting ",c:""},{t:"Sprint 1",c:"t-blue"},{t:". Planning: refining your request into a Product Backlog (5 PBIs).",c:""}],
+        log:{time:"15:03:28", tag:"progress update", cls:"wl-prog", who:"scrum-master", msg:"backlog refined — 5 PBIs, 2 selected for Sprint 1"}, gap:1700},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"Planning complete. Spawning ",c:""},{t:"dev-001-s1",c:"t-blue"},{t:" (pbi-001) + ",c:""},{t:"dev-002-s1",c:"t-blue"},{t:" (pbi-002) — PBI Development begins.",c:""}],
+        on:function(){ setPhase("PBI Development"); joinSprint(); setStatus(1,"design"); setStatus(2,"design"); },
+        log:{time:"15:03:47", tag:"agent spawn", cls:"wl-spawn", who:"scrum-master", msg:"spawned teammates: dev-001-s1, dev-002-s1"}, gap:1750},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"design.md",c:"t-blue"},{t:" ×2 confirmed — codex-design-reviewer: ",c:""},{t:"PASS",c:"t-ok"},{t:", 0 findings. Both PBIs enter impl (Round 1).",c:""}],
+        on:function(){ setStatus(1,"impl"); setStatus(2,"impl"); },
+        log:{time:"15:04:22", tag:"subagent stop", cls:"wl-stop", who:"pbi-designer", msg:"finished work"}, gap:1650},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: black-box UT green — C0/C1 ",c:""},{t:"100%",c:"t-ok"},{t:". pbi-001 → pbi-review.",c:""}],
+        on:function(){ setStatus(1,"pbi-review"); },
+        log:{time:"15:04:52", tag:"file changed", cls:"wl-file", who:"pbi-ut-author", msg:"Write …/pbi-001/test/main.test.mjs"}, gap:1550},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-001-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" branch=pbi/PBI-001 — merging.",c:"t-dim"}],
+        on:function(){ setStatus(1,"merge"); },
+        log:{time:"15:05:07", tag:"progress update", cls:"wl-prog", who:"dev-001-s1", msg:"PBI_READY_TO_MERGE"}, gap:1500},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression gate ",c:""},{t:"green",c:"t-ok"},{t:" → pbi-001 ",c:""},{t:"done",c:"t-ok"},{t:" (1/2). dev-002-s1: UT green → pbi-review.",c:""}],
+        on:function(){ setStatus(1,"done"); setProgress(1); setStatus(2,"pbi-review"); },
+        log:{time:"15:05:20", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-001 merged — done"}, gap:1600},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"dev-002-s1: ",c:""},{t:"PBI_READY_TO_MERGE",c:"t-hot"},{t:" — pbi-merge ",c:""},{t:"--no-ff",c:"t-hot"},{t:" · regression ",c:""},{t:"green",c:"t-ok"},{t:".",c:""}],
+        on:function(){ setStatus(2,"merge"); },
+        log:{time:"15:05:33", tag:"progress update", cls:"wl-prog", who:"dev-002-s1", msg:"PBI_READY_TO_MERGE"}, gap:1450},
+      {seg:[{t:"▸ ",c:"t-amber"},{t:"pbi-002 ",c:""},{t:"done",c:"t-ok"},{t:" — 2/2 merged. Sprint 1 → ",c:""},{t:"Sprint Review",c:"t-blue"},{t:": Increment ready, demo the Snake game.",c:""}],
+        on:function(){ setStatus(2,"done"); setProgress(2); setPhase("Sprint Review"); },
+        log:{time:"15:05:49", tag:"merge", cls:"wl-merge", who:"scrum-master", msg:"pbi-002 merged — Sprint Review"}, gap:4200}
+    ];
+
+    var cursor = document.createElement("span");
+    cursor.className = "hc-tcursor"; cursor.setAttribute("aria-hidden","true");
+
+    function showLine(i){
+      var L = LINES[i];
+      var div = document.createElement("div");
+      div.className = "ha-line he";
+      L.seg.forEach(function(s){
+        var sp = document.createElement("span");
+        if (s.c) sp.className = s.c;
+        sp.textContent = s.t;
+        div.appendChild(sp);
+      });
+      div.appendChild(cursor);
+      heroTerm.appendChild(div);
+      if (REDUCED){ div.classList.add("show"); }
+      else { requestAnimationFrame(function(){ div.classList.add("show"); }); }
+      if (L.on) L.on();
+      if (L.log) addLog(L.log, !REDUCED);
+      heroTerm.scrollTop = heroTerm.scrollHeight;
+    }
+
+    var li = 0, timers = [];
+    function later(fn, ms){ var t = setTimeout(fn, ms); timers.push(t); return t; }
+    function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+    // you type the brief into the input bar, then "send" it into the transcript
+    var typed = 0, submitted = false;
+    function typeStep(){
+      if (submitted){ later(tick, 400); return; }
+      if (typed < USER_MSG.length){
+        typed += 1;
+        inputEl.textContent = USER_MSG.slice(0, typed);
+        later(typeStep, 26 + (typed % 3) * 10);
+      } else {
+        later(submitMsg, 600);
+      }
+    }
+    function submitMsg(){
+      submitted = true;
+      inputEl.textContent = "";
+      later(tick, 380);                      // LINES[0] echoes the sent message
+    }
+
+    function tick(){
+      if (li >= LINES.length){ later(resetRun, 500); return; }
+      var gap = LINES[li].gap || 1200;
+      showLine(li++);
+      later(tick, gap);
+    }
+    function resetRun(){
+      clearTimers();
+      heroTerm.textContent = "";
+      startBoard(false);
+      typed = 0; submitted = false; inputEl.textContent = "";
+      li = 0;
+      later(typeStep, 900);
+    }
+
+    if (REDUCED){
+      startBoard(false);
+      LINES.forEach(function(_, i){ showLine(i); });   // full transcript + final board state
+    } else {
+      var running = false, seeded = false;
+      function resume(){
+        if (running) return;
+        running = true;
+        if (!seeded){ seeded = true; startBoard(false); later(typeStep, 800); }
+        else if (!submitted){ later(typeStep, 300); }
+        else { later(tick, 500); }
+      }
+      function freeze(){ running = false; clearTimers(); }
+      if ("IntersectionObserver" in window){
+        new IntersectionObserver(function(entries){
+          entries.forEach(function(e){ e.isIntersecting ? resume() : freeze(); });
+        }, {threshold: 0.2}).observe(heroTerm);
+      } else { resume(); }
+      document.addEventListener("visibilitychange", function(){
+        document.hidden ? freeze() : (heroTerm.getBoundingClientRect().top < window.innerHeight && resume());
+      });
+    }
+  }
+  })();
+})();
+</script>
+</body>
+</html>

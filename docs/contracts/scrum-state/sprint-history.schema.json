@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sprint history log",
+  "description": "Append-only log at .scrum/sprint-history.json. Records one SprintSummary per completed Sprint. Writes go exclusively through scripts/scrum/append-sprint-history.sh; direct edits are blocked by pre-tool-use-scrum-state-guard.sh. Read by completion-gate.sh (sprint_review exit criterion), watchdog.sh (max_sprints accounting), the Textual dashboard, statusline.sh, and the autonomous morning report.",
+  "type": "object",
+  "required": ["sprints"],
+  "additionalProperties": true,
+  "properties": {
+    "sprints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "goal"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Sprint ID this summary records.",
+            "type": "string",
+            "pattern": "^sprint-[0-9]+$"
+          },
+          "goal": {
+            "description": "Sprint Goal as set at planning.",
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "description": "Sprint type, mirrors sprint.json.type.",
+            "enum": ["development", "integration"]
+          },
+          "pbis_completed": {
+            "description": "Number of PBIs that reached status 'done'.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "pbis_total": {
+            "description": "Number of PBIs in the Sprint Backlog.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

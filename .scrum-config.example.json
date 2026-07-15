@@ -17,6 +17,11 @@
     "impl_globs": ["src/**", "lib/**"],
     "test_globs": ["tests/**", "**/*_test.py"]
   },
+  "static_analysis": {
+    "commands": [
+      {"name": "vulture", "command": "vulture src/ --min-confidence 80"}
+    ]
+  },
   "po_mode": "human",
   "po": {
     "max_clarification_rounds": 2,

@@ -129,6 +129,38 @@ teardown() {
   [[ "$output" == *"requires --brief"* ]]
 }
 
+# Non-TTY (the bats run is never a TTY) cannot co-author a brief, so the
+# error must mention the interactive create-brief escape hatch.
+@test "scrum-start --autonomous no-brief error points to the create-brief skill" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"create-brief"* ]]
+}
+
+# An explicit --brief that names a missing (non-canonical) path is a typo,
+# not a request to co-author — fail loudly.
+@test "scrum-start --autonomous --brief <missing path> exits 2 (typo, not builder)" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/does-not-exist.md"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"brief file not found"* ]]
+}
+
+# A canonical brief already in place is never clobbered, even when --brief
+# names a different existing file.
+@test "scrum-start --autonomous keeps an existing canonical brief" {
+  mkdir -p docs/product
+  printf '# Existing canonical brief\nkeep me.\n' > docs/product/brief.md
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/brief.md"
+  [ "$status" -eq 0 ]
+
+  # The pre-existing file wins; the seed brief is NOT copied over it.
+  grep -q 'Existing canonical brief' docs/product/brief.md
+  ! grep -q 'Test product brief' docs/product/brief.md
+}
+
 # --- (c) Non-autonomous launch does NOT inject po_mode / autonomous ---------
 
 @test "scrum-start (no flags) leaves config.json untouched (regression)" {
@@ -156,6 +188,40 @@ JSON
     [ "$output" = "absent" ]
   }
   [ ! -f ".scrum/autonomy.json" ]
+}
+
+@test "scrum-start (no flags) resets leftover po_mode=agent to human" {
+  # A prior --autonomous run left po_mode=agent + an autonomous tuning block
+  # in config.json. A plain start must flip po_mode back to human (so the SM
+  # does not re-spawn the PO teammate) while preserving .autonomous.*.
+  mkdir -p .scrum
+  cat > .scrum/state.json <<'JSON'
+{
+  "phase": "requirements_sprint",
+  "current_sprint_id": null,
+  "product_goal": "x",
+  "created_at": "2026-06-12T00:00:00Z",
+  "updated_at": "2026-06-12T00:00:00Z"
+}
+JSON
+  cat > .scrum/config.json <<'JSON'
+{
+  "po_mode": "agent",
+  "autonomous": {"max_sprints": 8, "max_iterations": 50}
+}
+JSON
+
+  run bash "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+
+  # po_mode reset to human ...
+  run jq -r '.po_mode' .scrum/config.json
+  [ "$output" = "human" ]
+  # ... but the autonomous tuning block is preserved untouched.
+  run jq -r '.autonomous.max_sprints' .scrum/config.json
+  [ "$output" = "8" ]
+  run jq -r '.autonomous.max_iterations' .scrum/config.json
+  [ "$output" = "50" ]
 }
 
 # --- (d) --max-sprints override is reflected in config.json -----------------

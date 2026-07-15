@@ -14,7 +14,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: mark-pbi-ready-to-merge.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 
 read_pbi_worktree_state "$PBI"
 [ -n "$PBI_BASE_SHA" ] || fail E_INVALID_ARG "state.base_sha unset"
@@ -33,6 +33,16 @@ done < <(git -C "$PBI_WT" diff --name-only --diff-filter=AMR "$PBI_BASE_SHA..HEA
 if [ "${#PATHS[@]}" -eq 0 ]; then
   fail E_INVALID_ARG "no commits beyond base — refusing to mark ready_to_merge"
 fi
+
+# Deleted paths (--diff-filter=D) are collected SEPARATELY from PATHS. They are
+# deliberately kept OUT of paths_touched (which stays AMR-only, so merge-pbi.sh
+# does not flag an intentionally deleted file as artifact_missing), but the
+# kind=docs boundary below must still inspect them: a docs PBI that DELETES a
+# non-.md file (e.g. foo.sh) is as much a scope violation as one that adds code.
+DELETED=()
+while IFS= read -r line; do
+  DELETED+=("$line")
+done < <(git -C "$PBI_WT" diff --name-only --diff-filter=D "$PBI_BASE_SHA..HEAD")
 
 # kind=docs PBIs are confined to *.md by design. A docs PBI that touches a
 # non-.md path means either the PBI was mis-classified at refinement, or
@@ -55,6 +65,15 @@ if [ "$KIND" = "docs" ]; then
       *) NON_MD+=("$p") ;;
     esac
   done
+  # Deletions of non-.md files are boundary violations too (see DELETED above).
+  if [ "${#DELETED[@]}" -gt 0 ]; then
+    for p in "${DELETED[@]}"; do
+      case "$p" in
+        *.md) ;;
+        *) NON_MD+=("$p") ;;
+      esac
+    done
+  fi
   if [ "${#NON_MD[@]}" -gt 0 ]; then
     printf >&2 '[mark-pbi-ready-to-merge] kind_mismatch for %s: non-.md paths touched:\n' "$PBI"
     for p in "${NON_MD[@]}"; do printf >&2 '  - %s\n' "$p"; done
@@ -67,7 +86,7 @@ if [ "$KIND" = "docs" ]; then
 fi
 
 # Build paths_touched array literal for jq.
-PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -s .)"
+PATHS_JSON="$(printf '%s\n' "${PATHS[@]}" | json_lines_to_array)"
 NOW="$(_iso_utc_now)"
 
 EXPR=".head_sha = \"$HEAD\""

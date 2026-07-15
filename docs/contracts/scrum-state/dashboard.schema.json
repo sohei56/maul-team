@@ -21,7 +21,8 @@
               "subagent_start",
               "subagent_stop",
               "task_completed",
-              "teammate_idle"
+              "teammate_idle",
+              "stop_failure"
             ]
           },
           "agent_id": {"type": ["string", "null"]},

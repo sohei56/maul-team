@@ -1,14 +1,11 @@
-# Architecture: AI-Powered Scrum Team
+# Architecture: Maul Team
 
 ## Overview
 
-This document records the nine key architecture decisions (R1-R9) that
-shape the claude-scrum-team system. R1 establishes Agent Teams with
-Delegate mode as the orchestration model. R2-R3 define the TUI dashboard
-and testing strategy. R4-R5 cover state persistence and the shell script
-entry point. R6-R7 introduce Skills for ceremony execution and Hooks for
-Sprint cycle enforcement. R8 governs design documents via the catalog
-system. R9 decides on sub-agent installation for specialist capabilities.
+This document records the architecture decisions (R1-R10) that shape
+the maul-team system, one section per decision. Each section states the
+decision, its rationale, alternatives considered, and key technical
+details.
 
 ## R1: Agent Orchestration — Claude Code Agent Teams in Delegate Mode
 
@@ -48,7 +45,8 @@ Agent Teams using the `spawn-teammates` Skill (R6) for reproducibility.
 - Agent definition format: Markdown with YAML frontmatter.
 - Agent Teams display: **in-process** (cycle with Shift+Down) or
   **split panes** (tmux/iTerm2).
-- Requires: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set process-scoped by `scrum-start.sh`; no global export needed).
+- Requires: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set by
+  `scrum-start.sh`; see R5).
 - Team lead persists across Sprints; teammates are per-Sprint.
 
 ---
@@ -181,9 +179,7 @@ agent.
   9. On resume: append system prompt includes current state summary.
 - All stderr messages MUST be actionable: clearly state what went wrong
   and what to do next.
-- Exit codes: `0` (normal), `1` (Claude Code not found), `2` (reserved —
-  Agent Teams is set process-scoped by `scrum-start.sh`), `3` (Python 3.9+
-  or TUI packages not found). See R2 for full exit code table.
+- Exit codes: see R2 for the full exit code table.
 
 **Python / pip Guidance** (`setup-user.sh`):
 - MUST check for `pip`/`pip3`. If missing, print actionable guidance
@@ -221,8 +217,9 @@ execute.
     cross-review/SKILL.md            # Sprint-end cross-cutting quality gate
     sprint-review/SKILL.md           # Sprint Review ceremony
     retrospective/SKILL.md           # Retrospective ceremony
-    requirements-sprint/SKILL.md     # Requirements Sprint ceremony
-    integration-sprint/SKILL.md      # Integration Sprint ceremony
+    requirement-definition/SKILL.md  # Requirement Definition ceremony
+    integration-tests/SKILL.md       # Integration Tests: design-driven testing
+    uat-release/SKILL.md             # UAT & Release: UAT walkthrough + release decision
     backlog-refinement/SKILL.md      # PBI refinement process
     change-process/SKILL.md          # FR-016 Change Process
     scaffold-design-spec/SKILL.md    # Template stub creation on catalog enable
@@ -253,19 +250,20 @@ execute.
   Planning. Developer count = min(refined PBIs, 6). Reads `sprint.json`
   + `backlog.json`, spawns teammates with consistent naming (`dev-001-s{N}`,
   ...). Each Developer implements their assigned PBI. There is no
-  reviewer assignment — Sprint-end cross-review is performed by the
-  Scrum Master via independent reviewer sub-agents (FR-009 Layer 2).
+  reviewer assignment — per-PBI aspect review is spawned by the
+  Developer conductor at the pipeline's Integrity stage, and the
+  Sprint-end whole-repo audit is owned by the Scrum Master (FR-009).
 
-- **`install-subagents`**: Verify PBI Pipeline sub-agents
-  (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
-  `codex-design-reviewer`, `codex-impl-reviewer`, `codex-ut-reviewer`)
-  are installed under `.claude/agents/` (FR-019). Developers invoke
-  after receiving PBI assignments; missing required sub-agent → BLOCK.
+- **`install-subagents`**: Verify the 6 PBI Pipeline sub-agents
+  (catalog: `docs/contracts/sub-agents.md`) are installed under
+  `.claude/agents/` (FR-019). Developers invoke after receiving PBI
+  assignments; missing required sub-agent → BLOCK.
 
 - The Scrum Master preloads ceremony skills via its `skills:` frontmatter
-  (see `agents/scrum-master.md`). The Developer loads
-  `requirements-sprint`, `pbi-pipeline`, `install-subagents`, and
-  `smoke-test`.
+  (see `agents/scrum-master.md`). The Developer loads `pbi-pipeline`,
+  `install-subagents`, `smoke-test`, and `integration-tests`.
+  The Requirement Definition ceremony is run by the SM plus the
+  `requirements-analyst` agent, not the Developer.
 
 ### Alternatives Considered
 - **Prompt-only control**: Rejected — enormous prompt, not reproducible.
@@ -368,10 +366,12 @@ PreToolUse hook for the executable contract.
 ### Decision
 Maintain specialist sub-agents as project-managed definitions in
 `agents/`, distributed to `.claude/agents/` by `setup-user.sh`. These
-sub-agents handle cross-review (code quality + security) and developer
-support (TDD guidance, build error resolution). Cross-review is
-performed by the Scrum Master spawning independent reviewer sub-agents,
-NOT by peer Developers reviewing each other's code.
+sub-agents handle review (code quality + security) and developer
+support (TDD guidance, build error resolution). Review is performed by
+independent sub-agents — the 5 aspect reviewers spawned per-PBI by the
+Developer conductor at the Integrity stage, and the Sprint-end
+whole-repo audit axes spawned by the Scrum Master — NOT by peer
+Developers reviewing each other's code.
 
 ### Rationale
 - **Project-managed over external catalog**: The original design (R9-v1)
@@ -387,8 +387,8 @@ NOT by peer Developers reviewing each other's code.
   the Developer, and (c) Codex cross-model review adds a second opinion
   from a different AI model.
 - Sub-agents use the `tools` frontmatter field for tool sandboxing
-  (all cross-review reviewers are read-only) and context isolation via
-  the Task tool.
+  (all review and audit sub-agents are read-only) and context isolation
+  via the Task tool.
 
 ### Alternatives Considered
 - **External catalog (awesome-claude-code-subagents)**: Original R9-v1.
@@ -402,13 +402,14 @@ NOT by peer Developers reviewing each other's code.
 - **Sub-agent catalog**: full list, roles, and tool sandbox in
   `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
-- Cross-review flow: Scrum Master invokes the `cross-review` skill,
-  which runs a static analysis pass and then spawns 5 aspect
-  reviewers in parallel via the Task tool —
-  `requirement-conformance-reviewer`, `functional-quality-reviewer`,
-  `security-reviewer`, `maintainability-reviewer`,
-  `docs-consistency-reviewer`. Each reviewer ingests the whole Sprint;
-  Findings carry PBI tags via `paths_touched` reverse-lookup.
+- Cross-review flow (Sprint-end, audit-only): Scrum Master invokes the
+  `cross-review` skill, which runs a static analysis pass and then the
+  whole-repo 4-axis `codebase-audit` (non-blocking; regulation in
+  `skills/codebase-audit/SKILL.md`).
+- Per-PBI Integrity stage: the 5 aspect reviewers (catalog:
+  `docs/contracts/sub-agents.md`) run **per-PBI**, spawned by the
+  Developer conductor at the Round tail before ready-to-merge, over this
+  one PBI's diff; Critical/High reverts the PBI to `in_progress_impl`.
 - PBI Pipeline: the Developer conductor spawns `pbi-*` workers and
   `codex-*-reviewer` critics per Round (see R10).
 - Runtime tracking: `sprint.json` → `developers[].sub_agents` records
@@ -464,5 +465,5 @@ by default).
 - Catalog write contention: 3-layer defense (sprint-planning
   pre-separation, runtime flock, mtime conflict detection).
 - TUI: dashboard PBI Board reads `backlog.json.items[].status`
-  (12-value SSOT) and per-PBI round counters from
+  (13-value SSOT) and per-PBI round counters from
   `.scrum/pbi/<pbi-id>/state.json`.

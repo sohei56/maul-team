@@ -12,7 +12,8 @@ disable-model-invocation: false
 
 ## Outputs
 
-- improvements.json → entries[] appended (3-Sprint consolidation/archival is deferred — see Step 4)
+- improvements.json → entries[] appended; every 3 Sprints the
+  consolidation pass archives stale entries (see Step 4)
 - state.json → phase: retrospective
 - sprint.json → status: "complete"
 
@@ -23,12 +24,13 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-When `.scrum/config.json.po_mode == "agent"`, the human is not at
-the keyboard, so the Step 7 "recommend `/clear` or session restart
-to the user" line cannot be acted on by anyone in-session. This
-section is a no-op when `po_mode` is absent or `"human"`; the
-existing Step 7 recommendation is preserved bit-for-bit for human
-mode.
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+below re-targets to the `product-owner` teammate per
+`../../rules/scrum-context.md` § PO seat resolution; the ceremony shape is
+unchanged. Skill-specific: with no human at the keyboard, the Step 7
+"recommend `/clear` or session restart to the user" line cannot be
+acted on by anyone in-session (human mode keeps that recommendation
+bit-for-bit).
 
 Overrides in agent mode:
 
@@ -57,7 +59,7 @@ Overrides in agent mode:
 - **Assumption-flagged Sprint Review decisions feed improvements.**
   Any `PO_DECISION` from the current Sprint whose rationale begins
   with `ASSUMPTION:` (or which sets the wrapper's `assumption=true`
-  flag — see `agents/product-owner.md` § Anti-loop rules) is a
+  flag — see `../../agents/product-owner.md` § Anti-loop rules) is a
   candidate improvement: record an entry pointing to the `dec_id`
   so the next refinement / planning cycle revisits the unverified
   premise.
@@ -70,17 +72,28 @@ Overrides in agent mode:
    ```
 2. Reflect on Sprint: what went well, what to improve (process, communication, tooling, code quality)
 3. Record ≥1 improvement → call `.scrum/scripts/append-improvement.sh --sprint <sprint-id> --description "<what to improve>"` for each item. The wrapper auto-assigns `id` (`imp-NNNN`), stamps `created_at`, sets `status: "active"`, and validates against `improvements.schema.json`. In `po_mode=agent`, when the entry derives from a `PO_DECISION_REQUEST` round-trip, pass `--dec-id dec-NNNN` to link the entry to the decision record. Direct edits to `.scrum/improvements.json` are blocked by `pre-tool-use-scrum-state-guard.sh`.
-4. **Consolidation check (deferred — currently a no-op)**: The
-   3-Sprint consolidation pass (archive stale entries → bump
-   `last_consolidation_sprint`) is **not yet implemented**: its
-   wrapper `consolidate-improvements.sh` does not exist, and direct
-   edits to `.scrum/improvements.json` are blocked by
-   `pre-tool-use-scrum-state-guard.sh`. Skip this step — do **not**
-   attempt a raw edit (the guard will reject it). Until the wrapper
-   lands, `improvements.json` simply accumulates entries. (Tracking:
-   `docs/MIGRATION-scrum-state-tools.md` § Known gaps.)
-5. Present retrospective report: went well, to improve (no "archived
-   items" section until the Step 4 consolidation pass lands)
+4. **Consolidation check (every 3 Sprints)**: read
+   `improvements.json.last_consolidation_sprint`. Consolidation is
+   DUE when it is `null` and entries span ≥3 Sprints, or when the
+   current Sprint number is ≥3 ahead of it. When due:
+   1. Review every `status: "active"` entry and decide which are
+      stale — addressed (the improvement landed), obsolete (the
+      process/tool it targets no longer exists), or superseded by a
+      newer entry. Left unconsolidated, the active list grows
+      unbounded and stops being readable (a target project reached
+      150+ entries with consolidation 20+ Sprints overdue).
+   2. Execute the decision in one atomic call:
+      ```bash
+      .scrum/scripts/consolidate-improvements.sh --sprint <sprint-id> \
+        --archive imp-NNNN --archive imp-NNNN
+      ```
+      Zero `--archive` flags is valid ("reviewed, nothing stale") and
+      still bumps `last_consolidation_sprint`. Direct edits to
+      `.scrum/improvements.json` remain blocked by
+      `pre-tool-use-scrum-state-guard.sh` — the wrapper is the only
+      sanctioned path.
+5. Present retrospective report: went well, to improve, and (when
+   Step 4 ran) the archived-items summary
 6. sprint.json → status: "complete":
    ```bash
    .scrum/scripts/update-sprint-status.sh complete
@@ -112,11 +125,12 @@ comes next and advances the workflow:
    options=[next_sprint,integration_sprint,complete]
    recommendation=<sm-preferred>
    payload: product_goal_status=<met|not_met>,
-   refined_pbis_remaining=<count>, sprint=<N>/<max_sprints>
+   refined_pbis_remaining=<count>,
+   sprints_this_launch=<history_len - sprint_baseline>/<max_sprints>
    ```
 
    The `recommendation` follows the same precedence the PO uses
-   (see `agents/product-owner.md` § Sprint continuation): default
+   (see `../../agents/product-owner.md` § Sprint continuation): default
    `next_sprint` while feature PBIs remain and Sprints are left.
 
 2. On `PO_DECISION ... decision=choice:<label> dec_id=dec-NNNN`,

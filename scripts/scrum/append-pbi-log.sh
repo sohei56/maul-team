@@ -3,7 +3,7 @@
 # Usage: append-pbi-log.sh <pbi-id> <stage> <round> <event> <detail>
 # Format: <ISO8601-UTC>\t<stage>\t<round>\t<event>\t<detail>
 #
-# `<stage>` is a coarse pipeline-stage digest, NOT the 12-value backlog
+# `<stage>` is a coarse pipeline-stage digest, NOT the 13-value backlog
 # status enum. The set is fixed (init|design|pbi_review|ut_run|complete|
 # escalated) so the log stays human-scannable; status SSOT lives at
 # `backlog.json.items[].status` and is written via update-backlog-status.sh.
@@ -18,10 +18,7 @@ source "$HERE/lib/atomic.sh"
 [ "$#" -eq 5 ] || fail E_INVALID_ARG "usage: append-pbi-log.sh <pbi-id> <stage> <round> <event> <detail>"
 PBI="$1"; STAGE="$2"; ROUND="$3"; EVENT="$4"; DETAIL="$5"
 
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 case "$STAGE" in
   init|design|pbi_review|ut_run|complete|escalated) ;;
   *) fail E_INVALID_ARG "bad stage: $STAGE (allowed: init|design|pbi_review|ut_run|complete|escalated)" ;;

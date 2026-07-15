@@ -9,6 +9,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -42,6 +43,14 @@ Test code, .scrum/ state, PBI dev communications.
    description?
 3. **Scope** — nothing implemented outside the design?
 4. **Code quality** — readability, naming, error handling.
+5. **Minimal change & reuse** — is this the smallest implementation
+   that satisfies the design? Flag dead code (unreachable, unused, or
+   left over by this change) as `dead_code`; code that re-implements
+   functionality already available in the codebase, or repeats the
+   same logic within the change, as `duplication` — the description
+   MUST name the existing `file:line` being duplicated so the fix can
+   reuse it; needless complexity where a simpler equivalent construct
+   exists as `unclear_intent`.
 
 ## Findings: signature format
 
@@ -50,7 +59,8 @@ Test code, .scrum/ state, PBI dev communications.
 ```
 
 `criterion_key` enum (impl review): incorrect_behavior, scope_creep,
-naming, error_handling, missing_validation, unclear_intent, dead_code.
+naming, error_handling, missing_validation, unclear_intent, dead_code,
+duplication.
 
 ## Processing Flow
 
@@ -84,17 +94,17 @@ Same contract as `codex-design-reviewer` § Model selection: the
 conductor preflights Codex via `codex_is_available` from
 `scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
 subagent_type="codex-impl-reviewer", model="opus", ...)`.
-`effort: high` + `maxTurns: 80` in the frontmatter cover both modes.
-The helper bounds each `codex exec` with `CODEX_TIMEOUT_SECS` (default
-300 s; unbounded + WARN on a stock macOS lacking `timeout`/`gtimeout`)
-and maps a timeout to the Claude fallback, so a hung Codex never
-blocks the review. See
-`skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
-codex preflight.
+Timeout contract: see `codex-design-reviewer` § Model selection.
 
 ## Strict Rules
 
-- Read-only.
+- Read-only toward every project file (source, design doc,
+  requirements) — with exactly ONE mandatory write: you MUST persist
+  your verdict to the output target `impl/review-r{n}.md` yourself
+  (Write tool). Returning the verdict only in your final message
+  without writing the file is a protocol violation — the conductor
+  gates on the file's existence. "Read-only" never applies to your
+  own review file.
 - Describe problems only, not fixes.
 - Always try Codex first.
 - Snapshot pin contract: verify `{review_sha}` and `{design_hash}`

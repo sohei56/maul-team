@@ -52,6 +52,8 @@ EOF
   source "$HOOK_LIB"
   cat > fake-codex.sh <<'EOF'
 #!/usr/bin/env bash
+# Fast-path the availability probe; hang only on the real exec call.
+[ "$1" = "--version" ] && { echo "0.0-stub"; exit 0; }
 sleep 10
 echo "## Review: too late"
 exit 0
@@ -68,6 +70,38 @@ EOF
   [ "$status" -eq 1 ]
   # Must fail-fast well under the stub's 10s sleep.
   [ "$((end - start))" -lt 5 ]
+}
+
+@test "codex_is_available returns 1 when binary present but not executable (exit 127 probe)" {
+  # shellcheck disable=SC1090
+  source "$HOOK_LIB"
+  # Emulates a broken install / PATH shim: `command -v` finds it, but
+  # invocation fails (exit-127 class). Presence-only preflight passed
+  # this and silently degraded reviews to the Claude fallback.
+  cat > fake-codex.sh <<'EOF'
+#!/usr/bin/env bash
+exit 127
+EOF
+  chmod +x fake-codex.sh
+  export CODEX_CMD_OVERRIDE="$PWD/fake-codex.sh"
+  run codex_is_available
+  unset CODEX_CMD_OVERRIDE
+  [ "$status" -eq 1 ]
+}
+
+@test "codex_review_or_fallback returns 1 when binary present but not executable" {
+  # shellcheck disable=SC1090
+  source "$HOOK_LIB"
+  cat > fake-codex.sh <<'EOF'
+#!/usr/bin/env bash
+exit 127
+EOF
+  chmod +x fake-codex.sh
+  export CODEX_CMD_OVERRIDE="$PWD/fake-codex.sh"
+  echo "instructions" > instr.md
+  run codex_review_or_fallback instr.md out.md
+  unset CODEX_CMD_OVERRIDE
+  [ "$status" -eq 1 ]
 }
 
 @test "codex_review_or_fallback returns 1 when codex produces empty output" {

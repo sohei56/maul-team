@@ -9,19 +9,48 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TARGET_DIR="$(pwd)"
 
-# copy_tree <source_glob> <target_dir> [executable_bool]
+# --- Deploy manifest (versioned; drives stale-file pruning on upgrade) ---
+# Every framework file setup-user.sh writes UNDER .claude/ is accumulated
+# here (as target-relative paths) and persisted to .claude/.maul-manifest.
+# On the next deploy, paths present in the OLD manifest but absent from the
+# NEW deploy set are pruned, so renamed/deleted framework files do not linger
+# in targets forever. Only .claude/ paths are tracked and pruned — files
+# deployed OUTSIDE .claude/ (schemas under docs/contracts/, the design
+# catalog) are intentionally NOT tracked and NOT pruned (they may coexist
+# with user-authored content in shared dirs and are safer left in place).
+MANIFEST_VERSION=1
+# Newline-delimited list of target-relative paths under .claude/. Bash 3.2
+# has no associative arrays, so a newline-delimited string + grep -Fxq is the
+# portable membership primitive used throughout the prune step below.
+DEPLOYED_UNDER_CLAUDE=""
+
+# manifest_add <target-relative-path>
+# Record one deployed .claude/ file for the manifest.
+manifest_add() {
+  DEPLOYED_UNDER_CLAUDE="${DEPLOYED_UNDER_CLAUDE}${1}
+"
+}
+
+# copy_tree <source_glob> <target_dir> [executable_bool] [manifest_rel_dir]
 # Copies each file matching the unquoted source glob into target_dir,
 # creating target_dir first. Sets executable bit when executable_bool=true.
+# When manifest_rel_dir is given (a target-relative dir under .claude/), each
+# copied file is recorded in the deploy manifest as
+# "<manifest_rel_dir>/<basename>".
 copy_tree() {
   local source_glob="$1"
   local target_dir="$2"
   local make_exec="${3:-false}"
+  local manifest_rel="${4:-}"
   mkdir -p "$target_dir"
   for f in $source_glob; do
     [ -e "$f" ] || continue
     cp "$f" "$target_dir/"
     if [ "$make_exec" = "true" ]; then
       chmod +x "$target_dir/$(basename "$f")"
+    fi
+    if [ -n "$manifest_rel" ]; then
+      manifest_add "$manifest_rel/$(basename "$f")"
     fi
   done
 }
@@ -36,7 +65,7 @@ copy_tree() {
 #   - Creates .gitignore if missing.
 ensure_gitignore_excludes_scrum() {
   local gitignore_file="$TARGET_DIR/.gitignore"
-  local header="# Claude Scrum Team runtime state (must stay untracked)"
+  local header="# Maul Team runtime state (must stay untracked)"
   local entries=('.scrum' '.scrum/')
   local missing=()
   local entry
@@ -72,7 +101,7 @@ ensure_gitignore_excludes_scrum() {
   echo "  Updated $gitignore_file: added ${missing[*]}"
 }
 
-echo "=== claude-scrum-team: Project Setup ==="
+echo "=== Maul Team: Project Setup ==="
 echo ""
 
 # --- Validate prerequisites ---
@@ -102,7 +131,7 @@ echo ""
 
 # --- Copy agent definitions ---
 echo "Copying agent definitions to $TARGET_DIR/.claude/agents/..."
-copy_tree "$PROJECT_ROOT/agents/*.md" "$TARGET_DIR/.claude/agents"
+copy_tree "$PROJECT_ROOT/agents/*.md" "$TARGET_DIR/.claude/agents" false ".claude/agents"
 
 # --- Copy skill definitions ---
 echo "Copying skill definitions to $TARGET_DIR/.claude/skills/..."
@@ -111,18 +140,23 @@ for skill_dir in "$PROJECT_ROOT/skills"/*/; do
   mkdir -p "$TARGET_DIR/.claude/skills/$skill_name"
   if [ -f "$skill_dir/SKILL.md" ]; then
     cp "$skill_dir/SKILL.md" "$TARGET_DIR/.claude/skills/$skill_name/"
+    manifest_add ".claude/skills/$skill_name/SKILL.md"
   fi
   # Copy references/ subdirectory if present (pbi-pipeline pattern)
   if [ -d "$skill_dir/references" ]; then
     mkdir -p "$TARGET_DIR/.claude/skills/$skill_name/references"
-    cp "$skill_dir/references/"*.md "$TARGET_DIR/.claude/skills/$skill_name/references/" 2>/dev/null || true
+    for ref in "$skill_dir/references/"*.md; do
+      [ -e "$ref" ] || continue
+      cp "$ref" "$TARGET_DIR/.claude/skills/$skill_name/references/"
+      manifest_add ".claude/skills/$skill_name/references/$(basename "$ref")"
+    done
   fi
 done
 
 # --- Copy hook scripts ---
 echo "Copying hook scripts to $TARGET_DIR/.claude/hooks/..."
-copy_tree "$PROJECT_ROOT/hooks/*.sh" "$TARGET_DIR/.claude/hooks" true
-copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib"
+copy_tree "$PROJECT_ROOT/hooks/*.sh" "$TARGET_DIR/.claude/hooks" true ".claude/hooks"
+copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib" false ".claude/hooks/lib"
 
 # --- Copy shared rules ---
 # `.claude/rules/*.md` is auto-loaded by Claude Code at session start for the
@@ -130,7 +164,31 @@ copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib"
 # reads them. Contains the cross-cutting Scrum context (team map, SSOT
 # locations, communication protocol, uncertainty handling).
 echo "Copying shared rules to $TARGET_DIR/.claude/rules/..."
-copy_tree "$PROJECT_ROOT/rules/*.md" "$TARGET_DIR/.claude/rules"
+copy_tree "$PROJECT_ROOT/rules/*.md" "$TARGET_DIR/.claude/rules" false ".claude/rules"
+
+# --- Copy runtime-doc subset (framework prose cited by deployed agents/skills) ---
+# Deployed agents and skills reference framework prose (data-model, contracts,
+# autonomous-mode) via relative paths. Those docs are NOT part of the normal
+# deploy, so the references dangle in targets. Deploy exactly the cited subset
+# under .claude/docs/, MIRRORING the source subtree, so `../docs/<path>` (from
+# .claude/agents/*.md) and `../../docs/<path>` (from .claude/skills/<name>/*.md)
+# resolve identically in the source repo and in targets.
+echo "Copying runtime-doc subset to $TARGET_DIR/.claude/docs/..."
+mkdir -p "$TARGET_DIR/.claude/docs/contracts"
+# top-level docs → .claude/docs/<name>
+for doc in data-model.md autonomous-mode.md; do
+  if [ -f "$PROJECT_ROOT/docs/$doc" ]; then
+    cp "$PROJECT_ROOT/docs/$doc" "$TARGET_DIR/.claude/docs/$doc"
+    manifest_add ".claude/docs/$doc"
+  fi
+done
+# contract docs → .claude/docs/contracts/<name>
+for doc in agent-interfaces.md sub-agents.md; do
+  if [ -f "$PROJECT_ROOT/docs/contracts/$doc" ]; then
+    cp "$PROJECT_ROOT/docs/contracts/$doc" "$TARGET_DIR/.claude/docs/contracts/$doc"
+    manifest_add ".claude/docs/contracts/$doc"
+  fi
+done
 
 # --- Copy non-hook shared agent helpers ---
 # `scripts/lib/codex-invoke.sh` is sourced by codex-* reviewer agents during
@@ -214,8 +272,13 @@ cat > "$settings_file" << 'SETTINGS_EOF'
       "WebSearch",
       "Bash(codex *)",
       "mcp__context7",
-      "mcp__playwright"
+      "mcp__playwright",
+      "mcp__chrome-devtools"
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "$CLAUDE_PROJECT_DIR/.claude/statusline.sh"
   },
   "hooks": {
     "SessionStart": [
@@ -230,7 +293,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Bash",
+        "matcher": "Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -248,7 +311,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
@@ -257,7 +320,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Read|Write|Edit|MultiEdit|Bash",
+        "matcher": "Read|Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -268,7 +331,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|Agent|SendMessage",
+        "matcher": "Write|Edit|Agent|SendMessage",
         "hooks": [
           {
             "type": "command",
@@ -347,20 +410,6 @@ cat > "$settings_file" << 'SETTINGS_EOF'
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-failure.sh"
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
-          }
-        ]
-      }
-    ],
-    "FileChanged": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dashboard-event.sh"
           }
         ]
       }
@@ -370,29 +419,38 @@ cat > "$settings_file" << 'SETTINGS_EOF'
 SETTINGS_EOF
 echo "  Written settings.json with hook configuration."
 
-# --- Configure standard MCP servers (context7 + Playwright) ---
-# These are the Claude Scrum Team standard MCP servers. Both are added
+# --- Configure standard MCP servers (context7 + Playwright + Chrome DevTools) ---
+# These are the Maul Team standard MCP servers. All three are added
 # unconditionally if npx is available:
 #   - context7: fetches up-to-date library/framework docs (needs no
 #     credentials; useful across every ceremony).
 #   - playwright: browser E2E in Integration Sprint. The smoke-test and
 #     po-acceptance skills gracefully skip browser flows when it is absent,
 #     so adding it is safe — it only activates when a running app is detected.
+#   - chrome-devtools: console/network inspection and performance traces for
+#     UAT / claude-manual testing. Same as playwright, the relevant skills
+#     gracefully skip when it is absent.
 # Existing entries are preserved (//=); only missing servers are added.
 
 if command -v npx >/dev/null 2>&1; then
   echo ""
-  echo "Configuring standard MCP servers (context7, Playwright)..."
+  echo "Configuring standard MCP servers (context7, Playwright, Chrome DevTools)..."
   mcp_file="$TARGET_DIR/.mcp.json"
 
   if [ -f "$mcp_file" ]; then
-    tmp_mcp="$(mktemp)"
+    # Create the temp file alongside the target (not in $TMPDIR) so the
+    # subsequent mv is a same-directory rename and the step does not depend
+    # on the system temp dir being writable (sandboxed CI / restricted
+    # environments). Mirrors the atomic-write pattern used in scrum-start.sh
+    # and the .scrum/scripts wrappers.
+    tmp_mcp="$(mktemp "${mcp_file}.tmp.XXXXXX")"
     if jq '
       .mcpServers.context7 //= {"type": "stdio", "command": "npx", "args": ["-y", "@upstash/context7-mcp"]}
       | .mcpServers.playwright //= {"type": "stdio", "command": "npx", "args": ["@anthropic-ai/mcp-playwright"]}
+      | .mcpServers["chrome-devtools"] //= {"type": "stdio", "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]}
     ' "$mcp_file" > "$tmp_mcp" 2>/dev/null; then
       mv "$tmp_mcp" "$mcp_file"
-      echo "  Ensured context7 + Playwright MCP in existing .mcp.json"
+      echo "  Ensured context7 + Playwright + Chrome DevTools MCP in existing .mcp.json"
     else
       rm -f "$tmp_mcp"
       echo "  WARN: could not update existing .mcp.json (jq missing or invalid JSON)"
@@ -410,11 +468,16 @@ if command -v npx >/dev/null 2>&1; then
       "type": "stdio",
       "command": "npx",
       "args": ["@anthropic-ai/mcp-playwright"]
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
     }
   }
 }
 MCP_EOF
-    echo "  Created .mcp.json with context7 + Playwright MCP"
+    echo "  Created .mcp.json with context7 + Playwright + Chrome DevTools MCP"
   fi
 else
   echo ""
@@ -424,23 +487,116 @@ fi
 
 # --- Check Codex CLI for cross-model code review ---
 # The codex-{design,impl,ut}-reviewer sub-agents call `codex` directly via
-# CLI for per-PBI cross-model review (Layer 1 in the PBI Pipeline). When
-# codex is not installed, those sub-agents fall back to Claude-based review.
-# Sprint-end cross-review (Layer 2) is independent of codex and runs the
-# 5 aspect-specialized reviewer sub-agents regardless.
+# CLI for per-PBI cross-model review in the PBI pipeline, and the Integrity
+# stage's functional-quality / security aspect reviewers run an in-reviewer
+# codex second opinion on top of their own Claude review. When codex is not
+# installed, Round reviews fall back to Claude-based review and the two
+# Integrity aspects proceed Claude-only. Everything else is
+# codex-independent: the remaining 3 Integrity aspects, and Sprint-end
+# cross-review (an audit-only 4-axis codebase-audit).
+# check_codex_cli (scripts/lib/check-python.sh, sourced above) owns the
+# probe + install hint; it is silent when codex is present, so the
+# detected-confirmation line must be guarded here.
 
+echo ""
 if command -v codex >/dev/null 2>&1; then
-  echo ""
   echo "Codex CLI detected — cross-model code review enabled."
 else
-  echo ""
-  echo "Note: codex not found — code review will use Claude fallback."
-  echo "  Install: npm i -g @openai/codex && codex login"
+  check_codex_cli
 fi
 
-# --- Configure status line ---
-# Status line config goes in settings.json or .claude/settings.local.json
-# The statusline.sh script is referenced by path
+# --- Deploy status line script ---
+# The settings.json heredoc above registers a statusLine command at
+# $CLAUDE_PROJECT_DIR/.claude/statusline.sh, so the script must exist there
+# and be executable.
+echo ""
+echo "Deploying status line script to $TARGET_DIR/.claude/statusline.sh..."
+cp "$PROJECT_ROOT/scripts/statusline.sh" "$TARGET_DIR/.claude/statusline.sh"
+chmod +x "$TARGET_DIR/.claude/statusline.sh"
+manifest_add ".claude/statusline.sh"
+
+# --- Prune stale framework files + write the new deploy manifest ---
+# All .claude/ framework files for this deploy are now on disk and recorded in
+# DEPLOYED_UNDER_CLAUDE. Compare against the previous manifest and remove any
+# .claude/ path that was deployed before but is not in this deploy set
+# (renamed/deleted framework agents, skills, references, hooks, docs). Only
+# paths listed in the OLD manifest are ever removed — user-authored files
+# under .claude/ are never in a manifest, so they are untouchable.
+prune_and_write_manifest() {
+  local manifest_file="$TARGET_DIR/.claude/.maul-manifest"
+  local new_paths old_paths
+  # Sorted, de-duplicated new deploy set (drop blank lines).
+  new_paths="$(printf '%s' "$DEPLOYED_UNDER_CLAUDE" | grep -v '^$' | LC_ALL=C sort -u)"
+
+  if [ -f "$manifest_file" ]; then
+    # Old manifest paths: strip comment/blank lines.
+    old_paths="$(grep -v -e '^#' -e '^[[:space:]]*$' "$manifest_file" || true)"
+
+    # Guard: refuse to prune if any old path is absolute or contains a `..`
+    # segment — a corrupt/tampered manifest must never drive deletions
+    # outside the intended .claude/ subtree.
+    if printf '%s\n' "$old_paths" | grep -qE '(^/|(^|/)\.\.(/|$))'; then
+      echo "  WARN: previous manifest contains an unsafe path (absolute or '..') — skipping prune." >&2
+    else
+      local removed_dirs=""
+      local p
+      while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        # Prune only under .claude/ (defensive: manifest is .claude-only by
+        # construction, but never act on anything outside it).
+        case "$p" in
+          .claude/*) ;;
+          *) continue ;;
+        esac
+        # Keep paths still in the current deploy set.
+        if printf '%s\n' "$new_paths" | grep -Fxq "$p"; then
+          continue
+        fi
+        if [ -e "$TARGET_DIR/$p" ]; then
+          rm -f "$TARGET_DIR/$p"
+          echo "  Pruned stale framework file: $p"
+        fi
+        # Remember skill sub-dirs so we can drop them when they go empty.
+        case "$p" in
+          .claude/skills/*)
+            removed_dirs="${removed_dirs}$(dirname "$p")
+"
+            ;;
+        esac
+      done <<EOF
+$old_paths
+EOF
+
+      # Best-effort removal of now-empty skill dirs (deepest first, so a
+      # references/ subdir is removed before its parent skill dir). rmdir
+      # only succeeds on empty dirs, so this can never delete user content.
+      if [ -n "$removed_dirs" ]; then
+        local d
+        while IFS= read -r d; do
+          [ -n "$d" ] || continue
+          case "$d" in
+            .claude/skills/*) rmdir "$TARGET_DIR/$d" 2>/dev/null || true ;;
+          esac
+        done <<EOF
+$(printf '%s' "$removed_dirs" | grep -v '^$' | awk '{ print length, $0 }' | LC_ALL=C sort -rn | cut -d' ' -f2-)
+EOF
+      fi
+    fi
+  fi
+
+  # Write the new manifest (sorted, versioned header).
+  {
+    echo "# maul-team deploy manifest v${MANIFEST_VERSION}"
+    echo "# One target-relative path per line for every .claude/ file this"
+    echo "# deploy wrote. Used to prune stale framework files on the next"
+    echo "# deploy. Files outside .claude/ (docs/contracts schemas, design"
+    echo "# catalog) are intentionally NOT tracked here and never pruned."
+    echo "# Do not edit by hand."
+    printf '%s\n' "$new_paths"
+  } > "$manifest_file"
+  echo "  Wrote deploy manifest ($(printf '%s\n' "$new_paths" | grep -c . ) files): .claude/.maul-manifest"
+}
+prune_and_write_manifest
 
 echo ""
 echo "=== Setup complete ==="
@@ -450,5 +606,6 @@ echo "  .claude/agents/     — Agent definitions"
 echo "  .claude/skills/     — Skill definitions"
 echo "  .claude/hooks/      — Hook scripts"
 echo "  .claude/rules/      — Cross-cutting Scrum context loaded by every agent"
+echo "  .claude/docs/       — Framework prose cited by agents/skills (data-model, contracts, autonomous-mode)"
 echo "  docs/design/            — Design catalog and configuration"
 echo "  .claude/settings.json — Hook and status line configuration"

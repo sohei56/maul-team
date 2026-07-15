@@ -430,6 +430,18 @@ class TestFormatters:
         assert "[magenta]status[/magenta]" in line
         assert "refined → in_progress_design" in line
 
+    def test_event_line_stop_failure_rendered_red(self) -> None:
+        line = _format_event_line(
+            _evt(
+                "2026-06-12T10:00:00Z",
+                "dev-001-s1",
+                etype="stop_failure",
+                detail="Session failed: rate_limit",
+            )
+        )
+        assert "[red]failed[/red]" in line
+        assert "Session failed: rate_limit" in line
+
     def test_agent_color_is_stable_and_in_palette(self) -> None:
         from dashboard.app import _AGENT_PALETTE
 

@@ -16,16 +16,18 @@ setup() {
     pbi-escalation-handler
     pbi-merge
     cross-review
+    codebase-audit
     sprint-review
     retrospective
-    requirements-sprint
-    integration-sprint
+    requirement-definition
+    integration-tests
+    uat-release
     backlog-refinement
     change-process
     scaffold-design-spec
     smoke-test
-    design-completeness-check
     po-acceptance
+    create-brief
   )
 }
 
@@ -36,7 +38,7 @@ extract_frontmatter() {
   awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' "$file"
 }
 
-@test "all 17 skill directories contain SKILL.md" {
+@test "all 19 skill directories contain SKILL.md" {
   for skill in "${SKILL_NAMES[@]}"; do
     local skill_file="${PROJECT_ROOT}/skills/${skill}/SKILL.md"
     [ -f "$skill_file" ] || {

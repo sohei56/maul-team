@@ -1,0 +1,50 @@
+# CLA Assistant Lite — Contributor License Agreement gate.
+#
+# Every pull request must have all its commit authors covered by a signed
+# CLA before it can be merged. A contributor signs by posting the exact
+# comment below on their PR:
+#
+#     I have read the CLA Document and I hereby sign the CLA
+#
+# Signatures are appended to signatures/version1/cla.json on the
+# dedicated cla-signatures branch of this same repository (no PAT needed —
+# GITHUB_TOKEN can write a branch in the repo it runs in). Comment
+# "recheck" on a PR to re-run the check after a signature or allowlist
+# change. Allowlisted logins (the repo owner and bots) are never asked to
+# sign. CLA text: docs/CLA.md.
+
+name: CLA Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    name: CLA Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - name: CLA Assistant
+        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # Pinned to the commit SHA of the v2.6.1 tag so a moved tag cannot
+        # swap the action code underneath us (supply-chain hardening).
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: signatures/version1/cla.json
+          path-to-document: https://github.com/sohei56/maul-team/blob/main/docs/CLA.md
+          branch: cla-signatures
+          # Enumerated bots only — no *[bot] wildcard: anyone can register a
+          # GitHub App whose login ends in [bot], so a wildcard would let
+          # unsigned humans route contributions through a self-made bot to
+          # bypass the CLA.
+          allowlist: sohei56,dependabot[bot],github-actions[bot],claude[bot]

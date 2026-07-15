@@ -8,20 +8,12 @@ if [ "${_SCRUM_ERRORS_SH_LOADED:-}" = "1" ]; then
 fi
 _SCRUM_ERRORS_SH_LOADED=1
 
-# Exit codes — exported as readonly for callers that source this file.
-# shellcheck disable=SC2034  # constants are consumed by sourcing scripts/tests
-readonly E_OK=0
-# shellcheck disable=SC2034
-readonly E_INVALID_ARG=64
-# shellcheck disable=SC2034
-readonly E_SCHEMA=65
-# shellcheck disable=SC2034
-readonly E_LOCK_TIMEOUT=66
-# shellcheck disable=SC2034
-readonly E_FILE_MISSING=67
-# shellcheck disable=SC2034
-readonly E_NO_VALIDATOR=68
-
+# fail <E_NAME> <message...>
+# Prints `[scrum-tool] <E_NAME>: <message>` to stderr and exits with the
+# fixed code mapped below. Callers pass the name as a STRING (e.g.
+# `fail E_INVALID_ARG "bad status"`); this case map is the single source
+# of the name → exit-code binding (documented in
+# docs/MIGRATION-scrum-state-tools.md § Failure modes).
 fail() {
   local code_name="$1"; shift
   local msg="$*"
@@ -31,7 +23,6 @@ fail() {
     E_SCHEMA)       code=65 ;;
     E_LOCK_TIMEOUT) code=66 ;;
     E_FILE_MISSING) code=67 ;;
-    E_NO_VALIDATOR) code=68 ;;
     *)              code=1 ;;
   esac
   printf '[scrum-tool] %s: %s\n' "$code_name" "$msg" >&2
@@ -51,4 +42,47 @@ assert_hex_sha() {
   if [ "${#value}" -lt 7 ] || [ "${#value}" -gt 40 ]; then
     fail E_INVALID_ARG "$label length must be 7..40: $value"
   fi
+}
+
+# assert_pbi_id <value> [label]
+# Validates a pbi-NNN identifier. Fails E_INVALID_ARG otherwise. The optional
+# label customizes the error text (defaults to "pbi-id"); pass a flag name such
+# as "--parent" or "--pbi" at call sites that validate a flag argument.
+assert_pbi_id() {
+  local value="$1" label="${2:-pbi-id}"
+  case "$value" in
+    pbi-[0-9]*) ;;
+    *) fail E_INVALID_ARG "bad $label: $value" ;;
+  esac
+}
+
+# assert_sprint_id <value> [label]
+# Validates a sprint-NNN identifier. Fails E_INVALID_ARG otherwise. The optional
+# label customizes the error text (defaults to "sprint-id"); pass a flag name
+# such as "--sprint" or "--id" at call sites that validate a flag argument.
+# Mirrors assert_pbi_id.
+assert_sprint_id() {
+  local value="$1" label="${2:-sprint-id}"
+  case "$value" in
+    sprint-[0-9]*) ;;
+    *) fail E_INVALID_ARG "bad $label: $value" ;;
+  esac
+}
+
+# parse_json_string_array <label> <value>
+# Parse <value> as JSON, require an array of strings, and echo the compact form
+# (jq -ce) on success. On malformed JSON the wrapper fails E_INVALID_ARG
+# "<label>: not valid JSON: <value>"; on wrong shape it fails "<label>: must be
+# a JSON array of strings". <label> is the field name so each caller keeps its
+# field-specific error text. Used by set-backlog-item-field.sh (catalog_targets,
+# acceptance_criteria, design_doc_paths) and set-sprint-developer.sh (sub_agents).
+parse_json_string_array() {
+  local label="$1" value="$2" compact
+  if ! compact="$(printf '%s' "$value" | jq -ce '.')"; then
+    fail E_INVALID_ARG "$label: not valid JSON: $value"
+  fi
+  if ! printf '%s' "$compact" | jq -e 'type == "array" and all(.[]; type == "string")' >/dev/null; then
+    fail E_INVALID_ARG "$label: must be a JSON array of strings"
+  fi
+  printf '%s' "$compact"
 }

@@ -14,6 +14,17 @@ STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
 BACKLOG_FILE=".scrum/backlog.json"
 
+# Read the hook payload from stdin to learn which event fired. Claude Code only
+# honours SessionStart/PostCompact context returned under
+# hookSpecificOutput.additionalContext with a matching hookEventName; a bare
+# top-level additionalContext key is ignored. Default to SessionStart when the
+# payload is absent or unparseable.
+HOOK_PAYLOAD="$(cat 2>/dev/null || true)"
+HOOK_EVENT="$(printf '%s' "$HOOK_PAYLOAD" | jq -r '.hook_event_name // empty' 2>/dev/null || true)"
+if [ -z "$HOOK_EVENT" ]; then
+  HOOK_EVENT="SessionStart"
+fi
+
 # Build an autonomous-mode prologue to splice into additionalContext.
 # Returns empty string when not in autonomy mode (human-mode contract: zero
 # behaviour change). The prologue makes three things unambiguous to the lead
@@ -44,7 +55,14 @@ autonomous_prologue() {
 if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   phase="$(jq -r '.phase // "unknown"' "$STATE_FILE")"
   sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
-  product_goal="$(jq -r '.product_goal // "Not yet defined"' "$STATE_FILE")"
+  # product_goal SSOT is backlog.json (set by init-backlog.sh
+  # --product-goal); state.json's copy is vestigial and always null in
+  # wrapper-governed projects.
+  product_goal="Not yet defined"
+  if [ -f "$BACKLOG_FILE" ]; then
+    product_goal="$(jq -r '.product_goal // "Not yet defined"' "$BACKLOG_FILE" 2>/dev/null || true)"
+    [ -n "$product_goal" ] || product_goal="Not yet defined"
+  fi
 
   # Get Sprint Goal if sprint file exists
   sprint_goal="No active Sprint"
@@ -63,7 +81,7 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   fi
 
   # PBI Pipeline awareness: derive active pipelines from backlog.json (the
-  # 12-value status SSOT) so spawned sub-agents know which PBI(s) are in
+  # 13-value status SSOT) so spawned sub-agents know which PBI(s) are in
   # flight. Any status starting with `in_progress_` counts as active. Full
   # env propagation (SCRUM_PBI_ID) is not possible via this hook — sub-agent
   # prompts must include the PBI id explicitly.
@@ -81,18 +99,25 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
     context="${prologue} ${context}"
   fi
 
-  # Output additionalContext JSON
+  # Output additionalContext under hookSpecificOutput so Claude Code honours it.
   jq -n \
+    --arg event "$HOOK_EVENT" \
     --arg context "$context" \
     '{
-      "additionalContext": $context
+      "hookSpecificOutput": {
+        "hookEventName": $event,
+        "additionalContext": $context
+      }
     }'
 else
   # New project — no state yet
-  base_context="New project. No .scrum/state.json found. Begin by starting a Requirements Sprint to define the Product Goal and gather requirements."
+  base_context="New project. No .scrum/state.json found. Begin by starting a Requirement Definition to define the Product Goal and gather requirements."
   prologue="$(autonomous_prologue)"
   if [ -n "$prologue" ]; then
     base_context="${prologue} ${base_context}"
   fi
-  jq -n --arg context "$base_context" '{"additionalContext": $context}'
+  jq -n \
+    --arg event "$HOOK_EVENT" \
+    --arg context "$base_context" \
+    '{"hookSpecificOutput": {"hookEventName": $event, "additionalContext": $context}}'
 fi

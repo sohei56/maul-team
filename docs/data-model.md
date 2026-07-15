@@ -1,4 +1,4 @@
-# Data Model: AI-Powered Scrum Team
+# Data Model: Maul Team
 
 State persists as JSON files in `.scrum/`, one per concern. Owners write
 through `.scrum/scripts/*.sh` wrappers (raw `Write`/`Edit` is blocked by
@@ -16,7 +16,7 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `product_goal` | string | User-defined desired future state of the product |
+| `product_goal` | string \| null | Vestigial — seeded `null` by `init-state.sh` and never written by any wrapper; retained for schema compatibility. SSOT is `backlog.json.product_goal` |
 | `current_sprint_id` | string \| null | ID of the active Sprint, null if none |
 | `phase` | enum | Current workflow phase (see State Transitions) |
 | `created_at` | ISO 8601 string | Project creation timestamp |
@@ -26,22 +26,41 @@ from this repo's `scripts/scrum/` source by `setup-user.sh`.
 
 ```
 new -> requirements_sprint -> backlog_created -> sprint_planning
-  -> pbi_pipeline_active -> review -> sprint_review
-  -> retrospective -> sprint_planning (next Sprint)
-  -> integration_sprint -> backlog_created (defect-fix loop)
-                        -> complete
+  -> pbi_pipeline_active -> review -> sprint_review -> retrospective
+retrospective      -> backlog_created (next Sprint) -> sprint_planning
+retrospective      -> integration_sprint -> uat_release -> complete
+integration_sprint -> backlog_created (defect-fix loop)
+uat_release        -> backlog_created (UAT defect loop)
 ```
 
 Valid phases:
-- `new` — project just created, no work started
-- `requirements_sprint` — Requirements Sprint in progress
+- `new` — project just created, no work started. On a new project the
+  `scrum-start.sh` launcher co-authors `docs/product/brief.md`
+  (create-brief pre-flight, both modes) before Requirement Definition;
+  the brief is a pre-ceremony input, not a distinct phase.
+- `requirements_sprint` — Requirement Definition in progress (anchored on
+  `docs/product/brief.md`)
 - `backlog_created` — initial Product Backlog created, ready for first Development Sprint
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).
 - `review` — Sprint-end cross-review phase (`cross-review` skill)
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
-- `integration_sprint` — Integration Sprint in progress
+- `integration_sprint` — Integration Tests in progress. Opens with a
+  thin `codebase-audit` re-check (the whole-repo audit itself runs
+  every Sprint inside `cross-review`, non-blocking; this re-check just
+  verifies the latest audit report is fresh and no open Critical/High
+  `[codebase-audit:*]` PBI remains — unresolved → route back to
+  `backlog_created`), then design-driven systematic testing (boundary
+  values, flow-branch and pattern-branch coverage, external-interface
+  stubs) via the `integration-tests` skill. On passing tests the Scrum
+  Master advances to `uat_release`; on failures it returns to
+  `backlog_created` (defect-fix loop).
+- `uat_release` — UAT & Release in progress: user-story-driven UAT
+  and the go/no-go release decision via the `uat-release` skill.
+  Entered only after `integration_sprint` tests pass. Advances to
+  `complete` on a release go, or back to `backlog_created` when UAT
+  surfaces defects.
 - `complete` — product released
 
 ---
@@ -54,7 +73,7 @@ Valid phases:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `product_goal` | string | Duplicated from state for self-contained reads |
+| `product_goal` | string | SSOT for the Product Goal, written by `init-backlog.sh --product-goal` (state's copy is vestigial) |
 | `items` | PBI[] | Ordered list of Product Backlog Items |
 | `next_pbi_id` | integer | Auto-increment counter for PBI IDs |
 
@@ -68,17 +87,18 @@ Valid phases:
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"pbi-001"`) |
 | `title` | string | Short description (e.g., "User Management") |
-| `description` | string | Full description; coarse-grained when `draft`, detailed when `refined` |
+| `description` | string \| null | Full description; coarse-grained when `draft`, detailed when `refined`. `null` until set (`add-backlog-item.sh` writes `null` by default) |
 | `acceptance_criteria` | string[] | Testable conditions that define when the PBI is complete. Empty array when `draft`, non-empty when `refined` |
 | `status` | enum | Lifecycle state (see below) |
-| `priority` | integer | Order in backlog (1 = highest) |
+| `priority` | integer \| null | Order in backlog (lower = higher priority, 1 = highest by convention; schema permits 0). `null` until assigned (`add-backlog-item.sh` writes `null` by default) |
 | `sprint_id` | string \| null | Sprint this PBI is assigned to, null if in backlog |
 | `implementer_id` | string \| null | Developer teammate assigned to implement |
 | `design_doc_paths` | string[] | Paths to design documents relative to project root (catalog specs in `docs/design/specs/`, plus PBI working design at `.scrum/pbi/<pbi-id>/design/design.md`) |
 | `review_doc_path` | string \| null | Path to review results relative to project root |
 | `catalog_targets` | string[] | Catalog spec paths the PBI may touch. Recorded by `sprint-planning` skill; used to prevent parallel write contention (Layer 1 of `catalog-contention` defense). |
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
-| `ux_change` | boolean | Whether this PBI involves UX changes (determines live demo in FR-010) |
+| `ux_change` | boolean | Whether this PBI involves UX changes (determines the demo form in FR-010: UI walkthrough vs observable local check) |
+| `demo_plan` | string \| null | How the PBI is demonstrated locally at Sprint Review (start command, steps, local substitutes for cloud-only parts). Set during `backlog-refinement` (canonical: `skills/backlog-refinement/SKILL.md` Step 3.c2); `update-backlog-status.sh` refuses the transition into `refined` while empty for `kind=code` (`kind=docs` exempt). Consumed by `sprint-review` / `po-acceptance`. |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). Set during `backlog-refinement` (the Opus 3-axis OR rule is canonical in `skills/backlog-refinement/SKILL.md`). For how `kind=docs` reshapes the pipeline, see the **kind=docs override** subsection below (and `skills/pbi-pipeline/SKILL.md` § Stages). |
 | `created_at` | ISO 8601 string | Creation timestamp |
@@ -86,14 +106,14 @@ Valid phases:
 | `merged_sha` | string \| absent | Mirror of `pbi/<id>/state.json.merged_sha`; written by `mark-pbi-merged.sh` on the per-PBI merge into `main` |
 | `merged_at` | ISO 8601 string \| absent | Mirror of `pbi/<id>/state.json.merged_at`; written by `mark-pbi-merged.sh` |
 
-### State Transitions: `status` (12-value enum, actor-split)
+### State Transitions: `status` (13-value enum, actor-split)
 
 `status` is the sole SSOT for PBI lifecycle. Two actors own disjoint
 slices of the enum:
 
 ```
-SM-managed (7):  draft, refined, blocked, awaiting_cross_review,
-                 cross_review, escalated, done
+SM-managed (8):  draft, refined, blocked, awaiting_cross_review,
+                 cross_review, escalated, done, cancelled
 Dev-managed (5): in_progress_design, in_progress_impl,
                  in_progress_pbi_review, in_progress_ut_run,
                  in_progress_merge
@@ -110,22 +130,38 @@ ASCII transition graph:
         ↓                          │ FAIL
 [Dev] in_progress_pbi_review ──────┤  (codex-impl-reviewer + codex-ut-reviewer)
         ↓ PASS                     │
-[Dev] in_progress_ut_run ──────────┘ FAIL  (real test execution + coverage gate)
-        ↓ PASS
+[Dev] in_progress_ut_run ──────────┘ FAIL  (real test execution + coverage gate;
+        ↓ PASS                              this FAIL edge also carries Integrity reverts)
+        ↓ [Integrity stage — per-PBI 5-aspect gate at the Round tail, before
+        ↓  ready-to-merge. Critical/High → revert to in_progress_impl via the
+        ↓  in_progress_ut_run FAIL edge above, bounded by the impl_round hard cap]
 [Dev] in_progress_merge            (Developer signals "ready for merge")
         ↓ SM picks up, runs merge-pbi.sh
         ↓ merge PASS
 [SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
-        ↓ Sprint-end SM invokes cross-review skill
-[SM]  cross_review ── FAIL → [Dev] in_progress_impl  (Developer fixes on top of merged code)
-        ↓ PASS
+        ↓ Sprint-end SM invokes cross-review skill (whole-repo 4-axis codebase audit)
+[SM]  cross_review                 (audit-only; non-blocking, never reverts a PBI)
+        ↓ audit files Critical/High findings as next-Sprint draft PBIs
 [SM]  done
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
   in_progress_merge       → [SM] escalated  (SM merge failed)
-  [SM] escalated → [Dev] in_progress_design  (SM retry; round counters reset)
-  [SM] escalated → [SM] blocked              (SM hold / human-escalate)
+  [SM] escalated → [Dev] in_progress_design  (SM retry, kind=code; round
+                                              counters reset. kind=docs
+                                              retries to in_progress_impl —
+                                              see kind=docs override below)
+  [SM] escalated → [SM] escalated            (SM hold / human-escalate:
+                                              no transition — the PBI stays
+                                              escalated until the condition
+                                              clears, then SM resumes it)
+  [SM] escalated → [SM] blocked              (SM parks the PBI on an external
+                                              dependency — blocked is only
+                                              for hold-and-resume)
   [SM] blocked   → [Dev] in_progress_design  (external blocker resolved)
+
+  [SM] {draft, refined, escalated, blocked} → [SM] cancelled
+       (terminal: PBI merged into another PBI, or no longer needed —
+        e.g. the escalation-handler "abandon" verdict)
 ```
 
 **kind=docs override:** when `items[].kind == "docs"`, the pipeline
@@ -138,11 +174,13 @@ skips `in_progress_design` and `in_progress_ut_run` entirely:
         ↓                           │ FAIL
 [Dev] in_progress_pbi_review ───────┘   (codex-impl-reviewer only)
         ↓ PASS
+        ↓ [Integrity stage — aspects 1 (req-conformance) + 5 (docs-consistency)
+        ↓  only; Critical/High → revert to in_progress_impl]
 [Dev] in_progress_merge             (mark-pbi-ready-to-merge enforces
                                       paths_touched ⊆ **/*.md; violation
                                       → escalated(kind_mismatch))
         ↓ (per-PBI merge)
-[SM]  awaiting_cross_review → cross_review → done
+[SM]  awaiting_cross_review → cross_review → done   (Sprint-end audit; non-blocking)
 ```
 
 The two retry paths (`escalated → in_progress_design` retry, `blocked
@@ -167,14 +205,23 @@ State descriptions:
 - `in_progress_pbi_review` — Per-PBI Round review: `codex-impl-reviewer` + `codex-ut-reviewer` evaluating; FAIL loops back to `in_progress_impl`.
 - `in_progress_ut_run` — Real test execution + coverage gate; FAIL loops back to `in_progress_impl`.
 - `in_progress_merge` — Developer has signalled ready-for-merge (`mark-pbi-ready-to-merge.sh`); SM is about to run `merge-pbi.sh`.
-- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` skill.
-- `cross_review` — Sprint-end `cross-review` skill running for this PBI.
-- `done` — Cross-review PASS. Definition of Done (FR-017) met.
+- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` ceremony (now a whole-repo 4-axis codebase audit).
+- `cross_review` — Sprint-end `cross-review` ceremony running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
+- `done` — Sprint-end ceremony complete. The PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
 - `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
-- `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears.
+- `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears. **Not** for PBIs that will never resume — those go to `cancelled`.
+- `cancelled` — SM-decided terminal state: the PBI was merged into another PBI, superseded, or is no longer needed (including the `pbi-escalation-handler` **abandon** verdict). No outbound transitions. Completion gates and Sprint carry-over treat `cancelled` like `done` (no remaining work), but it is never counted as delivered.
 
 ### Validation Rules
-- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — Sprint-end review is performed by the Scrum Master via independent reviewer sub-agents (see `cross-review` skill, FR-009 Layer 2).
+
+These are **orchestration-enforced policy**, upheld by the SM / skill
+flow (`sprint-planning`, `backlog-refinement`) — **not** by the SSOT
+wrappers or the JSON Schema. `update-backlog-status.sh` and
+`set-backlog-item-field.sh` accept any schema-valid value and do not
+check these cross-field invariants; a caller that skips the ceremony
+can violate them without a wrapper error.
+
+- `implementer_id` is set only when `status` is `refined` or later. There is no `reviewer_id` field — the per-PBI aspect review is spawned by the Developer conductor inside `pbi-pipeline` (the Integrity stage), and the Sprint-end whole-repo audit is owned by the Scrum Master (see the `cross-review` / `codebase-audit` skills, FR-009).
 - `design_doc_paths` is populated when design documents are produced (before `in_progress`).
 - `acceptance_criteria` MUST be non-empty when transitioning from `draft` to `refined`.
 - `depends_on_pbi_ids` is used by the Scrum Master to avoid placing dependent PBIs in the same Sprint (FR-008).
@@ -194,8 +241,8 @@ State descriptions:
 |-------|------|-------------|
 | `id` | string | Unique identifier (e.g., `"sprint-001"`) |
 | `goal` | string \| null | Sprint Goal text |
-| `base_sha` | string \| null | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Set once by `freeze-sprint-base.sh`; never re-written. |
-| `base_sha_captured_at` | ISO 8601 string \| null | When `base_sha` was captured (set by `freeze-sprint-base.sh`). |
+| `base_sha` | string \| absent | Captured `git rev-parse HEAD` at Sprint start (hex sha, 7-40 chars). PBI worktrees fork from this commit. Non-required in the schema and omitted by the writer until freeze; set once by `freeze-sprint-base.sh`, never re-written (not nullable — absent, not `null`, before capture). |
+| `base_sha_captured_at` | ISO 8601 string \| absent | When `base_sha` was captured (set by `freeze-sprint-base.sh`). Non-required; absent until freeze. |
 | `type` | enum | `"development"` or `"integration"` |
 | `status` | enum | `"planning"`, `"active"`, `"cross_review"`, `"sprint_review"`, `"complete"`, `"failed"` |
 | `developers` | Developer[] | Active Developer teammate definitions. Sprint PBI membership is derived from `backlog.items[]` where `sprint_id == sprint.id`; the developer count is `developers \| length`. (The legacy `pbi_ids` / `developer_count` fields were removed in the OD-4 single-source pass; pre-existing files retaining them keep validating because `sprint.schema.json.additionalProperties` is `true`, but no reader consults them.) |
@@ -213,9 +260,8 @@ State descriptions:
 | `status` | enum | `"active"` or `"failed"` (the dashboard renders `"unknown"` when no entry exists; not a writable value) |
 | `sub_agents` | string[] | Names of specialist sub-agents actually invoked via the Task tool (runtime-populated, not candidates) |
 
-> **Note**: The legacy `current_pbi_phase` field was removed in v2. The
-> Developer's current PBI status is derived from
-> `backlog.json.items[<current_pbi>].status` (12-value enum) — single
+> **Note**: The Developer's current PBI status is derived from
+> `backlog.json.items[<current_pbi>].status` (13-value enum) — single
 > source of truth, no mirror field to drift.
 
 ---
@@ -223,8 +269,8 @@ State descriptions:
 ## Entity: SprintHistory
 
 **File**: `.scrum/sprint-history.json`
-**Owner**: Scrum Master (append-only)
-**Readers**: Textual dashboard app, statusline.sh
+**Owner**: Scrum Master (append-only, via `append-sprint-history.sh`)
+**Readers**: Textual dashboard app, statusline.sh, `completion-gate.sh` (sprint_review exit criterion), `watchdog.sh` (max_sprints)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -266,17 +312,23 @@ State descriptions:
 | `created_at` | ISO 8601 string | When recorded |
 | `archived_at` | ISO 8601 string \| null | When archived (during consolidation) |
 | `dec_id` | string \| absent | Optional `dec-NNNN` link to a `po-decisions.json` record. Set by `append-improvement.sh --dec-id` in `po_mode=agent` when the entry derives from a PO decision; omitted otherwise. |
-| `category` | string \| absent | **Deprecated legacy field.** Retained in `improvements.schema.json` for backward compatibility with pre-existing entries; no writer emits it (`append-improvement.sh` never sets it). Do not populate in new entries. |
+
+> **Note**: the legacy `category` field was removed from
+> `improvements.schema.json` (commit e1958ec). Because the schema sets
+> `additionalProperties: false`, any entry that still carries `category`
+> now **fails** validation. See
+> `docs/MIGRATION-scrum-state-tools.md`.
 
 ### Validation Rules
-- Consolidation is designed to occur every 3 Sprints (FR-012) but is
-  **not yet implemented**: `consolidate-improvements.sh` does not
-  exist, so no writer currently sets `status: "archived"` /
-  `archived_at` or bumps `last_consolidation_sprint`. Entries
-  accumulate until the wrapper lands. See
-  `docs/MIGRATION-scrum-state-tools.md` § Known gaps.
-- Archived entries (once consolidation lands) are retained but not
-  shown to Developers.
+- Consolidation runs every 3 Sprints (FR-012) via
+  `consolidate-improvements.sh --sprint <sprint-id>
+  [--archive imp-NNNN]...`: the Retrospective ceremony decides which
+  active entries are stale, and the wrapper executes that decision —
+  flipping each named entry to `status: "archived"` with an
+  `archived_at` stamp and bumping `last_consolidation_sprint` — in one
+  atomic, schema-validated write. Zero `--archive` flags is valid
+  ("reviewed, nothing stale": bumps the marker alone).
+- Archived entries are retained but not shown to Developers.
 
 ---
 
@@ -284,12 +336,12 @@ State descriptions:
 
 **File**: `docs/requirements.md`
 **Format**: Markdown (not JSON — human-readable document)
-**Owner**: Scrum Master (write once during Requirements Sprint)
+**Owner**: Scrum Master (write once during Requirement Definition)
 **Readers**: All Developer teammates, Integration Sprint
 **Persistence**: Committed to repo (not runtime state)
 
 This is the single source of truth for what the product must do. Produced
-during the Requirements Sprint (FR-002). Frozen during Development Sprints
+during the Requirement Definition (FR-002). Frozen during Development Sprints
 (FR-020). Changes follow the Change Process (FR-016). Lives outside
 `.scrum/` because the document outlives any single Sprint and must
 survive across machine/clone boundaries.
@@ -305,7 +357,7 @@ survive across machine/clone boundaries.
 
 Controls which design spec types are active for the project. The full list
 of recognized document types lives in `docs/design/catalog.md` (read-only,
-managed in claude-scrum-team). This config file is the only editable part.
+managed in maul-team). This config file is the only editable part.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -347,6 +399,7 @@ and enabled in the config. Files follow the naming convention
 | quality | S-050 Test Strategy | `quality/S-050-test-strategy.md` |
 | decision-records | D-001 Architecture Decision Record | `decision-records/D-001-auth-api-choice.md` |
 | operations | S-060 Migration / Upgrade | `operations/S-060-v2-migration.md` |
+| technology | S-070 Library Specification | `technology/S-070-axios.md` |
 | docs | D-011 README / Feature Documentation | `docs/D-011-readme.md` |
 
 ### YAML Frontmatter
@@ -436,9 +489,9 @@ with the work events from `.scrum/dashboard.json`.
 | `sender_id` | string | Agent ID of the sender (e.g., `"scrum-master"`, `"dev-001-s3"`) |
 | `sender_role` | enum | Sender role. SSOT: `communications.schema.json`. Allowed values: `"scrum-master"`, `"developer"`, `"teammate"`, `"sub-agent"`, `"coordinator"`, `"system"` (lowercase-hyphenated; free-form title-case strings fail validation) |
 | `recipient_id` | string \| null | Agent ID of the recipient; null = broadcast to all |
-| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"message"`, `"report"`, `"review"`, `"escalation"`, `"info"`. The enum mirrors `dashboard.events[].type` (past-tense convention). Hooks emit `message` (SendMessage), `agent_spawn`, and `progress_update`; the remaining kinds are available to manual `append-communication.sh` callers. (The legacy `"status_change"` value was dropped from the schema — `"status_transition"` is the canonical past-tense form; no writer ever emitted `"status_change"`.) |
+| `type` | enum | Message type. SSOT: `docs/contracts/scrum-state/communications.schema.json`. Allowed values: `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"agent_spawn"`, `"progress_update"`, `"message"`, `"report"`, `"review"`, `"escalation"`, `"info"`. Shares the past-tense-verb convention of `dashboard.events[].type` but is a distinct, larger enum (that one is a smaller 7-value set — the two are not identical). Hooks (`hooks/dashboard-event.sh`) emit `message` (SendMessage), `agent_spawn`, and `progress_update`; the remaining kinds are schema-allowed but not currently emitted by any writer. |
 | `content` | string | Human-readable message summary |
-| `pbi_id` | string \| absent | Optional `pbi-NNN` link to the PBI the message concerns. Set by `append-communication.sh --pbi`; omitted otherwise. |
+| `pbi_id` | string \| absent | Optional `pbi-NNN` link to the PBI the message concerns. Set by the writer (`hooks/dashboard-event.sh`) when the message concerns a PBI; omitted otherwise. |
 
 ### Rules
 - Messages are appended by hook scripts (`hooks/dashboard-event.sh`) when
@@ -471,7 +524,7 @@ and the status line for real-time agent activity.
 | Field | Type | Description |
 |-------|------|-------------|
 | `timestamp` | ISO 8601 string | When the event occurred |
-| `type` | enum | Event type: `"task_completed"`, `"teammate_idle"`, `"file_changed"`, `"tool_use"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"test_run"`, `"review_verdict"` |
+| `type` | enum | Event type (SSOT: `dashboard.schema.json`): `"file_changed"`, `"status_transition"`, `"subagent_start"`, `"subagent_stop"`, `"task_completed"`, `"teammate_idle"`, `"stop_failure"` |
 | `agent_id` | string \| null | Developer or agent ID that triggered the event |
 | `pbi_id` | string \| null | Related PBI ID, if applicable |
 | `file_path` | string \| null | Absolute or relative file path (populated when `type` is `"file_changed"`) |
@@ -510,20 +563,30 @@ Levels: `INFO`, `WARN`, `ERROR`.
 ## Entity: TestResults
 
 **File**: `.scrum/test-results.json`
-**Owner**: Developer teammates (write during Integration Sprint)
+**Owner**: Developer teammates (write during Integration Tests via
+  `record-test-result.sh`)
 **Readers**: Scrum Master (quality gate), completion-gate.sh, Textual dashboard app
+**Schema**: `docs/contracts/scrum-state/test-results.schema.json`
 
-Tracks automated test execution results during the Integration Sprint.
+Tracks automated test execution results during Integration Tests.
 Written by Developer teammates running the `smoke-test` skill and then
-the `design-completeness-check` skill (which appends a
-`design_completeness` TestCategory and recomputes `overall_status`).
-The Scrum Master blocks UAT until the combined `overall_status` is
-`"passed"` or `"passed_with_skips"`.
+the `integration-tests` skill (which appends `integration_api` /
+`integration_ui` / `design_coverage` / `manual_probe` TestCategories
+and recomputes `overall_status`). All writes go through
+`record-test-result.sh`, which upserts by category `name` (a suite
+re-run replaces its same-named category, so the release gate sees
+fresh counts), creates the file on first call, and recomputes
+`overall_status` on every call. The `completion-gate.sh` hook blocks
+the `integration_sprint` phase until the combined `overall_status` is
+`"passed"` or `"passed_with_skips"`; it re-checks the same field on
+`uat_release` exit to catch a regression introduced by a defect-fix
+Sprint, and separately requires the `uat-release` skill's per-Sprint
+UAT stories file before allowing that phase to end.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `categories` | TestCategory[] | Results per test category |
-| `overall_status` | enum | `"pending"`, `"running"`, `"passed"`, `"passed_with_skips"`, `"failed"` |
+| `overall_status` | enum | `"running"`, `"passed"`, `"passed_with_skips"`, `"failed"` (`"running"` is the pre-first-record transient) |
 | `started_at` | ISO 8601 string | When testing began |
 | `updated_at` | ISO 8601 string | Last update timestamp |
 
@@ -531,8 +594,8 @@ The Scrum Master blocks UAT until the combined `overall_status` is
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | enum | `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"design_completeness"` |
-| `status` | enum | `"pending"`, `"running"`, `"passed"`, `"failed"`, `"skipped"` |
+| `name` | string | Non-empty category name, unique within `categories` (a re-run replaces the same-named entry). Conventional values: `"unit"`, `"integration"`, `"e2e"`, `"smoke"`, `"regression"`, `"browser"`, `"integration_api"`, `"integration_ui"`, `"design_coverage"`, `"manual_probe"` — the schema constrains only `minLength: 1`, not an enum |
+| `status` | enum | `"passed"`, `"failed"`, `"skipped"` |
 | `total` | integer | Total number of tests |
 | `passed` | integer | Tests that passed |
 | `failed` | integer | Tests that failed |
@@ -549,13 +612,18 @@ The Scrum Master blocks UAT until the combined `overall_status` is
 | `message` | string | Error message or failure reason |
 
 ### Rules
-- Created by Developer teammates during the Integration Sprint via the
-  `smoke-test` skill, then extended by the `design-completeness-check`
-  skill which appends a `design_completeness` TestCategory and
-  recomputes `overall_status` in place.
-- The `completion-gate.sh` hook blocks session stop during `integration_sprint` phase unless `overall_status` is `"passed"` or `"passed_with_skips"`.
-- The Scrum Master reads this file and gates UAT on the combined
-  `overall_status` (smoke-test categories + `design_completeness`).
+- Created by Developer teammates during Integration Tests via the
+  `smoke-test` skill, then extended by the `integration-tests` skill,
+  which appends `integration_api` / `integration_ui` / `design_coverage`
+  / `manual_probe` TestCategories and recomputes `overall_status` in
+  place.
+- The `completion-gate.sh` hook blocks session stop during the
+  `integration_sprint` phase unless `overall_status` is `"passed"` or
+  `"passed_with_skips"`, and blocks `uat_release` if a later re-run has
+  regressed `overall_status` back to `"failed"`.
+- The Scrum Master reads this file and gates the transition to
+  `uat_release` on the combined `overall_status` (smoke-test +
+  integration-tests categories).
 - Categories with `status: "skipped"` do not block the overall status.
 
 ---
@@ -564,12 +632,15 @@ The Scrum Master blocks UAT until the combined `overall_status` is
 
 **File**: `.scrum/reviews/<pbi-id>-review.md`
 **Format**: Markdown
-**Owner**: Assigned Reviewer (write)
-**Readers**: Implementer, Scrum Master
+**Owner**: Developer conductor (`pbi-pipeline` Integrity stage; write)
+**Readers**: `hooks/quality-gate.sh` (DoD gate), Scrum Master
 
-Cross-review results for a PBI. Created during the Sprint-end Review phase
-(FR-009). Per-PBI pipeline reviews live separately under
-`.scrum/pbi/<pbi-id>/{impl,ut}/review-r{n}.md`.
+Consolidated per-PBI Integrity review, authored by the Developer conductor
+at the Integrity stage (the final gate before ready-to-merge; FR-009). It
+embeds each aspect reviewer's markdown verdict for this PBI's increment.
+The Sprint-end whole-repo audit report is a separate artifact at
+`.scrum/reviews/codebase-audit-s{N}.md`. Per-PBI codex pipeline reviews
+live separately under `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{n}.md`.
 
 ---
 
@@ -586,28 +657,29 @@ context.
 | Field | Type | Description |
 |-------|------|-------------|
 | `pbi_id` | string | PBI identifier (matches `backlog.json.items[].id`) |
-| `design_round` | integer | Current/last design Round (1..5; 0 before first) |
-| `impl_round` | integer | Current/last impl+UT Round (1..5; 0 before first) |
-| `design_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
+| `design_round` | integer | Current/last design Round (0 before first Design Round; 1..5, no remediation latch — schema maximum 5) |
+| `impl_round` | integer | Current/last impl+UT Round (0 before first; 1..5 normal, plus at most one technical-error remediation Round → absolute bound 6. See `skills/pbi-pipeline/references/termination-gates.md`) |
+| `design_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
 | `impl_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
-| `ut_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
-| `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"` |
+| `ut_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` is schema-allowed but never written — a kind=docs PBI keeps `"pending"`) |
+| `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
 | `escalation_reason` | enum \| null | Set when `backlog.json.items[].status == escalated`. See enum below. |
-| `branch` | string \| null | Worktree branch name (`pbi/<id>`) |
-| `worktree` | string \| null | Worktree path (`.scrum/worktrees/<pbi-id>/`) |
-| `base_sha` | string \| null | Sprint base SHA inherited at worktree creation |
-| `head_sha` | string \| null | Latest commit SHA on `pbi/<id>` |
+| `branch` | string \| absent | Worktree branch name (`pbi/<id>`). Absent until set; schema rejects null |
+| `worktree` | string \| absent | Worktree path (`.scrum/worktrees/<pbi-id>`, no trailing slash — the schema pattern rejects one). Absent until set; schema rejects null |
+| `base_sha` | string \| absent | Sprint base SHA inherited at worktree creation. Absent until set; schema rejects null |
+| `head_sha` | string \| absent | Latest commit SHA on `pbi/<id>`. Absent until set; schema rejects null |
 | `paths_touched` | string[] | Files modified by the PBI (used by `merge-pbi.sh` verification) |
-| `ready_at` | ISO 8601 string \| null | Timestamp the Developer signalled ready-for-merge |
-| `merged_sha` | string \| null | Merge commit SHA on main |
-| `merged_at` | ISO 8601 string \| null | Merge completion timestamp |
-| `merge_failure` | object \| null | `{kind, paths, pre_head_at_failure}` when most recent merge failed |
+| `ready_at` | ISO 8601 string \| absent | Timestamp the Developer signalled ready-for-merge. Absent until set; schema rejects null |
+| `merged_sha` | string \| absent | Merge commit SHA on main. Absent until set; schema rejects null |
+| `merged_at` | ISO 8601 string \| absent | Merge completion timestamp. Absent until set; schema rejects null |
+| `merge_failure` | object \| absent | `{kind, paths, pre_head_at_failure}` when most recent merge failed. Absent when no failure (schema rejects null; the field is removed via `del()`, not nulled, on the next success) |
 | `merge_failure_count` | integer | Consecutive merge failures (resets on success; ≥3 → status `escalated`) |
+| `websearch_attempted` | boolean \| absent | Once-per-PBI latch. When a web-searchable technical error recurs across 2 consecutive impl Rounds, the Developer **conductor** runs `WebSearch` and pastes the findings into the next Round's feedback file, then sets this `true` so at most one remediation Round is spent per PBI. Never reset within a PBI lifecycle. See `skills/pbi-pipeline/references/termination-gates.md` § Technical-error recurrence |
 | `started_at` | ISO 8601 string | PBI pipeline start timestamp |
 | `updated_at` | ISO 8601 string | Last state mutation timestamp |
 
 > **Note**: The legacy `phase` field was removed in v2. Lifecycle is
-> driven by `backlog.json.items[].status` (12-value enum, see PBI
+> driven by `backlog.json.items[].status` (13-value enum, see PBI
 > entity above).
 
 `escalation_reason` enum:
@@ -617,14 +689,15 @@ stagnation | divergence | max_rounds | budget_exhausted |
 requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
 catalog_lock_timeout |
 reviewer_unavailable | stale_review_snapshot |
-merge_conflict | merge_artifact_missing | merge_regression
+merge_conflict | merge_artifact_missing | merge_regression |
+kind_mismatch
 ```
 
 ### Companion artifacts (under `.scrum/pbi/<pbi-id>/`)
 
 | Path | Purpose |
 |------|---------|
-| `design/design.md` | Primary design artifact authored by `pbi-designer` |
+| `design/design.md` | Primary design artifact authored by `pbi-designer` (includes the `Library Selection` section) |
 | `design/review-r{n}.md` | `codex-design-reviewer` output per Round |
 | `impl/review-r{n}.md` | `codex-impl-reviewer` output per Round |
 | `impl/summary.md` | Final-Round impl summary (file list, change summary) |
@@ -635,19 +708,26 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `metrics/pragma-audit-r{n}.json` | Pragma exclusion audit (see `docs/contracts/pragma-audit-rN.schema.json`) |
 | `feedback/impl-r{n+1}.md` | Aggregated feedback for next-round `pbi-implementer` |
 | `feedback/ut-r{n+1}.md` | Aggregated feedback for next-round `pbi-ut-author` |
-| `pipeline.log` | Append-only event log: `<ISO8601>\t<phase>\t<round>\t<event>\t<detail>` |
+| `pipeline.log` | Append-only event log: `<ISO8601>\t<stage>\t<round>\t<event>\t<detail>`. `<stage>` is the fixed coarse set `init\|design\|pbi_review\|ut_run\|complete\|escalated` enforced by `append-pbi-log.sh` — not the 13-value backlog status enum |
 | `escalation-resolution.md` | SM decision recorded by `pbi-escalation-handler` (only on escalation) |
 
 ### Companion lock directory
 
 | Path | Purpose |
 |------|---------|
-| `.scrum/locks/catalog-<spec_id>.lock` | `flock(2)` target used by `pbi-designer` to serialize catalog spec writes across parallel PBIs (Layer 2 of `catalog-contention` defense). 60s timeout → `escalation_reason: catalog_lock_timeout`. |
+| `.scrum/locks/catalog-<spec_id>.lock.d` | `mkdir` lock directory used by `pbi-designer` to serialize catalog spec writes across parallel PBIs (Layer 2 of `catalog-contention` defense). 60s timeout → `escalation_reason: catalog_lock_timeout`. |
 
 ### Rules
 
 - The conductor MUST update `state.json` atomically (temp file + rename).
-- Backlog `status: in_progress_merge` requires all four `*_status` fields to be `"pass"`.
+- Backlog `status: in_progress_merge`: for a kind=code PBI the conductor
+  advances here only after all four `*_status` fields read `"pass"` — a
+  pipeline **convention checked by the conductor, not machine-enforced**.
+  `mark-pbi-ready-to-merge.sh` validates only that commits exist beyond
+  base and records `paths_touched` / `head_sha` / `ready_at`; it does not
+  inspect the `*_status` fields. A kind=docs PBI reaches this status with
+  `design_status` and `coverage_status` = `"skipped"` and `ut_status` =
+  `"pending"` instead.
 - Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing`, `regression` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`, `merge_regression`).
 - `coverage_status: pending` is permanent when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate.
 
@@ -676,7 +756,7 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `autonomous` | object \| absent | Watchdog (Ralph-Loop) settings; populated by `scrum-start.sh --autonomous`. |
 | `autonomous.max_iterations` | integer ≥ 1 | Hard cap on outer-loop iterations (default 50). |
 | `autonomous.max_wall_clock_hours` | number ≥ 0 | Hard cap on wall-clock from `started_at` (default 8). |
-| `autonomous.max_sprints` | integer ≥ 1 | Watchdog stops once `sprint-history.sprints.length` reaches this (default 8). |
+| `autonomous.max_sprints` | integer ≥ 1 | Sprints to run per launch, counted from the startup baseline (`autonomy.json.sprint_baseline`): the watchdog stops once `sprint-history.sprints.length` reaches `baseline + max_sprints` (default 8). |
 | `autonomous.max_consecutive_failures` | integer ≥ 1 | Consecutive zero-progress iterations before the watchdog gives up (default 3). |
 | `autonomous.stop_block_budget_per_phase` | integer ≥ 1 | Per workflow phase, how many times `completion-gate.sh` may block exit before tripping the circuit breaker (default 8). |
 | `autonomous.permission_mode` | enum (`"dontAsk"` \| `"bypassPermissions"`) | Passed to `claude -p --permission-mode` (default `"dontAsk"`). |
@@ -685,6 +765,7 @@ merge_conflict | merge_artifact_missing | merge_regression
 | `stall_watchdog` | object \| absent | Settings for the external teammate-stall monitor `scripts/stall-watchdog.sh` (non-autonomous mode only). |
 | `stall_watchdog.enabled` | boolean | When `false`, the daemon exits without nudging. Default `true`. |
 | `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Idle window (no `.scrum/dashboard.json` mtime AND no `.scrum/pbi/*/` mtime change) after which a nudge is sent. Default 15. |
+| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to `idle_threshold_minutes`. |
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
@@ -705,7 +786,7 @@ documents them and is copied verbatim by `setup-user.sh`).
   resolves to the human.
 - The PO **cannot** mutate this file (`pre-tool-use-path-guard.sh`
   fences PO writes to `docs/product/**` and `.scrum/po/**`); the
-  engineering-quality keys (`coverage`, `merge_regression`,
+  engineering-quality keys (`coverage_tool`, `merge_regression`,
   `path_guard`, cross-review routing) are SM/engineering territory.
 
 ---
@@ -726,6 +807,7 @@ documents them and is copied verbatim by `setup-user.sh`).
 | `started_at` | ISO 8601 string | When the watchdog booted this run. |
 | `lead_session_id` | string \| `null` | Session id issued by the watchdog for the current `claude -p` iteration. `is_lead_session()` compares against this to gate the autonomous Stop-hook extension. |
 | `watchdog_pid` | integer \| `null` | PID of the live Ralph-Loop watchdog, set at watchdog startup and cleared on clean exit. `autonomy_loop_active()` checks `kill -0 watchdog_pid` so the autonomous Stop-block policy applies only while a watchdog is actually driving the loop; otherwise the gate degrades to human-mode behaviour. |
+| `sprint_baseline` | integer ≥ 0 \| absent | `sprint-history.sprints.length` captured at watchdog startup. `autonomous.max_sprints` is measured relative to this baseline (the watchdog stops once history reaches `sprint_baseline + max_sprints`), not cumulatively. Absent on a fresh `scrum-start.sh --autonomous` init; the watchdog captures and persists it on first startup and preserves it on resume. |
 | `iteration` | integer ≥ 0 | Current outer-loop iteration counter (0 before the first iteration). |
 | `total_cost_usd` | number ≥ 0 | Cumulative `total_cost_usd` summed from each `iter-<N>.json` output. |
 | `stop_blocks` | object `{phase, count}` | Stop-block counter for the current workflow phase. Reset to `{phase, 1}` on phase change by `bump_stop_block_counter`. |
@@ -735,13 +817,16 @@ documents them and is copied verbatim by `setup-user.sh`).
 
 ### Rules
 
-- **No wrapper script.** Unlike every other file in `.scrum/`,
-  writes go through library helpers in `hooks/lib/autonomy.sh`
-  (`bump_stop_block_counter`, `record_circuit_breaker`,
-  `autonomy_atomic_write` in the watchdog) — there is no
-  `.scrum/scripts/*.sh` for `autonomy.json`. The schema is
-  enforced by the watchdog on rotation, not per call; the runtime
-  hot-path is latency-sensitive.
+- **No wrapper script.** Writes go through library helpers in
+  `hooks/lib/autonomy.sh` (`bump_stop_block_counter`,
+  `record_circuit_breaker`, `autonomy_atomic_write` in the
+  watchdog) — there is no `.scrum/scripts/*.sh` for `autonomy.json`.
+  This is not a lone exception: several `.scrum/` files are hook- or
+  launcher-written rather than wrapper-written. The canonical
+  per-file writer table is
+  `docs/contracts/scrum-state/README.md`. The schema is enforced by
+  the watchdog on rotation, not per call; the runtime hot-path is
+  latency-sensitive.
 - **Agent writes blocked.** Direct Write/Edit by any agent is
   rejected by `pre-tool-use-scrum-state-guard.sh`; the only
   permitted writers are the hook process and the watchdog
@@ -847,8 +932,8 @@ allow exit. Phase change or fingerprint change resets
 ### Rules
 
 - **Human mode only.** In autonomous mode the Stop hook bypasses
-  the ledger entirely so the Ralph-Loop watchdog's "block on every
-  Stop while condition holds" contract is preserved.
+  the ledger entirely (no dedup is wanted there), so the file is
+  never created in that mode.
 - **No wrapper script.** Like `autonomy.json`, writes go through
   a hook-side library (`stop_gate_check_and_bump` in
   `hooks/lib/stop-gate-state.sh`) — there is no
@@ -860,11 +945,11 @@ allow exit. Phase change or fingerprint change resets
 - **Fail-open toward block.** Any I/O / JSON failure path emits
   `FIRST` (verbose block) rather than `REPEAT` so the gate is
   never silently muted by a corrupted ledger.
-- **In `pbi_pipeline_active` (human mode)** the gate only blocks
-  on unresolved `escalated` PBIs. In-flight `in_progress_*` PBIs
-  do not trigger a block at all — teammate liveness is monitored
-  by `scripts/stall-watchdog.sh` instead.
 - Schema: `docs/contracts/scrum-state/stop-gate.schema.json`.
+- The Stop-hook block policy this ledger implements (human-mode
+  fingerprint-dedup vs the autonomous circuit breaker, and the
+  `pbi_pipeline_active` escalated-only rule) is specified in
+  [agent-interfaces.md](contracts/agent-interfaces.md) § Stop Hook.
 
 ---
 
@@ -917,7 +1002,7 @@ backlog.json
   └── items[].implementer_id -> sprint.json.developers[].id
   └── items[].design_doc_paths[] -> docs/design/specs/{category}/{id}-{slug}.md
                                   | .scrum/pbi/<pbi-id>/design/design.md
-  └── items[].review_doc_path -> reviews/<pbi-id>-review.md
+  └── items[].review_doc_path -> .scrum/reviews/<pbi-id>-review.md
   └── items[].catalog_targets[] -> docs/design/specs/{category}/{id}-{slug}.md
   └── items[].parent_pbi_id -> items[].id (self-reference)
   └── items[].depends_on_pbi_ids[] -> items[].id (cross-reference)

@@ -23,16 +23,17 @@ teardown() {
 
 @test "session-context.sh outputs valid JSON for new project" {
   # No .scrum/ directory — brand-new project
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
 
   # Output must be valid JSON
   echo "$output" | jq empty
   [ $? -eq 0 ]
 
-  # Must contain additionalContext key
+  # Context is nested under hookSpecificOutput so Claude Code honours it.
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [ -n "$ctx" ]
   [[ "$ctx" == *"New project"* ]]
 }
@@ -40,9 +41,9 @@ teardown() {
 @test "session-context.sh outputs phase context for existing project" {
   # Set up a .scrum/state.json with pbi_pipeline_active phase
   mkdir -p .scrum
-  cp "$FIXTURES_DIR/hook-state-design.json" .scrum/state.json
+  cp "$FIXTURES_DIR/hook-state-pipeline-active.json" .scrum/state.json
 
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
 
   # Output must be valid JSON
@@ -51,18 +52,31 @@ teardown() {
 
   # additionalContext must mention the phase
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"pbi_pipeline_active"* ]]
+}
+
+@test "session-context.sh: PostCompact event name is passed through" {
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"PostCompact"}'
+  assert_success
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "PostCompact" ]
+  [ -n "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" ]
+}
+
+@test "session-context.sh: defaults hookEventName to SessionStart when payload absent" {
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" < /dev/null
+  assert_success
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
 }
 
 @test "session-context.sh: human mode emits no AUTONOMOUS PO MODE prologue" {
   mkdir -p .scrum
   jq -n '{"phase": "backlog_created", "current_sprint_id": "sprint-001", "product_goal": "g", "created_at": "2026-06-12T00:00:00Z", "updated_at": "2026-06-12T00:00:00Z"}' > .scrum/state.json
   echo '{"po_mode": "human"}' > .scrum/config.json
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" != *"AUTONOMOUS PO MODE"* ]]
 }
 
@@ -84,10 +98,10 @@ EOF
   "last_failure": null
 }
 EOF
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"product-owner teammate"* ]]
   [[ "$ctx" == *"Teammate Liveness Protocol"* ]]
@@ -110,10 +124,10 @@ EOF
 }
 EOF
   # No state.json — exercises the "new project" branch.
-  run bash "$PROJECT_ROOT/hooks/session-context.sh"
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
   assert_success
   local ctx
-  ctx="$(echo "$output" | jq -r '.additionalContext')"
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"New project"* ]]
 }
@@ -140,6 +154,21 @@ EOF
 
   # File changes are work events only — no communications mirror
   [ ! -f ".scrum/communications.json" ]
+}
+
+@test "dashboard-event.sh ignores retired MultiEdit tool name" {
+  mkdir -p .scrum
+
+  # MultiEdit was merged into Edit in Claude Code; the matcher and the
+  # inner tool_name case no longer carry it. An event with the retired
+  # name must be a silent no-op, not a file_changed event.
+  local event_json
+  event_json='{"hook_type":"PostToolUse","agent_id":"dev-001","tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
+
+  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/dashboard-event.sh'"
+  assert_success
+
+  [ ! -f ".scrum/dashboard.json" ]
 }
 
 @test "dashboard-event.sh creates communications.json if missing" {
@@ -368,20 +397,6 @@ EOF
   [ "$decision" = "deny" ]
 }
 
-@test "status-gate.sh denies source MultiEdit during sprint_planning" {
-  mkdir -p .scrum
-  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
-
-  local event_json
-  event_json='{"tool_name":"MultiEdit","tool_input":{"file_path":"src/main.py"}}'
-
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
-}
 
 @test "status-gate.sh denies source Edit during retrospective" {
   mkdir -p .scrum
@@ -512,13 +527,15 @@ EOF
   [ "$decision" = "allow" ]
 }
 
-@test "setup-user.sh settings.json template includes MultiEdit in status-gate matcher" {
-  run grep -q '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+@test "setup-user.sh settings.json template uses Write|Edit status-gate matcher (no retired MultiEdit)" {
+  run grep -q '"matcher": "Write|Edit"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
+  run grep -q 'MultiEdit' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
 }
 
 @test "setup-user.sh settings.json template excludes Bash from dashboard-event matcher" {
-  run grep -q '"matcher": "Write|Edit|MultiEdit|Agent|SendMessage"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep -q '"matcher": "Write|Edit|Agent|SendMessage"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 
@@ -728,31 +745,84 @@ EOF
 # quality-gate.sh
 # ---------------------------------------------------------------------------
 
-@test "quality-gate.sh skips checks when no PBI ID in event" {
+# Write a one-item backlog.json for the quality-gate tests. Args:
+#   $1 id, $2 kind, $3 design_doc_paths (JSON array), $4 review_doc_path (JSON),
+#   $5 status (optional, default "in_progress_merge" — a merge-ready status so
+#   failed checks block; pass a mid-pipeline status to exercise the advisory path)
+_qg_backlog() {
   mkdir -p .scrum
+  jq -n --arg id "$1" --arg kind "$2" \
+        --argjson docs "$3" --argjson review "$4" \
+        --arg status "${5:-in_progress_merge}" '
+    {items: [{
+      id: $id, title: "t", status: $status, kind: $kind,
+      design_doc_paths: $docs, review_doc_path: $review
+    }]}' > .scrum/backlog.json
+}
 
-  local event_json='{"hook_type":"TaskCompleted"}'
+@test "quality-gate.sh exits 0 when task_name has no PBI id" {
+  _qg_backlog "pbi-001" "code" '[]' 'null'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-9","task_name":"Wave 1b: general cleanup","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
-@test "quality-gate.sh skips checks when no backlog exists" {
+@test "quality-gate.sh exits 0 (advisory) when no backlog exists" {
   mkdir -p .scrum
 
-  local event_json='{"hook_type":"TaskCompleted","pbi_id":"pbi-001"}'
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] implement X","task_status":"completed"}'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
-@test "quality-gate.sh runs DoD checks and always exits 0" {
-  mkdir -p .scrum
-  cp "$FIXTURES_DIR/valid-backlog.json" .scrum/backlog.json
+@test "quality-gate.sh exits 0 (advisory) when PBI id not in backlog" {
+  _qg_backlog "pbi-001" "code" '[]' 'null'
 
-  local event_json='{"hook_type":"TaskCompleted","pbi_id":"pbi-001"}'
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-999] implement X","task_status":"completed"}'
 
-  run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  assert_success
+}
+
+@test "quality-gate.sh blocks (exit 2) a merge-ready kind=code PBI missing its design doc" {
+  # status in_progress_merge => DoD is claimable => failure hard-blocks.
+  _qg_backlog "pbi-003" "code" '[]' 'null' "in_progress_merge"
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] implement X","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  [ "$status" -eq 2 ]
+  assert_output --partial "PBI-003"
+  assert_output --partial "design"
+}
+
+@test "quality-gate.sh does NOT block a mid-pipeline PBI; failure is advisory" {
+  # Same missing-design failure, but status in_progress_design => DoD is not
+  # yet claimable => advisory stderr + exit 0 (per-stage task must not block).
+  _qg_backlog "pbi-003" "code" '[]' 'null' "in_progress_design"
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] design","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
+  assert_success
+  assert_output --partial "advisory"
+  assert_output --partial "design"
+}
+
+@test "quality-gate.sh does NOT block a kind=docs PBI for a missing design doc" {
+  # Same missing-design situation as the kind=code block test, but kind=docs:
+  # design-doc and test-file checks are skipped, and the applicable Integrity
+  # review check is satisfied, so the gate must not block.
+  mkdir -p .scrum/pbi/pbi-003
+  printf 'review\n' > .scrum/pbi/pbi-003/review.md
+  _qg_backlog "pbi-003" "docs" '[]' '".scrum/pbi/pbi-003/review.md"'
+
+  local event_json='{"hook_event_name":"TaskCompleted","task_id":"t-1","task_name":"[PBI-003] update docs","task_status":"completed"}'
+
+  run bash -c "printf '%s' '$event_json' | bash '$PROJECT_ROOT/hooks/quality-gate.sh'"
   assert_success
 }
 
@@ -850,12 +920,12 @@ EOF
   assert_output "Write|Edit"
 }
 
-@test "setup-user.sh settings.json template includes Write|Edit|MultiEdit matcher for PreToolUse" {
+@test "setup-user.sh settings.json template includes Write|Edit|Bash matcher for PreToolUse" {
   # Validate the heredoc template source directly — no prereqs required
   run grep -A1 '"PreToolUse"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
   # The matcher line must appear somewhere after PreToolUse in the file
-  run grep '"matcher": "Write|Edit|MultiEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep '"matcher": "Write|Edit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 
@@ -873,7 +943,14 @@ EOF
   assert_success
 }
 
-@test "setup-user.sh settings.json template includes FileChanged hook" {
-  run grep -q '"FileChanged"' "$PROJECT_ROOT/scripts/setup-user.sh"
+@test "setup-user.sh settings.json template registers only stop-failure.sh for StopFailure (RC#9: dashboard-event.sh had no StopFailure branch, was a no-op)" {
+  run awk '/"StopFailure": \[/,/^    \]/' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
+  [[ "$output" == *"stop-failure.sh"* ]]
+  [[ "$output" != *"dashboard-event.sh"* ]]
+}
+
+@test "setup-user.sh settings.json template excludes the dead FileChanged registration (T1-3: no matcher/watchPaths means the watcher never starts)" {
+  run grep -q '"FileChanged"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
 }

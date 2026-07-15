@@ -6,7 +6,8 @@ runtime slot-fillers (PBI id, round number, paths, prior review).
 Constraints (path guards, output envelopes, severity levels, "Does
 NOT receive" boundaries) live in the corresponding agent definition
 under `agents/` and are not restated here. All sub-agents must end
-output with the JSON envelope from spec 4.1.
+output with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`.
 
 ## Conductor codex preflight (codex-*-reviewer spawns only)
 
@@ -47,6 +48,43 @@ incorrect. The stall-fallback protocol in
 `reviewer-stall-fallback.md` is independent: it handles `codex` that
 **hangs** after a successful preflight, not `codex` that is absent.
 
+## Producer worktree containment (designer / implementer / ut-author)
+
+The three producer prompts below carry a `Worktree root: {worktree_path}`
+slot and an absolute-path rule. The conductor fills `{worktree_path}`
+with the **absolute** path of the PBI worktree — `$(pwd)` for a
+conductor started per `spawn-teammates` (its cwd IS the worktree).
+
+This slot is not decoration. Task-spawned sub-agents resolve bare
+relative paths against whatever cwd the harness gives them, which can
+be the MAIN repo checkout — the file then misses the PBI branch,
+dirties main, and blocks the merge. Target-project retrospectives
+logged this leak across **11 Sprints**, and a generic "Working
+directory:" header alone did not stop it: one bare path token (even
+one embedded in pasted `catalog_targets` JSON) still leaks. Hence the
+per-prompt hard rule — the shared `{worktree containment reminder}`
+block below, expanded at spawn time like `{common envelope reminder}`
+— plus the conductor-side post-round verification in
+`worktree-containment.md`.
+
+`.scrum/...` artifact paths are exempt: `.scrum` is a symlink shared
+between main and every worktree, so both resolutions land on the same
+SSOT directory. Only project-tree paths (source, tests,
+`docs/design/specs/`) can leak.
+
+## Worktree containment reminder (producer prompts)
+
+Expanded by the conductor wherever a producer prompt says
+`{worktree containment reminder}` (each prompt keeps its own
+role-specific example line above the placeholder):
+
+```text
+ALL project-tree writes MUST use absolute paths prefixed with
+{worktree_path}; a bare relative path resolved against the main repo
+checkout is a worktree leak that misses your PBI branch and blocks
+the merge. (.scrum/... paths are exempt — shared symlink.)
+```
+
 ## Common envelope reminder (append to every prompt)
 
 ```text
@@ -77,6 +115,11 @@ End your response with a single JSON code block matching this schema:
 ```text
 You are pbi-designer for {pbi_id}. Author the PBI working design doc.
 
+Worktree root: {worktree_path}
+Catalog specs go to {worktree_path}/docs/design/specs/..., never a
+bare docs/design/... relative path.
+{worktree containment reminder}
+
 PBI assignment:
 {paste backlog.json entry for {pbi_id}}
 
@@ -86,12 +129,20 @@ Inputs:
 - Related catalog specs (read-only references):
   - <path1>
   - <path2>
+- Existing library specs (reuse before researching anew; read-only):
+  - docs/design/specs/technology/S-070-*.md
 {if Round n>=2:}
 - Prior design review (address every Critical/High finding):
   - .scrum/pbi/{pbi_id}/design/review-r{n-1}.md
 
 Write the design to:
   .scrum/pbi/{pbi_id}/design/design.md
+
+Select any third-party libraries via mandatory web search and record
+web-verified specs to docs/design/specs/technology/S-070-<lib>.md; emit
+the design.md `Library Selection` section (or the stdlib-only line).
+See ../../../agents/pbi-designer.md § Mandatory library selection &
+verified-spec research.
 
 On catalog-lock timeout, exit with status=error, escalation_reason
 catalog_lock_timeout.
@@ -138,8 +189,18 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/impl-r{n}.md
+  - If that file contains a `## Web-search remediation` section, the
+    conductor has already researched the recurring error and included
+    the findings (root cause + verified fix guidance + source URLs)
+    there. Apply those web-research findings — do not repeat the
+    previous approach unchanged. (You have no WebSearch tool; the
+    research is provided in the feedback.)
 
-Write source code to project's normal implementation paths (e.g., src/).
+Worktree root: {worktree_path}
+Write source code to the project's normal implementation paths UNDER
+the worktree root, using absolute paths — e.g.
+{worktree_path}/src/....
+{worktree containment reminder}
 
 {common envelope reminder}
 ```
@@ -157,11 +218,16 @@ apply the doc-shaped change directly. Touch only `*.md` files —
 mark-pbi-ready-to-merge.sh will escalate any non-.md path as
 kind_mismatch and the SM will reject the PBI.
 
+Worktree root: {worktree_path}
+This covers ALL edits — including the `Files to edit` below, even
+though they are listed relative.
+{worktree containment reminder}
+
 Inputs:
 - PBI acceptance_criteria (from backlog.json):
   - <verbatim list, one per line>
 - Parent PBI id: {parent_pbi_id}
-  - Parent PBI cross-review digest (read for context):
+  - Parent PBI Integrity review digest (read for context):
     .scrum/reviews/{parent_pbi_id}-review.md
 - Files to edit (from PBI catalog_targets):
   - <path1>.md
@@ -195,10 +261,18 @@ Inputs:
 {if Round n>=2:}
 - Feedback from prior round (address every item):
   - .scrum/pbi/{pbi_id}/feedback/ut-r{n}.md
+  - If that file contains a `## Web-search remediation` section, the
+    conductor has already researched the recurring error and included
+    the findings there. Apply those web-research findings to your
+    change. (You have no WebSearch tool; the research is provided in
+    the feedback.)
 - Prior coverage report (gap reference):
   - .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
 
-Write tests to project's normal test paths (e.g., tests/).
+Worktree root: {worktree_path}
+Write tests to the project's normal test paths UNDER the worktree
+root, using absolute paths — e.g. {worktree_path}/tests/....
+{worktree containment reminder}
 
 You have TWO mandatory deliverables this Round. BOTH must exist before
 you return — a missing AC coverage map fails the Round:
@@ -206,17 +280,19 @@ you return — a missing AC coverage map fails the Round:
   2. The AC coverage map at:
        .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
 
-AC coverage map schema (see agents/pbi-ut-author.md § "AC coverage
+AC coverage map schema (see ../../../agents/pbi-ut-author.md § "AC coverage
 map" for full rules): one entry per AC from the design doc's
 `Acceptance Criteria Mapping` table; each entry has `index` (1-based),
 `text` (verbatim), and `tests` (non-empty array of
 "<file>::<test-name>" ids written this Round).
 
-FINAL SELF-CHECK before returning (do not skip): confirm the file
-exists and every `criteria[].tests` array is non-empty —
-`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
-.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json`. If it fails, write/fix
-the map before you finish. List the file in the envelope `artifacts`.
+FINAL SELF-CHECK before returning (do not skip): re-open
+`.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` with the Read tool and
+visually confirm the file exists, `criteria` is a non-empty array, and
+every `criteria[].tests` array is non-empty. If any is wrong, write/fix
+the map before you finish. (You have no Bash tool; the conductor's
+Step-1b guard runs the machine `jq` check.) List the file in the
+envelope `artifacts`.
 
 {common envelope reminder}
 ```
@@ -247,10 +323,11 @@ exercise that AC). If an AC genuinely has no test, that is a UT gap —
 do NOT invent an id; instead state the gap in your envelope summary so
 the Round fails honestly rather than with a fabricated map.
 
-FINAL SELF-CHECK before returning:
-`jq -e '.criteria | length > 0 and all(.tests | length > 0)'
-.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` must succeed. List the
-file in the envelope `artifacts`.
+FINAL SELF-CHECK before returning: re-open
+`.scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json` with the Read tool and
+confirm `criteria` is a non-empty array and every `criteria[].tests`
+array is non-empty. (No Bash tool — the conductor's Step-1b guard runs
+the machine `jq` check.) List the file in the envelope `artifacts`.
 
 {common envelope reminder}
 ```
@@ -309,7 +386,7 @@ Inputs:
 - Review target SHA: {review_sha}
 - Base SHA (for diff): {base_sha}
 - Parent PBI id: {parent_pbi_id}
-- Parent PBI cross-review digest:
+- Parent PBI Integrity review digest:
   .scrum/reviews/{parent_pbi_id}-review.md
 - PBI acceptance_criteria (verbatim from backlog.json):
   - <criterion 1>
@@ -362,8 +439,11 @@ Inputs:
 - Design doc SHA-256: {design_hash}
 - Test files (paths are relative to the worktree root):
   - <path1>
-- Coverage report: .scrum/pbi/{pbi_id}/metrics/coverage-r{n}.json
-- Pragma audit: .scrum/pbi/{pbi_id}/metrics/pragma-audit-r{n}.json
+- Prior coverage report (optional): .scrum/pbi/{pbi_id}/metrics/coverage-r{n-1}.json
+  (absent in Round 1 — absence is NOT a finding; this Round's coverage
+  is produced AFTER this review by the UT Run step)
+- Prior pragma audit (optional): .scrum/pbi/{pbi_id}/metrics/pragma-audit-r{n-1}.json
+  (absent in Round 1 — absence is NOT a finding)
 - AC coverage map: .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
 - requirements.md: <path>
 
@@ -383,3 +463,83 @@ Otherwise the review file MUST begin with two header lines:
 
 {common envelope reminder}
 ```
+
+## Integrity aspect reviewers
+
+The 5 aspect reviewers of the per-PBI **Integrity stage** (see
+`integrity-stage.md`) are Claude-backed (`model: opus` frontmatter) and
+**message-based** — they have no `Write` tool and return their review
+as their final assistant message; the conductor reads it from the
+synchronous `Agent` call. No codex preflight, no pin-mismatch respawn
+loop (the worktree is quiescent during the stage). Constraints (scope
+boundary, criterion_key enum, severity) live in each agent definition
+under `agents/` and are not restated here.
+
+Spawn all applicable aspects in a single parallel message (kind=code →
+all 5; kind=docs → aspects 1 + 5). Fill the shared slots below; add the
+per-aspect input line where noted.
+
+### Shared prompt skeleton
+
+```text
+You are {aspect-reviewer-name} for {pbi_id} Round {n}. Independent
+per-PBI Integrity review of THIS PBI's increment (one PBI in scope —
+not the Sprint).
+
+Inputs:
+- PBI worktree root: {worktree_path}
+- Review target SHA: {review_sha}
+- Base SHA (diff bound): {base_sha}
+  The increment under review is
+    git -C {worktree_path} diff {base_sha}..{review_sha} -- {paths_touched}
+- paths_touched (this PBI's changed files; the conductor derives the
+  list in Step I-1 of `integrity-stage.md` via
+  `git diff --name-only --diff-filter=AMR {base_sha}..{review_sha}` —
+  there is no persisted paths_touched yet at this point):
+  - <path1>
+  - <path2>
+- PBI backlog entry (id, title, acceptance_criteria, kind, parent_pbi_id):
+{paste backlog.json entry for {pbi_id}}
+- requirements.md: <path>
+{aspect-specific input lines — see below}
+
+All file reads MUST resolve under {worktree_path} — never the main repo
+checkout. Return your review as your final message using the markdown
+Output Format in your agent definition (a `**Verdict: PASS | FAIL**`
+line plus the Findings list). Do NOT emit the pbi-pipeline JSON
+envelope — its criterion_key enum is codex-reviewer-specific; your
+findings carry this aspect's criterion_key in the markdown list. You
+have no Write tool — do NOT try to write a review file; the conductor
+parses your returned message and consolidates it into
+.scrum/reviews/{pbi_id}-review.md.
+```
+
+### Per-aspect input lines
+
+- **requirement-conformance-reviewer** (kind=code): add
+  ```text
+  - Design doc: .scrum/pbi/{pbi_id}/design/design.md
+  - Final AC coverage map: .scrum/pbi/{pbi_id}/ut/ac-coverage-r{n}.json
+  ```
+  (kind=docs): add
+  ```text
+  - Parent PBI id: {parent_pbi_id}
+  - Parent PBI digest: .scrum/reviews/{parent_pbi_id}-review.md
+  ```
+- **functional-quality-reviewer** (kind=code only): add
+  ```text
+  - Design doc: .scrum/pbi/{pbi_id}/design/design.md
+  ```
+- **security-reviewer** (kind=code only): no extra input line (diff +
+  requirements.md suffice).
+- **maintainability-reviewer** (kind=code only): add
+  ```text
+  - Per-PBI static analysis (Pass A over the diff files):
+    .scrum/pbi/{pbi_id}/metrics/static-analysis-r{n}.json
+  ```
+- **docs-consistency-reviewer** (both kinds): add, when the PBI is
+  kind=docs,
+  ```text
+  - Parent PBI id: {parent_pbi_id}
+  - Parent PBI digest: .scrum/reviews/{parent_pbi_id}-review.md
+  ```

@@ -1,4 +1,4 @@
-"""Textual TUI Dashboard for AI-Powered Scrum Team.
+"""Textual TUI Dashboard for Maul Team.
 
 Three-panel real-time dashboard that monitors .scrum/ JSON files via
 watchdog filesystem events. Designed to run in a tmux side pane alongside
@@ -7,7 +7,7 @@ Claude Code.
 Panels:
   (a) Sprint Overview — Sprint Goal, project phase, PBI count, Developer
       assignments
-  (b) Unified PBI Board — single DataTable showing each PBI's 12-value
+  (b) Unified PBI Board — single DataTable showing each PBI's 13-value
       status (SSOT lives in `backlog.json.items[].status`). Per-PBI round
       counters come from `pbi/<id>/state.json`, but the status displayed
       is always the backlog SSOT — there is no separate phase column.
@@ -80,7 +80,7 @@ _SCHEMA_FOR_FILE = {
     "dashboard.json": "dashboard.schema.json",
 }
 
-# 12-value status SSOT — see docs/contracts/scrum-state/backlog.schema.json.
+# 13-value status SSOT — see docs/contracts/scrum-state/backlog.schema.json.
 # Actor-split coloring: SM-managed states use green family, Developer-managed
 # in_progress_* states use blue/cyan family. Terminal/escalated use red.
 STATUS_COLORS = {
@@ -92,6 +92,7 @@ STATUS_COLORS = {
     "cross_review": "bright_green",
     "escalated": "red",
     "done": "green",
+    "cancelled": "green",
     # Developer-managed (blue/cyan family)
     "in_progress_design": "cyan",
     "in_progress_impl": "blue",
@@ -100,7 +101,7 @@ STATUS_COLORS = {
     "in_progress_merge": "magenta",
 }
 
-# Compact display labels for the 12-value status enum. Keep short enough
+# Compact display labels for the 13-value status enum. Keep short enough
 # for a status column in a DataTable.
 STATUS_LABELS = {
     "draft": "draft",
@@ -115,27 +116,12 @@ STATUS_LABELS = {
     "cross_review": "x-review",
     "escalated": "escalated",
     "done": "done",
+    "cancelled": "cancelled",
 }
 
-# Optional unicode glyphs prefixed to the status cell for at-a-glance
-# actor identification: ◇ for SM-managed, ◆ for Developer-managed.
-STATUS_ICONS = {
-    "draft": "◇",
-    "refined": "◇",
-    "blocked": "◇",
-    "awaiting_cross_review": "◇",
-    "cross_review": "◇",
-    "escalated": "◇",
-    "done": "◇",
-    "in_progress_design": "◆",
-    "in_progress_impl": "◆",
-    "in_progress_pbi_review": "◆",
-    "in_progress_ut_run": "◆",
-    "in_progress_merge": "◆",
-}
-
-# Developer-managed status set — used to pick which round counter to
-# surface (design_round vs impl_round) for live PBIs.
+# Developer-managed status set — used both to pick which round counter to
+# surface (design_round vs impl_round) for live PBIs and to derive the
+# at-a-glance actor glyph in format_status (◆ Developer-managed, ◇ SM-managed).
 DEV_MANAGED_STATUSES = frozenset(
     {
         "in_progress_design",
@@ -152,14 +138,15 @@ DEV_MANAGED_STATUSES = frozenset(
 # unification.
 PHASE_FLOW = [
     ("new", "New"),
-    ("requirements_sprint", "Requirements"),
+    ("requirements_sprint", "Requirement Definition"),
     ("backlog_created", "Backlog Created"),
     ("sprint_planning", "Sprint Planning"),
-    ("pbi_pipeline_active", "PBI Pipelines Running"),
-    ("review", "Review"),
+    ("pbi_pipeline_active", "PBI Development"),
+    ("review", "Cross Review"),
     ("sprint_review", "Sprint Review"),
     ("retrospective", "Retrospective"),
-    ("integration_sprint", "Integration"),
+    ("integration_sprint", "Integration Tests"),
+    ("uat_release", "UAT & Release"),
     ("complete", "Complete"),
 ]
 
@@ -176,9 +163,35 @@ def format_phase(current_phase: str) -> str:
     return f"[bold]Phase:[/bold] [bold white on red] {current_phase} [/]"
 
 
+# Semantic colors for a raw `sprint.json.status` value. Replaces a plain
+# unmapped print, which gave `complete`/`failed` no visual distinction.
+_SPRINT_STATUS_COLORS = {
+    "complete": "green",
+    "failed": "red",
+    "planning": "grey62",
+    "active": "blue",
+    "cross_review": "blue",
+    "sprint_review": "blue",
+}
+
+
+def format_sprint_status(status: str) -> str:
+    """Render a `sprint.json.status` value with a semantic color."""
+    color = _SPRINT_STATUS_COLORS.get(status)
+    return f"[{color}]{status}[/{color}]" if color else status
+
+
 def format_status(status: str) -> str:
-    """Render a 12-value PBI status with icon + color + short label."""
-    icon = STATUS_ICONS.get(status, "")
+    """Render a 13-value PBI status with icon + color + short label."""
+    # Actor glyph is derivable from the status: ◆ Developer-managed, ◇ any
+    # other *known* status (SM-managed). An unknown / missing status (e.g. the
+    # "?" placeholder) gets no glyph, preserving the pre-derivation default.
+    if status in DEV_MANAGED_STATUSES:
+        icon = "◆"
+    elif status in STATUS_LABELS:
+        icon = "◇"
+    else:
+        icon = ""
     label = STATUS_LABELS.get(status, status)
     color = STATUS_COLORS.get(status, "")
     body = f"{icon} {label}".strip()
@@ -277,10 +290,19 @@ class SprintOverview(Static):
             return
 
         phase = state.get("phase", "unknown")
-        product_goal = state.get("product_goal", "Not defined")
+        # product_goal SSOT is backlog.json (init-backlog.sh --product-goal);
+        # state.json's copy is vestigial and always null under the wrappers.
+        product_goal = (backlog or {}).get("product_goal") or "Not defined"
 
         lines = [f"[bold]Product Goal:[/bold] {product_goal}"]
         lines.append(format_phase(phase))
+
+        # Integration Sprint / UAT & Release are post-development stages: the
+        # last dev Sprint is already `complete`, so the *phase* is the
+        # protagonist and the closed Sprint recedes to a context line. Without
+        # this, the panel reads "Sprint-N | Status: complete" next to
+        # "Phase: Integration Tests", which looks self-contradictory.
+        release_stage = phase in ("integration_sprint", "uat_release")
 
         if sprint and isinstance(sprint, dict):
             sprint_id = sprint.get("id", "?")
@@ -294,32 +316,46 @@ class SprintOverview(Static):
             if backlog:
                 for item in get_backlog_items(backlog):
                     if item.get("sprint_id") == sprint_id:
+                        status = item.get("status")
+                        if status == "cancelled":
+                            continue  # terminal non-delivery; not in progress ratio
                         pbi_count += 1
-                        if item.get("status") == "done":
+                        if status == "done":
                             done_count += 1
 
             devs = sprint.get("developers") or []
             dev_count = len(devs)
 
-            lines.append(
-                f"[bold]Sprint:[/bold] {sprint_id}"
-                f" | [bold]Status:[/bold] {sprint_status}"
-                f" | [bold]Goal:[/bold] {goal}"
-            )
+            if release_stage:
+                stage_label = dict(PHASE_FLOW).get(phase, phase)
+                lines.append(
+                    f"[bold white on dark_orange] {stage_label} · ACTIVE [/]"
+                    f"  [dim]following {sprint_id} · closed[/dim]"
+                )
+                lines.append(
+                    f"[bold]Delivered:[/bold] {done_count}/{pbi_count} PBIs"
+                    f" | [bold]Goal:[/bold] {goal}"
+                )
+            else:
+                lines.append(
+                    f"[bold]Sprint:[/bold] {sprint_id}"
+                    f" | [bold]Status:[/bold] {format_sprint_status(sprint_status)}"
+                    f" | [bold]Goal:[/bold] {goal}"
+                )
 
-            lines.append(
-                f"[bold]PBIs:[/bold] {done_count}/{pbi_count} done"
-                f" | [bold]Developers:[/bold] {dev_count}"
-            )
+                lines.append(
+                    f"[bold]PBIs:[/bold] {done_count}/{pbi_count} done"
+                    f" | [bold]Developers:[/bold] {dev_count}"
+                )
 
-            if devs:
-                dev_parts = []
-                for d in devs:
-                    did = d.get("id", "?")
-                    status = d.get("status", "?")
-                    impl = d.get("assigned_work", {}).get("implement", [])
-                    dev_parts.append(f"{did}:{status}({','.join(impl)})")
-                lines.append(f"[bold]Agents:[/bold] {' | '.join(dev_parts)}")
+                if devs:
+                    dev_parts = []
+                    for d in devs:
+                        did = d.get("id", "?")
+                        status = d.get("status", "?")
+                        impl = d.get("assigned_work", {}).get("implement", [])
+                        dev_parts.append(f"{did}:{status}({','.join(impl)})")
+                    lines.append(f"[bold]Agents:[/bold] {' | '.join(dev_parts)}")
         else:
             lines.append("[dim]No active Sprint — waiting for Sprint Planning[/dim]")
 
@@ -349,7 +385,7 @@ def _truncate_to_cells(s: str, budget: int) -> str:
 
 
 class UnifiedPbiBoard(DataTable):
-    """Single PBI board driven by the 12-value status SSOT.
+    """Single PBI board driven by the 13-value status SSOT.
 
     Columns: ID, Title, Status, Round, Dev, Updated.
 
@@ -613,12 +649,17 @@ def _format_event_line(evt: dict) -> str:
         change_str = f"[{ccolor}]{change}[/{ccolor}]" if ccolor else change
         return f"[dim]{ts_short}[/dim] {agent_str} {change_str} {escape(str(file_path))}"
     if evt_type == "teammate_idle":
+        # schema-permitted; no current producer (external writers may emit)
         return f"[dim]{ts_short}[/dim] {agent_str} [cyan]idle[/cyan] {detail}"
     if evt_type == "status_transition":
+        # status_from/status_to: schema-permitted; no current producer
+        # (external writers may emit) — falls back to detail when absent.
         status_from = evt.get("status_from") or ""
         status_to = evt.get("status_to") or ""
         arrow = f"{status_from} → {status_to}" if status_from or status_to else detail
         return f"[dim]{ts_short}[/dim] {agent_str} [magenta]status[/magenta] {arrow}"
+    if evt_type == "stop_failure":
+        return f"[dim]{ts_short}[/dim] {agent_str} [red]failed[/red] {detail}"
     if detail:
         return f"[dim]{ts_short}[/dim] {agent_str} {detail}"
     return f"[dim]{ts_short}[/dim] {agent_str} {evt_type}"
@@ -650,10 +691,6 @@ class UnifiedLog(RichLog):
         self._cursors: dict[str, tuple[str, int]] = {}
         self._entries: deque[tuple[str, str, str]] = deque(maxlen=self.MAX_ENTRIES)
         self._filter = "all"
-
-    @property
-    def filter_mode(self) -> str:
-        return self._filter
 
     def cycle_filter(self) -> str:
         """Advance the filter (all → messages → work) and re-render."""
@@ -823,7 +860,7 @@ class ScrumDashboard(App):
     # do not use here. Requires textual >= 0.80.
     ansi_color = True
 
-    TITLE = "Scrum Team Dashboard"
+    TITLE = "Maul Team Dashboard"
     CSS = """
     Screen {
         layout: grid;

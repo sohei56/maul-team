@@ -25,6 +25,13 @@ teardown() {
   [ "$output" = "pbi_pipeline_active" ]
 }
 
+@test "update-state-phase: accepts uat_release" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-state-phase.sh" uat_release
+  [ "$status" -eq 0 ]
+  run jq -r '.phase' "$TEST_TMP/.scrum/state.json"
+  [ "$output" = "uat_release" ]
+}
+
 @test "update-state-phase: rejects bogus phase" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-state-phase.sh" giga_review
   [ "$status" -eq 64 ]

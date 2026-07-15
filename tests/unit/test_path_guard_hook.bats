@@ -37,11 +37,6 @@ payload() {
   [ "$status" -eq 2 ]
 }
 
-@test "blocks pbi-ut-author from multi-editing impl path" {
-  run bash -c "echo '$(payload pbi-ut-author MultiEdit src/auth.py)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
 @test "allows pbi-ut-author to read test path" {
   run bash -c "echo '$(payload pbi-ut-author Read tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 0 ]
@@ -54,11 +49,6 @@ payload() {
 
 @test "blocks pbi-implementer from writing test path" {
   run bash -c "echo '$(payload pbi-implementer Write tests/test_auth.py)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
-@test "blocks pbi-implementer from multi-editing test path" {
-  run bash -c "echo '$(payload pbi-implementer MultiEdit tests/test_auth.py)' | $HOOK"
   [ "$status" -eq 2 ]
 }
 
@@ -132,11 +122,6 @@ payload() {
   [ "$status" -eq 2 ]
 }
 
-@test "blocks product-owner from multi-editing docs/requirements.md" {
-  run bash -c "echo '$(payload product-owner MultiEdit docs/requirements.md)' | $HOOK"
-  [ "$status" -eq 2 ]
-}
-
 @test "allows product-owner Bash (app launch / verification)" {
   run bash -c "echo '{\"agent_name\":\"product-owner\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"curl -sf http://localhost:3000/healthz\"}}' | $HOOK"
   [ "$status" -eq 0 ]
@@ -153,4 +138,36 @@ payload() {
   mkdir -p docs/product
   run bash -c "echo '$(payload product-owner Write docs/product/vision.md)' | $HOOK"
   [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Worktree-prefix normalization (RC#12 / T1-9): PBI work runs in
+# .scrum/worktrees/<pbi-id>/, so worktree-relative paths must match the same
+# root-anchored impl/test globs as main-repo paths.
+# ---------------------------------------------------------------------------
+
+@test "blocks pbi-ut-author reading worktree-prefixed impl path" {
+  run bash -c "echo '$(payload pbi-ut-author Read .scrum/worktrees/pbi-001/src/auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED"* ]]
+}
+
+@test "blocks pbi-implementer writing worktree-prefixed test path" {
+  run bash -c "echo '$(payload pbi-implementer Write .scrum/worktrees/pbi-001/tests/test_auth.py)' | $HOOK"
+  [ "$status" -eq 2 ]
+}
+
+@test "allows pbi-ut-author writing worktree-prefixed test path" {
+  run bash -c "echo '$(payload pbi-ut-author Write .scrum/worktrees/pbi-001/tests/test_auth.py)' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "allows pbi-implementer writing worktree-prefixed src path" {
+  run bash -c "echo '$(payload pbi-implementer Write .scrum/worktrees/pbi-001/src/auth.py)' | $HOOK"
+  [ "$status" -eq 0 ]
+}
+
+@test "blocks pbi-ut-author reading absolute worktree-prefixed impl path" {
+  run bash -c "echo '$(payload pbi-ut-author Read "$PWD/.scrum/worktrees/pbi-001/src/auth.py")' | $HOOK"
+  [ "$status" -eq 2 ]
 }

@@ -1,0 +1,440 @@
+# PBI Integrity Stage Reference
+
+The per-PBI **Integrity stage** is the final quality gate a PBI clears
+before ready-to-merge. It runs the 5 cross-cutting review aspects
+(requirement-conformance, functional-quality, security,
+maintainability, docs-consistency) against **this one PBI's increment**
+— "PBI integrity". These aspects used to run Sprint-end across all
+merged PBIs; they now run per-PBI, here, so a defect is caught while
+its author's context is still live. Whole-repo / cross-PBI review
+("product integrity") is the Sprint-end **codebase audit's** job, not
+this stage's.
+
+## Placement in the pipeline
+
+The Integrity stage runs **once per Round, at the tail of the Round's
+terminal stage, immediately before `mark-pbi-ready-to-merge.sh`**:
+
+```
+kind=code:  ... UT Run PASS ──▶ [Integrity stage] ──▶ ready-to-merge
+                                      │ FAIL
+                                      ▼
+                              in_progress_impl (next Round)
+
+kind=docs:  ... impl-reviewer PASS ──▶ [Integrity stage] ──▶ ready-to-merge
+                                             │ FAIL
+                                             ▼
+                                     in_progress_impl (next Round)
+```
+
+It does **not** have its own backlog status value (the 13-value enum
+is fixed). It executes while the backlog status is still the Round's
+terminal stage — `in_progress_ut_run` for kind=code, `in_progress_pbi_review`
+for kind=docs — and only advances the status when it either hands off
+(`mark-pbi-ready-to-merge.sh` → `in_progress_merge`) or reverts
+(`update-backlog-status.sh <pbi> in_progress_impl`).
+
+The Round counter is the existing `impl_round` (`$n`). The Integrity
+stage does **not** introduce a counter. A FAIL loops through
+`begin-impl-round.sh` exactly like a PBI Review FAIL or UT Run FAIL,
+so the hard cap (`impl_round >= 5`) bounds the Integrity retry loop
+with no new counter regime. See `termination-gates.md` § Integrity
+stage.
+
+## Aspect set by kind
+
+| kind | Aspects spawned |
+|---|---|
+| code | all 5: requirement-conformance, functional-quality, security, maintainability, docs-consistency |
+| docs | 2 only: requirement-conformance (aspect 1) + docs-consistency (aspect 5) |
+
+The kind=docs subset is parity with the old Sprint-end rule (a docs
+PBI was only ever evaluated against aspects 1 and 5). functional-quality,
+security, and maintainability are code-only and are never spawned for a
+docs PBI.
+
+## Reviewer model & backing
+
+The five aspect reviewers are Claude-backed (`model: opus` in their
+frontmatter) — **not** codex-backed. The codex preflight
+(`sub-agent-prompts.md` § Conductor codex preflight) does **not** apply
+here; spawn them with no `model` override. The
+`reviewer-stall-fallback.md` codex-stall protocol also does not apply
+because the codex second opinion two of these reviewers run (below) is
+bounded inside the reviewer's own turn — with its own availability
+preflight and fallback — and is invisible to the conductor. These
+reviewers are **message-based**:
+they have no `Write` tool and return their review as their final
+assistant message; the conductor reads the returned message directly
+from the synchronous `Agent` call (no review file for the reviewer to
+persist, so the "completed-but-unpersisted" branch is moot).
+
+Two aspects — **functional-quality** and **security** — additionally
+run a **codex second opinion** from inside the reviewer itself
+(canonical protocol: § Aspect reviewer shared contract → Codex second
+opinion, below): after finalizing its own
+findings, the reviewer invokes `codex_review_or_fallback`
+(`scripts/lib/codex-invoke.sh`) against the same diff and adjudicates
+codex-only findings — a codex Critical/High enters the verdict only
+after the reviewer verifies it against the code; an unverified codex
+claim is downgraded to Medium and never blocks the gate. This is
+invisible to the conductor: spawn, Verdict parsing, and aggregation
+are unchanged (codex-sourced findings arrive with a `[codex]` /
+`[codex-unverified]` prefix inside the Description field only), and
+codex unavailability degrades that one reviewer to Claude-only
+(Summary notes `Codex second opinion: unavailable`) — it is never a
+spawn-time preflight, a model override, or an escalation.
+
+They return **markdown**, not the pbi-pipeline JSON envelope. The
+envelope's `criterion_key` enum
+(`docs/contracts/pbi-pipeline-envelope.schema.json`) is
+codex-reviewer-specific and does not cover the aspect vocabularies, so
+each aspect reports a `**Verdict: PASS | FAIL**` line plus a markdown
+Findings list carrying its own `criterion_key`. The conductor parses
+the Verdict line and Findings from each returned message and
+synthesizes the structured aggregate itself (Step I-4).
+
+## Aspect reviewer shared contract
+
+This section is the **canonical home** for the contract every Integrity
+aspect reviewer shares. The five agent definitions
+(`agents/{requirement-conformance,functional-quality,security,maintainability,docs-consistency}-reviewer.md`)
+carry only a compact operational summary plus their aspect-specific
+clauses and point here for the full text. Edit this section once; do
+**not** re-fork these paragraphs back into the agent files (that is the
+duplication this consolidation removed).
+
+### Input envelope
+
+Beyond its aspect-specific inputs, every aspect reviewer receives:
+
+- **PBI worktree root** `.scrum/worktrees/<pbi-id>` — absolute path.
+  All paths resolve under this root, **never** the main repo checkout.
+- **`{review_sha}`** — the worktree HEAD the conductor pinned with
+  `git rev-parse HEAD` immediately before spawn.
+- **`{base_sha}`** — the diff under review is
+  `git -C <worktree> diff {base_sha}..{review_sha} -- <paths_touched>`.
+- **`{paths_touched}`** — the file list this PBI's increment covers.
+
+The **docs-consistency** aspect is the one variation: it reviews
+**both** the `.md` and the non-`.md` entries of that diff (its doc
+changes and the implementation changes they describe), so it does not
+restrict the `git diff` to a single suffix — it still stays within
+`paths_touched`.
+
+### Output contract (markdown, not the JSON envelope)
+
+Reviewers return their review as **markdown**, NOT the pbi-pipeline JSON
+envelope: the envelope's `criterion_key` enum
+(`docs/contracts/pbi-pipeline-envelope.schema.json`) is
+codex-reviewer-specific and does not cover the aspect vocabularies, so
+each aspect carries its own `criterion_key` in the markdown Findings
+list. The shape (with the aspect's own heading + `criterion_key`):
+
+```
+## <Aspect> Review
+
+**Aspect: <aspect>**
+**Verdict: PASS | FAIL**
+
+### Findings
+
+- #1 [Severity] [File:Lines] [criterion_key] — [Description]
+
+If there are no findings, write "No findings."
+
+### Summary
+
+[2-3 sentences.]
+```
+
+The conductor folds the returned markdown verbatim into
+`.scrum/reviews/<pbi-id>-review.md` and parses the Verdict line +
+Findings for the Integrity-stage verdict and the termination gates
+(Step I-4).
+
+### Verdict + signature rule
+
+**Verdict: PASS = no Critical/High finding. FAIL = any Critical/High.**
+The conductor derives each finding's signature
+`{file}:{line_start}-{line_end}:{criterion_key}` from the markdown
+Findings list for the stagnation / divergence dedup (termination gates).
+
+### Persistence (conductor-owned)
+
+Aspect reviewers have **no `Write` tool** by design. Each returns its
+review as its final assistant message; the conductor collects that
+message and consolidates all aspect reviews verbatim into
+`.scrum/reviews/<pbi-id>-review.md`. A reviewer must not refuse to
+produce content because the file is not its to write — the output IS
+the final message.
+
+### Codex second opinion (functional-quality + security only)
+
+Two aspects — **functional-quality** and **security** — additionally
+run an independent cross-model second opinion from the Codex CLI, from
+inside the reviewer's own turn, **after** finalizing their own review.
+The ordering is the independence guarantee: finalize your own Findings
+list and provisional Verdict FIRST, so codex output cannot anchor your
+analysis. The other three aspects never run this step.
+
+1. **Build instructions** — write a codex instructions file via Bash
+   heredoc under `"${TMPDIR:-/tmp}"` (the only file the reviewer ever
+   creates; never inside the repo, the worktree, or `.scrum/`). It must
+   carry: the aspect's criteria section verbatim, the aspect
+   `criterion_key` enum, the severity scale `critical|high|medium|low`,
+   the diff bounds (`git diff {base_sha}..{review_sha} -- <paths_touched>`),
+   and the exact Findings line format from § Output contract above.
+2. **Invoke** — cd into the PBI worktree (`.scrum/worktrees/<pbi-id>`),
+   `source scripts/lib/codex-invoke.sh`, then
+   `codex_review_or_fallback "$instr" "$out"`. Bounded by
+   `CODEX_TIMEOUT_SECS` (default 300). The conductor-side codex
+   preflight and `reviewer-stall-fallback.md` do **NOT** apply to this
+   inline call.
+3. **Exit 1 (codex unavailable / timeout / empty output)** — non-fatal.
+   Return your own review alone; end Summary with
+   `Codex second opinion: unavailable`. Do not retry, do not escalate.
+4. **Exit 0 — adjudicate, never rubber-stamp.** Merge codex findings
+   into your Findings list:
+   - A codex finding whose signature
+     (`{file}:{start}-{end}:{criterion_key}`) duplicates one of yours is
+     dropped — yours stands.
+   - Codex-only **Critical/High**: verify against the actual code (Read
+     the cited lines; confirm the failure scenario is reachable).
+     Confirmed → adopt at codex's severity, Description prefixed
+     `[codex]`. Not confirmed → record at **Medium**, Description
+     prefixed `[codex-unverified]` plus a one-clause reason. An
+     unverified codex claim never blocks the gate.
+   - Codex-only **Medium/Low**: record as-is, Description prefixed
+     `[codex]` (non-blocking severities need no verification pass).
+   - Prefixes live inside the Description field only — the
+     `- #k [Severity] [File:Lines] [criterion_key] — …` line shape the
+     conductor parses is unchanged.
+   - Compute the final Verdict on the merged list (PASS = no
+     Critical/High after adjudication); end Summary with
+     `Codex second opinion: ran`.
+
+The merged review is still the reviewer's own: codex neither overrides
+its severities nor vetoes its findings.
+
+## Stage procedure (kind=code — all 5 aspects)
+
+Entry: control reaches here from `impl-ut-stage.md` Step 4 UT Run
+PASS, with `$n` = current `impl_round` and backlog status
+`in_progress_ut_run`.
+
+### Step I-1: Capture the review snapshot
+
+The worktree is quiescent during this stage — the conductor spawns
+reviewers and waits; no producer sub-agent runs concurrently — so a
+single snapshot capture is stable and no pin-mismatch respawn loop is
+needed (unlike the impl/UT review stages, where parallel Rounds can
+move HEAD mid-review).
+
+```bash
+WT=".scrum/worktrees/$PBI_ID"
+REVIEW_SHA="$(git -C "$WT" rev-parse HEAD)"
+BASE_SHA="$(jq -r '.base_sha' .scrum/sprint.json)"
+# Diff-derived review scope. pbi-state.json.paths_touched is stamped
+# LATER by mark-pbi-ready-to-merge.sh, so derive it here from git with
+# the same idiom that wrapper uses (--diff-filter=AMR: Added/Modified/
+# Renamed only — Deleted paths have nothing left to review).
+PATHS_TOUCHED="$(git -C "$WT" diff --name-only --diff-filter=AMR \
+  "$BASE_SHA..$REVIEW_SHA")"
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" start integrity
+```
+
+`{review_sha}` and `{base_sha}` are passed to every aspect reviewer as
+the diff bounds; `{paths_touched}` — the diff-derived file list above —
+limits the review to this PBI's files. It is computed in-stage because
+no persisted `paths_touched` exists yet at this point in the pipeline
+(the backlog item never carries one, and the PBI state field is only
+written at ready-to-merge).
+
+### Step I-2: Pass-A static analysis (maintainability input)
+
+Before spawning, the conductor runs **Pass-A intra-file lint over this
+PBI's diff files only** (not the whole repo) and writes the aggregate
+to the per-PBI metrics path the maintainability reviewer reads:
+
+```bash
+OUT=".scrum/pbi/$PBI_ID/metrics/static-analysis-r$n.json"
+# Diff-scoped file list (from Step I-1), split by language:
+CHANGED="$PATHS_TOUCHED"
+PY_FILES="$(echo "$CHANGED" | grep -E '\.py$' || true)"
+SH_FILES="$(echo "$CHANGED" | grep -E '\.sh$' || true)"
+# Python → ruff F401,F841,ARG,B ; Shell → shellcheck ; both emit JSON.
+#   (cd "$WT" && ruff check --select F401,F841,ARG,B --output-format json $PY_FILES)
+#   (cd "$WT" && shellcheck -f json $SH_FILES)
+# Normalize both tools' output into one static-analysis-r$n.json matching
+# ../../../agents/maintainability-reviewer.md § Receives (one tools[] entry per
+# tool; kind ∈ {unused_import,unused_variable,unused_argument,dead_branch,
+# other}; F401→unused_import, F841→unused_variable, ARG→unused_argument,
+# else other). On any tool failure set that tools[].exit_code non-zero and
+# keep going. If no py/shell files match, set skipped_reason and continue —
+# the reviewer degrades gracefully (static_analysis_status=unavailable).
+```
+
+This mirrors the old Sprint-end Pass A, re-scoped to the PBI diff. The
+whole-repo Pass-B / `vulture` reachability scan is **not** run here —
+that `unused_export` class is the Sprint-end audit's redundancy axis.
+
+### Step I-3: Spawn the aspect reviewers in parallel
+
+Issue all 5 `Agent` calls in a single message (Claude Code parallel
+execution), **synchronous** (`run_in_background: false`), no `model`
+override. Prompts come from `sub-agent-prompts.md` § Integrity aspect
+reviewers, with `{review_sha}`, `{base_sha}`, `{paths_touched}`, and
+(maintainability only) the static-analysis path filled in.
+
+```text
+Agent(subagent_type="requirement-conformance-reviewer", prompt=<...>)
+Agent(subagent_type="functional-quality-reviewer",      prompt=<...>)
+Agent(subagent_type="security-reviewer",                prompt=<...>)
+Agent(subagent_type="maintainability-reviewer",         prompt=<...>)
+Agent(subagent_type="docs-consistency-reviewer",        prompt=<...>)
+```
+
+Wait for all to return (the synchronous calls themselves — never a
+hand-rolled poll loop; see `reviewer-stall-fallback.md` § Bounded
+waiting). If a reviewer returns **without a parseable `**Verdict:**`
+line** (or an empty/garbled message), respawn that ONE reviewer once
+with the identical prompt; if the second attempt is still unparseable,
+run the canonical escalation transition (`termination-gates.md`
+§ Status transition on escalation) with
+`<reason>=reviewer_unavailable` and `<stage>=pbi_review`.
+
+### Step I-4: Aggregate findings + compute verdict
+
+Parse each returned message's `**Verdict:**` line and its markdown
+Findings list (`- #k [Severity] [File:Lines] [criterion_key] —
+Description`). For each finding synthesize the signature
+`{file}:{line_start}-{line_end}:{criterion_key}` and record its
+`severity` + `aspect`. Union across the aspects and persist the
+aggregate so the next Round can compare (termination gates):
+
+```bash
+AGG=".scrum/pbi/$PBI_ID/metrics/integrity-r$n.json"
+# AGG = { "round": n, "aspects": ["requirement-conformance", ...],
+#         "findings": [ { "signature": "<file>:<s>-<e>:<criterion_key>",
+#                         "severity": "critical|high|medium|low",
+#                         "aspect": "<aspect>", "description": "..." }, ... ] }
+```
+
+This aggregate is the conductor's own artifact — it is NOT a sub-agent
+envelope and is not bound by `pbi-pipeline-envelope.schema.json`, so
+the aspect criterion_keys are free to use each aspect's vocabulary.
+Descriptions from the functional-quality / security aspects may begin
+with a `[codex]` or `[codex-unverified]` prefix (their in-reviewer
+second opinion); the prefix is part of the Description text and does
+not change signature derivation or the severity rule below.
+
+**Integrity verdict** — deterministic:
+
+```text
+FAIL  if any finding across any aspect has severity ∈ {critical, high}
+PASS  otherwise
+```
+
+Medium/Low findings are recorded in the consolidated doc only — they
+do **not** fail the stage.
+
+### Step I-5a: PASS → author the consolidated doc + hand off
+
+Write the consolidated review doc to the **exact** path
+`.scrum/reviews/<pbi-id>-review.md` (the DoD path `hooks/quality-gate.sh`
+gates on) via heredoc, following the pipeline's file-persistence
+pattern. Embed each aspect's returned markdown section verbatim:
+
+```bash
+mkdir -p .scrum/reviews
+DOC=".scrum/reviews/$PBI_ID-review.md"
+cat > "$DOC" <<EOF
+# PBI Integrity Review — $PBI_ID
+
+Reviewed-Head: $REVIEW_SHA
+Round: $n
+Verdict: PASS
+
+$(: "each aspect's returned markdown section, in aspect order")
+$REQUIREMENT_CONFORMANCE_SECTION
+$FUNCTIONAL_QUALITY_SECTION
+$SECURITY_SECTION
+$MAINTAINABILITY_SECTION
+$DOCS_CONSISTENCY_SECTION
+
+## Non-blocking findings (Medium/Low)
+
+$(: "list any Medium/Low findings for the record")
+EOF
+
+.scrum/scripts/set-backlog-item-field.sh "$PBI_ID" review_doc_path "$DOC"
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "integrity PASS → ready-to-merge"
+```
+
+Then return to `impl-ut-stage.md` Step 4 Success branch, which writes
+the stage summaries and runs `mark-pbi-ready-to-merge.sh`. `review_doc_path`
+is now set and the file exists, satisfying the quality-gate DoD before
+status becomes `in_progress_merge`.
+
+### Step I-5b: FAIL → revert through existing feedback-routing
+
+A FAIL routes exactly like a PBI Review / UT Run FAIL. **First**
+evaluate the termination gates on the aggregated integrity findings
+(see `termination-gates.md` § Integrity stage — Success is already
+ruled out, then Stagnation / Divergence / Hard cap on the union). If an
+escalate gate fires, run the canonical escalation transition
+(`termination-gates.md` § Status transition on escalation) with
+`<reason>` = the gate outcome and `<stage>=pbi_review`.
+
+Otherwise revert to impl for the next Round and build feedback (see
+`feedback-routing.md` § Integrity-stage revert input — the Critical/High
+findings fold into `impl-r{n+1}.md` and `ut-r{n+1}.md`, each sub-agent
+interpreting which lines apply to it):
+
+```bash
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status fail
+.scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "integrity FAIL → next round"
+# Loop back to impl-ut-stage.md "Pipeline entry"; begin-impl-round.sh returns n+1.
+```
+
+## Stage procedure (kind=docs — aspects 1 + 5 only)
+
+Entry: control reaches here from `impl-ut-stage.md` Step 4 with the
+single impl-reviewer PASS and backlog status `in_progress_pbi_review`.
+
+Identical to the kind=code procedure with these reductions:
+
+- **Step I-2 (Pass-A static analysis) is skipped** — maintainability
+  is not spawned for docs PBIs, and a docs diff has no source to lint.
+- **Step I-3** spawns only `requirement-conformance-reviewer` and
+  `docs-consistency-reviewer` (both carry a kind=docs branch in their
+  agent definitions — semantic AC satisfaction + parent-fix
+  verification against `.scrum/reviews/<parent-pbi-id>-review.md`).
+- **Step I-5b FAIL** folds findings into `impl-r{n+1}.md` ONLY (there
+  is no `ut-r{n+1}.md` for a docs PBI); the next impl Round re-runs
+  `pbi-implementer` alone.
+- Verdict, consolidated-doc authoring, and `review_doc_path` handoff
+  are identical.
+
+## Why this stage exists
+
+The 5 aspects catch defect classes the codex impl/UT reviewers do not:
+requirement traceability, OWASP security, structural maintainability,
+and doc-impl drift. Running them per-PBI (rather than once at
+Sprint-end) means each finding lands while the PBI's own worktree,
+design, and author-context are live and cheaply fixable through the
+same Round loop, instead of after N PBIs have already merged. It also
+lets the Sprint-end review shrink to a pure whole-repo audit ("product
+integrity") that no longer re-derives per-PBI conformance.
+
+The functional-quality and security aspects also carry **cross-model
+diversity to the final gate**: Round-level reviews already get a codex
+second opinion (codex-{design,impl,ut}-reviewer), but the last gate
+before merge was Claude-only. Those two aspects now run an in-reviewer
+codex pass (§ Reviewer model & backing) so blind-spot defect classes
+one model family misses are caught where fixing them is cheapest —
+before the PBI leaves its worktree. Detection is two-model; blocking
+stays deterministic (only reviewer-verified Critical/High findings
+fail the stage).

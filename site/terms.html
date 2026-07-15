@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020610">
+<link rel="icon" type="image/png" href="./assets/app-icon.png">
+<title>Terms of Use — MaulTeam.app</title>
+<meta name="description" content="Terms of use for MaulTeam.app and the maul-team framework.">
+<link rel="canonical" href="https://sohei56.github.io/maul-team/terms.html">
+<meta name="robots" content="index,follow">
+<style>
+:root{
+  --bg:#020610; --panel:#081226; --line:rgba(154,190,255,.13); --line-strong:rgba(154,190,255,.24);
+  --text:#f4f8ff; --text-2:#c7d2ea; --text-3:#8d9ac0;
+  --cyan:#1cb5da; --cyan-hi:#3edcf5;
+  --font-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,Menlo,Monaco,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased}
+::selection{background:rgba(40,200,230,.30); color:#fff}
+a{color:var(--cyan-hi); text-decoration:none; border-bottom:1px dashed rgba(62,220,245,.4)}
+a:hover{border-bottom-style:solid}
+:focus-visible{outline:2px solid var(--cyan-hi); outline-offset:3px; border-radius:4px}
+
+.nav{position:sticky; top:0; z-index:60;
+  backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  background:rgba(2,6,16,.78); border-bottom:1px solid var(--line)}
+.nav-inner{max-width:760px; margin:0 auto; padding:0 24px; height:56px;
+  display:flex; align-items:center; justify-content:space-between}
+.wordmark{display:flex; align-items:center; gap:10px; text-decoration:none; border-bottom:0;
+  font-family:var(--font-mono); font-size:14px; font-weight:600; letter-spacing:-.01em; color:var(--text)}
+.wordmark .tld{color:var(--text-3)}
+.wm-icon{width:22px;height:22px;border-radius:6px;flex:none;object-fit:cover;
+  box-shadow:0 0 10px rgba(40,200,230,.30), inset 0 1px 0 rgba(255,255,255,.15)}
+.nav-back{font-size:13px; font-family:var(--font-mono); color:var(--text-2); border-bottom:0;
+  border:1px solid var(--line-strong); background:#121c34; padding:7px 14px; border-radius:999px;
+  transition:border-color .18s, color .18s}
+.nav-back:hover{border-color:rgba(62,220,245,.55); color:var(--text)}
+
+main{max-width:760px; margin:0 auto; padding:72px 24px 96px}
+.kicker{font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--cyan-hi); display:inline-flex; align-items:center; gap:10px}
+.kicker::before{content:""; width:26px; height:1px; background:linear-gradient(90deg,var(--cyan),transparent)}
+h1{font-family:var(--font-display); font-size:clamp(30px,5vw,42px); font-weight:700;
+  letter-spacing:-.025em; line-height:1.12; margin:16px 0 10px}
+.effective{font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); margin-bottom:40px}
+h2{font-family:var(--font-display); font-size:19px; font-weight:650; letter-spacing:-.015em;
+  margin:40px 0 10px; padding-top:24px; border-top:1px solid var(--line)}
+p, li{color:var(--text-2); font-size:15px}
+p + p{margin-top:10px}
+ul{padding-left:22px; margin-top:8px}
+li{margin-bottom:6px}
+strong{color:var(--text); font-weight:600}
+.mono{font-family:var(--font-mono); font-size:.92em; color:var(--text)}
+
+footer{border-top:1px solid var(--line)}
+.footer-inner{max-width:760px; margin:0 auto; padding:28px 24px;
+  display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between;
+  font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="wordmark" href="./index.html" aria-label="MaulTeam.app home">
+      <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
+      MaulTeam<span class="tld">.app</span>
+    </a>
+    <a class="nav-back" href="./index.html">← Back to home</a>
+  </div>
+</header>
+
+<main>
+  <p class="kicker">Legal</p>
+  <h1>Terms of Use</h1>
+  <p class="effective">Effective: July 10, 2026</p>
+
+  <p>These terms apply to the <strong>MaulTeam.app</strong> Mac application and the
+  <strong>maul-team</strong> framework (together, the “Software”), provided by
+  <strong>sohei56</strong> (the “Author”). By downloading, installing, or using the
+  Software, you agree to these terms.</p>
+
+  <h2>1. License and open source</h2>
+  <p>The Software is source-available and licensed in two parts:</p>
+  <ul>
+    <li>The <strong>maul-team framework</strong> (agents, skills, scripts) is released under the
+      <a href="https://github.com/sohei56/maul-team/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.
+      You may use, modify, and distribute it under that license.</li>
+    <li>The <strong>MaulTeam.app</strong> Mac application is provided under its own
+      <a href="https://github.com/sohei56/maul-team/blob/main/macapp/LICENSE" target="_blank" rel="noopener">commercial license</a>,
+      currently free of charge for personal and commercial use. Redistribution or resale of the
+      app binary is not permitted.</li>
+  </ul>
+  <p>Where these terms and a license text conflict, the license text governs.</p>
+
+  <h2>2. Using the Software</h2>
+  <p>The Software orchestrates AI agents that run on your machine through
+  <strong>Claude Code</strong>, which you install and pay for separately. You are responsible for:</p>
+  <ul>
+    <li>complying with the terms of any AI service you connect (e.g., Anthropic’s terms for
+      Claude Code and the Claude API), including its usage costs;</li>
+    <li>all code, files, and commands the AI agents create, modify, or execute on your machine
+      and in your repositories — review output before you rely on it, and run the Software on
+      projects that are under version control and backed up;</li>
+    <li>anything you build, ship, or publish using the Software.</li>
+  </ul>
+
+  <h2>3. AI-generated output</h2>
+  <p>The Software drives large language models. Their output can be incorrect, insecure, or
+  incomplete, and agents act autonomously within your project — including writing files,
+  running shell commands, and creating git branches and commits. The Author does not review,
+  endorse, or warrant any AI-generated output.</p>
+
+  <h2>4. Privacy</h2>
+  <p>The Software runs entirely on your Mac. It does not collect analytics or telemetry, and it
+  does not send your code anywhere itself; your code reaches third parties only through the AI
+  services you have configured (e.g., the Claude API via Claude Code). This website is hosted on
+  GitHub Pages, which may log standard access data under
+  <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub’s privacy statement</a>.</p>
+
+  <h2>5. Disclaimer of warranty</h2>
+  <p>The Software is provided <strong>“AS IS”</strong>, without warranty of any kind, express or
+  implied, including but not limited to the warranties of merchantability, fitness for a
+  particular purpose, and non-infringement.</p>
+
+  <h2>6. Limitation of liability</h2>
+  <p>To the maximum extent permitted by law, the Author shall not be liable for any indirect,
+  incidental, special, or consequential damages, or any loss of data, code, profits, or business,
+  arising out of or in connection with the use of the Software — including actions taken by AI
+  agents on your machine.</p>
+
+  <h2>7. Changes to these terms</h2>
+  <p>These terms may be updated as the Software evolves (for example, if paid features are
+  introduced). The current version is always published on this page; continued use after a
+  change constitutes acceptance.</p>
+
+  <h2>8. Governing law</h2>
+  <p>These terms are governed by the laws of Japan. Any dispute arising from these terms or the
+  Software shall be subject to the exclusive jurisdiction of the Tokyo District Court.</p>
+
+  <h2>9. Contact</h2>
+  <p>Questions about these terms:
+  <a href="https://github.com/sohei56/maul-team/issues" target="_blank" rel="noopener">open an issue on GitHub</a>.</p>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 sohei56 · MIT (framework) + Commercial (app)</span>
+    <span><a href="./index.html" style="color:inherit; border-bottom:0">MaulTeam.app</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

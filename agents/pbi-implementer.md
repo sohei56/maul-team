@@ -23,20 +23,23 @@ disallowedTools:
 Implementation author. Spawned by Developer per impl+UT Round. Behaves
 differently for `kind=code` (full source impl) and `kind=docs`
 (no design doc, .md changes only). The Developer chooses which prompt
-variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
+variant to send (see `../skills/pbi-pipeline/references/sub-agent-prompts.md`
 § pbi-implementer (kind=code) / (kind=docs)).
 
 ## Receives (kind=code)
 
 - .scrum/pbi/<pbi-id>/design/design.md
 - Prior .scrum/pbi/<pbi-id>/feedback/impl-r{n}.md (if Round n>=2)
-- Output target: implementation source at project's normal paths
-  (e.g., src/, lib/)
+- Output target: implementation source at the project's normal paths
+  UNDER the worktree root passed in the prompt — absolute
+  `{worktree_path}/src/...` form, never a bare relative path (a write
+  resolved against the main checkout leaks off the PBI branch and
+  blocks the merge)
 
 ## Receives (kind=docs)
 
 - PBI `acceptance_criteria` (verbatim from backlog.json)
-- Parent PBI `cross-review digest` at
+- Parent PBI Integrity review digest at
   `.scrum/reviews/<parent-pbi-id>-review.md` (read for context;
   this is the design input)
 - `catalog_targets` listing the `*.md` files to edit
@@ -85,10 +88,11 @@ variant to send (see `skills/pbi-pipeline/references/sub-agent-prompts.md`
     requirement when the parent finding is ambiguous about it
   Guessing IS permitted for: error message wording, log levels,
   local variable names, internal helper decomposition, comments.
-  See `rules/scrum-context.md` § "When you don't know" for the
+  See `../rules/scrum-context.md` § "When you don't know" for the
   escalation route (implementer → Developer → SM → PO).
 
 ## Output Envelope
 
-End with the JSON envelope from spec 4.1. `verdict` is null. List all
-modified file paths in `artifacts`.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
+List all modified file paths in `artifacts`.

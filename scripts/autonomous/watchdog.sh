@@ -28,8 +28,9 @@
 #   AUTON_CLAUDE_BIN     — claude binary (default `claude`)
 #   AUTON_SLEEP_SCALE    — multiplier on every sleep duration (default 1; 0
 #                          disables sleeping entirely — useful for tests)
-#   AUTON_NOW_CMD        — command emitting epoch seconds for the "now"
-#                          comparison points (default `date +%s`)
+#   SCRUM_NOW_EPOCH      — pins now_epoch for the "now" comparison points
+#                          (shared seam in scripts/lib/time.sh; replaces the
+#                          legacy eval-based AUTON_NOW_CMD hook)
 #
 # Bash 3.2 compatible. shellcheck clean.
 #
@@ -47,11 +48,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/report.sh
 . "$SCRIPT_DIR/lib/report.sh"
+# shellcheck source=../lib/jq-read.sh
+. "$SCRIPT_DIR/../lib/jq-read.sh"
+# shellcheck source=../lib/time.sh
+. "$SCRIPT_DIR/../lib/time.sh"
 
 # --- Configurable test hooks --------------------------------------------------
 AUTON_CLAUDE_BIN="${AUTON_CLAUDE_BIN:-claude}"
 AUTON_SLEEP_SCALE="${AUTON_SLEEP_SCALE:-1}"
-AUTON_NOW_CMD="${AUTON_NOW_CMD:-date +%s}"
 
 # --- Files -------------------------------------------------------------------
 CONFIG_FILE=".scrum/config.json"
@@ -82,12 +86,15 @@ MAX_RATE_LIMIT_WAIT_SECS=21600
 
 # --- Helpers ----------------------------------------------------------------
 
-now_epoch() {
-  eval "$AUTON_NOW_CMD"
-}
+# now_epoch / iso_utc_now come from scripts/lib/time.sh (sourced above).
 
-iso_utc_now() {
-  date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z"
+# iso_to_epoch <iso8601> — convert an ISO-8601 UTC timestamp to unix epoch
+# seconds, portable across GNU (`date -d`) and BSD (`date -j -f`). Emits 0 when
+# neither parser succeeds (caller treats 0 as "unparseable / very old").
+iso_to_epoch() {
+  date -u -d "$1" +%s 2>/dev/null \
+    || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null \
+    || echo 0
 }
 
 # do_sleep <seconds>
@@ -130,46 +137,45 @@ generate_uuid() {
 # callers that need numeric / enum guarantees must validate the returned
 # string themselves. (Historical name: cfg_num; the function never
 # enforced integer typing and was being used for both numeric limits and
-# the string-valued permission_mode.)
+# the string-valued permission_mode.) Thin wrapper over the shared
+# jq_cfg_or (scripts/lib/jq-read.sh), binding the config file.
 cfg_value() {
-  local path="$1" default="$2" val
-  if [ ! -f "$CONFIG_FILE" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  if ! jq empty "$CONFIG_FILE" >/dev/null 2>&1; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  val="$(jq -r "$path // empty" "$CONFIG_FILE" 2>/dev/null || true)"
-  if [ -z "$val" ] || [ "$val" = "null" ]; then
-    printf '%s\n' "$default"
-    return 0
-  fi
-  printf '%s\n' "$val"
+  jq_cfg_or "$CONFIG_FILE" "$1" "$2"
 }
 
-# cfg_str_or_null <jq_path>
-cfg_str_or_null() {
-  local path="$1" val
-  if [ ! -f "$CONFIG_FILE" ]; then
-    return 0
-  fi
-  val="$(jq -r "$path // empty" "$CONFIG_FILE" 2>/dev/null || true)"
-  [ "$val" = "null" ] && val=""
-  printf '%s' "$val"
-}
-
-# autonomy_atomic_write <jq_expr>
+# autonomy_atomic_write <jq_expr> [jq_arg...]
+# Applies <jq_expr> to autonomy.json (with any extra jq args such as --arg /
+# --argjson pairs) and ALWAYS stamps .updated_at with the current time, so
+# call sites never append the updated_at clause themselves. Atomic via tmp +
+# mv; returns non-zero (without exiting) on jq failure so fail-open callers
+# can `|| true`. Dynamic values MUST be passed as jq args (--arg/--argjson),
+# never interpolated into <jq_expr>. This mirrors
+# hooks/lib/autonomy.sh::_autonomy_jq_write — a DIFFERENT process family kept
+# in sync by hand, not shared, per the no-cross-source convention between
+# scripts/ and hooks/lib/ (see scripts/scrum/lib/atomic.sh / queries.sh).
 autonomy_atomic_write() {
-  local expr="$1" tmp
+  local expr="$1"; shift
+  local tmp now
+  now="$(iso_utc_now)"
   tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-  if jq "$expr" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
+  if jq --arg now "$now" "$@" "$expr | (.updated_at = \$now)" "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
     mv "$tmp" "$AUTONOMY_FILE"
     return 0
   fi
   rm -f "$tmp"
   return 1
+}
+
+# record_failure <reason>
+# Stamps `.last_failure = {reason, at}` on autonomy.json — the single
+# definition of the last_failure shape in this file (read back by
+# lib/report.sh for the morning report). Fail-open: a write failure is
+# swallowed so bookkeeping never aborts the loop.
+record_failure() {
+  autonomy_atomic_write \
+    '(.last_failure = {reason: $reason, at: $at})' \
+    --arg reason "$1" --arg at "$(iso_utc_now)" \
+    || true
 }
 
 # progress_hash — emits sha of phase + current_sprint_id + every PBI's id:status.
@@ -243,9 +249,7 @@ extract_rate_limit_reset_epoch() {
     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' \
     | head -1 || true)"
   if [ -n "$iso" ]; then
-    e="$(date -u -d "$iso" +%s 2>/dev/null \
-      || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null \
-      || echo 0)"
+    e="$(iso_to_epoch "$iso")"
     if [ "${e:-0}" -gt 0 ]; then
       printf '%s\n' "$e"
       return 0
@@ -306,9 +310,7 @@ rate_limited_since() {
   local ts epoch
   while IFS= read -r ts; do
     [ -n "$ts" ] || continue
-    # GNU date `--date` and BSD `-jf` differ; try GNU first, then BSD.
-    epoch="$(date -u -d "$ts" +%s 2>/dev/null || \
-             date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || echo 0)"
+    epoch="$(iso_to_epoch "$ts")"
     if [ "$epoch" -ge "$since_epoch" ]; then
       return 0
     fi
@@ -329,10 +331,10 @@ build_prompt() {
 
   case "$phase" in
     ""|new|unknown)
-      tail='No state.json yet — bootstrap: read docs/product/brief.md, then drive the Requirements Sprint with the product-owner teammate as the user proxy. Aim for `phase=backlog_created` this iteration.'
+      tail='No state.json yet — bootstrap: read docs/product/brief.md, then drive the Requirement Definition with the product-owner teammate as the user proxy. Aim for `phase=backlog_created` this iteration.'
       ;;
     requirements_sprint)
-      tail='Continue the Requirements Sprint. Drive elicitation through the product-owner teammate (no human prompts). When complete, transition to `backlog_created`.'
+      tail='Continue the Requirement Definition. Drive elicitation through the product-owner teammate (no human prompts). When complete, transition to `backlog_created`.'
       ;;
     backlog_created)
       tail='Run Sprint Planning. Select the next batch of PBIs with the product-owner teammate and transition to `pbi_pipeline_active`.'
@@ -350,7 +352,10 @@ build_prompt() {
       tail='Finish the Retrospective if not already recorded (improvements + sprint-history). Then run the sprint-continuation handshake: send the product-owner teammate a PO_DECISION_REQUEST kind=sprint_continuation options=[next_sprint,integration_sprint,complete] and advance the phase per the reply — next_sprint → backlog_created, integration_sprint → integration_sprint, complete → complete. Do NOT end the turn with phase still `retrospective`.'
       ;;
     integration_sprint)
-      tail='Drive the Integration Sprint. Run product-wide QA / smoke tests. On defects, transition back to `backlog_created` (defect-fix loop). On pass, transition to `complete`.'
+      tail='Run the integration-tests skill (systematic design-driven testing: boundary values, flow/pattern branches, external-IF stubs, automation-first). On pass, transition to `uat_release`. On defects, create defect PBIs and transition back to `backlog_created` (defect-fix loop).'
+      ;;
+    uat_release)
+      tail='Run the uat-release skill: UAT walkthrough with the product-owner teammate (browser MCP for UI stories), defect collection, and the release decision. On release go → `complete`. On UAT defects / no_go → create defect PBIs and transition back to `backlog_created`.'
       ;;
     complete)
       tail='Workflow is complete. Verify .scrum/state.json reflects this and stop.'
@@ -375,15 +380,15 @@ build_prompt() {
 # so without the banner the pane looks frozen and users miss that the
 # dashboard is the place to watch.
 print_startup_banner() {
-  # Figlet-style "Claude Scrum Team / Auto Mode" wordmark, drawn with
+  # Figlet-style "Maul Team / Auto Mode" wordmark, drawn with
   # standard ASCII glyphs so it renders identically on every TERM.
   cat >&2 <<EOF
 
-   ____ _                 _        ____                              _____
-  / ___| | __ _ _   _  __| | ___  / ___|  ___ _ __ _   _ _ __ ___   |_   _|__  __ _ _ __ ___
- | |   | |/ _\` | | | |/ _\` |/ _ \\ \\___ \\ / __| '__| | | | '_ \` _ \\    | |/ _ \\/ _\` | '_ \` _ \\
- | |___| | (_| | |_| | (_| |  __/  ___) | (__| |  | |_| | | | | | |   | |  __/ (_| | | | | | |
-  \\____|_|\\__,_|\\__,_|\\__,_|\\___| |____/ \\___|_|   \\__,_|_| |_| |_|   |_|\\___|\\__,_|_| |_| |_|
+   __  __             _   _____
+  |  \\/  | __ _ _   _| | |_   _|__  __ _ _ __ ___
+  | |\\/| |/ _\` | | | | |   | |/ _ \\/ _\` | '_ \` _ \\
+  | |  | | (_| | |_| | |   | |  __/ (_| | | | | | |
+  |_|  |_|\\__,_|\\__,_|_|   |_|\\___|\\__,_|_| |_| |_|
              _         _          __  __           _
             / \\  _   _| |_ ___   |  \\/  | ___   __| | ___
   _____    / _ \\| | | | __/ _ \\  | |\\/| |/ _ \\ / _\` |/ _ \\
@@ -408,7 +413,7 @@ finalize() {
   # in human mode rather than block-every-Stop. Best-effort: a crash that
   # skips finalize leaves a stale pid, but `kill -0` on the dead pid still
   # reports "not alive", so the gate degrades correctly either way.
-  autonomy_atomic_write "(.watchdog_pid = null) | (.updated_at = \"$(iso_utc_now)\")" || true
+  autonomy_atomic_write "(.watchdog_pid = null)" || true
   local report_path
   report_path="$(generate_morning_report "$reason" || true)"
   if [ -n "$report_path" ]; then
@@ -442,7 +447,7 @@ case "$PERMISSION_MODE" in
   dontAsk|bypassPermissions) ;;
   *) PERMISSION_MODE="$DEFAULT_PERMISSION_MODE" ;;
 esac
-FALLBACK_MODEL="$(cfg_str_or_null '.autonomous.fallback_model')"
+FALLBACK_MODEL="$(cfg_value '.autonomous.fallback_model' "")"
 
 # wall-clock seconds limit
 MAX_WALL_SECS="$(awk -v h="$MAX_WALL_HOURS" 'BEGIN{printf "%d", h*3600}')"
@@ -458,9 +463,32 @@ printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failu
 # would block every Stop with no watchdog to re-launch the session — the
 # "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
 WATCHDOG_PID="$$"
-if ! autonomy_atomic_write "(.watchdog_pid = ${WATCHDOG_PID}) | (.updated_at = \"$(iso_utc_now)\")"; then
+if ! autonomy_atomic_write '(.watchdog_pid = $pid)' --argjson pid "$WATCHDOG_PID"; then
   printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
 fi
+
+# Sprint budget baseline. `max_sprints` is the number of Sprints to run
+# *this launch*, measured from the sprint-history length captured at
+# startup — NOT a cumulative cap. A project that already has B Sprints in
+# history and max_sprints=M runs until history reaches B+M. The baseline is
+# captured once and persisted to autonomy.json so a resumed watchdog (same
+# run) continues the original budget instead of granting a fresh M; a fresh
+# scrum-start.sh --autonomous writes a baseline-less autonomy.json, so the
+# next launch re-captures against the then-current history length.
+SPRINT_BASELINE="$(_jq_safe "$AUTONOMY_FILE" '.sprint_baseline // empty' '')"
+if [ -z "$SPRINT_BASELINE" ]; then
+  SPRINT_BASELINE=0
+  if [ -f "$SPRINT_HISTORY_FILE" ] && jq empty "$SPRINT_HISTORY_FILE" >/dev/null 2>&1; then
+    SPRINT_BASELINE="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
+  fi
+  if ! autonomy_atomic_write \
+       '(.sprint_baseline = $baseline)' --argjson baseline "$SPRINT_BASELINE"; then
+    printf 'watchdog: WARN failed to record sprint_baseline in autonomy.json.\n' >&2
+  fi
+fi
+SPRINT_LIMIT=$((SPRINT_BASELINE + MAX_SPRINTS))
+printf 'watchdog: sprint budget: baseline=%s + max_sprints=%s → stop at history=%s\n' \
+  "$SPRINT_BASELINE" "$MAX_SPRINTS" "$SPRINT_LIMIT" >&2
 
 # Loop-local accumulators
 ITER=0
@@ -492,9 +520,9 @@ while :; do
   if [ -f "$SPRINT_HISTORY_FILE" ] && jq empty "$SPRINT_HISTORY_FILE" >/dev/null 2>&1; then
     SPRINT_COUNT="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
   fi
-  if [ "${SPRINT_COUNT:-0}" -ge "$MAX_SPRINTS" ]; then
-    printf 'watchdog: max_sprints (%s) reached (history=%s).\n' \
-      "$MAX_SPRINTS" "$SPRINT_COUNT" >&2
+  if [ "${SPRINT_COUNT:-0}" -ge "$SPRINT_LIMIT" ]; then
+    printf 'watchdog: max_sprints (%s) reached (baseline=%s, history=%s, limit=%s).\n' \
+      "$MAX_SPRINTS" "$SPRINT_BASELINE" "$SPRINT_COUNT" "$SPRINT_LIMIT" >&2
     finalize 2 "max_sprints_reached"
   fi
 
@@ -508,7 +536,8 @@ while :; do
   # ----- 3. Session ID + autonomy bookkeeping -----
   SID="$(generate_uuid)"
   if ! autonomy_atomic_write \
-       "(.iteration = ${ITER}) | (.lead_session_id = \"${SID}\") | (.stop_blocks = {phase: (.stop_blocks.phase // \"\"), count: 0}) | (.updated_at = \"$(iso_utc_now)\")"; then
+       '(.iteration = $iter) | (.lead_session_id = $sid) | (.stop_blocks = {phase: (.stop_blocks.phase // ""), count: 0})' \
+       --argjson iter "$ITER" --arg sid "$SID"; then
     printf 'watchdog: failed to update autonomy.json — aborting.\n' >&2
     finalize 3 "autonomy_write_failed"
   fi
@@ -543,7 +572,8 @@ while :; do
     ITER_COST="$(jq -r '.total_cost_usd // 0' "$ITER_STDOUT" 2>/dev/null || echo 0)"
     if [ -n "$ITER_COST" ] && [ "$ITER_COST" != "null" ] && [ "$ITER_COST" != "0" ]; then
       autonomy_atomic_write \
-        "(.total_cost_usd = ((.total_cost_usd // 0) + ${ITER_COST})) | (.updated_at = \"$(iso_utc_now)\")" \
+        '(.total_cost_usd = ((.total_cost_usd // 0) + $cost))' \
+        --argjson cost "$ITER_COST" \
         || true
     fi
   fi
@@ -587,9 +617,7 @@ while :; do
       printf 'watchdog: rate-limit detected; no reset time parsed — sleeping %ss\n' \
         "$WAIT_SECS" >&2
     fi
-    autonomy_atomic_write \
-      "(.last_failure = {reason: \"rate_limit_wait\", at: \"$(iso_utc_now)\"}) | (.updated_at = \"$(iso_utc_now)\")" \
-      || true
+    record_failure "rate_limit_wait"
     do_sleep "$WAIT_SECS"
     LAST_HASH="$NEW_HASH"
     ITER=$((ITER - 1))
@@ -600,7 +628,7 @@ while :; do
   # Clear the breaker so the next iteration starts clean.
   if [ -n "$CB_TRIPPED" ]; then
     autonomy_atomic_write \
-      "(.circuit_breaker_tripped = null) | (.updated_at = \"$(iso_utc_now)\")" || true
+      "(.circuit_breaker_tripped = null)" || true
   fi
 
   PROGRESSED=0
@@ -620,9 +648,7 @@ while :; do
     REASON="no_progress"
     [ "$rc" -ne 0 ]      && REASON="claude_exit_${rc}"
     [ -n "$CB_TRIPPED" ] && REASON="circuit_breaker"
-    autonomy_atomic_write \
-      "(.last_failure = {reason: \"${REASON}\", at: \"$(iso_utc_now)\"}) | (.updated_at = \"$(iso_utc_now)\")" \
-      || true
+    record_failure "$REASON"
     printf 'watchdog: failure (%s); fail_streak=%s\n' "$REASON" "$FAIL_STREAK" >&2
   fi
 

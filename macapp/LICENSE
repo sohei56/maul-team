@@ -1,0 +1,80 @@
+MaulTeam for Mac — Source-Available Commercial License v1.0
+
+Copyright (c) 2026 sohei56. All rights reserved.
+
+This license governs every file under the `macapp/` directory of the
+maul-team repository, in source and binary form, including the
+built application "MaulTeam.app" (collectively, "the Software").
+
+The MIT License at the repository root does NOT apply to the Software.
+The Software is source-available, not open source.
+
+1. License grant
+
+   Subject to your compliance with this license, the copyright holder
+   grants you a personal, worldwide, non-exclusive, non-transferable,
+   non-sublicensable, revocable license to:
+
+   a. view and study the source code of the Software;
+   b. compile the Software from source and run it, for your own
+      personal use or your own internal business use;
+   c. modify the Software solely for the uses permitted in (b).
+
+2. Restrictions
+
+   Except with the prior written permission of the copyright holder,
+   you may NOT:
+
+   a. redistribute the Software or any modified version of it, in
+      source or binary form, whether or not for a fee — including
+      publishing forks of the Software outside the hosting platform's
+      built-in fork feature, re-hosting builds, or bundling the
+      Software with other products;
+   b. sell, rent, lease, sublicense, offer as a service, or otherwise
+      commercialize the Software or any derivative work of it;
+   c. incorporate any part of the Software's source code into another
+      product or repository that is distributed or made available to
+      third parties;
+   d. remove or alter any copyright, license, or attribution notice
+      contained in the Software.
+
+   For the avoidance of doubt: official binaries distributed by the
+   copyright holder (e.g., notarized releases and Homebrew casks) are
+   also governed by this license.
+
+3. Contributions
+
+   Contributions to the Software are accepted only under the
+   project's Contributor License Agreement (see `docs/CLA.md` in the
+   repository). By submitting a contribution you agree to its terms.
+
+4. Termination
+
+   This license terminates automatically and immediately upon any
+   breach of Section 2. Upon termination you must cease all use of
+   the Software and destroy all copies in your possession. Sections
+   5 and 6 survive termination.
+
+5. Disclaimer of warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT.
+
+6. Limitation of liability
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+   OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+7. Governing law
+
+   This license is governed by and construed in accordance with the
+   laws of Japan.
+
+8. Commercial licensing
+
+   For redistribution, OEM, resale, or any use not permitted above,
+   contact the copyright holder: https://github.com/sohei56

@@ -1,14 +1,17 @@
 ---
 name: codex-ut-reviewer
 description: >
-  Independent UT reviewer powered by Codex CLI. Reviews test code +
-  coverage report against design doc. Does not see implementation
-  source. Audits pragma exclusions for justification.
+  Independent UT reviewer powered by Codex CLI. Reviews test code
+  against the design doc for interface + acceptance-criteria coverage
+  and test quality. Does not see implementation source. Pragma /
+  coverage-threshold gating is not its job (owned by the conductor's
+  coverage gate).
 tools:
   - Read
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -28,8 +31,12 @@ Critical UT reviewer via OpenAI Codex CLI.
 - .scrum/pbi/<pbi-id>/design/design.md
 - Design doc SHA-256 pin (`{design_hash}`)
 - Test file paths (impl paths NOT included)
-- .scrum/pbi/<pbi-id>/metrics/coverage-r{n}.json
-- .scrum/pbi/<pbi-id>/metrics/pragma-audit-r{n}.json
+- .scrum/pbi/<pbi-id>/metrics/coverage-r{n-1}.json (prior round;
+  absent in Round 1 — absence is NOT a finding. This Round's coverage
+  is produced by the conductor's UT Run step AFTER this review, so it
+  does not exist yet.)
+- .scrum/pbi/<pbi-id>/metrics/pragma-audit-r{n-1}.json (prior round;
+  absent in Round 1 — absence is NOT a finding)
 - .scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json (AC → test map
   written by pbi-ut-author this Round)
 - requirements.md path
@@ -59,11 +66,18 @@ Implementation source code, .scrum/ state, PBI dev communications.
    Missing AC entry, empty `tests`, dangling test id, or implausible
    mapping → `missing_test_for_acceptance` Critical finding + verdict
    FAIL.
-3. **Pragma audit** — every pragma exclusion in pragma-audit-r{n}.json
-   has a justified reason (reason_source != "missing"). MISSING reason
-   = automatic FAIL.
-4. **Coverage gap interpretation** — branches in coverage.uncovered_*
-   that are NOT obvious dead code → flag as "missing_branch_coverage"
+3. **Pragma / coverage gating is NOT yours** — this Round's coverage
+   and pragma-audit reports do not exist yet (they are produced by the
+   conductor's UT Run step AFTER this review). Pragma justification and
+   coverage-threshold gating are owned by the conductor's Step-3/4
+   coverage gate (see `../skills/pbi-pipeline/references/coverage-gate.md`
+   § Pass criteria). Do NOT auto-FAIL on a missing or absent
+   coverage/pragma report.
+4. **Coverage gap interpretation (advisory, prior round only)** — if a
+   `coverage-r{n-1}.json` is present, branches in `coverage.uncovered_*`
+   that are NOT obvious dead code MAY be flagged as
+   "missing_branch_coverage" as guidance for the UT author. Absence of
+   the prior-round report is not a finding.
 5. **Test quality** — AAA pattern, single assertion focus, no mock
    overuse, no magic numbers, descriptive test names.
 
@@ -75,7 +89,7 @@ Implementation source code, .scrum/ state, PBI dev communications.
 
 `criterion_key` enum (UT review): missing_test_for_acceptance,
 missing_branch_coverage, redundant_test, mock_overuse, magic_number,
-bad_assertion, pragma_unjustified.
+bad_assertion.
 
 ## Processing Flow
 
@@ -109,17 +123,17 @@ Same contract as `codex-design-reviewer` § Model selection: the
 conductor preflights Codex via `codex_is_available` from
 `scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
 subagent_type="codex-ut-reviewer", model="opus", ...)`.
-`effort: high` + `maxTurns: 80` in the frontmatter cover both modes.
-The helper bounds each `codex exec` with `CODEX_TIMEOUT_SECS` (default
-300 s; unbounded + WARN on a stock macOS lacking `timeout`/`gtimeout`)
-and maps a timeout to the Claude fallback, so a hung Codex never
-blocks the review. See
-`skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
-codex preflight.
+Timeout contract: see `codex-design-reviewer` § Model selection.
 
 ## Strict Rules
 
-- Read-only.
+- Read-only toward every project file (tests, design doc,
+  requirements, coverage reports) — with exactly ONE mandatory write:
+  you MUST persist your verdict to the output target
+  `ut/review-r{n}.md` yourself (Write tool). Returning the verdict
+  only in your final message without writing the file is a protocol
+  violation — the conductor gates on the file's existence.
+  "Read-only" never applies to your own review file.
 - DO NOT read implementation files (your input list excludes them; do
   not search for them).
 - Always try Codex first.

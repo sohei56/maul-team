@@ -66,25 +66,6 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "append-improvement: appends to a legacy file carrying a deprecated category field" {
-  # Regression: pre-wrapper improvements.json files tagged entries with a
-  # `category` field. append-improvement.sh re-validates the WHOLE file on
-  # every append, so a legacy entry must remain schema-valid (the schema
-  # tolerates `category` for backward compat).
-  cat > .scrum/improvements.json <<'JSON'
-{"entries":[{"id":"imp-0001","sprint_id":"sprint-001","description":"legacy item","status":"active","created_at":"2026-01-01T00:00:00Z","category":"process"}],"last_consolidation_sprint":null}
-JSON
-  run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT" \
-    --sprint sprint-002 --description "new item after legacy"
-  [ "$status" -eq 0 ]
-  [ "$output" = "imp-0002" ]
-  run jq -r '.entries | length' "$TEST_TMP/.scrum/improvements.json"
-  [ "$output" = "2" ]
-  # The legacy category survives untouched.
-  run jq -r '.entries[0].category' "$TEST_TMP/.scrum/improvements.json"
-  [ "$output" = "process" ]
-}
-
 @test "append-improvement: rejects missing --sprint" {
   run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT" --description "x"
   [ "$status" -eq 64 ]
@@ -116,4 +97,15 @@ JSON
     --sprint sprint-001 --description "x" --bogus
   [ "$status" -eq 64 ]
   [[ "$output" == *"unknown flag"* ]]
+}
+
+@test "append-improvement: id grows past imp-9999 (5-digit rollover)" {
+  printf '%s\n' '{"entries":[{"id":"imp-9999","sprint_id":"sprint-001","description":"seed","status":"active","created_at":"2026-01-01T00:00:00Z","archived_at":null}],"last_consolidation_sprint":null}' \
+    > .scrum/improvements.json
+  run env SCRUM_VALIDATOR_OVERRIDE=python "$SCRIPT" \
+    --sprint sprint-002 --description "ten-thousandth" --dec-id dec-10000
+  [ "$status" -eq 0 ]
+  [ "$output" = "imp-10000" ]
+  run jq -r '.entries[-1].dec_id' "$TEST_TMP/.scrum/improvements.json"
+  [ "$output" = "dec-10000" ]
 }

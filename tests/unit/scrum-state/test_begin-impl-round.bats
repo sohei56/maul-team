@@ -96,25 +96,21 @@ run_begin() {
   [ "$(state_field impl_round)" = "2" ]
 }
 
-@test "begin-impl-round: Cross Review revert from cross_review → Round N+1" {
-  # Round 2 had completed successfully (impl_status=pass) and the PBI
-  # reached awaiting_cross_review → cross_review. Aspect 1/2/3 FAIL
-  # transitioned backlog to cross_review (skill calls update-backlog-status).
-  # The dashboard bug was: re-entry at this point reset impl_round to 1.
+@test "begin-impl-round: rejects illegal pre-state (cross_review)" {
+  # Sprint-end cross-review is audit-only and never reverts a PBI, so
+  # cross_review is no longer a legal re-entry pre-state. (The Integrity
+  # stage reverts by transitioning to in_progress_impl BEFORE calling
+  # this wrapper — see the test below.)
   set_state impl_round 2 impl_status pass ut_status pass
   set_backlog_status cross_review
   run_begin
-  [ "$status" -eq 0 ]
-  [ "$output" = "3" ]
-  [ "$(state_field impl_round)" = "3" ]
-  [ "$(state_field impl_status)" = "pending" ]
-  [ "$(state_field ut_status)" = "pending" ]
-  [ "$(backlog_status)" = "in_progress_impl" ]
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"illegal pre-state"* ]]
 }
 
-@test "begin-impl-round: Cross Review revert when cross-review skill pre-set in_progress_impl → still advances" {
-  # cross-review/SKILL.md Step 11 calls update-backlog-status.sh ...
-  # in_progress_impl BEFORE the Developer re-enters and calls
+@test "begin-impl-round: Integrity-stage revert pre-set in_progress_impl → still advances" {
+  # integrity-stage.md Step I-5b calls update-backlog-status.sh ...
+  # in_progress_impl BEFORE the conductor re-enters and calls
   # begin-impl-round.sh. The wrapper must still advance the counter.
   set_state impl_round 2 impl_status pass ut_status pass
   set_backlog_status in_progress_impl

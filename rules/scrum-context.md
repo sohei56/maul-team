@@ -13,7 +13,7 @@ description: >
 
 # Scrum Team Context (read this first)
 
-You are running inside the **claude-scrum-team** framework. Multiple
+You are running inside the **Maul Team** framework. Multiple
 Claude sessions cooperate as a Scrum team. This file gives you the
 shared mental model every agent needs **before acting**.
 
@@ -33,6 +33,10 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
                           ▼
                    Scrum Master  (team lead, Delegate mode — never writes code)
                           │
+              (project start) spawn requirements-analyst  ──▶  Requirement
+                          │      Definition ceremony: interview + mandatory
+                          │      benchmark web search + requirements.md
+                          │
               spawn-teammates / pbi-merge / cross-review …
                           │
                           ▼
@@ -47,10 +51,15 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
             ▼             ▼             ▼
        codex-design   codex-impl    codex-ut
        -reviewer      -reviewer     -reviewer
+                          │
+     Integrity stage (Round tail, before ready-to-merge — the
+     5 aspect reviewers now run PER-PBI here, not Sprint-end):
+       requirement-conformance / functional-quality / security
+       / maintainability / docs-consistency  reviewers
 
-   Sprint-end (SM-owned, parallel via Agent tool):
-     requirement-conformance / functional-quality / security
-     / maintainability / docs-consistency  reviewers
+   Sprint-end (SM-owned, AUDIT-ONLY, non-blocking, parallel via Agent tool):
+     codebase-audit 4 axes: spec-conformance / logic-defect
+     / redundancy / product-security
 ```
 
 When you start a turn, **identify which seat you are in** by reading
@@ -67,10 +76,10 @@ Schemas under `docs/contracts/scrum-state/` are authoritative.
 |---|---|
 | Project workflow phase (Sprint-level ceremony) | `.scrum/state.json` |
 | Current Sprint, base_sha, member list | `.scrum/sprint.json` |
-| All PBIs, statuses (12-value enum), paths_touched | `.scrum/backlog.json` |
-| Your PBI's internal pipeline state, round counters, merge fields | `.scrum/pbi/<pbi-id>/state.json` |
-| PBI lifecycle graph, status semantics | `docs/data-model.md` |
-| Inter-agent message contracts, envelope schema | `docs/contracts/agent-interfaces.md`, `docs/contracts/sub-agents.md` |
+| All PBIs, statuses (13-value enum) | `.scrum/backlog.json` |
+| Your PBI's internal pipeline state, round counters, merge fields, paths_touched | `.scrum/pbi/<pbi-id>/state.json` |
+| PBI lifecycle graph, status semantics | `../docs/data-model.md` |
+| Inter-agent message contracts, envelope schema | `../docs/contracts/agent-interfaces.md`, `../docs/contracts/sub-agents.md` |
 | Project-wide conventions, git workflow, state-write rules | `CLAUDE.md` |
 
 **State writes go through `.scrum/scripts/*.sh` wrappers only.**
@@ -89,8 +98,9 @@ Before doing any work, in this order:
    ask before acting.
 3. **If you are PBI-scoped**, read `.scrum/backlog.json` (your PBI's
    status) and `.scrum/pbi/<pbi-id>/state.json` (round counters,
-   prior verdicts, escalation_reason). A status of `escalated` or
-   `blocked` means do not proceed — surface it to your caller.
+   prior verdicts, escalation_reason). A status of `escalated`,
+   `blocked`, or `cancelled` means do not proceed — surface it to
+   your caller.
 4. **If you are a reviewer**, read the prior round's feedback file
    (`feedback/<role>-r{n-1}.md`) and metrics
    (`metrics/coverage-r{n-1}.json`) — your job is to react to those,
@@ -108,34 +118,30 @@ returning to your caller):
 - **Reports state facts, not narration**: "design.md emitted, 3
   catalog spec updates, 0 findings" — not "I worked on the design
   and I think it looks good".
-- **Sub-agents end output with the JSON envelope** specified in
-  `docs/contracts/agent-interfaces.md` § 4.1. Missing or malformed
-  envelopes break the pipeline orchestrator's parser.
+- **Sub-agents end output with the JSON envelope** specified by
+  `docs/contracts/pbi-pipeline-envelope.schema.json`. Missing or
+  malformed envelopes break the pipeline orchestrator's parser.
 
-**PO-channel prefixes (used by SM ↔ product-owner teammate when
-`po_mode=agent`; canonical definitions live in
-`agents/product-owner.md` § Communication protocol):**
+**PO-channel prefixes** (SM ↔ product-owner teammate when
+`po_mode=agent`). All are prefixed `[<scope>]` where `<scope>` ∈
+`{pbi-NNN, sprint-N, product}`. Full syntax, the `kind` enum, and the
+clarification cap are **canonical in `../agents/product-owner.md`
+§ Communication protocol / § Anti-loop rules** — do not restate field
+formats here. Message shapes:
 
-- `[<scope>] PO_DECISION_REQUEST kind=<kind> options=[...] recommendation=<...>`
-  — SM → PO request for a bounded decision. `<scope>` is one of
-  `pbi-NNN`, `sprint-N`, or `product`. The `kind` enum has 12
-  values (e.g., `sprint_goal_approval`, `spec_clarification`,
-  `demo_acceptance`, `release_decision`); see
-  `agents/product-owner.md` for the full list.
-- `[<scope>] PO_DECISION kind=<kind> decision=<verdict> dec_id=<dec-NNNN> rationale=<...>`
-  — PO → SM ruling. `dec_id` is returned by
-  `.scrum/scripts/append-po-decision.sh` and is mandatory.
-- `[<scope>] PO_CLARIFY <question>` — PO → SM, optional; **at
-  most one per `PO_DECISION_REQUEST`** before the PO must commit
-  (clarification cap; see `agents/product-owner.md` § Anti-loop
-  rules).
-- `[req] INTERVIEW_QUESTION <question>` (Developer → PO) and
-  `[req] INTERVIEW_ANSWER <answer>` (PO → Developer) — the **only**
-  sanctioned PO ↔ Developer direct channel, active solely during a
-  Requirements Sprint. Outside that ceremony, every PO ↔ Developer
-  exchange must traverse SM.
-- `[<scope>] PO_ACCEPTANCE_REPORT mode=<demo|uat> results=[<id>:<verdict>:<dec_id>,...]`
-  — PO → SM, aggregated report emitted once by the `po-acceptance` skill after every AC / release criterion has a decision logged.
+- `PO_DECISION_REQUEST` — SM → PO, requests a bounded decision.
+- `PO_DECISION` — PO → SM, the ruling; carries the mandatory `dec_id`
+  returned by `.scrum/scripts/append-po-decision.sh`.
+- `PO_CLARIFY` — PO → SM, optional; capped per `PO_DECISION_REQUEST`
+  (Anti-loop rules).
+- `[req] INTERVIEW_QUESTION` / `[req] INTERVIEW_ANSWER` — the **only**
+  sanctioned direct requirements-analyst ↔ PO channel, active solely
+  during Requirement Definition (also documented in
+  `../agents/requirements-analyst.md`). The Sprint Developer has no such
+  channel; every other Developer ↔ PO exchange traverses SM.
+- `PO_ACCEPTANCE_REPORT` — PO → SM, aggregated once by the
+  `po-acceptance` skill after every AC / release criterion is decided
+  (canonical: `../skills/po-acceptance/SKILL.md`).
 
 Escalation routes are fixed — do not invent new ones:
 
@@ -145,14 +151,11 @@ Escalation routes are fixed — do not invent new ones:
 - Per-PBI merge failure (SM-owned) → `mark-pbi-merge-failure.sh`
   records `merge_failure.kind` ∈ `{conflict, artifact_missing,
   regression}`; 3 consecutive failures flip status to `escalated`.
-  See `skills/pbi-merge/SKILL.md` § Outputs for the kind →
+  See `../skills/pbi-merge/SKILL.md` § Outputs for the kind →
   `escalation_reason` mapping.
 - Requirements unclear (designer/implementer) → raise to Developer →
-  Developer raises to SM → SM consults PO (route depends on
-  `.scrum/config.json.po_mode`: `human` = SM asks the user in the
-  main session; `agent` = SM sends `[<pbi-id>] PO_DECISION_REQUEST
-  kind=spec_clarification` to the product-owner teammate). Never
-  guess requirements from code. See § PO seat resolution.
+  SM → PO. Never guess requirements from code. Full route: see
+  § Escalation route (below).
 
 ## PO seat resolution (po_mode)
 
@@ -180,7 +183,7 @@ Rules that apply uniformly to both modes:
 - **In `po_mode=agent`, do not wait on human input.** Any code path
   that would `read` from stdin or otherwise block awaiting a human
   reply is invalid. If a decision is genuinely human-only (auth
-  secrets, billing, legal — see `agents/product-owner.md` §
+  secrets, billing, legal — see `../agents/product-owner.md` §
   Decision principles), the PO appends to `.scrum/po/attention.md`
   and continues without blocking the team.
 - **Informational reports to the user are still allowed.** Lines
@@ -197,7 +200,7 @@ Rules that apply uniformly to both modes:
 Canonical sources: the `po_mode` schema is in
 `docs/contracts/scrum-state/config.schema.json`; the PO message
 shapes and `kind` enum are normative in
-`agents/product-owner.md` § Communication protocol; the wrapper
+`../agents/product-owner.md` § Communication protocol; the wrapper
 contract is in `scripts/scrum/append-po-decision.sh` (deployed as
 `.scrum/scripts/append-po-decision.sh`).
 
@@ -262,8 +265,8 @@ pbi-designer / pbi-implementer / pbi-ut-author
 Only the PO seat changes between modes; the route shape itself is
 invariant. "Escalation routes are fixed" still holds — SM remains the
 single broker, and sub-agents never address the PO directly (the one
-exception is the requirements-sprint `[req] INTERVIEW_*` channel; see
-§ Communication protocol).
+exception is the requirement-definition `[req] INTERVIEW_*` channel
+owned by the `requirements-analyst`; see § Communication protocol).
 
 This is a synchronous path: the spawning sub-agent should end its
 turn with the question in `findings[]` and a `next_actions` entry
@@ -282,7 +285,7 @@ list, or any sub-agent spawn raises a harness-level failure (not a PBI
 content issue), this is a **harness incident**, not a PBI termination
 condition.
 
-**The following terms are NOT defined anywhere in `skills/pbi-pipeline/`
+**The following terms are NOT defined anywhere in `../skills/pbi-pipeline/`
 or any other skill. Do not write them to `pipeline.log`, `state.json`,
 or any review file. They are not valid states:**
 
@@ -334,7 +337,7 @@ Surface, don't paper over.
 
 - **Your role, allowed tools, strict rules** → `.claude/agents/<your-name>.md`
 - **Your skill's full protocol** (when invoked) → `.claude/skills/<skill>/SKILL.md`
-- **PBI lifecycle, status enum, transitions** → `docs/data-model.md`
-- **Inter-agent contracts, envelope schemas** → `docs/contracts/agent-interfaces.md`
+- **PBI lifecycle, status enum, transitions** → `../docs/data-model.md`
+- **Inter-agent contracts, envelope schemas** → `../docs/contracts/agent-interfaces.md`
 - **Code style, git workflow, state-write rules** → `CLAUDE.md`
-- **Why a wrapper script behaves a given way** → `.scrum/scripts/<name>.sh` source + `docs/MIGRATION-scrum-state-tools.md`
+- **Why a wrapper script behaves a given way** → `.scrum/scripts/<name>.sh` source and the schema files under `docs/contracts/scrum-state/`

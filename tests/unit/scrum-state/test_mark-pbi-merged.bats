@@ -26,6 +26,10 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = "abcdef0" ]
   run jq -r '.items[0].status' .scrum/backlog.json
   [ "$output" = "awaiting_cross_review" ]
+  # updated_at is stamped on the mutated item (direct merged_sha/merged_at
+  # mutation stamps it; the following status flip restamps it). Seed had none.
+  run jq -r '.items[0].updated_at' .scrum/backlog.json
+  [[ "$output" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
 }
 
 @test "mark-merged: clears prior merge_failure record on success" {

@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# scrum-start.sh — Entry point for the AI-Powered Scrum Team
+# scrum-start.sh — Entry point for Maul Team (AI-powered Scrum team)
 #
 # Usage (interactive / human-PO mode):
 #   sh scrum-start.sh
+#   On a NEW project with no docs/product/brief.md, an interactive Claude
+#   session co-authors the product brief (create-brief skill) first; the
+#   Scrum Master's Requirement Definition then begins with that brief as its
+#   anchor. Exiting without writing a brief aborts the launch.
 #
 # Usage (autonomous-PO mode — Ralph Loop, no human at the keyboard):
 #   sh scrum-start.sh --autonomous [--brief docs/product/brief.md] \
@@ -144,10 +148,15 @@ fi
 
 # shellcheck source=scripts/lib/check-python.sh
 . "$SCRIPT_DIR/scripts/lib/check-python.sh"
+# shellcheck source=scripts/lib/time.sh
+. "$SCRIPT_DIR/scripts/lib/time.sh"
 check_claude_cli
 # Version warning lives only in scrum-start.sh (not setup-user.sh) so the
 # operator sees the upgrade prompt once per launch rather than twice.
 check_claude_cli_version
+# Codex is optional; recommend it (non-fatal) so operators know the PBI
+# pipeline's cross-model reviewers degrade to a Claude fallback without it.
+check_codex_cli
 check_python_prereqs
 
 # --- Wizard helpers --------------------------------------------------------
@@ -197,6 +206,24 @@ prompt_yes_no() {
   done
 }
 
+# jq_write_inplace <file> <jq_filter> [jq_args...]
+# Rewrites <file> in place through jq via a same-directory tmp file so the
+# final mv is atomic. Extra args are passed to jq before the filter
+# (--arg/--argjson). On jq failure the tmp file is removed and the function
+# returns nonzero — fatal under `set -e` unless the caller tests the result.
+# Not for `jq -n` producers (no input file); those keep their inline tmp+mv.
+jq_write_inplace() {
+  local file="$1" filter="$2" tmp
+  shift 2
+  tmp="${file}.tmp.$$.${RANDOM}"
+  if jq "$@" "$filter" "$file" > "$tmp"; then
+    mv "$tmp" "$file"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 sh "$SCRIPT_DIR/scripts/setup-user.sh"
 
@@ -213,6 +240,15 @@ if [ -f ".scrum/state.json" ]; then
       echo "Warning: migrate-legacy.sh reported issues (continuing)" >&2
   fi
 
+  # Backfill `kind: "code"` on backlog items lacking it (idempotent one-shot).
+  # The script fails with E_FILE_MISSING when .scrum/backlog.json is absent,
+  # so gate on the file's existence.
+  if [ -x "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" ] \
+     && [ -f ".scrum/backlog.json" ]; then
+    sh "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" || \
+      echo "Warning: migrate-add-kind-field.sh reported issues (continuing)" >&2
+  fi
+
   phase="$(jq -r '.phase // "unknown"' .scrum/state.json)"
   echo "  Current phase: $phase"
   initial_prompt="Read .scrum/state.json, .scrum/sprint.json, and .scrum/backlog.json. Reconcile PBI statuses in backlog.json against actual project state — check if implementation files exist for each in-progress PBI and update statuses accordingly (e.g., mark PBIs as done if their code is complete, or keep as in_progress if work remains). Report where we left off, then continue the workflow from the current phase."
@@ -225,8 +261,14 @@ else
   # update-state-phase call has a file to mutate. setup-user.sh above has
   # already copied scripts/scrum/*.sh to .scrum/scripts/.
   sh .scrum/scripts/init-state.sh
-  initial_prompt="Introduce yourself and begin the Requirements Sprint. Greet the user, explain the Scrum workflow briefly, then start eliciting requirements."
+  initial_prompt="Introduce yourself and begin the Requirement Definition. Greet the user, explain the Scrum workflow briefly. A product brief has been co-authored at docs/product/brief.md — read it first and use it as the anchor for the interview: elicit requirements that realize the brief, and when a requirement conflicts with the brief, surface the conflict and resolve it by amending either the brief or the requirement (do not silently diverge)."
 fi
+
+# Brief pre-flight flag. Set to 1 by the brief-resolution blocks below (both
+# the autonomous and the human-mode branches) when a new project has no
+# docs/product/brief.md yet and a human is present. Initialized here so the
+# launch branches can reference it safely under `set -u`.
+NEED_BRIEF_BUILDER=0
 
 # --- Autonomous-PO mode preparation ----------------------------------------
 # Done before tmux/claude launch so the watchdog finds .scrum/config.json
@@ -299,31 +341,52 @@ if [ "$AUTONOMOUS" = "1" ]; then
     fi
   fi
 
-  # --- Brief validation ----------------------------------------------------
-  # New-project bootstrap requires a brief. After the wizard the value may
-  # be set; on non-TTY runs the wizard returns the default ("docs/product/
-  # brief.md") which only counts if it exists. Re-test against an actual
-  # readable file (the wizard's silent default doesn't satisfy this) so a
-  # non-interactive new-project run still errors out cleanly.
-  if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ]; then
-    echo "Error: --autonomous on a new project requires --brief <file>." >&2
-    echo "  Provide a product brief that the autonomous PO can use to drive" >&2
-    echo "  the Requirements Sprint without a human in the loop." >&2
-    exit 2
-  fi
-
-  # Copy brief into the canonical location (do not overwrite if present).
-  if [ -n "$BRIEF_FILE" ]; then
-    if [ ! -f "$BRIEF_FILE" ]; then
-      echo "Error: brief file not found: $BRIEF_FILE" >&2
-      exit 2
+  # --- Brief resolution ----------------------------------------------------
+  # A product brief at docs/product/brief.md anchors every scope / YAGNI
+  # decision the autonomous PO makes. Resolution order:
+  #   1. canonical brief already exists       → use it (resume / re-run).
+  #   2. explicit readable --brief file        → copy it into place.
+  #   3. explicit --brief path that is missing → hard error (typo).
+  #   4. new project, no brief anywhere:
+  #        - TTY (human present) → co-author one via the create-brief skill
+  #          as a pre-flight step before the watchdog launches (set
+  #          NEED_BRIEF_BUILDER; the launch branches below run it first).
+  #        - non-TTY (no human)  → hard error; a brief cannot be
+  #          co-authored headlessly.
+  # The wizard above fills an unset BRIEF_FILE with the canonical default on
+  # a TTY, so "BRIEF_FILE == canonical but the file is absent" is the
+  # no-brief-yet case and routes to the builder, not to the typo error.
+  BRIEF_CANONICAL="docs/product/brief.md"
+  if [ -f "$BRIEF_CANONICAL" ]; then
+    # Canonical brief already present — never clobber it.
+    if [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ] \
+       && [ -f "$BRIEF_FILE" ]; then
+      echo "Warning: $BRIEF_CANONICAL already exists — keeping existing copy" \
+           "(ignoring --brief $BRIEF_FILE)." >&2
     fi
+  elif [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ] \
+       && [ -f "$BRIEF_FILE" ]; then
+    # Explicit, readable brief provided — copy into the canonical location.
     mkdir -p docs/product
-    if [ -f "docs/product/brief.md" ]; then
-      echo "Warning: docs/product/brief.md already exists — keeping existing copy." >&2
+    cp "$BRIEF_FILE" "$BRIEF_CANONICAL"
+    echo "  Copied brief to $BRIEF_CANONICAL"
+  elif [ -n "$BRIEF_FILE" ] && [ "$BRIEF_FILE" != "$BRIEF_CANONICAL" ]; then
+    # Explicit non-canonical path that does not exist — almost certainly a
+    # typo. Fail loudly rather than silently co-authoring a new brief.
+    echo "Error: brief file not found: $BRIEF_FILE" >&2
+    exit 2
+  elif [ "$IS_NEW_PROJECT" = "1" ]; then
+    # New project with no brief. Co-author one if a human is present;
+    # otherwise this run cannot proceed.
+    if [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+      NEED_BRIEF_BUILDER=1
+      echo "  No product brief found — will co-author $BRIEF_CANONICAL with" \
+           "Claude (create-brief skill) before the autonomous run starts."
     else
-      cp "$BRIEF_FILE" "docs/product/brief.md"
-      echo "  Copied brief to docs/product/brief.md"
+      echo "Error: --autonomous on a new project requires --brief <file>." >&2
+      echo "  Provide a product brief, or run interactively (a TTY) so the" >&2
+      echo "  create-brief skill can co-author docs/product/brief.md with you." >&2
+      exit 2
     fi
   fi
 
@@ -337,8 +400,8 @@ if [ "$AUTONOMOUS" = "1" ]; then
   # Defaults match .scrum-config.example.json. Overrides applied last.
   # PO model is intentionally absent — its SSOT is the deployed
   # .claude/agents/product-owner.md frontmatter, patched below.
-  TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-  jq --arg perm "$PERM_MODE" '
+  # shellcheck disable=SC2016  # $perm is a jq --arg binding, not shell
+  jq_write_inplace "$CONFIG_FILE" '
     .po_mode = "agent"
     | .autonomous = (
         (.autonomous // {})
@@ -353,21 +416,18 @@ if [ "$AUTONOMOUS" = "1" ]; then
             fallback_model:            (.autonomous.fallback_model            // null)
           }
       )
-  ' "$CONFIG_FILE" > "$TMP_CFG"
-  mv "$TMP_CFG" "$CONFIG_FILE"
+  ' --arg perm "$PERM_MODE"
 
   # Apply --max-sprints / --max-hours overrides (CLI value or wizard input).
   if [ -n "$OPT_MAX_SPRINTS" ]; then
-    TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-    jq --argjson v "$OPT_MAX_SPRINTS" '.autonomous.max_sprints = $v' \
-      "$CONFIG_FILE" > "$TMP_CFG"
-    mv "$TMP_CFG" "$CONFIG_FILE"
+    # shellcheck disable=SC2016  # $v is a jq --argjson binding, not shell
+    jq_write_inplace "$CONFIG_FILE" '.autonomous.max_sprints = $v' \
+      --argjson v "$OPT_MAX_SPRINTS"
   fi
   if [ -n "$OPT_MAX_HOURS" ]; then
-    TMP_CFG="${CONFIG_FILE}.tmp.$$.${RANDOM}"
-    jq --argjson v "$OPT_MAX_HOURS" '.autonomous.max_wall_clock_hours = $v' \
-      "$CONFIG_FILE" > "$TMP_CFG"
-    mv "$TMP_CFG" "$CONFIG_FILE"
+    # shellcheck disable=SC2016  # $v is a jq --argjson binding, not shell
+    jq_write_inplace "$CONFIG_FILE" '.autonomous.max_wall_clock_hours = $v' \
+      --argjson v "$OPT_MAX_HOURS"
   fi
 
   # --- Apply PO model to deployed agent file (the SSOT) --------------------
@@ -399,7 +459,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
   else
     RUN_ID="run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
   fi
-  NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  NOW_ISO="$(iso_utc_now)"
   cat > .scrum/autonomy.json <<EOF
 {
   "run_id": "$RUN_ID",
@@ -414,6 +474,44 @@ if [ "$AUTONOMOUS" = "1" ]; then
 }
 EOF
   echo "  Autonomous PO mode prepared (run_id=$RUN_ID)."
+else
+  # --- Non-autonomous (human) mode: neutralize leftover autonomous config ---
+  # A prior `--autonomous` run persists `po_mode = "agent"` in
+  # .scrum/config.json. Without this reset, a plain `scrum-start.sh` would
+  # inherit it and the SM would spawn the product-owner teammate. `po_mode`
+  # is the single authoritative switch (autonomy_enabled() requires it), so
+  # flipping it back to "human" fully restores human-PO behavior — no PO is
+  # spawned and the autonomous Stop-gate/hook paths all no-op. The
+  # `.autonomous.*` tuning block is left intact for the next autonomous run.
+  # Written directly (not via a .scrum/scripts wrapper) for the same reason
+  # the autonomous branch above does: this runs in the launcher, outside any
+  # agent tool call, so the scrum-state-guard hook never intercepts it.
+  RESET_CFG=".scrum/config.json"
+  if [ -f "$RESET_CFG" ]; then
+    _prior_po_mode="$(jq -r '.po_mode // "human"' "$RESET_CFG" 2>/dev/null || echo human)"
+    if [ "$_prior_po_mode" = "agent" ]; then
+      if jq_write_inplace "$RESET_CFG" '.po_mode = "human"' 2>/dev/null; then
+        echo "  Human mode: reset leftover po_mode=agent → human (PO teammate disabled)."
+      else
+        echo "Warning: could not reset po_mode in $RESET_CFG (continuing)." >&2
+      fi
+    fi
+  fi
+
+  # --- Brief pre-flight (human mode) --------------------------------------
+  # A product brief at docs/product/brief.md anchors Requirement Definition in
+  # human mode exactly as it anchors the PO's scope decisions in autonomous
+  # mode. On a new project with no brief and a human present (TTY), co-author
+  # one via the create-brief skill before the Scrum Master session starts —
+  # this makes "brief first" the very first thing the human does, mirroring the
+  # autonomous pre-flight. Non-TTY / DRY_RUN runs (tests, scripted launches)
+  # fall through with NEED_BRIEF_BUILDER=0 and behave as before.
+  if [ "$IS_NEW_PROJECT" = "1" ] && [ ! -f "docs/product/brief.md" ] \
+     && [ -t 0 ] && [ "${SCRUM_START_DRY_RUN:-0}" != "1" ]; then
+    NEED_BRIEF_BUILDER=1
+    echo "  No product brief found — will co-author docs/product/brief.md with" \
+         "Claude (create-brief skill) before Requirement Definition begins."
+  fi
 fi
 
 # --- Launch ---
@@ -422,7 +520,47 @@ echo ""
 # Build the autonomous launch command (used by both tmux and no-tmux branches).
 WATCHDOG_CMD="$SCRIPT_DIR/scripts/autonomous/watchdog.sh"
 
-if command -v tmux >/dev/null 2>&1; then
+# Pre-flight brief builder (set by the brief-resolution block above). When no
+# brief exists on a new autonomous project and a human is present, an
+# interactive Claude session co-authors docs/product/brief.md via the
+# create-brief skill before the watchdog starts. Kept apostrophe-free so it
+# can be single-quoted safely inside the tmux send-keys command string.
+if [ "$AUTONOMOUS" = "1" ]; then
+  BRIEF_BUILDER_TAIL="autonomous mode will start as soon as I exit this session."
+else
+  BRIEF_BUILDER_TAIL="the Scrum team will begin Requirement Definition as soon as I exit this session."
+fi
+BRIEF_BUILDER_PROMPT="A product brief is required before the Scrum team can start, but docs/product/brief.md does not exist yet. Use the create-brief skill now to co-author the brief with me interactively. Interview me one topic at a time, quality-gate the draft, and write the result to docs/product/brief.md. When the brief is complete, tell me it is done and that ${BRIEF_BUILDER_TAIL}"
+
+# run_brief_builder_or_abort <abort_message>
+# No-tmux pre-flight: co-author docs/product/brief.md via the create-brief
+# skill (interactive Claude), then hard-exit (2) if the user left without
+# writing one. <abort_message> is the mode-specific error tail. Shared by the
+# autonomous and human no-tmux launch branches.
+run_brief_builder_or_abort() {
+  echo "No product brief found — launching the brief builder (create-brief skill)..."
+  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude "$BRIEF_BUILDER_PROMPT"
+  if [ ! -f docs/product/brief.md ]; then
+    echo "Error: no brief was created — $1" >&2
+    exit 2
+  fi
+}
+
+# brief_builder_tmux_cmd <abort_message>
+# Emits (on stdout) the tmux pre-flight command prefix that co-authors the
+# brief and, if the user exits without one, prints the mode-specific abort
+# message and kills the session. Shared by the autonomous and human tmux
+# launch branches (uses the global $session_name, in scope at call time).
+brief_builder_tmux_cmd() {
+  printf "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude '%s'; if [ ! -f docs/product/brief.md ]; then echo; echo 'No brief was created — %s  Press Enter to close.'; read -r; tmux kill-session -t %s; exit 0; fi; " \
+    "$BRIEF_BUILDER_PROMPT" "$1" "$session_name"
+}
+
+# SCRUM_NO_TMUX=1 forces the no-tmux foreground branch even when tmux is
+# installed. The macOS app (macapp/) sets this so the Scrum Master runs in
+# the foreground of an embedded SwiftTerm pane; the app supplies its own
+# layout (dashboard is launched separately in its own pane).
+if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
   # tmux available — create the session, optionally with a split dashboard
   #
   # Session name is derived from the project directory so that concurrent
@@ -521,7 +659,7 @@ if command -v tmux >/dev/null 2>&1; then
   SM_PANE_ID="$(tmux display-message -p -t "${session_name}:0.0" '#{pane_id}' 2>/dev/null || echo "")"
 
   mkdir -p .scrum
-  RUNTIME_NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  RUNTIME_NOW="$(iso_utc_now)"
   RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
   jq -n \
     --arg session "$session_name" \
@@ -539,8 +677,18 @@ if command -v tmux >/dev/null 2>&1; then
     # Autonomous mode: main pane runs the watchdog. We deliberately keep the
     # pane alive after the watchdog exits (read -r) so the user can attach in
     # the morning, inspect the report, and decide whether to kill the session.
-    tmux send-keys -t "$session_name" \
-      "${WATCHDOG_CMD}; echo; echo 'Watchdog exited.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}" C-m
+    #
+    # When NEED_BRIEF_BUILDER is set, prepend an interactive Claude session
+    # that co-authors docs/product/brief.md (create-brief skill). The watchdog
+    # only starts once the brief exists; if the user exits without writing one,
+    # the launch aborts cleanly instead of running the PO with no anchor.
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      AUTO_MAIN_CMD="$(brief_builder_tmux_cmd 'aborting autonomous launch.')"
+    else
+      AUTO_MAIN_CMD=""
+    fi
+    AUTO_MAIN_CMD="${AUTO_MAIN_CMD}${WATCHDOG_CMD}; echo; echo 'Watchdog exited.  Press Enter to close.'; read -r; tmux kill-session -t ${session_name}"
+    tmux send-keys -t "$session_name" "$AUTO_MAIN_CMD" C-m
   else
     # Main pane: Claude Code with Scrum Master agent (Agent Teams enabled
     # process-scoped). --teammate-mode in-process forces Agent Teams to use
@@ -549,8 +697,17 @@ if command -v tmux >/dev/null 2>&1; then
     # argument starts an interactive session with an initial prompt (unlike
     # -p which exits). When Claude exits, the tmux session is killed
     # automatically.
-    tmux send-keys -t "$session_name" \
-      "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}" C-m
+    # When NEED_BRIEF_BUILDER is set, prepend an interactive Claude session
+    # that co-authors docs/product/brief.md (create-brief skill) before the
+    # Scrum Master starts. If the user exits without writing a brief, abort the
+    # launch cleanly rather than starting Requirement Definition with no anchor
+    # (mirrors the autonomous pre-flight).
+    SM_MAIN_CMD=""
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      SM_MAIN_CMD="$(brief_builder_tmux_cmd 'aborting launch.')"
+    fi
+    SM_MAIN_CMD="${SM_MAIN_CMD}CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master --teammate-mode in-process '${initial_prompt}'; tmux kill-session -t ${session_name}"
+    tmux send-keys -t "$session_name" "$SM_MAIN_CMD" C-m
 
     # External stall watchdog (non-autonomous mode only). Replaces the
     # legacy SM-side Stop-hook block-loop. Detached so it survives this
@@ -561,14 +718,9 @@ if command -v tmux >/dev/null 2>&1; then
       nohup "$STALL_WATCHDOG_SCRIPT" "$PWD" >/dev/null 2>&1 &
       STALL_WATCHDOG_PID=$!
       # Update runtime.json with the pid (best-effort; failure not fatal).
-      RUNTIME_TMP=".scrum/runtime.json.tmp.$$.${RANDOM}"
-      if jq --argjson pid "$STALL_WATCHDOG_PID" \
-           '.stall_watchdog_pid = $pid' \
-           .scrum/runtime.json > "$RUNTIME_TMP" 2>/dev/null; then
-        mv "$RUNTIME_TMP" .scrum/runtime.json
-      else
-        rm -f "$RUNTIME_TMP"
-      fi
+      # shellcheck disable=SC2016  # $pid is a jq --argjson binding, not shell
+      jq_write_inplace .scrum/runtime.json '.stall_watchdog_pid = $pid' \
+        --argjson pid "$STALL_WATCHDOG_PID" 2>/dev/null || true
     fi
   fi
 
@@ -607,9 +759,17 @@ else
   fi
 
   if [ "$AUTONOMOUS" = "1" ]; then
+    # Pre-flight brief co-authoring (see the tmux branch for rationale).
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      run_brief_builder_or_abort "aborting autonomous launch."
+    fi
     echo "Launching autonomous-PO watchdog (no tmux fallback)..."
     "$WATCHDOG_CMD"
   else
+    # Pre-flight brief co-authoring (human mode; see the tmux branch above).
+    if [ "$NEED_BRIEF_BUILDER" = "1" ]; then
+      run_brief_builder_or_abort "aborting launch."
+    fi
     echo "Launching Claude Code with Scrum Master agent..."
     CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --agent scrum-master "$initial_prompt"
   fi

@@ -87,6 +87,42 @@ is_lead_session() {
   return 0
 }
 
+# _autonomy_jq_write [-t <ts>] <jq_filter> [jq_arg...]
+# File-local atomic-update helper for AUTONOMY_FILE: validates the file's
+# JSON, applies <jq_filter> (with any extra jq args such as --arg pairs),
+# stamps `.updated_at = $now`, and writes through tmp+mv. The `$now`
+# binding defaults to _autonomy_now(); pass `-t <ts>` to stamp with a
+# caller-supplied timestamp instead (an empty <ts> falls back to the
+# default). Fail-open: returns 1 (never crashes) on a missing file,
+# unparseable JSON, or jq failure — the tmp file is removed and
+# AUTONOMY_FILE is left untouched. Lives IN this file (not validate.sh's
+# json_update_atomic) because this lib must stay standalone-sourceable.
+# Mirrored by scripts/autonomous/watchdog.sh::autonomy_atomic_write — a
+# DIFFERENT process family kept in sync by hand, not shared, per the
+# no-cross-source convention between scripts/ and hooks/lib/.
+_autonomy_jq_write() {
+  local now=""
+  if [ "${1:-}" = "-t" ]; then
+    now="${2:-}"
+    shift 2
+  fi
+  local filter="${1:-}"
+  shift
+  [ -f "$AUTONOMY_FILE" ] || return 1
+  jq empty "$AUTONOMY_FILE" >/dev/null 2>&1 || return 1
+  [ -n "$now" ] || now="$(_autonomy_now)"
+  local tmp
+  tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
+  if ! jq --arg now "$now" "$@" \
+    "${filter} | .updated_at = \$now" \
+    "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    return 1
+  fi
+  mv "$tmp" "$AUTONOMY_FILE"
+  return 0
+}
+
 # bump_stop_block_counter <phase>
 # Increments stop_blocks.count when stop_blocks.phase matches <phase>; resets
 # to 1 with the new phase otherwise. Atomic update via tmp+mv. Echoes the new
@@ -94,22 +130,10 @@ is_lead_session() {
 # and returns 1 (caller can treat 0 as "not in autonomy mode").
 bump_stop_block_counter() {
   local new_phase="${1:-}"
-  if [ -z "$new_phase" ] || [ ! -f "$AUTONOMY_FILE" ]; then
-    printf '0\n'
-    return 1
-  fi
-  if ! jq empty "$AUTONOMY_FILE" >/dev/null 2>&1; then
-    printf '0\n'
-    return 1
-  fi
-
-  local now tmp
-  now="$(_autonomy_now)"
-  tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-
   # If the recorded phase matches new_phase: count += 1. Otherwise reset count
   # to 1 and switch phase. updated_at is bumped either way.
-  if ! jq --arg phase "$new_phase" --arg now "$now" '
+  # shellcheck disable=SC2016  # $phase/$now are jq variables, not shell expansion.
+  if [ -z "$new_phase" ] || ! _autonomy_jq_write '
     .stop_blocks = (
       if (.stop_blocks.phase // "") == $phase then
         {phase: $phase, count: (((.stop_blocks.count // 0) + 1))}
@@ -117,14 +141,10 @@ bump_stop_block_counter() {
         {phase: $phase, count: 1}
       end
     )
-    | .updated_at = $now
-  ' "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
-    rm -f "$tmp"
+  ' --arg phase "$new_phase"; then
     printf '0\n'
     return 1
   fi
-
-  mv "$tmp" "$AUTONOMY_FILE"
   jq -r '.stop_blocks.count' "$AUTONOMY_FILE" 2>/dev/null || printf '0\n'
 }
 
@@ -133,26 +153,30 @@ bump_stop_block_counter() {
 # unparseable autonomy file but does not crash.
 record_circuit_breaker() {
   local phase="${1:-}"
-  if [ -z "$phase" ] || [ ! -f "$AUTONOMY_FILE" ]; then
-    return 1
-  fi
-  if ! jq empty "$AUTONOMY_FILE" >/dev/null 2>&1; then
-    return 1
-  fi
+  [ -n "$phase" ] || return 1
+  # shellcheck disable=SC2016  # $phase/$now are jq variables, not shell expansion.
+  _autonomy_jq_write \
+    '.circuit_breaker_tripped = {phase: $phase, at: $now}' \
+    --arg phase "$phase"
+}
 
-  local now tmp
-  now="$(_autonomy_now)"
-  tmp="${AUTONOMY_FILE}.tmp.$$.${RANDOM}"
-
-  if ! jq --arg phase "$phase" --arg now "$now" '
-    .circuit_breaker_tripped = {phase: $phase, at: $now}
-    | .updated_at = $now
-  ' "$AUTONOMY_FILE" > "$tmp" 2>/dev/null; then
-    rm -f "$tmp"
-    return 1
-  fi
-  mv "$tmp" "$AUTONOMY_FILE"
-  return 0
+# autonomy_record_failure <reason> [ts]
+# Records .last_failure = {reason, at} (and bumps .updated_at) on
+# .scrum/autonomy.json so the watchdog can read the last failure and decide
+# whether to retry / abort the outer loop. Fail-open: a missing or unparseable
+# autonomy file returns 1 without crashing. Uses the file-local
+# _autonomy_jq_write helper (this lib is sourced standalone, without
+# hooks/lib/validate.sh, so it cannot rely on json_update_atomic).
+# When <ts> is omitted, _autonomy_now() is used.
+autonomy_record_failure() {
+  local reason="${1:-}"
+  local ts="${2:-}"
+  # -t "$ts" stamps both .last_failure.at and .updated_at with <ts>;
+  # an empty ts falls back to _autonomy_now() inside the helper.
+  # shellcheck disable=SC2016  # $reason/$now are jq variables, not shell expansion.
+  _autonomy_jq_write -t "$ts" \
+    '.last_failure = {reason: $reason, at: $now}' \
+    --arg reason "$reason"
 }
 
 # autonomy_config_int <jq_path> <default>

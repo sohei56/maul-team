@@ -20,9 +20,9 @@
 #   in_progress_design       — Design success → first impl Round
 #   in_progress_pbi_review   — PBI Review FAIL → next impl Round
 #   in_progress_ut_run       — UT Run FAIL → next impl Round
-#   cross_review             — Cross Review aspect 1/2/3 FAIL → next impl Round
-#   in_progress_impl         — Re-entry (after respawn, or after a caller
-#                              transitioned backlog before invoking this)
+#   in_progress_impl         — Re-entry (after respawn, or after a caller —
+#                              e.g. an Integrity-stage FAIL — transitioned
+#                              backlog before invoking this)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -35,10 +35,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: begin-impl-round.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 STATE_FILE=".scrum/pbi/$PBI/state.json"
 BACKLOG_FILE=".scrum/backlog.json"
@@ -51,10 +48,10 @@ pbi_in_backlog "$PBI" "$BACKLOG_FILE" || fail E_INVALID_ARG "pbi not found in ba
 
 CURRENT_BACKLOG_STATUS="$(get_pbi_status "$PBI" "$BACKLOG_FILE")"
 case "$CURRENT_BACKLOG_STATUS" in
-  in_progress_design|in_progress_pbi_review|in_progress_ut_run|cross_review|in_progress_impl) ;;
+  in_progress_design|in_progress_pbi_review|in_progress_ut_run|in_progress_impl) ;;
   *)
     fail E_INVALID_ARG \
-      "begin-impl-round: illegal pre-state '$CURRENT_BACKLOG_STATUS' (expected one of: in_progress_design, in_progress_pbi_review, in_progress_ut_run, cross_review, in_progress_impl)"
+      "begin-impl-round: illegal pre-state '$CURRENT_BACKLOG_STATUS' (expected one of: in_progress_design, in_progress_pbi_review, in_progress_ut_run, in_progress_impl)"
     ;;
 esac
 

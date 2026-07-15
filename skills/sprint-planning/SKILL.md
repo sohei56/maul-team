@@ -12,7 +12,7 @@ disable-model-invocation: false
 ## Outputs
 
 - `sprint.json`: id, goal, type: development, status: planning
-- `backlog.json` → items[].sprint_id, implementer_id assigned (review handled SM-side at Sprint end via `cross-review`). **Sprint PBI membership is derived from these `sprint_id` assignments** — `sprint.json` no longer carries a `pbi_ids` array (OD-4 single-source).
+- `backlog.json` → items[].sprint_id, implementer_id assigned (per-PBI review runs Developer-side inside pbi-pipeline as the Integrity stage; Sprint end adds only the audit-only `cross-review` ceremony). **Sprint PBI membership is derived from these `sprint_id` assignments** — `sprint.json` no longer carries a `pbi_ids` array (OD-4 single-source).
 - Oversized PBIs split into children (parent_pbi_id set)
 - `state.json` → phase: sprint_planning
 
@@ -24,21 +24,17 @@ disable-model-invocation: false
 
 ## PO Mode (po_mode: "agent")
 
-This section only applies when `.scrum/config.json.po_mode == "agent"`.
-Human-mode readers can skip it; the numbered Steps below are unchanged.
-In agent mode the SM resolves every user-approval point by sending a
-`PO_DECISION_REQUEST` to the `product-owner` teammate and continuing on
-`PO_DECISION` — never by waiting on human input
-(`rules/scrum-context.md` § PO seat resolution).
-
-The points in the numbered Steps that read as "ask the user" are
-re-targeted as follows:
+When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt
+in the numbered Steps below re-targets to the `product-owner` teammate
+per `../../rules/scrum-context.md` § PO seat resolution; the ceremony shape
+is unchanged. The "ask the user" points are re-targeted as follows:
 
 | Step | Phrase in human mode | Agent-mode override (kind, scope, defaults) |
 |---|---|---|
 | 1 | Uncommitted-file 3-way choice (commit now / stash / proceed anyway) | `kind=git_dirty`, `scope=sprint-N`, `options=[commit_now,stash,proceed_anyway]`. The full `git status` file list is included as payload. **PO default policy:** if every changed path lies inside a deliverable directory → `choice:commit_now`; if only temporary files (build/, dist/, *.tmp, etc.) → `choice:proceed_anyway`. Mixed cases fall back to `commit_now`. |
-| 3 | Propose Sprint Goal → user approval | `kind=sprint_goal_approval`, `scope=sprint-N`, `options=[approve,reject]`. **Reject is capped at 2 rounds.** On the third request the PO must reply `decision=approve` with the verbatim Sprint Goal in the `rationale` (`PROPOSED_GOAL: <text>` — see `agents/product-owner.md` § Anti-loop rules); the SM **adopts that goal verbatim** and ends the ping-pong. |
+| 3 | Propose Sprint Goal → user approval | `kind=sprint_goal_approval`, `scope=sprint-N`, `options=[approve,reject]`. **Reject is capped at 2 rounds.** On the third request the PO must reply `decision=approve` with the verbatim Sprint Goal in the `rationale` (`PROPOSED_GOAL: <text>` — see `../../agents/product-owner.md` § Anti-loop rules); the SM **adopts that goal verbatim** and ends the ping-pong. |
 | 5 | Oversized PBI split → user confirmation | `kind=pbi_split`, `scope=pbi-NNN`, `options=[approve,reject]`. The parent PBI id, the child PBI breakdown, and the split rationale are payload. On `reject` the SM keeps the parent and reports the un-split risk in the Sprint summary. |
+| 11.5 | Merge regression gate → configure a command or accept no gate | `kind=quality_gate_config`, `scope=sprint-N`, `options=[choice:configure,choice:accept_no_gate]`, `recommendation=choice:configure`. Payload: the detected candidate command (or "none detected"). On `choice:configure` the SM runs `.scrum/scripts/set-merge-regression-command.sh '<cmd>'`; on `choice:accept_no_gate` it runs `.scrum/scripts/set-merge-regression-command.sh --none`. |
 | 12 | Present Sprint summary + 6-option menu → wait for user selection | The same summary is sent as `kind=scope_change` if it mutates Sprint membership, otherwise as `kind=sprint_goal_approval` for re-approval. `options=[choice:start_sprint, choice:adjust_goal, choice:change_pbis, choice:reassign_devs, choice:view_backlog, choice:other]`. PO replies `decision=choice:<label>`. **Default recommendation: `choice:start_sprint`.** Any non-start choice loops the SM back to the corresponding step (3 / 4-5 / 7) and re-asks. |
 
 Step 13 ("On Start Sprint") fires automatically when the Step 12
@@ -52,12 +48,41 @@ decision is `choice:start_sprint`. No additional PO request is needed.
    .scrum/scripts/update-state-phase.sh sprint_planning
    ```
 3. Propose Sprint Goal→user approval before proceeding
-4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008)
-5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
+4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008).
+   **Skeleton first**: when a feature group's walking-skeleton PBI (the
+   one its siblings name in `depends_on_pbi_ids`) is refined and not
+   yet done, select it before any dependent of the group — the
+   dependents wait for a later Sprint (FR-008 already forbids pairing
+   them in the same Sprint)
+5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation.
+   Children must themselves be vertical slices (checklist:
+   `../backlog-refinement/SKILL.md` Step 3.a1 — never split into
+   frontend/API/DB children), and each child needs its own `demo_plan`
+   (copy or split the parent's) set via `set-backlog-item-field.sh`
+   **before** flipping it to `refined` — `update-backlog-status.sh`
+   refuses otherwise
 6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
-7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — Sprint-end cross-review is performed by the Scrum Master via independent reviewer sub-agents (FR-009 Layer 2)
-8. **Create sprint.json + update state.current_sprint_id (atomic
-   pair).** `init-sprint.sh` creates `.scrum/sprint.json` at
+7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — the per-PBI 5-aspect review runs inside pbi-pipeline (Integrity stage); Sprint-end cross-review is an audit-only SM ceremony (FR-009 Layer 2)
+8. **Roll over the previous Sprint, then create sprint.json + update
+   state.current_sprint_id (atomic pair).**
+
+   On the **second and later** Sprints a completed `sprint.json` from
+   the prior Sprint is still on disk. `init-sprint.sh` refuses while it
+   exists and `freeze-sprint-base.sh` refuses while its `base_sha` is
+   frozen — so you **must** archive-and-clear it first via
+   `rollover-sprint.sh`. The wrapper archives the completed Sprint to
+   `sprint-history.json` and removes `sprint.json`; it is an idempotent
+   no-op on the **first** Sprint (no `sprint.json` yet), so always run
+   it before `init-sprint.sh`:
+   ```bash
+   .scrum/scripts/rollover-sprint.sh
+   ```
+   `rollover-sprint.sh` refuses unless the prior Sprint is
+   `status: complete`. If it refuses, the previous Sprint never reached
+   a terminal state — stop and resolve that (do **not** force it); a
+   non-complete prior Sprint is a real signal, not a rollover input.
+
+   Then `init-sprint.sh` creates `.scrum/sprint.json` at
    `status: "planning"` AND writes `state.current_sprint_id` in the
    same invocation. Keeping the two in sync at Sprint start prevents
    the recurring `current_sprint_id` lag that `completion-gate.sh`
@@ -68,6 +93,12 @@ decision is `choice:start_sprint`. No additional PO request is needed.
    If you skip this wrapper or only create sprint.json by other means,
    `state.current_sprint_id` will still point at the previous Sprint
    and downstream phase transitions will block.
+
+   > The new Sprint's base is captured later by `spawn-teammates`
+   > (`freeze-sprint-base.sh`, once per Sprint). Because `rollover-sprint.sh`
+   > cleared the prior `sprint.json`, that call now records
+   > `base_sha = current main HEAD` — which includes the prior Sprint's
+   > merged work — instead of refusing on a stale frozen base.
 
 9. Update backlog.json: sprint_id, implementer_id. For each PBI in
    the Sprint:
@@ -98,7 +129,8 @@ decision is `choice:start_sprint`. No additional PO request is needed.
 > isolation, so two PBIs touching the same source file no longer
 > corrupt each other at write time. Conflicts surface during
 > `pbi-merge` and the assigned Developer rebases. Pre-separation is
-> still required for catalog files (see `catalog-contention.md`).
+> still required for catalog files (see
+> `../pbi-pipeline/references/catalog-contention.md`).
 
 11. **Source-file overlap pre-flight** (merge-conflict prevention):
 
@@ -148,7 +180,7 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     same failure mode has recurred across 4 Sprints in 2 target
     projects even after the three rules above were pinned into this
     SKILL. The SM
-    main loop runs on Sonnet (see `agents/scrum-master.md`); pinned
+    main loop runs on Sonnet (see `../../agents/scrum-master.md`); pinned
     text alone has not been sufficient. Delegate the overlap analysis
     to an Opus-backed sub-agent via the `Agent` tool — do NOT compute
     the matrix in the SM main loop:
@@ -201,6 +233,36 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     analysis. Record the decision visibly in the Sprint summary so the
     PO (po_mode=agent) or user can override at Step 12.
 
+11.5. **Merge regression gate decision (mandatory)**: read
+    `.scrum/config.json.merge_regression.command`. If it is set
+    (non-empty), skip this step — the gate is already configured. If it is
+    unset **and** `merge_regression.accepted_none` is not `true`, the gate
+    is undecided and must be resolved now: otherwise every per-PBI merge
+    this Sprint lands with the regression gate silently skipped (a target
+    project shipped a broken test suite to main across multiple Sprints
+    exactly this way).
+
+    Detect a candidate command from the target repo (existence-based
+    heuristics, first match wins):
+    - `pyproject.toml` / `pytest.ini` / a `tests/` dir with pytest → `pytest -q`
+    - `package.json` with a `test` script → `npm test --silent`
+    - `go.mod` → `go test ./...`
+    - `Makefile` with a `test:` target → `make test`
+    - `tests/*.bats` → `bats tests/`
+    - none of the above → no candidate detected
+
+    Put the decision to the PO seat in the same mode-agnostic style as the
+    other approvals in this skill (human mode: ask the user; agent mode:
+    `kind=quality_gate_config` per the PO Mode table above). options =
+    `[configure <detected-or-other command>, accept no gate this Sprint]`,
+    **recommendation = configure** (zero regressions reach main only if a
+    gate runs on each merge). On the decision, record it via the sanctioned
+    wrapper (direct `config.json` edits are guard-blocked):
+    - configure → `.scrum/scripts/set-merge-regression-command.sh '<command>'`
+    - accept no gate → `.scrum/scripts/set-merge-regression-command.sh --none`
+      (records the opt-out so `merge-pbi.sh` drops its per-merge WARN to a
+      quiet note instead of re-surfacing an undecided gate every Sprint)
+
 12. **Present Sprint summary + options**:
     - 1. Start Sprint
     - 2. Adjust Sprint Goal
@@ -209,7 +271,21 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     - 5. View backlog
     - 6. Other
     → Wait for user selection
-13. **On "Start Sprint"**: Enable catalog-config.json entries→run scaffold-design-spec→spawn-teammates
+13. **On "Start Sprint"**: Enable catalog-config.json entries→run
+    scaffold-design-spec→**commit the scaffold to main**→spawn-teammates.
+
+    The commit step is mandatory and ordered BEFORE spawn-teammates:
+    `spawn-teammates` Step 0 freezes `sprint.base_sha` from committed
+    HEAD, and every PBI worktree forks from that commit. An
+    uncommitted stub or catalog-config enable is invisible to all
+    worktrees — a target project shipped a PBI with no design spec
+    exactly this way. `freeze-sprint-base.sh` machine-enforces the
+    ordering (refuses while `docs/design/` has uncommitted changes):
+
+    ```bash
+    git add docs/design/
+    git commit -m "chore(sprint): enable catalog entries + scaffold design-spec stubs"
+    ```
 
 Ref: FR-004, FR-005, FR-006, FR-007, FR-008
 

@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "=== claude-scrum-team: Contributor Setup ==="
+echo "=== Maul Team: Contributor Setup ==="
 echo ""
 
 # --- Install dev dependencies ---
@@ -52,24 +52,30 @@ echo "Initializing test helper submodules..."
 cd "$PROJECT_ROOT"
 git submodule update --init --recursive
 
-# --- Run user setup ---
+# --- Run user setup (preserving the framework repo's own settings.json) ---
+# setup-user.sh overwrites .claude/settings.json with the target-project
+# template, but the framework repo's settings.json is COMMITTED config: it
+# carries the env / sandbox / permissions blocks and registers exactly one
+# hook — pre-tool-use-scrum-state-guard.sh — which CLAUDE.md § Git workflow
+# requires to stay active here (this repo writes to .scrum/ during
+# integration tests).  The target-project hook set would error in this repo
+# (no scrum-start.sh runtime), so we snapshot the committed settings before
+# setup-user.sh runs and restore them afterwards, leaving them untouched.
 echo ""
 echo "Running end-user setup..."
-sh "$SCRIPT_DIR/setup-user.sh"
-
-# --- Remove hook registration from settings.json for development ---
-# setup-user.sh registers hooks in .claude/settings.json, but those hooks
-# are meant for target projects running under scrum-start.sh.  When
-# developing claude-scrum-team itself there is no .scrum/state.json and the
-# hooks would error on every tool use.  Keep the hook *files* symlinked for
-# testing, but strip the hook registrations so they don't fire.
-echo ""
-echo "Removing hook registrations from .claude/settings.json (dev mode)..."
 settings_file="$PROJECT_ROOT/.claude/settings.json"
+settings_snapshot=""
 if [ -f "$settings_file" ]; then
-  tmp_settings="$(mktemp)"
-  jq 'del(.hooks)' "$settings_file" > "$tmp_settings" && mv "$tmp_settings" "$settings_file"
-  echo "  Removed hooks config — hooks will not fire during development."
+  settings_snapshot="$(mktemp)"
+  cp "$settings_file" "$settings_snapshot"
+fi
+sh "$SCRIPT_DIR/setup-user.sh"
+if [ -n "$settings_snapshot" ]; then
+  cp "$settings_snapshot" "$settings_file"   # cp (not mv) keeps the file's mode
+  rm -f "$settings_snapshot" "${settings_file}.bak"
+  echo ""
+  echo "Restored the framework repo's committed .claude/settings.json"
+  echo "  (env/sandbox/permissions + scrum-state-guard hook preserved)."
 fi
 
 # --- Replace hook copies with symlinks for development ---

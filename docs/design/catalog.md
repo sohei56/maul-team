@@ -34,11 +34,11 @@ The following rules are mandatory and enforceable:
 
 4. **No undocumented specs.** Do not create, request, or reference any
    specification document that is not listed in this catalog. If a new
-   spec type is needed, add it to this catalog in `claude-scrum-team` first.
+   spec type is needed, add it to this catalog in `maul-team` first.
 
 5. **Category directories.** Spec files are organized by category:
    `decision-records/`, `system-wide/`, `data/`, `interface/`, `ui/`,
-   `logic/`, `quality/`, `operations/`, `docs/`.
+   `logic/`, `quality/`, `operations/`, `technology/`, `docs/`.
 
 6. **Immediate stub creation.** When a spec ID is added to the `enabled`
    array in `catalog-config.json`, a template stub file MUST be created
@@ -47,7 +47,7 @@ The following rules are mandatory and enforceable:
    `related_pbis`, `frozen`, `revision_history`) and placeholder sections.
 
 7. **Catalog is read-only in working directories.** This file is the single
-   source of truth managed in `claude-scrum-team`. Do not modify it in
+   source of truth managed in `maul-team`. Do not modify it in
    project working directories. Only `docs/design/catalog-config.json` may be
    edited to control which entries are active.
 
@@ -130,6 +130,22 @@ which specs are active for your project, check `docs/design/catalog-config.json`
 | S-061 | Configuration Management         | One per project                      |
 | S-062 | Disaster Recovery / Backup       | One per project                      |
 | S-063 | Runbook / Ops Playbook           | One per project                      |
+
+## Technology
+
+| ID    | Spec Name                        | Granularity                          |
+|-------|----------------------------------|--------------------------------------|
+| S-070 | Library Specification            | One file per third-party library     |
+
+`S-070` is a multi-instance type (like `D-001`): each significant
+third-party library the project depends on gets its own
+`docs/design/specs/technology/S-070-<lib-slug>.md`. It is authored by
+`pbi-designer` during the Design stage and holds **only web-search-verified**
+facts about the library (version, the exact API surface the project uses with
+signatures / parameter / return / error semantics, gotchas to avoid) with a
+**source URL for every claim**. Its purpose is to prevent implementation
+defects caused by library-API misuse. See `agents/pbi-designer.md` §
+Mandatory library selection & verified-spec research.
 
 ## Documentation
 

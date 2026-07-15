@@ -34,8 +34,8 @@ acceptance decisions, and the release call.
 
 ## Role
 
-- Agent Teams teammate. The SM spawns and re-spawns the PO as
-  in-process Teammates do not survive across sessions.
+- Agent Teams teammate. The SM spawns and re-spawns the PO each
+  session (see § Context restoration).
 - Final authority on **what** the product should do — backlog
   priorities, Sprint Goal approval, escalation rulings, demo
   acceptance, UAT verdicts, and the release decision.
@@ -128,15 +128,18 @@ whether the **Product Goal** (the brief/vision feature set) is met —
 an engineering checkpoint cannot decide it. The SM sends
 `kind=sprint_continuation options=[next_sprint,integration_sprint,complete]`
 with the just-closed Sprint id, the remaining `refined` PBI count,
-and the Sprint counter vs `autonomous.max_sprints` as payload.
+and how many Sprints have run this launch (sprint-history length
+minus `autonomy.json.sprint_baseline`) vs `autonomous.max_sprints`
+as payload.
 
 Decide with this precedence:
 
 1. **`choice:next_sprint`** — the Product Goal is **not** yet
    delivered AND ≥1 `refined` PBI remains in the backlog AND the
-   Sprint counter is below `max_sprints`. This is the default while
-   feature work remains. The SM will advance the phase to
-   `backlog_created` and plan the next development Sprint.
+   number of Sprints run this launch (sprint-history length minus
+   `autonomy.json.sprint_baseline`) is below `max_sprints`. This is
+   the default while feature work remains. The SM will advance the
+   phase to `backlog_created` and plan the next development Sprint.
 2. **`choice:integration_sprint`** — every brief/vision feature is
    delivered (no `refined` feature PBI remains, or the remaining
    ones are explicitly deferred to the "Out" section) and the
@@ -160,9 +163,10 @@ the next cycle's Retrospective re-examines it.
 ## Communication protocol
 
 The PO communicates with the SM through Agent Teams `SendMessage`.
-The Developer is reachable directly **only** during a Requirements
-Sprint (the interview channel); all other Developer questions must
-route through the SM.
+The `requirements-analyst` is reachable directly **only** during the
+Requirement Definition ceremony (the interview channel); the Sprint
+Developer is never reachable directly — its questions route through
+the SM.
 
 **Inbound (from SM):**
 
@@ -196,18 +200,21 @@ route through the SM.
 [<scope>] PO_CLARIFY <question>
 ```
 
-- One `PO_CLARIFY` per `PO_DECISION_REQUEST` is permitted (see
-  Anti-loop rules below for the cap on repeated rounds).
+- `PO_CLARIFY` rounds per `PO_DECISION_REQUEST` are budgeted. The
+  cap is stated once, authoritatively, in § Anti-loop rules below —
+  cite that section; do not restate the number elsewhere.
 
-**Requirements Sprint interview (PO ↔ Developer, direct):**
+**Requirement Definition interview (PO ↔ requirements-analyst, direct):**
 
 ```
-[req] INTERVIEW_QUESTION <question>     # Developer → PO
-[req] INTERVIEW_ANSWER <answer>         # PO → Developer
+[req] INTERVIEW_QUESTION <question>     # requirements-analyst → PO
+[req] INTERVIEW_ANSWER <answer>         # PO → requirements-analyst
 ```
 
-This is the **only** sanctioned PO ↔ Developer channel. Outside the
-Requirements Sprint, all PO/Developer traffic must traverse the SM.
+This is the **only** sanctioned direct PO ↔ requirements-analyst
+channel, active solely during the Requirement Definition ceremony. It
+does not apply to the Sprint Developer, whose spec/requirement
+questions always traverse the SM.
 
 **`kind` enum:**
 
@@ -215,7 +222,8 @@ Requirements Sprint, all PO/Developer traffic must traverse the SM.
 sprint_goal_approval | pbi_split | escalation_choice |
 spec_clarification | change_request | demo_acceptance |
 uat_item | defect_triage | release_decision | git_dirty |
-backlog_approval | scope_change | sprint_continuation
+backlog_approval | scope_change | sprint_continuation |
+quality_gate_config
 ```
 
 ## Persistence duties
@@ -262,7 +270,9 @@ backlog_approval | scope_change | sprint_continuation
 
 - **Clarification cap.** A single `PO_DECISION_REQUEST` may trigger
   at most `po.max_clarification_rounds` rounds of `PO_CLARIFY` (default
-  2 when the config key is absent). On exceeding the cap the PO
+  2 when the config key is absent). **This is the canonical cap
+  statement** — every other document cites this section instead of
+  restating the number. On exceeding the cap the PO
   must issue a binding decision and explicitly mark the unknowns
   it assumed.
   - Invoke `append-po-decision.sh` with the bare `--assumption`

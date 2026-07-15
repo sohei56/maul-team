@@ -30,7 +30,7 @@ disable-model-invocation: false
     criterion with no covering story → add a story before the
     walkthrough.
   - `.scrum/test-results.json` from the latest `smoke-test` +
-    `design-completeness-check` runs (precondition: combined
+    `integration-tests` runs (precondition: combined
     `overall_status ∈ {passed, passed_with_skips}`).
 
 ## Outputs
@@ -73,7 +73,7 @@ disable-model-invocation: false
   has `status == awaiting_cross_review` or has merged into `main`.
 - uat mode: invoked from an Integration Sprint context;
   `test-results.json.overall_status ∈ {passed, passed_with_skips}`
-  combined across `smoke-test` and `design-completeness-check`
+  combined across `smoke-test` and `integration-tests`
   categories (skipped runner categories must be acknowledged
   separately).
 
@@ -81,8 +81,11 @@ disable-model-invocation: false
 
 ### 1. Detect and start the app
 
-1. Identify the start command, checking in this order and stopping
-   at the first match:
+1. Identify the start command. Before the detection ladder below, read
+   each PBI-under-review's `demo_plan` (backlog.json; demo mode): when
+   it names a start command or a stub/local-substitute setup, follow it
+   first — refinement already decided the local demo path. Otherwise
+   check in this order and stop at the first match:
    - `README.md` → look for an explicit "Run" / "Quickstart" section
      fenced shell block.
    - `package.json` `scripts.start` or `scripts.dev` → `npm start`
@@ -141,7 +144,8 @@ For each AC (demo: one PBI at a time; uat: one **user story** at
 a time):
 
 1. **Map** the AC (demo) or story verification scenario (uat) to a
-   runnable verification command:
+   runnable verification command — first choice: the command/steps
+   named in the PBI's `demo_plan`, when present. Otherwise:
    - HTTP API → `curl` (capture status code with
      `-s -o /dev/null -w '%{http_code}'`, capture response body
      only for failing or content-asserting cases).
@@ -149,7 +153,14 @@ a time):
      capture exit code + stdout/stderr.
    - Browser flow → use Playwright MCP (`.mcp.json` has
      `mcpServers.playwright`) for navigate / click / form-fill /
-     assertion sequences.
+     assertion sequences. In `mode=uat`, a UI user story is verified
+     **first choice** by driving the browser and capturing screenshot
+     evidence: Playwright MCP is the primary path, and a
+     Chrome DevTools MCP server (when configured in `.mcp.json`) is
+     added for stories needing console-error, network-failure, or
+     display/performance inspection. Full protocol and evidence
+     format:
+     `../uat-release/references/po-browser-uat.md` (canonical).
    - Data assertion → query the persistence store the AC/story
      names (e.g., `sqlite3`, `psql`, `redis-cli`).
 2. **Execute** the command. Capture the full command line, exit

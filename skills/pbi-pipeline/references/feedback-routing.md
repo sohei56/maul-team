@@ -34,10 +34,40 @@ For each uncovered branch in `coverage-r{n}.json.files[].uncovered_branches`:
 - If you can't tell → **route to both** (low-cost: each agent will
   no-op if not its concern).
 
+## Web-search remediation (conditional)
+
+When the technical-error-recurrence gate fired this Round (see
+`termination-gates.md` § Technical-error recurrence — i.e. the conductor
+just set `websearch_attempted true`), the **conductor** runs the web
+search itself (it has the `WebSearch` tool; the impl / UT sub-agents do
+not) and prepends the following section — filled in with what it found —
+to `feedback/impl-r{n+1}.md` **and** `feedback/ut-r{n+1}.md`. Omit it
+entirely on every other Round. List only the recurring web-searchable
+technical error(s) — the verbatim error `type` + `message` (and
+`stack_trace` first frame if present), or the `:error_handling` finding
+text. Do NOT list assertion failures or spec/style findings here.
+
+````markdown
+## Web-search remediation (REQUIRED this round)
+
+The following technical error has recurred unresolved across the last
+two Rounds. The conductor researched it via web search; apply the
+findings below and do not retry the previous approach unchanged.
+
+- {type}: {message}
+  {first stack frame, if any}
+
+Root cause (from web research): {conductor's finding}
+Verified fix guidance: {conductor's finding}
+Sources: {source URL(s)}
+````
+
 ## Feedback file template — `feedback/impl-r{n+1}.md`
 
 ````markdown
 # Impl Feedback for Round {n+1}
+
+{Web-search remediation section here when the gate fired this Round}
 
 ## impl-reviewer findings (Round {n})
 
@@ -62,6 +92,8 @@ For each uncovered branch in `coverage-r{n}.json.files[].uncovered_branches`:
 
 ````markdown
 # UT Feedback for Round {n+1}
+
+{Web-search remediation section here when the gate fired this Round}
 
 ## ut-reviewer findings (Round {n})
 
@@ -90,33 +122,36 @@ pragma-audit-r{n}.json, list:}
   remove the exclusion (and add a test) or add a justifying reason.
 ````
 
-## Cross Review revert input
+## Integrity-stage revert input
 
-When a Sprint-end Cross Review aspect 1/2/3 FAIL reverts a PBI to
-`in_progress_impl`, the `cross-review` skill drops a single
-Round-independent file at
-`.scrum/pbi/{pbi_id}/feedback/from-cross-review.md` (a copy of the
-per-PBI digest, `.scrum/reviews/{pbi_id}-review.md`). The skill
-cannot pre-pick a Round number — `begin-impl-round.sh` owns that.
+When the per-PBI **Integrity stage** (`integrity-stage.md`) FAILs (any
+Critical/High across the 5 aspects — or aspects 1 + 5 for kind=docs)
+and no escalate gate fires, the conductor reverts to `in_progress_impl`
+and folds the integrity findings into the next Round's feedback. The
+conductor is in-process and holds the findings directly (the aggregate
+at `.scrum/pbi/<id>/metrics/integrity-r{n}.json`), so it appends them
+to the next Round's feedback files with no separate drop file.
 
-The conductor MUST, at the start of the next impl Round (i.e. right
-after `n=$(begin-impl-round.sh "$PBI_ID")`), fold this file into both
-per-Round feedback files and then archive it so subsequent Rounds do
-not double-consume the same findings:
+At the start of the next impl Round — right after
+`n=$(begin-impl-round.sh "$PBI_ID")` — append the integrity
+Critical/High findings under a dedicated section to **both** per-Round
+feedback files (impl-only for kind=docs, which has no UT agent):
 
-```bash
-SRC=".scrum/pbi/${PBI_ID}/feedback/from-cross-review.md"
-if [ -f "$SRC" ]; then
-  for tgt in "impl-r${n}.md" "ut-r${n}.md"; do
-    {
-      printf '\n## Cross Review feedback (Sprint-end aspect 1/2/3)\n\n'
-      cat "$SRC"
-    } >> ".scrum/pbi/${PBI_ID}/feedback/${tgt}"
-  done
-  mv "$SRC" ".scrum/pbi/${PBI_ID}/feedback/from-cross-review.r${n}.archived.md"
-fi
-```
+````markdown
+## Integrity findings (per-PBI aspect review, Round {n-1})
 
-Both impl and UT agents receive the same Cross Review findings — the
-aspect reviewers do not pre-split impl vs UT concerns, so it is the
-sub-agents' job to interpret which lines apply to them.
+The following Critical/High findings from the per-PBI Integrity stage
+must be resolved. Each is tagged with its aspect and criterion_key;
+interpret which apply to your side (impl vs UT).
+
+- [{severity}] [{aspect}] {file}:{lines} ({criterion_key}) — {description}
+````
+
+The aspect reviewers do not pre-split impl vs UT concerns — both
+sub-agents receive the same findings and each interprets which lines
+are its job. A `functional-quality` or
+`requirement-conformance` finding about missing test evidence is the
+UT agent's to fix; an implementation-correctness or security finding is
+the impl agent's. For **kind=docs** there is no `ut-r{n}.md`; the
+findings go only to `impl-r{n}.md` and the next Round re-runs
+`pbi-implementer` alone.

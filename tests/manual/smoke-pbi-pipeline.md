@@ -7,7 +7,7 @@ Used until automated sub-agent invocation is mockable.
 
 - Codex CLI installed (`which codex` non-empty), OR be ready to verify
   Claude fallback path
-- A target project with `claude-scrum-team` installed
+- A target project with `maul-team` installed
   (`scripts/setup-user.sh`)
 - A simple PBI in `.scrum/backlog.json`, e.g. "add a function `add(a,b)`
   in `src/calc.py` that returns `a+b`"

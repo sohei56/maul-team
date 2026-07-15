@@ -29,7 +29,7 @@
               "in_progress_design", "in_progress_impl", "in_progress_pbi_review",
               "in_progress_ut_run", "in_progress_merge",
               "awaiting_cross_review", "cross_review",
-              "escalated", "done"
+              "escalated", "done", "cancelled"
             ]
           },
           "priority": {"type": ["integer", "null"], "minimum": 0},
@@ -39,6 +39,10 @@
           "review_doc_path": {"type": ["string", "null"]},
           "depends_on_pbi_ids": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
           "ux_change": {"type": "boolean"},
+          "demo_plan": {
+            "type": ["string", "null"],
+            "description": "How this PBI is demonstrated LOCALLY at Sprint Review (commands/URL/steps; local substitutes for cloud-only parts). Set by backlog-refinement; update-backlog-status.sh refuses ->refined while empty for kind=code. kind=docs is exempt (the doc is the demo)."
+          },
           "kind": {
             "enum": ["code", "docs"],
             "default": "code",

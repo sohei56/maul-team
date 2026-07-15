@@ -43,6 +43,58 @@ hook_block() {
   exit 2
 }
 
+# ---------------------------------------------------------------------------
+# Path normalization (shared by the PreToolUse guards)
+# ---------------------------------------------------------------------------
+# These are the single source of truth for how the guard hooks reduce a
+# tool-supplied path to a canonical form before glob-matching. Threat model is
+# an honest agent: we normalize trivial forms (./, $PWD/, absolute, /./, and a
+# .scrum/worktrees/<pbi>/ symlink prefix), not adversarial obfuscation
+# (eval, $(...) substitutions, ../ traversals into PWD).
+
+# Normalize a path against $PWD: make absolute, collapse '/./' segments.
+normalize_path() {
+  local p="$1"
+  [ "${p:0:1}" = "/" ] || p="$PWD/$p"
+  while [[ "$p" == */./* ]]; do
+    p="${p/\/.\//\/}"
+  done
+  printf '%s' "$p"
+}
+
+# Strip a leading ".scrum/worktrees/<segment>/" prefix (exactly one segment =
+# the PBI id) from a RELATIVE path, so a worktree-relative path is matched
+# against the same root-anchored globs (src/**, tests/**, docs/design/specs/*,
+# .scrum/*.json) as a main-repo path. POSIX-safe (no Bash-4 features).
+#   .scrum/worktrees/pbi-001/tests/x.py           -> tests/x.py
+#   .scrum/worktrees/pbi-001/.scrum/backlog.json  -> .scrum/backlog.json
+#     (each worktree has .scrum -> ../../../.scrum, so this refers to the real
+#      shared SSOT and must STILL match the guard patterns after stripping)
+strip_worktree_prefix() {
+  local p="$1" rest
+  case "$p" in
+    .scrum/worktrees/*/*)
+      rest="${p#.scrum/worktrees/}"   # <segment>/<rest...>
+      printf '%s' "${rest#*/}"        # drop the single <segment>/ prefix
+      ;;
+    *)
+      printf '%s' "$p"
+      ;;
+  esac
+}
+
+# Reduce a tool-supplied path to a root-anchored relative path suitable for
+# matching against project-root globs. Steps: (1) normalize to absolute +
+# collapse /./  (2) strip $PWD/ back to relative  (3) strip a leading
+# .scrum/worktrees/<pbi>/ prefix. Paths outside $PWD stay absolute (step 2 is a
+# no-op) and are left untouched by step 3.
+project_rel_path() {
+  local p
+  p="$(normalize_path "$1")"
+  p="${p#"$PWD"/}"
+  strip_worktree_prefix "$p"
+}
+
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
 # Authoritative timestamp helper. scripts/scrum/lib/atomic.sh::_iso_utc_now
 # mirrors this format; keep both in sync if format changes.
@@ -86,8 +138,34 @@ get_pbi_status_from_backlog() {
   fi
 }
 
+# Atomically update a JSON file in place: run `jq [jq_args...] <jq_expr>`
+# against <file>, write to a temp sibling (<file>.tmp.$$), and mv on success.
+# On jq failure the temp is removed and the original is left untouched. Returns
+# non-zero on failure WITHOUT exiting — callers (fail-open hooks) decide how to
+# react. jq stderr is suppressed to keep hot-path hooks quiet.
+# NOTE: helpers in hooks/lib/autonomy.sh and hooks/lib/stop-gate-state.sh do NOT
+# use this — those libs are sourced standalone (without validate.sh) by their
+# unit tests, so they keep their own inline tmp+mv idiom.
+# Usage: json_update_atomic <file> <jq_expr> [jq_args...]
+json_update_atomic() {
+  local file="$1"
+  local expr="$2"
+  shift 2
+  local tmp="${file}.tmp.$$"
+  if jq "$@" "$expr" "$file" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$file"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via
-# max_default), write atomically.
+# max_default), write atomically. Thin semantic wrapper over
+# json_update_atomic: this function only builds the capped-append jq
+# expression + args; the temp-file, atomic mv, and cleanup-on-failure
+# behavior all come from json_update_atomic (so a jq failure removes the
+# temp and leaves the file untouched, returning non-zero).
 # Usage: append_to_json_array <filepath> <array_field> <item_json> <max_field> <max_default>
 append_to_json_array() {
   local filepath="$1"
@@ -95,11 +173,8 @@ append_to_json_array() {
   local item_json="$3"
   local max_field="$4"
   local max_default="$5"
-  local tmp_file="${filepath}.tmp.$$"
-  jq --argjson item "$item_json" \
-     --arg af "$array_field" \
-     --arg mf "$max_field" \
-     --argjson md "$max_default" '
+  # shellcheck disable=SC2016  # $af/$mf/$md/$item are jq variables, not shell expansion.
+  json_update_atomic "$filepath" '
     .[$af] = ((.[$af] // []) + [$item]) |
     (.[$mf] // $md) as $cap |
     if (.[$af] | length) > $cap then
@@ -107,7 +182,10 @@ append_to_json_array() {
     else
       .
     end
-  ' "$filepath" > "$tmp_file" && mv "$tmp_file" "$filepath"
+  ' --argjson item "$item_json" \
+    --arg af "$array_field" \
+    --arg mf "$max_field" \
+    --argjson md "$max_default"
 }
 
 # Log a timestamped message to .scrum/hooks.log

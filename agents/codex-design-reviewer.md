@@ -10,6 +10,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Write
 model: sonnet
 effort: high
 maxTurns: 80
@@ -21,11 +22,8 @@ Critical design reviewer delegating to OpenAI Codex CLI. Receives
 design doc + catalog references locally → builds review instructions
 → invokes `codex exec` via shared lib
 (`scripts/lib/codex-invoke.sh`) → returns result. The exact codex
-flags live in that helper, not here. The helper bounds each `codex
-exec` with `CODEX_TIMEOUT_SECS` (default 300 s; runs unbounded with a
-WARN on a stock macOS without `timeout`/`gtimeout`); a timeout is
-treated as a non-zero exit and routed to the Claude fallback, so a
-hung Codex never blocks the review.
+flags live in that helper, not here. Timeout contract: see § Model
+selection (conductor responsibility) below.
 
 ## Receives
 
@@ -60,6 +58,20 @@ dev communications, Sprint context.
    section. Missing section, missing/extra/paraphrased AC rows, or
    any AC mapped to nothing / to an undefined interface →
    `missing_ac_mapping` Critical finding + verdict FAIL.
+7. **Library Selection completeness** — design.md contains a
+   `## Library Selection` section. Either it declares
+   `No third-party libraries required (stdlib only).`, OR every listed
+   library has a `Sources` URL and names a backing
+   `docs/design/specs/technology/S-070-<slug>.md` spec that exists and
+   is non-empty. Additionally, any third-party library evidently used
+   in the `Interfaces` section MUST appear in the Library Selection
+   table with a backing S-070 spec. This is a **structural /
+   presence** check — you verify the section, the URLs, and that the
+   S-070 files exist and carry source URLs; you do NOT re-run web
+   search or re-verify API facts. Missing section, a listed library
+   with no source URL or no existing S-070 spec, or an interface-used
+   library absent from the table → `missing_library_spec` Critical
+   finding + verdict FAIL.
 
 ## Severity Levels
 
@@ -76,7 +88,7 @@ Each finding's `signature` field MUST match:
 
 `criterion_key` enum (design review): missing_requirement, scope_creep,
 unclear_interface, inconsistent_with_catalog, inconsistent_internal,
-missing_error_handling, missing_ac_mapping.
+missing_error_handling, missing_ac_mapping, missing_library_spec.
 
 ## Processing Flow
 
@@ -119,7 +131,8 @@ missing_error_handling, missing_ac_mapping.
 [2-3 sentences]
 ```
 
-End with the JSON envelope from spec 4.1.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`.
 
 ## Model selection (conductor responsibility)
 
@@ -139,12 +152,26 @@ preflight Codex availability via `codex_is_available` from
   frontmatter (`effort: high`, `maxTurns: 80`) is the
   safe-for-fallback envelope used in both modes.
 
-See `skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
+**Timeout contract (canonical home).** The helper bounds each `codex
+exec` with `CODEX_TIMEOUT_SECS` (default 300 s; runs unbounded with a
+WARN on a stock macOS lacking `timeout`/`gtimeout`). A timeout is
+treated as a non-zero exit and routed to the Claude fallback, so a
+hung Codex never blocks the review. This contract applies identically
+to all three codex-\* reviewers; other documents point here instead
+of restating it.
+
+See `../skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
 codex preflight for the canonical spawn shape.
 
 ## Strict Rules
 
-- Read-only — DO NOT modify project files.
+- Read-only toward every project file (design docs, catalog specs,
+  requirements, source) — with exactly ONE mandatory write: you MUST
+  persist your verdict to the output target `review-r{n}.md` yourself
+  (Write tool). Returning the verdict only in your final message
+  without writing the file is a protocol violation — the conductor
+  gates on the file's existence. "Read-only" never applies to your
+  own review file.
 - DO NOT suggest fixes (describe problems only).
 - DO NOT assess on info not given.
 - ALWAYS try Codex first; fall back only on exit 1.

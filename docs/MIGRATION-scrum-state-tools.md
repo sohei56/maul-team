@@ -2,7 +2,7 @@
 
 ## What changed
 
-Agents must no longer edit `.scrum/*.json` directly. All writes flow through validated wrapper scripts under `.scrum/scripts/` that take a directory lock, apply a `jq` expression, validate the result against a JSON Schema in `docs/contracts/scrum-state/`, and write atomically (`tmp` + `mv`). A `PreToolUse` hook blocks bypass attempts (`Write`, `Edit`, raw redirects, `jq -i`, `sed -i`) on `.scrum/**/*.json`.
+Agents must no longer edit `.scrum/*.json` directly. All writes flow through validated wrapper scripts under `.scrum/scripts/`. Mutating wrappers (`atomic_write`) take a directory lock, apply a `jq` expression, validate the result against a JSON Schema in `docs/contracts/scrum-state/`, and write atomically (`tmp` + `mv`). The `init-*` seeders (`atomic_create`) validate and write atomically the same way but take **no** directory lock — initial file creation is not a concurrent mutation (`scripts/scrum/lib/atomic.sh`). A `PreToolUse` hook blocks bypass attempts (`Write`, `Edit`, raw redirects, `jq -i`, `sed -i`) on `.scrum/**/*.json`.
 
 > **Layout note** — In deployed projects the wrappers live at `.scrum/scripts/*.sh` (placed there by `setup-user.sh` to keep them out of the user's own `scripts/` tree). Inside this framework's own source tree they live at `scripts/scrum/*.sh`; both invocation styles work because neither matches the guard's block patterns.
 
@@ -11,19 +11,22 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Old (raw) | New (validated wrapper) |
 |---|---|
 | `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
-| Same pattern for any of the 12 v2 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done}` |
-| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
+| Same pattern for any of the 13 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done\|cancelled}` |
+| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
 | `mkdir -p .scrum && jq -n '{phase:"new",...}' > .scrum/state.json` (initial bootstrap of a fresh project) | `.scrum/scripts/init-state.sh` (idempotent; no-op if `.scrum/state.json` already exists) |
-| `jq -n '{items:[],next_pbi_id:1,product_goal:"..."}' > .scrum/backlog.json` (Requirements Sprint step 6 seed) | `.scrum/scripts/init-backlog.sh [--product-goal <text>]` (idempotent; no-op if `.scrum/backlog.json` already exists) |
-| `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | `.scrum/scripts/append-communication.sh --from <id> --to <id\|null> --kind <type> --content <text> [--role <role>] [--pbi <pbi-id>]` (caps at `max_messages` on append; mirrors the hook-side cap so wrapper- and hook-emitted messages share retention) |
+| `jq -n '{items:[],next_pbi_id:1,product_goal:"..."}' > .scrum/backlog.json` (Requirement Definition step 6 seed) | `.scrum/scripts/init-backlog.sh [--product-goal <text>]` (idempotent; no-op if `.scrum/backlog.json` already exists) |
+| `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | **Removed** (OD-1, 2026-07): the message-append wrapper that used to live here had zero runtime invokers — no skill, agent, or hook ever called it — and was retired. `.scrum/communications.json` is written directly by `hooks/dashboard-event.sh` (hook process, outside the agent tool surface); there is no agent-callable wrapper. |
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | **Removed**: `.scrum/dashboard.json` is hook-only telemetry written by `hooks/dashboard-event.sh` via `hooks/lib/dashboard.sh::append_dashboard_event`. No agent-callable wrapper. Agents instead emit dashboard signals indirectly via the tools they use (PostToolUse / SendMessage / SubagentStop). |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
 | `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
 | `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`) |
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the lag bug surfaced by IMP-003/IMP-009/imp-s28-02) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
+| Append one SprintSummary to `.scrum/sprint-history.json` (was: raw `jq` append the scrum-state guard blocks) | `.scrum/scripts/append-sprint-history.sh --id <sprint-id> --goal <text> [--type ...] [--pbis-completed N] [--pbis-total N] [--started-at <iso>] [--completed-at <iso>]` (append-only, idempotent on `--id`) |
+| Record one TestCategory into `.scrum/test-results.json` (was: raw JSON init + `jq` append the scrum-state guard blocks, deadlocking an Integration Sprint's Stop gate + `release_decision=go`) | `.scrum/scripts/record-test-result.sh --name <cat> --status <passed\|failed\|skipped> [--total N] [--passed N] [--failed N] [--skipped N] [--runner-command <text>] [--executed-at <iso>] [--error 'NAME::msg']…` (upsert by `--name`; creates the file on first call; recomputes `overall_status` every call) |
+| Advance from a completed Sprint to the next (was: **no wrapper** — `init-sprint.sh` refused while `sprint.json` existed and `freeze-sprint-base.sh` refused while `base_sha` was frozen, leaving the team unable to start any Sprint after Sprint 1) | `.scrum/scripts/rollover-sprint.sh` (archives the `status: complete` `sprint.json` to `sprint-history.json`, then removes `sprint.json` so `init-sprint.sh` + `freeze-sprint-base.sh` can start the next Sprint on a fresh base; refuses a non-complete Sprint; idempotent no-op when no `sprint.json`) |
 
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
 field was removed in v2; lifecycle moves through
@@ -70,28 +73,34 @@ to `in_progress_impl`. It is idempotent on respawn (returns current
 `impl_round` without mutation when `impl_status == "pending"` AND
 `impl_round > 0`). It refuses to start from illegal pre-states
 (anything other than `in_progress_design`, `in_progress_pbi_review`,
-`in_progress_ut_run`, `cross_review`, `in_progress_impl`).
+`in_progress_ut_run`, `in_progress_impl`).
 
-Rationale: a Cross Review aspect-1/2/3 FAIL reverts the PBI to
-`in_progress_impl` without touching `state.json.impl_round`. When the
-counter was computed by the agent (LLM reads `impl_round`, adds 1,
-writes back), this re-entry path was undocumented and the conductor
-restarted at Round 1 — observable as the dashboard's Round column
-regressing from N to 1. Centralising the counter in a wrapper makes
-that regression structurally impossible. Direct
+Rationale: a review revert re-enters impl without touching
+`state.json.impl_round`. When the counter was computed by the agent
+(LLM reads `impl_round`, adds 1, writes back), this re-entry path was
+undocumented and the conductor restarted at Round 1 — observable as
+the dashboard's Round column regressing from N to 1 (historically
+triggered by the Sprint-end Cross Review reverts that existed before
+cross-review became audit-only; today the same re-entry shape comes
+from the Integrity-stage revert, which pre-sets `in_progress_impl`
+before calling the wrapper). Centralising the counter in a wrapper
+makes that regression structurally impossible. `cross_review` was
+dropped from the legal pre-states when cross-review stopped reverting
+PBIs. Direct
 `update-pbi-state.sh ... impl_round <N>` is still accepted (for
 migration tooling and tests) but is forbidden during the live
 pipeline.
 
 ## What enforces this
 
-`hooks/pre-tool-use-scrum-state-guard.sh` is registered as a `PreToolUse` hook in `.claude/settings.json` (matcher: `Write|Edit|MultiEdit|Bash`). It blocks:
+`hooks/pre-tool-use-scrum-state-guard.sh` is registered as a `PreToolUse` hook in `.claude/settings.json` (matcher: `Write|Edit|Bash`). It blocks:
 
-- `Write` / `Edit` / `MultiEdit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form).
+- `Write` / `Edit` on `.scrum/**/*.json`. The path is normalized against `$PWD` first, so `./.scrum/x.json`, `$PWD/.scrum/x.json`, and `.scrum/./pbi/.//state.json` are all caught (not just the bare relative form). A leading `.scrum/worktrees/<pbi-id>/` prefix is also stripped: each worktree has a `.scrum -> ../../../.scrum` symlink, so a write to `.scrum/worktrees/pbi-001/.scrum/backlog.json` targets the real shared SSOT and is guarded identically to `.scrum/backlog.json` (and worktree-relative exempt-artifact writes are correctly allowed rather than falsely blocked).
 - `Bash` commands that redirect (`>`, `>>`, `tee`, `sponge`) into `.scrum/*.json`
 - `Bash` with `jq -i`, `sed -i`, or `awk -i inplace` on `.scrum/*.json`
 - `Bash` with `mv X .scrum/*.json` or `cp X .scrum/*.json` (the second half of the redirect-then-rename pattern)
 - `Bash` with `truncate ... .scrum/*.json`
+- `Bash` with `rm ... .scrum/*.json` or `unlink .scrum/*.json` (a raw delete bypasses the wrappers just like a raw write). Wrapper invocations such as `.scrum/scripts/rollover-sprint.sh` are **not** matched — their command string carries no bare `rm `/`unlink ` word (any `rm` of a json happens inside the script, not in the argv the hook inspects). Exempt artifact paths (see below) are still deletable directly.
 
 The destination match works on absolute paths too (`mv /tmp/x $PWD/.scrum/y.json` is blocked, not just `mv /tmp/x .scrum/y.json`).
 
@@ -105,11 +114,12 @@ The threat model is **honest agent**, not adversary. Sophisticated obfuscation (
 |---|---|---|
 | `64` | `E_INVALID_ARG` | Bad CLI argument (unknown field, malformed PBI id, wrong arity, etc.) |
 | `65` | `E_SCHEMA` | The post-mutation document violates its JSON Schema |
-| `66` | `E_LOCK_TIMEOUT` | Could not acquire `.scrum/.locks/<file>.lock.d` within `SCRUM_LOCK_TIMEOUT` seconds (default 10) |
+| `66` | `E_LOCK_TIMEOUT` | Could not acquire `.scrum/locks/<file>.lock.d` within `SCRUM_LOCK_TIMEOUT` seconds (default 10) |
 | `67` | `E_FILE_MISSING` | The target `.scrum/*.json` file does not exist (init it via the relevant ceremony first) |
-| `68` | `E_NO_VALIDATOR` | No JSON Schema validator was found on the host |
 
 All errors print `[scrum-tool] <CONST>: <message>` to stderr.
+
+A missing JSON Schema validator is **not** a distinct exit code: `lib/check-validator.sh` prints `[scrum-tool] E_NO_VALIDATOR: install one of …` to stderr and exits `1`, and the wrappers surface that through the schema-validation path as exit `65` (`E_SCHEMA`) with the validator-missing message embedded in the error text.
 
 ## Reading stays free
 
@@ -124,17 +134,19 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 3. `jsonschema` CLI (deprecated upstream but functional)
 4. Python `jsonschema` module
 
-`scripts/setup-dev.sh` probes and reports the resolved runner. CI / test runs that need determinism set `SCRUM_VALIDATOR_OVERRIDE` to one of `ajv`, `check-jsonschema`, `jsonschema-cli`, `python` to bypass auto-detection. If none of the four runners is available, every wrapper exits `68` (`E_NO_VALIDATOR`).
+`scripts/setup-dev.sh` probes and reports the resolved runner. CI / test runs that need determinism set `SCRUM_VALIDATOR_OVERRIDE` to one of `ajv`, `check-jsonschema`, `jsonschema-cli`, `python` to bypass auto-detection. If none of the four runners is available, `lib/check-validator.sh` prints `[scrum-tool] E_NO_VALIDATOR: …` to stderr and exits `1`; the calling wrapper fails its schema-validation step and exits `65` (`E_SCHEMA`) with that message embedded (see § Failure modes).
 
 ## Known gaps (follow-ups)
 
 The current wrapper set covers the pbi-pipeline migration, the four migrated skill SKILL files, and the sprint-planning per-PBI item-field updates. Remaining gaps:
 
-1. ~~**Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).~~ **Resolved**: `init-sprint.sh` lands `.scrum/sprint.json` AND updates `state.current_sprint_id` atomically per call. Closes the recurring `current_sprint_id` lag bug surfaced by retrospectives across target projects (IMP-003 / IMP-009 / imp-s28-02).
-2. **Append-only siblings** — `.scrum/sprint-history.json`, `.scrum/test-results.json`, `.scrum/session-map.json` have no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. ~~`.scrum/improvements.json`~~ **Resolved**: surfaced when an autonomous-mode Retrospective hit the `pre-tool-use-scrum-state-guard.sh` block writing the entry. `improvements.schema.json` + `append-improvement.sh` land the missing wrapper (auto-assigned `imp-NNNN`, optional `dec_id` for the `po_mode=agent` `PO_DECISION_REQUEST → improvement` linkage). 3-Sprint consolidation (`status: archived`, `archived_at`, `last_consolidation_sprint` bump) is still wrapper-less; not required until Sprint 4 hits — `consolidate-improvements.sh` is a follow-up.
+1. ~~**Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).~~ **Resolved**: `init-sprint.sh` lands `.scrum/sprint.json` AND updates `state.current_sprint_id` in one wrapper call performing two sequential atomic writes (rollback on second-write failure), rather than a single atomic transaction across both files. Closes the recurring `current_sprint_id` lag bug surfaced by retrospectives across target projects (IMP-003 / IMP-009 / imp-s28-02).
+2. **Append-only siblings** — `.scrum/session-map.json` has no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. ~~`.scrum/test-results.json`~~ **Resolved**: same failure mode as the two below — the `smoke-test` skill initialized it with raw JSON and both it and `design-completeness-check` appended TestCategories via the agent tool surface, which the `pre-tool-use-scrum-state-guard.sh` blocks; downstream, `completion-gate.sh` (integration_sprint) and `append-po-decision.sh` (`release_decision=go`) gate on the file existing with a green `overall_status`, so a blocked write could deadlock an autonomous Integration Sprint. `test-results.schema.json` + `record-test-result.sh` land the wrapper (upsert by `--name` so a suite re-run replaces its category with fresh counts; `overall_status` recomputed on every call). ~~`.scrum/improvements.json`~~ **Resolved**: surfaced when an autonomous-mode Retrospective hit the `pre-tool-use-scrum-state-guard.sh` block writing the entry. `improvements.schema.json` + `append-improvement.sh` land the missing wrapper (auto-assigned `imp-NNNN`, optional `dec_id` for the `po_mode=agent` `PO_DECISION_REQUEST → improvement` linkage). ~~3-Sprint consolidation is still wrapper-less~~ **Resolved**: `consolidate-improvements.sh` executes the retrospective's archival decision (explicit `--archive imp-NNNN` flags; zero flags records a reviewed-nothing-stale pass) and bumps `last_consolidation_sprint` in one atomic schema-validated write; already-archived ids skip-warn (idempotent retry), unknown ids hard-fail. Left unconsolidated, a target project's active list grew past 150 entries with the pass 20+ Sprints overdue. ~~`.scrum/sprint-history.json`~~ **Resolved**: same failure mode — `sprint-review` SKILL step 7 instructs an append the guard then blocks, and `completion-gate.sh` makes the `sprint_review` exit hinge on the entry existing (so a missing wrapper can stall the Stop gate, not just lose data). `sprint-history.schema.json` + `append-sprint-history.sh` land the wrapper (`--id`/`--goal` required, optional `--type`/`--pbis-completed`/`--pbis-total`/`--started-at`/`--completed-at`; idempotent on `--id` so a retried Review never double-counts a Sprint in the watchdog `max_sprints` tally).
 3. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
 4. **`TeammateIdle` hook gate as the source-level fix for silent-death teammates.** The current `scripts/stall-watchdog.sh` daemon catches the *symptom* (no `.scrum/dashboard.json` / `.scrum/pbi/*/` mtime change inside `idle_threshold_minutes`) but the *cause* — Agent-tool teammates terminating without surfacing the cause to the SM — is not handled at the source. A cleaner fix is to gate `TeammateIdle` events in a hook so the SM is woken with the actual `reason`/`exit-code` payload instead of inferring liveness from filesystem mtimes. **Blocker for the spike**: the `TeammateIdle` payload contract (which fields are guaranteed, when the event fires, what `reason` values exist) is not documented in any current Claude Code reference — needs a live-CLI spike on a recent release to nail down the schema before the hook can be written. Until then the external watchdog stands in.
 5. **Single-Stop-hook display verification.** The dispatcher (`hooks/stop-dispatch.sh`) folds two registered Stop hooks into one to reduce the Claude Code session UI's `"Ran 2 stop hooks"` notification to `"Ran 1 stop hook"`. The wording, the threshold for plural-vs-singular, and whether the timeline counts the dispatcher-spawned child processes as separate hooks are all **unofficial implementation details** of the CLI's session UI — not part of any public contract. The display change after the rollout has therefore been reasoned through but not verified against a live session; the first autonomous-mode dogfooding run should confirm the count drops to 1 (or note the actual observed wording for follow-up).
+
+6. **`state.json.current_sprint_id` is a mirror.** It duplicates the presence/id of `.scrum/sprint.json`: `init-sprint.sh` writes both, and `rollover-sprint.sh` removes `sprint.json` while the mirror is cleared separately. The mirror is a convenience for readers that only need the current Sprint id without opening `sprint.json`; the long-term direction is to derive `current_sprint_id` from `sprint.json` presence/id and drop the stored field. Removal is deferred pending a compatibility migration for readers that consult `state.current_sprint_id` today.
 
 ## Worktree / merge governance wrappers (2026-05-04)
 
@@ -143,6 +155,7 @@ The current wrapper set covers the pbi-pipeline migration, the four migrated ski
 | `freeze-sprint-base.sh` | `sprint.base_sha`, `sprint.base_sha_captured_at` (once per Sprint) |
 | `create-pbi-worktree.sh` | `pbi/<id>/state.json` `branch`, `worktree`, `base_sha`; creates git worktree + `.scrum` symlink |
 | `commit-pbi.sh` | git commit on `pbi/<id>` branch + `pbi/<id>/state.json.head_sha` |
+| `commit-integration-tests.sh` | git commit of test assets (`tests/integration/`, `tests/e2e/`, `tests/stubs/`, plus `--allow` exceptions) on the current non-`pbi/*` branch when phase is `integration_sprint`; no `.scrum` state write (git-only; used by the `integration-tests` skill) |
 | `mark-pbi-ready-to-merge.sh` | `pbi/<id>/state.json` `head_sha`, `paths_touched`, `ready_at`; backlog item `status=in_progress_merge` |
 | `mark-pbi-merged.sh` | `pbi/<id>/state.json` `merged_sha`, `merged_at`, `merge_failure_count=0`; backlog item `merged_sha`, `merged_at`, `status=awaiting_cross_review` |
 | `mark-pbi-merge-failure.sh` | `pbi/<id>/state.json` `merge_failure` (with `kind ∈ {conflict, artifact_missing, regression}`), `merge_failure_count++`; on 3rd consecutive failure sets `pbi-state.escalation_reason ∈ {merge_conflict, merge_artifact_missing, merge_regression}` and backlog `status=escalated` |
@@ -173,7 +186,8 @@ The v1 schema split PBI lifecycle across two fields:
 `backlog.json.items[].status` (6 values) and
 `pbi-state.json.phase` (10 values, including merge sub-states). v2
 unifies these into a single 12-value `status` enum and removes the
-`phase` field entirely.
+`phase` field entirely. (The enum has since grown to 13 values with
+the terminal `cancelled` status.)
 
 The one-shot migration is now performed via
 `scripts/scrum/migrate-legacy.sh`, which folds the v1→v2 status remap

@@ -16,6 +16,7 @@
         "sprint_review",
         "retrospective",
         "integration_sprint",
+        "uat_release",
         "complete"
       ]
     },

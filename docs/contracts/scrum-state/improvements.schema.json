@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Retrospective improvement log",
-  "description": "Append + consolidate log at .scrum/improvements.json. Records every retrospective improvement item. Writes go exclusively through scripts/scrum/append-improvement.sh (and a future consolidate-improvements.sh for 3-Sprint archival). Direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
+  "description": "Append + consolidate log at .scrum/improvements.json. Records every retrospective improvement item. Writes go exclusively through scripts/scrum/append-improvement.sh and consolidate-improvements.sh (3-Sprint archival pass). Direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
   "type": "object",
   "required": ["entries"],
   "additionalProperties": true,
@@ -14,9 +14,9 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "description": "Auto-assigned sequential id. imp-NNNN with 4-digit zero-padded counter.",
+            "description": "Auto-assigned sequential id. imp-NNNN, zero-padded to at least 4 digits (grows naturally past imp-9999).",
             "type": "string",
-            "pattern": "^imp-[0-9]{4}$"
+            "pattern": "^imp-[0-9]{4,}$"
           },
           "sprint_id": {
             "type": "string",
@@ -40,11 +40,7 @@
           "dec_id": {
             "description": "Optional link to a PO decision record (po-decisions.json) that motivated this improvement. Used by retrospective in po_mode=agent for change_request decisions flagged ASSUMPTION: in the rationale.",
             "type": "string",
-            "pattern": "^dec-[0-9]{4}$"
-          },
-          "category": {
-            "description": "DEPRECATED legacy field. Pre-wrapper improvements.json files (written before append-improvement.sh existed) tagged entries with a free-form category. The wrapper never emits it, but because append-improvement.sh re-validates the WHOLE file on every append, legacy entries carrying this key must remain schema-valid. Tolerated for backward compatibility; do not write new entries with it.",
-            "type": "string"
+            "pattern": "^dec-[0-9]{4,}$"
           }
         }
       }

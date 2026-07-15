@@ -12,7 +12,7 @@ disable-model-invocation: false
 
 ## Inputs
 
-- Repository path (default: cwd — must be the claude-scrum-team repo
+- Repository path (default: cwd — must be the maul-team repo
   root)
 - Optional: scope hint string (narrows the consistency-* axes to a
   sub-domain — e.g. "focus on git workflow")
@@ -66,7 +66,7 @@ glob to avoid scope overlap.
 
 ### Pre-flight
 
-1. Confirm cwd is the claude-scrum-team repo root
+1. Confirm cwd is the maul-team repo root
 2. `mkdir -p /tmp/claude/cleanup-audit`
 3. `git log --oneline -15` → derive removed-concept hints for
    `stale-refs`. Look for `chore: remove X`, `feat: rename X to Y`,

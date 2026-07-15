@@ -27,14 +27,17 @@ Black-box test author. Spawned by Developer per impl+UT Round.
 - .scrum/pbi/<pbi-id>/design/design.md
 - Prior .scrum/pbi/<pbi-id>/feedback/ut-r{n}.md (if Round n>=2)
 - Prior .scrum/pbi/<pbi-id>/metrics/coverage-r{n-1}.json (if Round n>=2)
-- Output target: tests at project's normal paths (e.g., tests/)
+- Output target: tests at the project's normal paths UNDER the
+  worktree root passed in the prompt — absolute
+  `{worktree_path}/tests/...` form, never a bare relative path (a
+  write resolved against the main checkout leaks off the PBI branch
+  and blocks the merge)
 - Output target: .scrum/pbi/<pbi-id>/ut/ac-coverage-r{n}.json
   (AC → test map; see "AC coverage map" below)
 
 ## Path Constraints (enforced by hook)
 
-- Read/Write/Edit allowed: test paths, design doc, .scrum/pbi/, and
-  declaration-only files (.d.ts, .pyi).
+- Read/Write/Edit allowed: test paths, design doc, .scrum/pbi/.
 - Read/Write/Edit BLOCKED: implementation paths (path-guard hook returns
   exit 2). Do not attempt to read src/* or lib/*.
 
@@ -63,7 +66,7 @@ Black-box test author. Spawned by Developer per impl+UT Round.
     satisfies which criterion)
   Guessing IS permitted for: test names, fixture data values, AAA
   arrangement style, helper extraction. See
-  `rules/scrum-context.md` § "When you don't know" for the
+  `../rules/scrum-context.md` § "When you don't know" for the
   escalation route (UT author → Developer → SM → PO).
 
 ## AC coverage map (mandatory per Round)
@@ -100,13 +103,17 @@ Rules:
 - **Final self-check (do not skip).** This map is a load-bearing
   artifact: the conductor gates the Round on it and re-spawns you if
   it is missing or has any empty `tests` array (Step-1b guard in
-  `skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
-  run `jq -e '.criteria | length > 0 and all(.tests | length > 0)'`
-  against the file and fix it if the check fails. Do not return with
-  the tests written but this map absent.
+  `../skills/pbi-pipeline/references/impl-ut-stage.md`). Before returning,
+  re-open the emitted `ac-coverage-r{n}.json` with the Read tool and
+  visually confirm: (1) the file exists, (2) `criteria` is a non-empty
+  array, (3) every entry's `tests` array is non-empty. Fix it if any
+  check fails. Do not return with the tests written but this map absent.
+  (You have no Bash tool; the conductor's Step-1b guard runs the
+  machine-readable `jq` equivalent.)
 
 ## Output Envelope
 
-End with the JSON envelope from spec 4.1. `verdict` is null. List all
-modified test file paths AND the `ac-coverage-r{n}.json` path in
-`artifacts`.
+End with the JSON envelope from
+`docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
+List all modified test file paths AND the `ac-coverage-r{n}.json` path
+in `artifacts`.

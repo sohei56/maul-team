@@ -21,10 +21,13 @@
 #                     merge_conflict|merge_artifact_missing|merge_regression|
 #                     kind_mismatch
 #
-# skipped is the canonical value for stages a kind=docs PBI never runs
-# (design / UT author / UT execution / coverage). kind_mismatch is the
-# escalation reason emitted by mark-pbi-ready-to-merge.sh when a
-# kind=docs PBI has paths_touched outside *.md.
+# skipped is the canonical value for the two *_status fields a kind=docs
+# PBI never exercises: design_status and coverage_status. ut_status
+# stays pending (the UT author/run is skipped, not the status value —
+# begin-impl-round.sh resets ut_status to pending each impl round
+# regardless of kind). kind_mismatch is the escalation reason emitted by
+# mark-pbi-ready-to-merge.sh when a kind=docs PBI has paths_touched
+# outside *.md.
 #   branch            pbi/pbi-NNN (validated: must match pbi/pbi-[0-9]*)
 #   worktree          .scrum/worktrees/pbi-NNN (validated)
 #   base_sha          hex sha, 7..40 chars
@@ -33,6 +36,7 @@
 #   ready_at          ISO-8601 datetime string
 #   merged_at         ISO-8601 datetime string
 #   merge_failure_count  non-negative integer
+#   websearch_attempted  true|false (once-per-PBI web-search remediation latch)
 #   merge_failure        null only (drops the object). Non-null values
 #                        of merge_failure are written by
 #                        mark-pbi-merge-failure.sh, not here. The retry
@@ -56,10 +60,7 @@ source "$HERE/lib/atomic.sh"
 
 [ "$#" -ge 3 ] || fail E_INVALID_ARG "usage: update-pbi-state.sh <pbi-id> <field> <value> [<field> <value> ...]"
 PBI="$1"; shift
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 PATHF=".scrum/pbi/$PBI/state.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF (initialise via pbi-pipeline first)"
@@ -80,6 +81,15 @@ while [ "$#" -ge 2 ]; do
       case "$V" in
         ''|*[!0-9]*) fail E_INVALID_ARG "$F must be non-negative integer (got: $V)" ;;
       esac
+      # Per-field upper bound. design_round tops out at 5 (Rounds 1..5). The
+      # technical-error remediation latch is impl-stage only (see
+      # skills/pbi-pipeline/references/termination-gates.md), so impl_round
+      # allows one extra Round → 6. Mirrored by "maximum" in pbi-state.schema.json.
+      case "$F" in
+        design_round) round_max=5 ;;
+        impl_round)   round_max=6 ;;
+      esac
+      [ "$V" -le "$round_max" ] || fail E_INVALID_ARG "$F must be <= $round_max (design_round: Rounds 1..5; impl_round: +1 remediation Round); got: $V"
       EXPR="$EXPR | .$F = $V"
       ;;
     design_status|ut_status)
@@ -143,6 +153,13 @@ while [ "$#" -ge 2 ]; do
         ''|*[!0-9]*) fail E_INVALID_ARG "merge_failure_count must be non-negative integer (got: $V)" ;;
       esac
       EXPR="$EXPR | .merge_failure_count = $V"
+      ;;
+    websearch_attempted)
+      case "$V" in
+        true|false) ;;
+        *) fail E_INVALID_ARG "websearch_attempted must be true or false (got: $V)" ;;
+      esac
+      EXPR="$EXPR | .websearch_attempted = $V"
       ;;
     merge_failure)
       # Only null is accepted here — non-null objects must go through

@@ -210,3 +210,25 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"dec-0001"* ]]
 }
+
+@test "append-po-decision: id grows past dec-9999 (5-digit rollover)" {
+  mkdir -p .scrum/po
+  printf '%s\n' '{"decisions":[{"id":"dec-9999","timestamp":"2026-01-01T00:00:00Z","kind":"scope_change","decision":"seed","rationale":"seed"}]}' \
+    > .scrum/po/decisions.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind sprint_goal_approval --decision approve --rationale "rollover"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"dec-10000"* ]]
+  run jq -r '.decisions[-1].id' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "dec-10000" ]
+}
+
+@test "append-po-decision: accepts quality_gate_config kind" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind quality_gate_config --decision "choice:configure" \
+    --sprint sprint-1 \
+    --rationale "merge regression gate: zero-regression mandate"
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1].kind' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "quality_gate_config" ]
+}

@@ -41,8 +41,8 @@ The detailed sub-steps below call out kind branches inline.
 The Round counter is owned by `.scrum/scripts/begin-impl-round.sh`.
 The conductor MUST NOT compute `n` itself or write `impl_round` via
 `update-pbi-state.sh`. At every impl-Round entry — first entry from
-Design success AND re-entry after PBI Review FAIL, UT Run FAIL, or a
-Sprint-end Cross Review revert — call:
+Design success AND re-entry after PBI Review FAIL, UT Run FAIL, or an
+Integrity-stage FAIL — call:
 
 ```bash
 n=$(.scrum/scripts/begin-impl-round.sh "$PBI_ID")
@@ -59,7 +59,7 @@ The wrapper is atomic and idempotent:
   without mutating state. The conductor resumes the same Round.
 - Refuses when backlog status is not one of
   `{in_progress_design, in_progress_pbi_review, in_progress_ut_run,
-  cross_review, in_progress_impl}`.
+  in_progress_impl}`.
 
 This is the only sanctioned writer of `impl_round`. Hand-rolled
 `update-pbi-state.sh "$PBI_ID" impl_round <N>` is forbidden in the
@@ -69,9 +69,13 @@ impl/PBI-review/UT-run cycle.
 
 ### Step 1: Parallel spawn (pbi-implementer + pbi-ut-author)
 
-Backlog status is `in_progress_impl`. Issue both Agent calls in a
-single message (Claude Code parallel execution). Wait for both to
-return.
+Backlog status is `in_progress_impl`. First snapshot the
+main-checkout status (`MAIN_SNAP_BEFORE` — see
+`worktree-containment.md` § Procedure). Then issue both Agent calls
+in a single message (Claude Code parallel execution), **synchronous**
+(`run_in_background: false`), filling `{worktree_path}` in both
+prompts with the conductor's worktree absolute path (`$(pwd)`). Wait
+for both to return.
 
 ```text
 Agent(subagent_type="pbi-implementer", prompt=<from sub-agent-prompts.md § pbi-implementer>)
@@ -136,6 +140,17 @@ in-Round fix instead of a lost Round, without weakening the Step-4
 gate. **kind=docs PBIs skip this step entirely** (no UT author, no AC
 map — see the kind=docs branch above).
 
+### Step 1c: Worktree containment check
+
+Before committing, compare the main-checkout status against
+`MAIN_SNAP_BEFORE`. Any new entry is a producer write that leaked
+into the main checkout instead of the worktree (source under
+`<main>/src/...`, tests under `<main>/tests/...`) — relocate it into
+the worktree per `worktree-containment.md` § "On a non-empty LEAKED"
+before Step 2, or the leaked files will miss the Round commit and the
+merge will fail `artifact_missing`. Applies to kind=docs rounds too
+(single producer).
+
 ### Step 2: Move to PBI Review
 
 Once both sub-agents have produced source + tests for Round n, the
@@ -155,7 +170,8 @@ exactly the snapshot to review. Both `REVIEW_SHA` and `DESIGN_HASH`
 are passed into the two reviewer prompts as pin slots (see
 `sub-agent-prompts.md` § codex-impl-reviewer / codex-ut-reviewer).
 
-Then advance the status and spawn the two reviewers in parallel:
+Then advance the status and spawn the two reviewers in parallel
+(synchronous — `run_in_background: false`):
 
 ```bash
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_pbi_review
@@ -198,11 +214,18 @@ Agent(subagent_type="codex-impl-reviewer", prompt=<from sub-agent-prompts.md § 
 # When Codex is absent, add: model="opus"
 ```
 
-Apply `reviewer-stall-fallback.md` per reviewer (2-min stall detect
-→ single Explore-agent retry → escalate as `reviewer_unavailable` if
+Apply `reviewer-stall-fallback.md` per reviewer (post-return persistence
+check → single general-purpose-agent retry → escalate as `reviewer_unavailable` if
 both fail). For kind=code the two reviewers are independent — fall
 back on either without affecting the other. For kind=docs there is
 only one reviewer.
+
+If a reviewer Task **completes** without writing its `review-r{n}.md`,
+apply `reviewer-stall-fallback.md` § Completed-but-unpersisted
+verdict in the same turn: persist the returned verdict verbatim if it
+is complete (pin headers + Verdict + envelope), otherwise run the
+single general-purpose retry — never fabricate, never idle waiting
+for the file to appear.
 
 Read review-r{n}.md from each, parse verdicts and findings.
 
@@ -227,15 +250,9 @@ envelope returns `status=error` with `summary` starting
 `stale_snapshot:` — re-capture `REVIEW_SHA` and `DESIGN_HASH` (the
 worktree may have moved while the reviewer ran) and respawn that
 reviewer ONCE with the refreshed pin slots. If the second attempt
-also fails verification, escalate via the existing escalation flow
-using `escalation_reason=stale_review_snapshot`:
-
-```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason stale_review_snapshot
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
-.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "escalate → stale_review_snapshot"
-notify_sm_escalation "$PBI_ID" stale_review_snapshot
-```
+also fails verification, run the canonical escalation transition
+(`termination-gates.md` § Status transition on escalation) with
+`<reason>=stale_review_snapshot` and `<stage>=pbi_review`.
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status in_review ut_status in_review
@@ -269,11 +286,12 @@ round re-runs pbi-implementer ONLY.
 ### Step 3: UT Run (test execution + coverage measurement)
 
 **kind=docs: this step is skipped entirely.** When the single
-impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` and
-`coverage_status` at `skipped`, and jump straight to "Success branch
-(hand off to SM)" below. Do NOT call `update-backlog-status.sh
-in_progress_ut_run`. Continue reading the kind=code branch only if
-your PBI is kind=code.
+impl-reviewer PASSes, set `impl_status pass`, leave `ut_status` at
+`pending` and `coverage_status` at `skipped`, then run the Integrity
+stage (aspects 1 + 5 only — see "Integrity stage" below) and, on
+Integrity PASS, jump to "Success branch (hand off to SM)". Do NOT call
+`update-backlog-status.sh in_progress_ut_run`. Continue reading the
+kind=code branch only if your PBI is kind=code.
 
 When both reviewers PASS (kind=code), advance to UT Run:
 
@@ -305,9 +323,10 @@ impl-reviewer.verdict == PASS
 
 This is already true by the time control reaches Step 4 (the FAIL
 branch in Step 2 would have looped back to in_progress_impl
-otherwise). So for kind=docs, advance directly to the Success branch
-below — no coverage gate, no AC coverage gate, no pragma audit, no
-test runner invocation.
+otherwise). So for kind=docs, advance to the Integrity stage (aspects
+1 + 5) and then, on Integrity PASS, to the Success branch below — no
+coverage gate, no AC coverage gate, no pragma audit, no test runner
+invocation.
 
 For kind=code, the full evaluation logic applies (see
 `coverage-gate.md` § Pass criteria):
@@ -370,16 +389,41 @@ must exist in the supplied test files — dangling id → FAIL).
 `test_id` in `failures[]` is whatever the test runner emits (e.g.
 pytest produces `tests/unit/test_foo.py::test_bar`). The UT author
 MUST use the same `<file>::<test-name>` form so the comparison is
-direct (see `agents/pbi-ut-author.md` § "AC coverage map"). If a
+direct (see `../../../agents/pbi-ut-author.md` § "AC coverage map"). If a
 project's runner uses a divergent test_id format, declare the
 mapping convention in the design doc's `runtime-override` block;
 absent that, the format above is the contract.
 
 A failed AC gate routes like a UT Run FAIL (existing branch below).
 
+#### Integrity stage (runs before hand off)
+
+Once the Pass criteria above are all met (kind=code) — or the single
+impl-reviewer PASSes (kind=docs) — the Round has one gate left before
+ready-to-merge: the per-PBI **Integrity stage** (the 5 cross-cutting
+review aspects, run against this PBI's increment). See
+`integrity-stage.md` for the full procedure. In brief:
+
+- Run the Integrity stage now, at `$n` = current `impl_round`, while
+  the backlog status is still the Round's terminal stage
+  (`in_progress_ut_run` for kind=code, `in_progress_pbi_review` for
+  kind=docs). It does not have its own backlog status.
+- **Integrity PASS** → the conductor has written the consolidated
+  review doc to `.scrum/reviews/$PBI_ID-review.md` and set
+  `review_doc_path`. Proceed to the Success branch below.
+- **Integrity FAIL** (any Critical/High across aspects) → do NOT hand
+  off. Evaluate the termination gates on the aggregated integrity
+  findings (`termination-gates.md` § Integrity stage); on an escalate
+  gate, escalate; otherwise revert to `in_progress_impl` and fold the
+  findings into the next Round's feedback (`feedback-routing.md`
+  § Integrity-stage revert input). This reuses `begin-impl-round.sh`
+  and the `impl_round` hard cap — no new counter.
+
+Only on Integrity PASS does control reach the Success branch.
+
 #### Success branch (hand off to SM)
 
-**kind=code:**
+**kind=code** (reached only after Integrity PASS):
 
 ```bash
 .scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status pass
@@ -421,19 +465,29 @@ fire), revert to impl for the next round:
 # See "Build feedback for next round".
 ```
 
-#### Termination gate (Stagnation / Divergence / Hard cap)
+#### Termination gate (Tech-error recurrence / Stagnation / Divergence / Hard cap)
 
-See `termination-gates.md`. On any escalate gate:
+See `termination-gates.md` for the full gate set and evaluation order.
+Evaluate in that order. **Before** the escalate gates, check
+technical-error recurrence: if the same web-searchable technical error
+(test failure `type ∈ {exec_error, uncaught_exception, timeout}`, or an
+`:error_handling` reviewer finding) recurred across the last two Rounds
+AND `websearch_attempted` is unset, set the latch and route this FAIL to
+the normal next-round path with a `## Web-search remediation` section in
+the feedback — which the conductor fills by running `WebSearch` itself
+(the sub-agents have no WebSearch tool; see `feedback-routing.md`) — do
+NOT escalate this Round:
 
 ```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason "<reason>"
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
-.scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate "escalate → <reason>"
-notify_sm_escalation "$PBI_ID" "<reason>"
+.scrum/scripts/update-pbi-state.sh "$PBI_ID" websearch_attempted true
+.scrum/scripts/append-pbi-log.sh "$PBI_ID" "$STAGE" "$n" gate "web-search remediation → next round"
+# then continue via the FAIL → next-round path (begin-impl-round.sh).
 ```
 
-`$STAGE` is `pbi_review` or `ut_run` depending on where the gate
-fired.
+Otherwise, on any escalate gate, run the canonical escalation
+transition (`termination-gates.md` § Status transition on escalation)
+with `<reason>` = the gate outcome and `<stage>=$STAGE`, where `$STAGE`
+is `pbi_review` or `ut_run` depending on where the gate fired.
 
 ### Build feedback for next round
 

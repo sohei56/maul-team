@@ -35,6 +35,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 KIND=""
 DECISION=""
@@ -72,22 +74,16 @@ done
 [ -n "$RATIONALE" ] || fail E_INVALID_ARG "--rationale required"
 
 case "$KIND" in
-  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change|sprint_continuation) ;;
+  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change|sprint_continuation|quality_gate_config) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND" ;;
 esac
 
 if [ -n "$SPRINT" ] && [ "$SPRINT" != "null" ]; then
-  case "$SPRINT" in
-    sprint-[0-9]*) ;;
-    *) fail E_INVALID_ARG "bad --sprint: $SPRINT" ;;
-  esac
+  assert_sprint_id "$SPRINT" --sprint
 fi
 
 if [ -n "$PBI" ] && [ "$PBI" != "null" ]; then
-  case "$PBI" in
-    pbi-[0-9]*) ;;
-    *) fail E_INVALID_ARG "bad --pbi: $PBI" ;;
-  esac
+  assert_pbi_id "$PBI" --pbi
 fi
 
 # Guard (b): evidence required for approval-kinds. Empty array literal "[]" is
@@ -119,20 +115,14 @@ PATHF=".scrum/po/decisions.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/po-decisions.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
-  printf '%s\n' '{"decisions": []}' > "$PATHF"
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching every subsequent atomic_write mutation.
+  atomic_create "$PATHF" "$SCHEMA" '{decisions: []}'
 fi
 
 # Compute next id (max dec-NNNN + 1, zero-padded to 4). jq returns 0 when the
 # array is empty, so the first record is dec-0001.
-NEXT_N="$(jq -r '
-  (.decisions // [])
-  | map(.id | capture("^dec-(?<n>[0-9]+)$").n | tonumber)
-  | (max // 0) + 1
-' "$PATHF" 2>/dev/null || true)"
-case "$NEXT_N" in
-  ''|*[!0-9]*) fail E_SCHEMA "could not compute next id from $PATHF" ;;
-esac
-NEXT_ID="$(printf 'dec-%04d' "$NEXT_N")"
+NEXT_ID="$(alloc_next_id "$PATHF" '.decisions' 'dec-' 4)"
 
 # Build record JSON via jq -n so all free-form text is properly escaped.
 REC_JSON="$(

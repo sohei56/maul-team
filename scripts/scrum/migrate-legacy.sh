@@ -3,7 +3,7 @@
 #
 # Targets the artifacts the dashboard reads at top level:
 #   .scrum/backlog.json   — rename .pbis -> .items, lowercase ids, drop unknown
-#                           fields, remap legacy 6-value status to 12-value enum
+#                           fields, remap legacy 6-value status to 13-value enum
 #   .scrum/sprint.json    — lowercase pbi_ids, ensure started_at, lowercase
 #                           per-dev refs
 #   .scrum/state.json     — rename current_sprint -> current_sprint_id, remap
@@ -13,7 +13,7 @@
 # Per-PBI files (.scrum/pbi/*/state.json) are NOT rewritten: their schema is
 # strict and projects in flight legitimately carry richer fields. The legacy
 # pbi-state.json `phase` field was removed in v2 — readers consult
-# backlog.json.items[].status (12-value SSOT) instead.
+# backlog.json.items[].status (13-value SSOT) instead.
 #
 # WARNING: status migration here is best-effort phase-blind remap. v1
 # `in_progress` collapses to `in_progress_design`; v1 `review` collapses to
@@ -124,7 +124,7 @@ printf 'WARNING: for status migration after v1 -> v2, use this script carefully 
 # --- backlog.json ---
 # Rename .pbis -> .items, lowercase PBI ids, lowercase depends_on refs,
 # drop fields the schema does not allow (additionalProperties: false on items),
-# and remap legacy 6-value status to the 12-value enum (best-effort —
+# and remap legacy 6-value status to the 13-value enum (best-effort —
 # without phase context, in_progress maps to in_progress_design and
 # review maps to awaiting_cross_review). See WARNING above: manual review
 # of any in_progress PBIs after migration is recommended.
@@ -193,6 +193,21 @@ STATE_EXPR='
      then .updated_at += "T00:00:00Z" else . end)
 '
 apply_migration_with_args "$SCRUM_DIR/state.json" "$STATE_EXPR" "$SCHEMA_DIR/state.schema.json" || true
+
+# --- legacy lock root ---
+# Lock roots were unified on .scrum/locks/ (OD-6a); the old wrapper lock
+# root .scrum/.locks/ is obsolete. Locks are transient, so anything left
+# in the legacy dir can only be stale — remove the dir if present.
+if [ -d "$SCRUM_DIR/.locks" ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    echo "  would remove legacy lock root: $SCRUM_DIR/.locks (dry-run)"
+  else
+    rm -rf "$SCRUM_DIR/.locks"
+    echo "  removed legacy lock root: $SCRUM_DIR/.locks"
+  fi
+else
+  echo "  ok: no legacy lock root ($SCRUM_DIR/.locks absent)"
+fi
 
 echo ""
 echo "Migration done. Backups saved as <name>.legacy.bak alongside each migrated file."

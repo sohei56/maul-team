@@ -19,6 +19,11 @@ disable-model-invocation: false
   sub-agents verified by install-subagents): `pbi-designer`,
   `pbi-implementer`, `pbi-ut-author`, `codex-design-reviewer`,
   `codex-impl-reviewer`, `codex-ut-reviewer`
+- 5 Integrity-stage aspect reviewer definitions (the remaining catalog
+  sub-agents), spawned in the per-PBI Integrity stage:
+  `requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer`
 
 ## Outputs
 
@@ -37,7 +42,7 @@ disable-model-invocation: false
   summaries, pipeline.log, ut/ac-coverage-r{n}.json)
 - backlog.json `items[].status` driven via
   `.scrum/scripts/update-backlog-status.sh` (Developer manages the
-  `in_progress_*` range; SM owns the rest of the 12-value enum).
+  `in_progress_*` range; SM owns the rest of the 13-value enum).
 - Notification to SM via Agent Teams
 
 ## Status range owned by this skill (Developer side)
@@ -47,7 +52,7 @@ in_progress_design  → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progr
                                                                                   → escalated  (any stage; via termination gate)
 ```
 
-The 7 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-12-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [../../docs/data-model.md § State Transitions: status](../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Stages (decision tree)
 
@@ -68,6 +73,9 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    ↓
 [Design Stage] Rounds 1..5 → see references/design-stage.md
    - status: in_progress_design
+   - mandatory library selection web search → design.md Library
+     Selection section + S-070 verified library specs (stdlib-only PBI
+     records the explicit stdlib-only line)
    ↓ success
 [Impl Stage] Rounds 1..5 → see references/impl-ut-stage.md
    - status: in_progress_impl
@@ -86,14 +94,33 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    - aggregate Pass criteria; FAIL → status reverts to in_progress_impl
      (next round) OR escalates (termination gate)
    ↓ PASS
+[Integrity Stage] → see references/integrity-stage.md
+   - runs at the tail of in_progress_ut_run (no own status)
+   - 5 aspect reviewers in parallel against THIS PBI's increment
+     (requirement-conformance, functional-quality, security,
+     maintainability, docs-consistency) + Pass-A static analysis
+   - any Critical/High → FAIL → status reverts to in_progress_impl
+     (next round via begin-impl-round.sh; impl_round hard cap bounds it)
+     OR escalates (termination gate on the union of aspect findings)
+   - PASS → conductor writes .scrum/reviews/<pbi-id>-review.md and sets
+     review_doc_path (quality-gate DoD)
+   ↓ PASS
 [Ready-to-merge handoff]
    - run .scrum/scripts/mark-pbi-ready-to-merge.sh <pbi-id>
      (sets head_sha, paths_touched, ready_at; sets backlog status to
      in_progress_merge)
    - notify SM: "[<pbi-id>] PBI_READY_TO_MERGE branch=pbi/<id> sha=<head>"
    - stop and wait for SM SendMessage (MERGED / MERGE_CONFLICT /
-     ARTIFACT_MISSING)
+     ARTIFACT_MISSING / MERGE_REGRESSION — on MERGE_REGRESSION,
+     reproduce from .scrum/pbi/<pbi-id>/merge-regression.log, fix, and
+     re-run mark-pbi-ready-to-merge.sh)
 ```
+
+Design `Rounds 1..5` is a strict cap (no latch). The Impl stage's
+`Rounds 1..5` is the normal cap, but the technical-error remediation
+latch (impl-stage only) may add at most one extra impl Round, so the
+absolute impl bound is Round 6 (see references/termination-gates.md
+§ Gate evaluation order).
 
 ### kind=docs (Design + UT all skipped)
 
@@ -118,11 +145,24 @@ KIND="$(jq -r --arg id "$PBI_ID" '
    - aggregate verdict; FAIL → status reverts to in_progress_impl
      (next impl round).
    ↓ PASS
+[Integrity Stage]  (aspects 1 + 5 only) → see references/integrity-stage.md
+   - runs at the tail of in_progress_pbi_review (no own status)
+   - requirement-conformance + docs-consistency reviewers only
+   - any Critical/High → FAIL → status reverts to in_progress_impl
+     (next impl round) OR escalates (termination gate)
+   - PASS → conductor writes .scrum/reviews/<pbi-id>-review.md and sets
+     review_doc_path
+   ↓ PASS
 [Ready-to-merge handoff]  (UT Run stage skipped)
    - mark-pbi-ready-to-merge.sh enforces paths_touched ⊆ **/*.md;
      violation → escalation_reason=kind_mismatch.
    - notify SM identically to the kind=code path.
 ```
+
+The `Rounds 1..5` impl cap here carries the same latch caveat as the
+kind=code path: the technical-error remediation latch may add at most
+one extra Round → absolute bound 6 (see
+references/termination-gates.md § Gate evaluation order).
 
 The `paths_touched ⊆ **/*.md` boundary is machine-enforced by
 `mark-pbi-ready-to-merge.sh` (PR-1). The conductor itself does not
@@ -139,10 +179,38 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
 - `codex-design-reviewer` — Design Round Step 2 (sequential)
 - `pbi-implementer` ‖ `pbi-ut-author` — Impl Round Step 1 (parallel pair)
 - `codex-impl-reviewer` ‖ `codex-ut-reviewer` — PBI Review Stage (parallel pair)
+- `requirement-conformance-reviewer` ‖ `functional-quality-reviewer` ‖
+  `security-reviewer` ‖ `maintainability-reviewer` ‖
+  `docs-consistency-reviewer` — Integrity Stage (parallel barrage;
+  kind=code all 5, kind=docs aspects 1 + 5 only). These are
+  Claude-backed (`model: opus`) and message-based — no codex preflight,
+  no `Write` tool; the conductor consolidates their returned messages.
+  functional-quality and security internally add a codex second opinion
+  (adjudicated, non-fatal on codex absence) — invisible to the
+  conductor. See `references/integrity-stage.md`.
+
+**Every Agent spawn in this pipeline is synchronous — pass
+`run_in_background: false`.** A background spawn parks the conductor:
+nothing re-invokes it when the sub-agent finishes, and the Round
+handoff sits until an SM nudge (a target project logged a >10-hour
+stall at an impl→UT handoff). "Wait for both to return" in the stage
+references means the synchronous call itself — never a hand-rolled
+poll loop (see `references/reviewer-stall-fallback.md` § Bounded
+waiting for why spinning is forbidden).
+
+**Producer containment.** The three producer prompts (designer /
+implementer / ut-author) each carry a `{worktree_path}` slot with an
+absolute-path write rule, and the conductor verifies after every
+producer round that the main checkout gained no new dirt — see
+`references/worktree-containment.md` for the snapshot/relocate
+procedure. Leaks recurred across 11 Sprints in a target project when
+this was prompt-discipline only.
 
 All three `codex-*-reviewer` spawns share the stall fallback protocol
-in `references/reviewer-stall-fallback.md` (2-min stall detect →
-single Explore-agent retry → escalate as `reviewer_unavailable`).
+in `references/reviewer-stall-fallback.md` (post-return persistence check →
+single general-purpose-agent retry → escalate as `reviewer_unavailable`;
+Explore is unusable here — it has no `Write` tool to persist the
+review file).
 
 All three also share a snapshot-pin contract. The conductor captures
 pins immediately before spawn and passes them as input slots:
@@ -180,6 +248,16 @@ When a termination gate triggers escalation, set backlog status to
 `escalation_reason` into state.json via `update-pbi-state.sh`, and
 notify SM via Agent Teams. SM handles via the
 `pbi-escalation-handler` skill.
+
+A sub-agent ending its Round with an **unresolved spec question**
+(status=error + the question in `findings[]`/`next_actions`, per
+`rules/scrum-context.md` § Escalation route) is NOT a
+termination-gate trip. The conductor forwards
+`[<pbi-id>] SPEC_QUESTION` to SM, holds the Round, and re-spawns the
+sub-agent with the relayed PO answer (same Round). Flip to
+`escalated` with `escalation_reason=requirements_unclear` only when
+the answer cannot be obtained (parked in `.scrum/po/attention.md`)
+or the answer invalidates the PBI.
 
 See [termination gates](references/termination-gates.md) for the
 composite gate matrix (success / stagnation / divergence / hard cap)

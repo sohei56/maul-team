@@ -36,9 +36,21 @@ load '../test_helper/common-setup'
     .phase as $p |
     ["new","requirements_sprint","backlog_created","sprint_planning",
      "pbi_pipeline_active","review","sprint_review",
-     "retrospective","integration_sprint","complete"] |
+     "retrospective","integration_sprint","uat_release","complete"] |
     index($p) != null
   ' "$file"
+  assert_success
+}
+
+@test "state.schema.json phase enum includes uat_release after integration_sprint" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/state.schema.json"
+
+  # uat_release must be present and sit directly after integration_sprint
+  # (Integration Tests → UAT & Release ordering).
+  run jq -e '
+    .properties.phase.enum as $e |
+    ($e | index("uat_release")) == ($e | index("integration_sprint")) + 1
+  ' "$schema"
   assert_success
 }
 
@@ -101,32 +113,32 @@ load '../test_helper/common-setup'
   assert_success
 }
 
-@test "PBI status in fixture is one of the 12 unified status values" {
+@test "PBI status in fixture is one of the 13 unified status values" {
   local file="$FIXTURES_DIR/valid-backlog.json"
 
-  # Every PBI status must be one of the 12 unified enum values.
+  # Every PBI status must be one of the 13 unified enum values.
   run jq -e '
     [.items[].status] | all(. as $s |
       ["draft","refined","blocked",
        "in_progress_design","in_progress_impl","in_progress_pbi_review",
        "in_progress_ut_run","in_progress_merge",
        "awaiting_cross_review","cross_review",
-       "escalated","done"] | index($s) != null)
+       "escalated","done","cancelled"] | index($s) != null)
   ' "$file"
   assert_success
 }
 
-@test "12-value status enum covers all SM and Developer managed states" {
-  # Sanity check that the canonical 12-value enum has exactly the SM (7) +
+@test "13-value status enum covers all SM and Developer managed states" {
+  # Sanity check that the canonical 13-value enum has exactly the SM (8) +
   # Developer (5) split documented in the plan.
   run bash -c '
-    cat <<EOF | jq -e "length == 12"
+    cat <<EOF | jq -e "length == 13"
 [
   "draft","refined","blocked",
   "in_progress_design","in_progress_impl","in_progress_pbi_review",
   "in_progress_ut_run","in_progress_merge",
   "awaiting_cross_review","cross_review",
-  "escalated","done"
+  "escalated","done","cancelled"
 ]
 EOF
 '
@@ -134,14 +146,14 @@ EOF
 }
 
 @test "legacy PBI status values are no longer accepted" {
-  # Old 6-value enum values must NOT appear in the 12-value canonical list.
+  # Old 6-value enum values must NOT appear in the 13-value canonical list.
   for legacy in "in_progress" "review"; do
     run jq -en --arg s "$legacy" '
       ["draft","refined","blocked",
        "in_progress_design","in_progress_impl","in_progress_pbi_review",
        "in_progress_ut_run","in_progress_merge",
        "awaiting_cross_review","cross_review",
-       "escalated","done"] | index($s) == null
+       "escalated","done","cancelled"] | index($s) == null
     '
     assert_success
   done
@@ -159,6 +171,15 @@ EOF
 @test "backlog kind defaults to code" {
   local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
   run jq -e '.properties.items.items.properties.kind.default == "code"' "$schema"
+  assert_success
+}
+
+@test "backlog demo_plan is typed string|null" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  run jq -e '
+    .properties.items.items.properties.demo_plan.type
+    == ["string", "null"]
+  ' "$schema"
   assert_success
 }
 
@@ -220,5 +241,40 @@ EOF
   local file="$FIXTURES_DIR/valid-improvements.json"
 
   run jq -e '.entries | type == "array"' "$file"
+  assert_success
+}
+
+# ---------------------------------------------------------------------------
+# config.schema.json — static_analysis (cross-review dead-export pass)
+# ---------------------------------------------------------------------------
+
+@test "config schema declares static_analysis.commands as an array of {name, command}" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/config.schema.json"
+
+  run jq -e '
+    .properties.static_analysis.properties.commands as $c |
+    ($c.type == "array") and
+    ($c.items.properties.name.type == "string") and
+    ($c.items.properties.command.type == "string")
+  ' "$schema"
+  assert_success
+}
+
+@test "config schema top-level description lists static_analysis pipeline key" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/config.schema.json"
+
+  run jq -e '.description | test("static_analysis")' "$schema"
+  assert_success
+}
+
+@test "example config static_analysis matches the commands shape" {
+  local file="$PROJECT_ROOT/.scrum-config.example.json"
+
+  # commands[] is an array and every entry carries string name + command
+  run jq -e '
+    .static_analysis.commands as $c |
+    ($c | type == "array") and
+    ($c | all((.name | type == "string") and (.command | type == "string")))
+  ' "$file"
   assert_success
 }

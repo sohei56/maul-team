@@ -20,5 +20,5 @@
 
 For the source-of-record spec, see
 `docs/superpowers/specs/2026-05-02-pbi-pipeline-design.md`. For the
-related JSON wrapper / 12-value status migration, see
+related JSON wrapper / status-unification migration, see
 [MIGRATION-scrum-state-tools.md](MIGRATION-scrum-state-tools.md).

@@ -75,8 +75,25 @@ save_session_name() {
   if [ ! -f "$SESSION_MAP" ]; then
     jq -n --arg sid "$sid" --arg name "$name" '{($sid): $name}' > "$SESSION_MAP"
   else
-    local tmp_file="${SESSION_MAP}.tmp.$$"
-    jq --arg sid "$sid" --arg name "$name" '. + {($sid): $name}' "$SESSION_MAP" > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$SESSION_MAP"
+    # shellcheck disable=SC2016  # $sid/$name are jq variables, not shell expansion.
+    json_update_atomic "$SESSION_MAP" '. + {($sid): $name}' \
+      --arg sid "$sid" --arg name "$name"
+  fi
+}
+
+# emit_dashboard_status_event <type> <detail> [pbi_id]
+# Thin wrapper over lib/dashboard.sh::append_dashboard_status_event that
+# binds the Main-resolved globals `timestamp` and `agent_id`. Appends a
+# lifecycle event (Stop / SubagentStart / SubagentStop / TaskCompleted).
+# The pbi_id parameter is presence-sensitive: when a third argument is
+# passed the event carries a "pbi_id" key (empty string → JSON null);
+# when omitted, no "pbi_id" key is emitted at all (Stop / TaskCompleted
+# events never had one).
+emit_dashboard_status_event() {
+  if [ "$#" -ge 3 ]; then
+    append_dashboard_status_event "$timestamp" "$1" "$agent_id" "$2" "$3"
+  else
+    append_dashboard_status_event "$timestamp" "$1" "$agent_id" "$2"
   fi
 }
 
@@ -94,19 +111,6 @@ is_duplicate_comms() {
     return 0
   fi
   return 1
-}
-
-# Determine the change type for a file operation
-determine_change_type() {
-  # Always returns "modified".
-  #
-  # Cleanup-audit T1-9 (2026-06): the prior implementation distinguished
-  # Write→"created" from Write→"modified" by `[ -f $file_path ]`. But this
-  # is a PostToolUse hook — by the time it runs, the tool has already
-  # completed, so the file always exists and the "created" branch is
-  # unreachable. Edit / Bash / * already returned "modified" verbatim.
-  # Collapsed to one literal to make the contract explicit.
-  echo "modified"
 }
 
 # ---------------------------------------------------------------------------
@@ -145,7 +149,11 @@ case "$hook_type" in
       Write|Edit)
         file_path="$(echo "$tool_input" | jq -r '.file_path // empty')"
         if [ -n "$file_path" ]; then
-          change_type="$(determine_change_type "$tool_name" "$file_path")"
+          # Always "modified": this is a PostToolUse hook, so by the time it
+          # runs the tool has already completed and the file always exists —
+          # a "created" vs "modified" distinction (Cleanup-audit T1-9) is
+          # unreachable here.
+          change_type="modified"
           detail="${tool_name} on ${file_path}"
 
           event_json="$(jq -n \
@@ -161,29 +169,6 @@ case "$hook_type" in
               "agent_id": $agent,
               "file_path": $fp,
               "change_type": $ct,
-              "detail": $detail
-            }')"
-
-          append_dashboard_event "$event_json"
-        fi
-        ;;
-      Bash)
-        # For Bash tool, extract a summary but do not try to determine file paths
-        command="$(echo "$tool_input" | jq -r '.command // empty' | head -c 200)"
-        if [ -n "$command" ]; then
-          detail="Bash: ${command}"
-
-          event_json="$(jq -n \
-            --arg ts "$timestamp" \
-            --arg type "file_changed" \
-            --arg agent "$agent_id" \
-            --arg detail "$detail" \
-            '{
-              "timestamp": $ts,
-              "type": $type,
-              "agent_id": $agent,
-              "file_path": null,
-              "change_type": null,
               "detail": $detail
             }')"
 
@@ -277,121 +262,32 @@ case "$hook_type" in
     # Session or teammate stopping. agent_id resolves to a friendly name
     # only if an earlier event saved a session-map entry for this session.
     reason="$(echo "$hook_event" | jq -r '.reason // "completed"')"
-    detail="session stopped (${reason})"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "status_transition",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "status_transition" "session stopped (${reason})"
     ;;
 
   SubagentStart|subagent_start)
     # Teammate/subagent starting work. The agent name (payload agent_type)
     # is already in agent_id — detail carries only the action.
     pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
-    detail="started work${pbi_id:+ on ${pbi_id}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      --arg pbi "$pbi_id" \
-      '{
-        "timestamp": $ts,
-        "type": "subagent_start",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail,
-        "pbi_id": (if $pbi == "" then null else $pbi end)
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "subagent_start" \
+      "started work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
 
   SubagentStop|subagent_stop)
     # Teammate/subagent finished its work. Name lives in agent_id.
-    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
-    detail="finished work${pbi_id:+ on ${pbi_id}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      --arg pbi "$pbi_id" \
-      '{
-        "timestamp": $ts,
-        "type": "subagent_stop",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail,
-        "pbi_id": (if $pbi == "" then null else $pbi end)
-      }')"
-
     # The comms "finished work" mirror was removed when the dashboard
     # merged its log panes; completion-gate.sh counts in-flight subagents
     # from these dashboard subagent_start/stop events, so they must stay.
-    append_dashboard_event "$event_json"
+    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
+    emit_dashboard_status_event "subagent_stop" \
+      "finished work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
 
   TaskCompleted|task_completed)
     # A task has been completed
     tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
-    detail="completed task${tool_name:+: ${tool_name}}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "task_completed",
-        "agent_id": $agent,
-        "file_path": null,
-        "change_type": null,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
-    ;;
-
-  FileChanged|file_changed)
-    # Claude Code FileChanged event: a watched file changed (often from
-    # an external editor). Mirror to the dashboard so users see it
-    # alongside tool-driven file_changed events emitted from PostToolUse.
-    file_path="$(echo "$hook_event" | jq -r '.file_path // .path // empty')"
-    change_type="$(echo "$hook_event" | jq -r '.change_type // "modified"')"
-    [ -n "$file_path" ] || exit 0
-
-    detail="External ${change_type} on ${file_path}"
-
-    event_json="$(jq -n \
-      --arg ts "$timestamp" \
-      --arg agent "$agent_id" \
-      --arg fp "$file_path" \
-      --arg ct "$change_type" \
-      --arg detail "$detail" \
-      '{
-        "timestamp": $ts,
-        "type": "file_changed",
-        "agent_id": $agent,
-        "file_path": $fp,
-        "change_type": $ct,
-        "detail": $detail
-      }')"
-
-    append_dashboard_event "$event_json"
+    emit_dashboard_status_event "task_completed" \
+      "completed task${tool_name:+: ${tool_name}}"
     ;;
 esac
 

@@ -1,9 +1,41 @@
 #!/usr/bin/env bash
 # quality-gate.sh — TaskCompleted hook
 # Enforces the Definition of Done (DoD) for completed PBIs.
-# Reads hook event JSON from stdin.  Checks PBI status, design docs,
-# test files, linter availability, and review docs.
-# Outputs exit code 0 (pass) with warnings to stderr — does NOT hard-block.
+#
+# Fires on every task completion (TaskCompleted has no matcher). The only
+# fields we may rely on from the payload are the documented ones —
+# common: session_id, transcript_path, cwd, hook_event_name;
+# task:   task_id, task_name, task_status (always "completed").
+# Additional fields are UNSPECIFIED, so the PBI id is recovered by scanning
+# task_name (and, defensively, task_id) for a `[Pp][Bb][Ii]-[0-9]+` token.
+#
+# Exit policy:
+#   * No PBI id in the task            -> exit 0, silent (never block a
+#                                         non-PBI task).
+#   * PBI id found but backlog missing
+#     / unreadable / id not in backlog -> exit 0, advisory stderr note
+#                                         (never block on infrastructure
+#                                         absence).
+#   * PBI found, all DoD checks pass    -> exit 0.
+#   * PBI found, one+ DoD check fails,
+#     status claims pipeline completion -> exit 2, one combined stderr
+#                                         message listing every failed
+#                                         check and the PBI id (blocks).
+#   * PBI found, one+ DoD check fails,
+#     status is mid-/pre-pipeline       -> exit 0, same combined message
+#                                         as an ADVISORY stderr note.
+#
+# Blocking is status-scoped: DoD is only claimable at merge-readiness, so a
+# failed check hard-blocks (exit 2) ONLY when items[].status is one of
+# {in_progress_merge, awaiting_cross_review, cross_review, done}. For any
+# other (mid-pipeline / pre-pipeline) status, per-stage task completions must
+# not hard-block — the same message is emitted as advisory and exit is 0.
+#
+# DoD checks are kind-aware (backlog items[].kind, default "code"):
+#   kind=code : design docs, test files, linter, Integrity review doc.
+#   kind=docs : Integrity review doc only — design-doc and test-file
+#               checks are skipped (docs PBIs legitimately have neither;
+#               see skills/pbi-pipeline/SKILL.md § kind=docs).
 set -euo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,50 +45,60 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKLOG_FILE=".scrum/backlog.json"
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Logging helpers
 # ---------------------------------------------------------------------------
-
-warn() {
-  stderr_log "quality-gate" "WARNING" "$1"
-}
 
 info() {
   stderr_log "quality-gate" "INFO" "$1"
 }
 
-# Extract PBI ID from hook event.  The TaskCompleted payload may contain
-# a pbi_id or we attempt to infer from the task output.
-get_pbi_id_from_event() {
-  local event="$1"
-  # Try direct pbi_id field
-  local pbi_id
-  pbi_id="$(echo "$event" | jq -r '.pbi_id // empty' 2>/dev/null)"
-  if [ -n "$pbi_id" ]; then
-    echo "$pbi_id"
-    return
-  fi
-
-  # Try extracting from task output or session context
-  pbi_id="$(echo "$event" | jq -r '.task_output.pbi_id // empty' 2>/dev/null)"
-  if [ -n "$pbi_id" ]; then
-    echo "$pbi_id"
-    return
-  fi
-
-  echo ""
+# Emit a single BLOCKED message (with the uniform hook-notification prefix so
+# the LLM does not misread it as user input) and exit 2 — the Claude Code
+# convention for a blocking TaskCompleted hook.
+block() {
+  stderr_log "quality-gate" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $1"
+  exit 2
 }
 
-# Get PBI data from backlog by ID
+# ---------------------------------------------------------------------------
+# PBI id extraction / lookup
+# ---------------------------------------------------------------------------
+
+# Scan a string for the first `[Pp][Bb][Ii]-[0-9]+` token and echo it verbatim
+# (original casing). Echoes nothing when there is no match. Bash 3.2 =~ /
+# BASH_REMATCH only — no external processes.
+extract_pbi_id() {
+  local text="$1"
+  if [[ "$text" =~ ([Pp][Bb][Ii]-[0-9]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  fi
+}
+
+# Get PBI data from backlog by id, matching case-insensitively (message /
+# task prefixes use upper-case PBI-NNN; the backlog stores canonical
+# lower-case pbi-NNN). Echoes the item JSON, or "{}" when not found.
 get_pbi() {
   local pbi_id="$1"
   if [ ! -f "$BACKLOG_FILE" ]; then
     echo "{}"
     return
   fi
-  jq --arg id "$pbi_id" '.items[] | select(.id == $id)' "$BACKLOG_FILE" 2>/dev/null || echo "{}"
+  jq --arg id "$pbi_id" \
+    '.items[] | select((.id | ascii_downcase) == ($id | ascii_downcase))' \
+    "$BACKLOG_FILE" 2>/dev/null || echo "{}"
 }
 
-# Check if design documents exist for a PBI
+# ---------------------------------------------------------------------------
+# DoD checks
+#
+# Contract for every check_* function:
+#   * success -> log an INFO line to stderr, print nothing to stdout, return 0.
+#   * failure -> print a concise one-line reason to stdout, return 1.
+# The caller captures stdout via command substitution and, on non-zero,
+# collects the reason into the combined block message.
+# ---------------------------------------------------------------------------
+
+# kind=code: design documents are linked in the backlog and exist on disk.
 check_design_docs() {
   local pbi_id="$1"
   local pbi_data="$2"
@@ -65,11 +107,10 @@ check_design_docs() {
   doc_count="$(echo "$pbi_data" | jq '.design_doc_paths | length' 2>/dev/null || echo "0")"
 
   if [ "$doc_count" = "0" ]; then
-    warn "PBI ${pbi_id}: No design documents linked. DoD requires a design document for each PBI."
+    printf 'no design document linked (DoD requires a design document)'
     return 1
   fi
 
-  # Check that each linked design doc file actually exists
   local missing_docs=""
   while IFS= read -r doc_path; do
     [ -z "$doc_path" ] && continue
@@ -81,7 +122,7 @@ $(echo "$pbi_data" | jq -r '.design_doc_paths[]? // empty' 2>/dev/null)
 EOF
 
   if [ -n "$missing_docs" ]; then
-    warn "PBI ${pbi_id}: Linked design documents not found on disk: ${missing_docs}"
+    printf 'linked design document(s) not found on disk: %s' "$missing_docs"
     return 1
   fi
 
@@ -89,19 +130,17 @@ EOF
   return 0
 }
 
-# Check if test files exist (heuristic: look for test files in tests/)
+# kind=code: at least one test file exists (heuristic scan of tests/).
 check_tests_exist() {
   local pbi_id="$1"
 
-  # Look for any test files in the tests/ directory
   local test_count=0
   if [ -d "tests" ]; then
-    # Count test files (bats for shell, test_*.py for python, *_test.* generic)
     test_count="$(find tests -type f \( -name "*.bats" -o -name "test_*.py" -o -name "*_test.*" -o -name "test_*.*" \) 2>/dev/null | wc -l | tr -d ' ')"
   fi
 
   if [ "$test_count" = "0" ]; then
-    warn "PBI ${pbi_id}: No test files found in tests/ directory. DoD requires unit tests."
+    printf 'no test files found in tests/ (DoD requires unit tests)'
     return 1
   fi
 
@@ -114,7 +153,6 @@ check_tests_exist() {
 get_changed_files() {
   local ext="$1"
   if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    # Files changed vs default branch (main/master), plus any uncommitted changes
     local base_branch
     base_branch="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo "main")"
     local merge_base
@@ -122,18 +160,15 @@ get_changed_files() {
     if [ -n "$merge_base" ]; then
       { git diff --name-only "$merge_base" HEAD -- "*.${ext}" 2>/dev/null; git diff --name-only -- "*.${ext}" 2>/dev/null; } | sort -u
     else
-      # No merge base (e.g., initial branch) — fall back to all tracked files
       git ls-files -- "*.${ext}" 2>/dev/null
     fi
   else
-    # Not a git repo — fall back to find
     find . -name "*.${ext}" -type f 2>/dev/null
   fi
 }
 
 # Run a linter against changed files of a given extension. Echoes a
-# space-separated list of files that failed the linter (empty on pass).
-# Usage: check_linter_on_extension <linter_cmd> <ext> <linter_args...>
+# comma-separated list of files that failed (empty on pass).
 # Returns 0 if the linter is unavailable (caller treats as no-op).
 check_linter_on_extension() {
   local cmd="$1"
@@ -160,44 +195,42 @@ EOF
   return 0
 }
 
-# Check if code passes linter (if linter tools are available)
-# Scopes checks to files changed in the current branch, not all project files.
+# kind=code: changed shell/python files pass their linters (when available).
+# No linter available, or no changed files of that type -> pass (no-op).
 check_linter() {
   local pbi_id="$1"
   local linter_available=false
-  local linter_passed=true
-  local failed
+  local reasons="" failed
 
   if command -v shellcheck >/dev/null 2>&1; then
     linter_available=true
     if ! failed="$(check_linter_on_extension shellcheck sh)"; then
-      warn "PBI ${pbi_id}: shellcheck reported issues in: ${failed}"
-      linter_passed=false
+      reasons="${reasons}${reasons:+; }shellcheck issues in: ${failed}"
     fi
   fi
 
   if command -v ruff >/dev/null 2>&1; then
     linter_available=true
     if ! failed="$(check_linter_on_extension ruff py check --quiet)"; then
-      warn "PBI ${pbi_id}: ruff reported issues in: ${failed}"
-      linter_passed=false
+      reasons="${reasons}${reasons:+; }ruff issues in: ${failed}"
     fi
   fi
 
   if [ "$linter_available" = "false" ]; then
-    warn "PBI ${pbi_id}: No linter available (shellcheck, ruff). Skipping lint check."
+    info "PBI ${pbi_id}: No linter available (shellcheck, ruff). Skipping lint check."
     return 0
   fi
 
-  if [ "$linter_passed" = "true" ]; then
-    info "PBI ${pbi_id}: Linter checks passed."
-    return 0
+  if [ -n "$reasons" ]; then
+    printf 'linter reported issues (%s)' "$reasons"
+    return 1
   fi
 
-  return 1
+  info "PBI ${pbi_id}: Linter checks passed."
+  return 0
 }
 
-# Check if cross-review document exists for the PBI
+# Both kinds: the per-PBI Integrity review document is recorded and on disk.
 check_review_doc() {
   local pbi_id="$1"
   local pbi_data="$2"
@@ -206,16 +239,16 @@ check_review_doc() {
   review_doc_path="$(echo "$pbi_data" | jq -r '.review_doc_path // empty' 2>/dev/null)"
 
   if [ -z "$review_doc_path" ] || [ "$review_doc_path" = "null" ]; then
-    warn "PBI ${pbi_id}: No review document path set. DoD requires a cross-review."
+    printf 'no Integrity review document recorded (review_doc_path unset)'
     return 1
   fi
 
   if [ ! -f "$review_doc_path" ]; then
-    warn "PBI ${pbi_id}: Review document not found at '${review_doc_path}'."
+    printf 'Integrity review document not found at %s' "$review_doc_path"
     return 1
   fi
 
-  info "PBI ${pbi_id}: Cross-review document present."
+  info "PBI ${pbi_id}: Integrity review document present."
   return 0
 }
 
@@ -223,60 +256,88 @@ check_review_doc() {
 # Main
 # ---------------------------------------------------------------------------
 
-# Read hook event JSON from stdin
 hook_event="$(cat)"
 
-pbi_id="$(get_pbi_id_from_event "$hook_event")"
+task_name="$(printf '%s' "$hook_event" | jq -r '.task_name // empty' 2>/dev/null || echo "")"
+task_id="$(printf '%s' "$hook_event" | jq -r '.task_id // empty' 2>/dev/null || echo "")"
 
-if [ -z "$pbi_id" ]; then
-  info "No PBI ID found in hook event. Skipping DoD checks."
+raw_pbi_id="$(extract_pbi_id "$task_name")"
+[ -n "$raw_pbi_id" ] || raw_pbi_id="$(extract_pbi_id "$task_id")"
+
+# No PBI id anywhere -> unrelated task. Never block.
+if [ -z "$raw_pbi_id" ]; then
   exit 0
 fi
 
-if ! validate_json_file "$BACKLOG_FILE" "items"; then
-  warn "Cannot verify DoD for PBI ${pbi_id} — backlog.json missing or invalid."
+# Canonical forms: upper-case for display, lower-case for the (case-insensitive)
+# backlog lookup.
+pbi_display="$(printf '%s' "$raw_pbi_id" | tr '[:lower:]' '[:upper:]')"
+pbi_lookup="$(printf '%s' "$raw_pbi_id" | tr '[:upper:]' '[:lower:]')"
+
+# Backlog missing / unreadable -> advisory only, do not block.
+if ! validate_json_file "$BACKLOG_FILE" "items" >/dev/null 2>&1; then
+  info "PBI ${pbi_display}: backlog.json missing or unreadable — skipping DoD checks (advisory, not blocking)."
   exit 0
 fi
 
-pbi_data="$(get_pbi "$pbi_id")"
+pbi_data="$(get_pbi "$pbi_lookup")"
 
+# PBI id not present in the backlog -> advisory only, do not block.
 if [ "$pbi_data" = "{}" ] || [ -z "$pbi_data" ]; then
-  warn "PBI ${pbi_id} not found in backlog. Skipping DoD checks."
+  info "PBI ${pbi_display}: not found in backlog — skipping DoD checks (advisory, not blocking)."
   exit 0
 fi
 
-info "Running Definition of Done checks for PBI ${pbi_id}..."
+kind="$(printf '%s' "$pbi_data" | jq -r '.kind // "code"' 2>/dev/null || echo "code")"
+[ -n "$kind" ] && [ "$kind" != "null" ] || kind="code"
 
-warning_count=0
+pbi_status="$(printf '%s' "$pbi_data" | jq -r '.status // "unknown"' 2>/dev/null || echo "unknown")"
+[ -n "$pbi_status" ] && [ "$pbi_status" != "null" ] || pbi_status="unknown"
 
-# DoD Check 1: Design document exists
-if ! check_design_docs "$pbi_id" "$pbi_data"; then
-  warning_count=$((warning_count + 1))
-fi
+info "Running kind=${kind} Definition of Done checks for PBI ${pbi_display} (status=${pbi_status})..."
 
-# DoD Check 2: Implementation follows design — cannot verify programmatically, skip
-# (Noted for manual review)
+# Collect failure reasons; each check prints its reason to stdout on failure.
+failures=""
+add_failure() {
+  failures="${failures}${failures:+
+  }- $1"
+}
 
-# DoD Check 3: Unit tests exist
-if ! check_tests_exist "$pbi_id"; then
-  warning_count=$((warning_count + 1))
-fi
-
-# DoD Check 4: Code passes linter
-if ! check_linter "$pbi_id"; then
-  warning_count=$((warning_count + 1))
-fi
-
-# DoD Check 5: Cross-review completed
-if ! check_review_doc "$pbi_id" "$pbi_data"; then
-  warning_count=$((warning_count + 1))
-fi
-
-if [ "$warning_count" -gt 0 ]; then
-  warn "PBI ${pbi_id}: ${warning_count} DoD warning(s) found. Review above warnings before marking as complete."
+if [ "$kind" = "docs" ]; then
+  # kind=docs DoD: design-doc and test-file checks do not apply.
+  if ! reason="$(check_review_doc "$pbi_display" "$pbi_data")"; then
+    add_failure "$reason"
+  fi
 else
-  info "PBI ${pbi_id}: All DoD checks passed."
+  # kind=code DoD.
+  if ! reason="$(check_design_docs "$pbi_display" "$pbi_data")"; then
+    add_failure "$reason"
+  fi
+  if ! reason="$(check_tests_exist "$pbi_display")"; then
+    add_failure "$reason"
+  fi
+  if ! reason="$(check_linter "$pbi_display")"; then
+    add_failure "$reason"
+  fi
+  if ! reason="$(check_review_doc "$pbi_display" "$pbi_data")"; then
+    add_failure "$reason"
+  fi
 fi
 
-# Always exit 0 — DoD warnings are advisory, not blocking
+if [ -n "$failures" ]; then
+  msg="PBI ${pbi_display} (kind=${kind}, status=${pbi_status}) failed Definition of Done checks:
+  ${failures}"
+  case "$pbi_status" in
+    in_progress_merge|awaiting_cross_review|cross_review|done)
+      # Merge-readiness+: DoD is claimable, so a failure hard-blocks.
+      block "${msg}
+  Resolve these before marking the PBI complete." ;;
+  esac
+  # Mid-/pre-pipeline status: DoD not yet claimable — advise, do not block.
+  info "${msg}
+  (advisory only — status=${pbi_status}; DoD is claimable at merge-readiness, not mid-pipeline.)"
+  exit 0
+fi
+
+info "PBI ${pbi_display}: All DoD checks passed."
 exit 0

@@ -11,7 +11,7 @@
 # from this wrapper's perspective: ids are auto-assigned (imp-NNNN,
 # monotonically increasing) and existing entries are never rewritten. The
 # 3-Sprint consolidation pass (status: archived, archived_at, last_consolidation_sprint
-# bump) is a separate operation handled by consolidate-improvements.sh (TBD).
+# bump) is a separate operation handled by consolidate-improvements.sh.
 #
 # Schema: docs/contracts/scrum-state/improvements.schema.json.
 #
@@ -25,6 +25,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
+# shellcheck source=lib/queries.sh
+source "$HERE/lib/queries.sh"
 
 SPRINT=""
 DESCRIPTION=""
@@ -42,36 +44,26 @@ done
 [ -n "$SPRINT" ]      || fail E_INVALID_ARG "--sprint required"
 [ -n "$DESCRIPTION" ] || fail E_INVALID_ARG "--description required"
 
-case "$SPRINT" in
-  sprint-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad --sprint: $SPRINT" ;;
-esac
+assert_sprint_id "$SPRINT" --sprint
 
 if [ -n "$DEC_ID" ]; then
-  case "$DEC_ID" in
-    dec-[0-9][0-9][0-9][0-9]) ;;
-    *) fail E_INVALID_ARG "bad --dec-id: $DEC_ID (expected dec-NNNN)" ;;
-  esac
+  # Zero-padded to at least 4 digits; grows past dec-9999 (matches schema).
+  printf '%s' "$DEC_ID" | grep -Eq '^dec-[0-9]{4,}$' \
+    || fail E_INVALID_ARG "bad --dec-id: $DEC_ID (expected dec-NNNN)"
 fi
 
 PATHF=".scrum/improvements.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/improvements.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
-  printf '%s\n' '{"entries": [], "last_consolidation_sprint": null}' > "$PATHF"
+  # Seed through atomic_create so the first write is schema-validated and lands
+  # via temp+mv, matching every subsequent atomic_write mutation.
+  atomic_create "$PATHF" "$SCHEMA" '{entries: [], last_consolidation_sprint: null}'
 fi
 
 # Compute next id (max imp-NNNN + 1, zero-padded to 4). jq returns 0 when the
 # array is empty, so the first record is imp-0001.
-NEXT_N="$(jq -r '
-  (.entries // [])
-  | map(.id | capture("^imp-(?<n>[0-9]+)$").n | tonumber)
-  | (max // 0) + 1
-' "$PATHF" 2>/dev/null || true)"
-case "$NEXT_N" in
-  ''|*[!0-9]*) fail E_SCHEMA "could not compute next id from $PATHF" ;;
-esac
-NEXT_ID="$(printf 'imp-%04d' "$NEXT_N")"
+NEXT_ID="$(alloc_next_id "$PATHF" '.entries' 'imp-' 4)"
 
 # Build record JSON via jq -n so all free-form text is properly escaped.
 REC_JSON="$(

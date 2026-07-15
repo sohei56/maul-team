@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Scrum framework configuration",
-  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
+  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression, static_analysis) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -30,11 +30,33 @@
       }
     },
     "merge_regression": {
-      "description": "command run by merge-pbi.sh after each per-PBI merge; skipped with WARN when absent.",
+      "description": "command run by merge-pbi.sh after each per-PBI merge; skipped with WARN when absent. Written only via set-merge-regression-command.sh (Sprint-Planning decision).",
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "command": {"type": ["string", "null"]}
+        "command": {"type": ["string", "null"]},
+        "accepted_none": {
+          "description": "true = the team deliberately runs no per-PBI regression gate (recorded via set-merge-regression-command.sh --none). Distinguishes an explicit opt-out from a never-decided unset gate, so merge-pbi.sh drops its WARN to a quiet note. Not required; absent/false means the gate is either configured or undecided.",
+          "type": "boolean"
+        }
+      }
+    },
+    "static_analysis": {
+      "description": "Project-declared reachability / dead-export commands for the cross-review whole-repo dead-code pass (feeds the `redundancy` audit axis). Each command runs via `bash -c` from the repo root; stdout+exit are aggregated into .scrum/reviews/static-analysis-r{n}.json. When commands[] is absent or empty, the pass falls back to the built-in Python `vulture` auto-run (when available). Meant for languages the built-in pass does not cover (e.g. knip / ts-prune for TypeScript, staticcheck for Go, cargo-udeps for Rust).",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": {"type": "string"},
+              "command": {"type": "string"}
+            }
+          }
+        }
       }
     },
     "stall_watchdog": {
@@ -44,6 +66,11 @@
       "properties": {
         "enabled": {"type": "boolean"},
         "idle_threshold_minutes": {"type": "integer", "minimum": 1},
+        "pbi_idle_threshold_minutes": {
+          "description": "Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to idle_threshold_minutes.",
+          "type": "integer",
+          "minimum": 1
+        },
         "cooldown_minutes": {"type": "integer", "minimum": 1},
         "poll_interval_seconds": {"type": "integer", "minimum": 1}
       }
@@ -62,7 +89,7 @@
           "minimum": 0
         },
         "max_integration_cycles": {
-          "description": "Maximum number of integration-sprint defect-fix cycles before releasing as-is or aborting.",
+          "description": "Maximum number of integration→development defect-fix cycles (Integration Tests / UAT & Release loop) before releasing as-is or aborting.",
           "type": "integer",
           "minimum": 0
         }

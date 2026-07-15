@@ -5,7 +5,7 @@ How the Developer (conductor) manages PBI internal state.
 ## SSOT for stage position
 
 The Developer's stage position is the PBI's
-`backlog.json.items[].status` (a 12-value flat enum). The internal
+`backlog.json.items[].status` (a 13-value flat enum). The internal
 `pbi-state.json` holds round counters and per-stage `*_status`
 flags only. There is no `phase` field; status is the sole SSOT.
 
@@ -18,35 +18,36 @@ flags only. There is no `phase` field; status is the sole SSOT.
 | Ready-to-merge handoff | `in_progress_merge` |
 | Termination-gate escalation | `escalated` |
 
-The 7 SM-managed status values (see [docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-12-value-enum-actor-split)) MUST NOT be written by this skill.
+The 8 SM-managed status values (see [../../../docs/data-model.md § State Transitions: status](../../../docs/data-model.md#state-transitions-status-13-value-enum-actor-split)) MUST NOT be written by this skill.
 
 ## Schema: `.scrum/pbi/<pbi-id>/state.json`
 
-```json
-{
-  "pbi_id": "pbi-001",
-  "design_round": 0,
-  "impl_round": 0,
-  "design_status": "pending | in_review | fail | pass",
-  "impl_status": "pending | in_review | fail | pass",
-  "ut_status": "pending | in_review | fail | pass",
-  "coverage_status": "pending | fail | pass",
-  "escalation_reason": null,
-  "started_at": "2026-05-02T12:00:00+09:00",
-  "updated_at": "2026-05-02T12:00:00+09:00"
-}
-```
+The canonical schema is
+[docs/contracts/scrum-state/pbi-state.schema.json](../../../docs/contracts/scrum-state/pbi-state.schema.json)
+(field semantics in
+[../../../docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate)).
+Do not copy it here — the compact listing below covers only the fields
+the conductor writes, with enums transcribed from the schema:
+
+| Field | Values |
+|---|---|
+| `design_round`, `impl_round` | integer ≥ 0 |
+| `design_status` | `pending \| in_review \| fail \| pass \| skipped` |
+| `impl_status` | `pending \| in_review \| fail \| pass` |
+| `ut_status` | `pending \| in_review \| fail \| pass \| skipped` |
+| `coverage_status` | `pending \| fail \| pass \| skipped` |
+| `escalation_reason` | `null` or one of the enum (see below) |
+| `websearch_attempted` | boolean, once-per-PBI latch — see [termination-gates.md § Technical-error recurrence](termination-gates.md#technical-error-recurrence-web-search-remediation) |
+
+`skipped` is written by the kind=docs flow (Design and UT Run stages
+not run; see [termination-gates.md § kind=docs overrides](termination-gates.md#kinddocs-overrides)).
+`pbi_id` / `started_at` are seeded by `init-pbi-state.sh` and
+`updated_at` is auto-stamped by the wrappers; the worktree / merge
+fields are owned by other scripts (see § New fields below).
 
 `escalation_reason` enum (only set when backlog status is
-`escalated`):
-
-```text
-stagnation | divergence | max_rounds | budget_exhausted |
-requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
-catalog_lock_timeout |
-reviewer_unavailable | stale_review_snapshot |
-merge_conflict | merge_artifact_missing | merge_regression
-```
+`escalated`): canonical value list in
+[../../../docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate).
 
 The merge-* values are written by SM-side `mark-pbi-merge-failure.sh`,
 not by this skill. `reviewer_unavailable` and `stale_review_snapshot`
@@ -77,11 +78,13 @@ ALWAYS update PBI state via the validated wrapper scripts (never raw jq):
 
 # Stage transition (always via backlog status SSOT)
 .scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl
-
-# Escalation: write reason to internal state, then flip backlog status
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" escalation_reason stagnation
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" escalated
 ```
+
+Escalation is the same two wrappers in a fixed order (reason to
+internal state first, then flip backlog status to `escalated`), plus a
+`pipeline.log` line and the SM notification. Do not restate that
+sequence per call site — the full recipe is canonical in
+[termination-gates.md § Status transition on escalation](termination-gates.md#status-transition-on-escalation).
 
 ### `impl_round` is owned by `begin-impl-round.sh`
 
@@ -99,17 +102,20 @@ n=$(.scrum/scripts/begin-impl-round.sh "$PBI_ID")
   `impl_round > 0`, it returns the current value without mutating.
 - Refuses if the backlog pre-state isn't one of
   `{in_progress_design, in_progress_pbi_review, in_progress_ut_run,
-  cross_review, in_progress_impl}`.
+  in_progress_impl}`.
 
-Conductors MUST NOT write `impl_round` via `update-pbi-state.sh`.
-Owning the counter in one place removes the failure mode where an
-agent resets `n` to 1 after a Cross Review revert (Round counter
-displayed in the dashboard regressed to 1 even though the PBI had
-already completed Rounds 1..N internally).
+Within the impl / PBI-review / UT-run cycle, conductors MUST NOT write
+`impl_round` via `update-pbi-state.sh` — `begin-impl-round.sh` is the
+sole incrementer. The one sanctioned exception is the Design-success
+reset to 0: `design-stage.md` Step 3 sets `design_status pass
+impl_round 0` as it hands off to impl, seeding the counter before the
+first `begin-impl-round.sh` call. Owning the counter in one place
+removes the failure mode where an agent resets `n` to 1 after a Cross
+Review revert (Round counter displayed in the dashboard regressed to 1
+even though the PBI had already completed Rounds 1..N internally).
 
 `update-pbi-state.sh`:
-- validates against `docs/contracts/scrum-state/pbi-state.schema.json`
-  (no `phase` field accepted),
+- validates against `docs/contracts/scrum-state/pbi-state.schema.json`,
 - takes a per-file `mkdir` lock for race safety,
 - atomically writes via `tmp + mv`,
 - auto-stamps `.updated_at = now`.
@@ -130,9 +136,11 @@ Unknown fields or out-of-enum values are rejected with
 
 ## pipeline.log format
 
-One line per stage event, append-only. The first column is the stage
-identifier (matches the `in_progress_*` status segment, plus `init`
-for setup events):
+One line per stage event, append-only. The first column is a coarse
+stage identifier drawn from the fixed set
+`init | design | pbi_review | ut_run | complete | escalated` (enforced
+by `append-pbi-log.sh`); it is NOT the `in_progress_*` backlog-status
+segment. Impl-round events are logged under `pbi_review` or `ut_run`:
 
 ```text
 <ISO8601>\t<stage>\t<round>\t<event>\t<detail>
@@ -145,7 +153,7 @@ Examples:
 2026-05-02T12:01:00+09:00	design	1	spawn	pbi-designer
 2026-05-02T12:05:00+09:00	design	1	spawn	codex-design-reviewer
 2026-05-02T12:06:00+09:00	design	1	gate	success → impl
-2026-05-02T12:06:30+09:00	impl	1	spawn	pbi-implementer + pbi-ut-author
+2026-05-02T12:06:30+09:00	pbi_review	1	spawn	pbi-implementer + pbi-ut-author
 2026-05-02T12:20:00+09:00	ut_run	1	measure	coverage c0=87 c1=72
 2026-05-02T12:25:00+09:00	pbi_review	1	gate	fail → impl round 2 (test_failures=2)
 ```
@@ -183,4 +191,6 @@ escalates:
   (SM-side; transitions backlog status to `awaiting_cross_review`)
 - `merge_failure`, `merge_failure_count` — written by
   `mark-pbi-merge-failure.sh` (SM-side; transitions backlog status to
-  `escalated`)
+  `escalated` only on the 3rd consecutive failure — below that it
+  records the failure and increments the count, leaving backlog
+  status unchanged)

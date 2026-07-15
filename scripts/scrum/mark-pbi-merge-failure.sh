@@ -18,7 +18,7 @@ source "$HERE/lib/queries.sh"
 
 [ "$#" -eq 4 ] || fail E_INVALID_ARG "usage: mark-pbi-merge-failure.sh <pbi-id> <kind> <pre-head-sha> <detail>"
 PBI="$1"; KIND="$2"; PRE="$3"; DETAIL="$4"
-case "$PBI" in pbi-[0-9]*) ;; *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;; esac
+assert_pbi_id "$PBI"
 case "$KIND" in conflict|artifact_missing|regression) ;; *) fail E_INVALID_ARG "bad kind: $KIND" ;; esac
 assert_hex_sha pre-head-sha "$PRE"
 
@@ -29,15 +29,15 @@ PREV_COUNT="$(jq -r '.merge_failure_count // 0' "$STATE")"
 NEW_COUNT=$((PREV_COUNT + 1))
 
 # Build merge_failure object
-PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | jq -R . | jq -s .)"
+PATHS_JSON="$(printf '%s' "$DETAIL" | tr ',' '\n' | json_lines_to_array)"
 MF="{\"kind\":\"$KIND\",\"pre_head_at_failure\":\"$PRE\",\"paths\":$PATHS_JSON}"
 
-# Map kind → escalation_reason for the escalated case.
+# Map kind → escalation_reason for the escalated case. KIND is already
+# validated to one of these three at the top, so no default arm is needed.
 case "$KIND" in
   conflict)          ESC_REASON="merge_conflict" ;;
   artifact_missing)  ESC_REASON="merge_artifact_missing" ;;
   regression)        ESC_REASON="merge_regression" ;;
-  *)                 fail E_INVALID_ARG "bad kind: $KIND" ;;
 esac
 
 if [ "$NEW_COUNT" -ge 3 ]; then

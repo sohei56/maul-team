@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Integration-sprint test results",
+  "description": "Summary at .scrum/test-results.json. Records one TestCategory per test suite run during the Integration Sprint: the smoke-test skill writes the regression categories, and the integration-tests skill writes integration_api / integration_ui / design_coverage / manual_probe, plus a recomputed overall_status. Writes go exclusively through scripts/scrum/record-test-result.sh; direct edits are blocked by pre-tool-use-scrum-state-guard.sh. Read by completion-gate.sh (integration_sprint exit criterion + uat_release regression check), append-po-decision.sh (release_decision=go gate), the po-acceptance skill (UAT gate), and the Textual dashboard.",
+  "type": "object",
+  "required": ["categories", "overall_status"],
+  "additionalProperties": true,
+  "properties": {
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "TestCategory name (e.g. unit, e2e, integration, smoke, browser, integration_api, integration_ui, design_coverage, manual_probe). Unique within categories; a re-run replaces the same-named entry.",
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "description": "Category outcome.",
+            "enum": ["passed", "failed", "skipped"]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runner_command": {
+            "description": "Command line used to run the suite, or 'none detected' when skipped.",
+            "type": "string"
+          },
+          "executed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "errors": {
+            "description": "Up to 10 failure details for this category.",
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "required": ["message"],
+              "additionalProperties": false,
+              "properties": {
+                "test_name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overall_status": {
+      "description": "Recomputed on every record: any failed category -> failed; else any skipped -> passed_with_skips; else passed. 'running' is the pre-first-record transient.",
+      "enum": ["running", "passed", "passed_with_skips", "failed"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

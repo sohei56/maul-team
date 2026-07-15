@@ -7,8 +7,11 @@
 # standard subdirectories (design/impl/ut/metrics/feedback).
 #
 # Idempotent: if state.json already exists and validates, succeeds without
-# touching it. The pbi-pipeline scrum-state-guard exempts this wrapper, so
-# this is the only sanctioned writer for the initial file.
+# touching it. No exemption mechanism exists in the scrum-state guard (the
+# v1 whitelist was deliberately removed) — like every other wrapper, this
+# script simply passes the guard's pattern check naturally by invoking
+# `.scrum/scripts/*` / `scripts/scrum/*`, and is the only sanctioned writer
+# for the initial file.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -19,10 +22,7 @@ source "$HERE/lib/atomic.sh"
 
 [ "$#" -eq 1 ] || fail E_INVALID_ARG "usage: init-pbi-state.sh <pbi-id>"
 PBI="$1"
-case "$PBI" in
-  pbi-[0-9]*) ;;
-  *) fail E_INVALID_ARG "bad pbi-id: $PBI" ;;
-esac
+assert_pbi_id "$PBI"
 
 PBI_DIR=".scrum/pbi/$PBI"
 PATHF="$PBI_DIR/state.json"
@@ -38,8 +38,8 @@ if [ -f "$PATHF" ]; then
 fi
 
 NOW="$(_iso_utc_now)"
-TMP="$(_make_tmp_path "$PATHF")"
-jq -n --arg id "$PBI" --arg now "$NOW" '{
+# shellcheck disable=SC2016  # $id/$now are jq variables, expanded by jq -n --arg
+atomic_create "$PATHF" "$SCHEMA" '{
   pbi_id: $id,
   design_round: 0,
   impl_round: 0,
@@ -50,10 +50,4 @@ jq -n --arg id "$PBI" --arg now "$NOW" '{
   escalation_reason: null,
   started_at: $now,
   updated_at: $now
-}' > "$TMP"
-
-if ! err="$(_validate_against_schema "$TMP" "$SCHEMA" 2>&1)"; then
-  rm -f "$TMP"
-  fail E_SCHEMA "init produced invalid state.json: $err"
-fi
-mv "$TMP" "$PATHF"
+}' --arg id "$PBI" --arg now "$NOW"

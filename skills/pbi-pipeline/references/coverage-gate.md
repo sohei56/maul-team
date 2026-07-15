@@ -24,8 +24,8 @@ only.
 | Bash | bats | bashcov | partial |
 
 For partial-C1 languages, `.scrum/config.json` MUST declare relaxed
-threshold (e.g., `"c1_threshold": 0.95`); ad-hoc relaxation is
-forbidden.
+threshold (e.g., `"c1_threshold": 95` — percent scale, compared against
+`.totals.c1.percent`); ad-hoc relaxation is forbidden.
 
 ## Measurement sequence (Phase 2 Step 2)
 
@@ -34,7 +34,11 @@ forbidden.
 ```bash
 CFG=".scrum/config.json"
 RUN_CMD="$(jq -r '.coverage_tool.command' "$CFG")"
-mapfile -t RUN_ARGS < <(jq -r '.coverage_tool.run_args[]' "$CFG")
+# Bash 3.2-safe array read (portable while-read idiom)
+RUN_ARGS=()
+while IFS= read -r line; do
+  RUN_ARGS+=("$line")
+done < <(jq -r '.coverage_tool.run_args[]' "$CFG")
 "$RUN_CMD" "${RUN_ARGS[@]}"
 EX=$?
 # nonzero EX is OK here (tests may have failed) — failures recorded
@@ -44,7 +48,10 @@ EX=$?
 (b) **Coverage report generation**
 
 ```bash
-mapfile -t REPORT_ARGS < <(jq -r '.coverage_tool.report_args[]' "$CFG")
+REPORT_ARGS=()
+while IFS= read -r line; do
+  REPORT_ARGS+=("$line")
+done < <(jq -r '.coverage_tool.report_args[]' "$CFG")
 REPORT_PATH=".scrum/pbi/$PBI_ID/metrics/coverage-r$ROUND.json"
 "$RUN_CMD" "${REPORT_ARGS[@]}" "$REPORT_PATH"
 ```
@@ -73,7 +80,7 @@ PATTERN="$(jq -r '.pragma_pattern' "$CFG")"
 
 `.scrum/pbi/$PBI_ID/ut/ac-coverage-r{n}.json` is emitted by
 `pbi-ut-author` at the end of each impl+UT Round (see
-`agents/pbi-ut-author.md` § "AC coverage map" for full schema and
+`../../../agents/pbi-ut-author.md` § "AC coverage map" for full schema and
 rules). Shape (summary):
 
 ```json

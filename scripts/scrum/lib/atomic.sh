@@ -10,7 +10,10 @@ _SCRUM_ATOMIC_SH_LOADED=1
 
 LOCK_TIMEOUT_SEC="${SCRUM_LOCK_TIMEOUT:-10}"
 LOCK_POLL_SEC="${SCRUM_LOCK_POLL:-0.05}"
-SCRUM_LOCK_DIR=".scrum/.locks"
+# Unified lock root (shared with catalog locks and merge-pbi's merge.lock.d).
+# Name families cannot collide: wrapper locks are `<file>.json.lock.d`,
+# the merge lock is `merge.lock.d`, catalog locks are `catalog-*.md.lock.d`.
+SCRUM_LOCK_DIR=".scrum/locks"
 
 # Resolve directory holding this script (used to locate sibling check-validator.sh)
 _SCRUM_ATOMIC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,10 +62,41 @@ atomic_write() {
   trap - RETURN
 }
 
+# atomic_create <path> <schema> <jq_expr> [jq_args...]
+# Seed a fresh state file: render <jq_expr> via `jq -n [jq_args...]`, validate
+# the result against <schema>, then mv it into place. On validation failure the
+# tmp file is removed and it fails E_SCHEMA with `init produced invalid
+# <basename>: <err>`. Unlike atomic_write this takes no directory lock (initial
+# creation is not a concurrent mutation) and does not touch updated_at — the
+# caller's jq_expr seeds every field. Caller owns the already-exists / mkdir
+# guards.
+atomic_create() {
+  local path="$1" schema="$2" expr="$3"; shift 3
+  local tmp; tmp="$(_make_tmp_path "$path")"
+  jq -n "$@" "$expr" > "$tmp"
+  local err
+  if ! err="$(_validate_against_schema "$tmp" "$schema" 2>&1)"; then
+    rm -f "$tmp"
+    fail E_SCHEMA "init produced invalid $(basename "$path"): $err"
+  fi
+  mv "$tmp" "$path"
+}
+
 _iso_utc_now() {
   # Mirrors hooks/lib/validate.sh::get_timestamp (authoritative). Kept inline to
   # avoid a circular dep between scripts/scrum/lib and hooks/lib.
   date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+# json_lines_to_array
+# Read newline-delimited items from stdin and emit a compact JSON array of
+# strings (one element per line; special chars JSON-escaped). Empty stdin
+# yields []. Bash 3.2-safe: a single two-stage jq pipeline, no shell arrays.
+# Callers with CSV input pipe through `tr ',' '\n'` first, and must keep their
+# own explicit empty-array guard — an empty bash array expands to one blank
+# line under `set -u`, which would otherwise yield [""] rather than [].
+json_lines_to_array() {
+  jq -R . | jq -cs .
 }
 
 # _make_tmp_path <target_path>

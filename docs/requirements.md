@@ -1,8 +1,8 @@
-# Requirements: AI-Powered Scrum Team
+# Requirements: Maul Team
 
 ## Overview
 
-claude-scrum-team is a shell-script-launched AI-powered Scrum development
+maul-team is a shell-script-launched AI-powered Scrum development
 team for Claude Code. It assembles a Scrum Master and Developer agents that
 coordinate through Agent Teams to deliver iterative Development Sprints,
 with the user acting as Product Owner.
@@ -11,16 +11,17 @@ with the user acting as Product Owner.
 
 ### User Story 1 - Launch Scrum Team and Requirements Elicitation (Priority: P1)
 
-The user runs `sh ./claude-scrum-team/scrum-start.sh` from the
+The user runs `sh ./maul-team/scrum-start.sh` from the
 CLI and an AI Scrum team is assembled automatically. The user is
-guided through a Requirements Sprint where a single Developer asks
-structured questions to elicit product requirements. The user
+guided through a Requirement Definition where a Requirements Analyst
+asks structured questions and researches similar products via
+mandatory web search to elicit product requirements. The user
 responds in natural language. The Sprint concludes when both
 parties agree on the requirements document. After the Requirements
 Sprint, the Scrum Master creates the initial Product Backlog with
 coarse-grained PBIs.
 
-**Verification**: Run `sh ./claude-scrum-team/scrum-start.sh`,
+**Verification**: Run `sh ./maul-team/scrum-start.sh`,
 answer the Developer's questions, and confirm the requirements
 document is produced, saved, and the initial Product Backlog is
 created with coarse-grained PBIs.
@@ -28,29 +29,29 @@ created with coarse-grained PBIs.
 **Acceptance Scenarios**:
 
 1. **Given** the shell script is available and no project is active,
-   **When** the user runs `sh ./claude-scrum-team/scrum-start.sh`,
-   **Then** a Scrum Master and one Developer are created, and the
-   Developer begins asking requirements questions.
+   **When** the user runs `sh ./maul-team/scrum-start.sh`,
+   **Then** a Scrum Master and a Requirements Analyst are created, and
+   the Requirements Analyst begins asking requirements questions.
 
-2. **Given** the Requirements Sprint is in progress,
+2. **Given** the Requirement Definition is in progress,
    **When** the user answers all questions and confirms the
    requirements,
    **Then** a requirements document is saved covering business,
    functional, and non-functional requirements.
 
-3. **Given** the Requirements Sprint is in progress,
+3. **Given** the Requirement Definition is in progress,
    **When** the user provides incomplete or unclear answers,
-   **Then** the Developer asks follow-up questions to clarify
+   **Then** the Requirements Analyst asks follow-up questions to clarify
    before proceeding.
 
 4. **Given** the requirements document is complete,
-   **When** the Requirements Sprint concludes,
+   **When** the Requirement Definition concludes,
    **Then** the Scrum Master creates the initial Product Backlog
    with coarse-grained PBIs (e.g. "User Management", "Payment
    Processing", "CI/CD Setup").
 
 5. **Given** a project already exists on disk,
-   **When** the user runs `sh ./claude-scrum-team/scrum-start.sh`,
+   **When** the user runs `sh ./maul-team/scrum-start.sh`,
    **Then** the system resumes the existing project from the exact
    point where it was last interrupted.
 
@@ -72,7 +73,7 @@ The user inspects results and provides feedback. A Sprint Retrospective records
 improvements.
 
 **Verification**: Start a Development Sprint after the
-Requirements Sprint, verify Sprint Planning refines PBIs, design
+Requirement Definition, verify Sprint Planning refines PBIs, design
 documents are produced, implementation and cross-review occur,
 and Sprint Review presents the Increment to the user.
 
@@ -89,9 +90,10 @@ and Sprint Review presents the Increment to the user.
    implementation-ready PBIs (one per function, screen, API, or
    platform component) and assigns each to exactly one
    implementer (1 Developer = 1 PBI). No per-PBI reviewer is
-   assigned — Sprint-end cross-review is performed by the
-   Scrum Master via independent reviewer sub-agents (FR-009
-   Layer 2).
+   assigned — per-PBI aspect review runs at the pipeline's
+   Integrity stage (FR-009 Layer 1), and Sprint-end cross-review
+   is performed by the Scrum Master via the whole-repo
+   `codebase-audit` spawns (FR-009 Layer 2).
 
 3. **Given** Sprint Planning is complete,
    **When** the Design phase begins,
@@ -209,53 +211,66 @@ Board, and Work Log, all updating in real time.
 ### User Story 5 - Project-Managed Specialist Sub-Agents (Priority: P5)
 
 The system provides project-managed specialist sub-agents that
-support the Scrum workflow. During Sprint-end cross-review, the
-Scrum Master spawns 5 aspect-specialized reviewer sub-agents in
-parallel (`requirement-conformance-reviewer`,
+support the Scrum workflow. The 5 aspect-specialized reviewer
+sub-agents (`requirement-conformance-reviewer`,
 `functional-quality-reviewer`, `security-reviewer`,
-`maintainability-reviewer`, `docs-consistency-reviewer`) over the
-whole Sprint to evaluate the merged Increment along requirement
-coverage, cross-PBI functional quality, security, maintainability,
-and docs consistency. During implementation, Developer teammates
-install PBI Pipeline sub-agents (`pbi-*`, `codex-*-reviewer`)
-via the `install-subagents` Skill. All sub-agent definitions are
-maintained in the project's `agents/` directory and distributed
-to `.claude/agents/` by `setup-user.sh`. This happens
-automatically without user involvement.
+`maintainability-reviewer`, `docs-consistency-reviewer`) run
+**per-PBI**, spawned by the Developer conductor at the pipeline's
+**Integrity stage** (the final quality gate before ready-to-merge)
+to evaluate that one PBI's increment along requirement coverage,
+functional quality, security, maintainability, and docs
+consistency. Sprint-end cross-review is instead an **audit-only**
+ceremony in which the Scrum Master spawns the whole-repo
+`codebase-audit` along four axes (spec-conformance, logic-defect,
+redundancy, product-security) — defects that only emerge in the
+accumulated codebase, not in any single diff. During
+implementation, Developer teammates install PBI Pipeline sub-agents
+(`pbi-*`, `codex-*-reviewer`) via the `install-subagents` Skill.
+All sub-agent definitions are maintained in the project's `agents/`
+directory and distributed to `.claude/agents/` by `setup-user.sh`.
+This happens automatically without user involvement.
 
-**Verification**: Observe cross-review and verify the Scrum Master
-spawns reviewer sub-agents that read requirements and design docs.
-Observe implementation and verify Developers use support sub-agents.
+**Verification**: Observe a PBI pipeline and verify the Developer
+spawns the 5 aspect reviewers at the Integrity stage. Observe
+Sprint-end cross-review and verify the Scrum Master spawns the 4
+whole-repo audit axes. Observe implementation and verify Developers
+use support sub-agents.
 
 **Acceptance Scenarios**:
 
-1. **Given** all implementers have completed their work and merged,
+1. **Given** a PBI's Round reaches its terminal stage (kind=code: UT
+   Run PASS; kind=docs: impl-review PASS),
+   **When** the Developer conductor runs the Integrity stage,
+   **Then** the aspect reviewer sub-agents (kind=code: all 5;
+   kind=docs: aspects 1 + 5) are spawned in parallel over this PBI's
+   diff (`{base_sha}..{review_sha}` scoped to `paths_touched`), each
+   returning a markdown `**Verdict: PASS | FAIL**` + Findings.
+
+2. **Given** any Integrity-stage aspect reviewer returns a
+   Critical|High Finding, **When** the conductor computes the
+   Integrity verdict, **Then** the PBI is reverted to
+   `status: in_progress_impl` for the next Round (bounded by the
+   `impl_round` hard cap) and the Critical/High findings feed the
+   next Round's impl/UT fix input. A PASS (no Critical/High) writes
+   the consolidated `.scrum/reviews/<pbi-id>-review.md`, sets
+   `review_doc_path`, and proceeds to ready-to-merge.
+
+3. **Given** all Sprint PBIs have merged,
    **When** the Scrum Master invokes the `cross-review` Skill,
-   **Then** the 5 aspect reviewer sub-agents enumerated in US5 are
-   spawned in parallel and review the **whole Sprint Increment**
-   against `requirements.md` and design documents. Findings tag
-   PBIs by reverse-lookup against `paths_touched`.
-
-2. **Given** an aspect-1/2/3 reviewer (req-conformance /
-   functional-quality / security) returns a Critical|High Finding
-   on a PBI, **When** cross-review processes the verdict, **Then**
-   that PBI is reverted to `status: in_progress_impl` and the
-   Developer is re-engaged to fix.
-
-3. **Given** an aspect-4/5 reviewer (maintainability /
-   docs-consistency) returns a Critical|High Finding on a PBI,
-   **When** cross-review processes the verdict, **Then** the PBI
-   itself proceeds to `done` and a follow-up draft PBI is appended
-   to the backlog (title prefix
-   `[cross-review-followup:<pbi-id>:<aspect>]`, `parent_pbi_id`
-   set, dedup on title).
+   **Then** static analysis runs once and the 4 whole-repo
+   `codebase-audit` axes are spawned in parallel; the audit is
+   **non-blocking** — its Critical/High findings become draft PBIs
+   for the **next** Sprint (title prefix
+   `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
+   across Sprints), it never reverts a PBI, and every reviewed PBI
+   transitions `cross_review → done`.
 
 4. **Given** Sprint Planning assigns a PBI to a Developer teammate,
    **When** the Developer prepares for implementation,
    **Then** the Developer verifies PBI Pipeline sub-agents
    (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
    `codex-design-reviewer`, `codex-impl-reviewer`,
-   `codex-ut-reviewer`) AND cross-review reviewer sub-agents
+   `codex-ut-reviewer`) AND the 5 Integrity-stage aspect reviewers
    (`requirement-conformance-reviewer`,
    `functional-quality-reviewer`, `security-reviewer`,
    `maintainability-reviewer`, `docs-consistency-reviewer`) are
@@ -280,7 +295,8 @@ Observe implementation and verify Developers use support sub-agents.
 - What happens when a Sprint has only one PBI?
   The single Developer implements the PBI. Sprint-end cross-review
   is independent of Developer count — the Scrum Master always
-  performs it via reviewer sub-agents (FR-009 Layer 2).
+  performs it via the whole-repo `codebase-audit` spawns (FR-009
+  Layer 2).
 
 - What happens when cross-review finds issues that cannot be fixed
   within the Sprint?
@@ -331,17 +347,36 @@ Observe implementation and verify Developers use support sub-agents.
   already exists on disk, running the script MUST resume the
   existing project from where it was last interrupted.
 
-- **FR-002**: The system MUST conduct a Requirements Sprint where
-  a single Developer elicits requirements from the user through
-  structured questions and produces a requirements document
+- **FR-002**: The system MUST conduct a Requirement Definition where
+  a single `requirements-analyst` elicits requirements from the user
+  through structured questions and produces a requirements document
   covering business, functional, and non-functional requirements.
+  Before formulating functional / non-functional requirements from
+  its own knowledge, the `requirements-analyst` MUST research similar
+  products / prior art via live web search (`WebSearch`, not internal
+  knowledge), record the findings with source URLs in
+  `docs/requirements-benchmark.md`, and present them to the user (PO
+  seat) for a per-item adopt / adapt / reject decision. If `WebSearch`
+  is unavailable, the ceremony MUST surface a harness incident rather
+  than fall back to the model's internal knowledge.
 
 - **FR-003**: The Scrum Master MUST create the initial Product
-  Backlog after the Requirements Sprint with coarse-grained PBIs.
+  Backlog after the Requirement Definition with coarse-grained PBIs.
   PBIs MUST be progressively refined into implementation-ready
   granularity when selected for a Sprint. The number of `refined`
   PBIs SHOULD be limited to 1-2 Sprints of capacity (6-12 PBIs)
   to avoid over-refinement of items that may change.
+  PBIs MUST be cut as vertical slices — one user-observable
+  experience or capability extension, end-to-end through every layer
+  it needs — never as component splits of a single experience
+  (frontend / API / DB as separate PBIs). For a large feature epic,
+  the first refined PBI MUST be a walking skeleton (minimal user
+  experience, end-to-end) that the epic's remaining PBIs depend on.
+  Every refined `kind=code` PBI MUST carry a non-empty `demo_plan`
+  describing a fully local demonstration (machine-enforced by
+  `update-backlog-status.sh` at the transition into `refined`).
+  Canonical slicing and demo-plan rules:
+  `skills/backlog-refinement/SKILL.md` Steps 3.a–3.c2.
 
 - **FR-004**: Each Development Sprint MUST drive each assigned PBI
   through the `pbi-pipeline` skill (the Developer is the conductor;
@@ -365,9 +400,11 @@ Observe implementation and verify Developers use support sub-agents.
 
 - **FR-006**: The system MUST assign each PBI to exactly one
   implementer (1 Developer = 1 PBI). The system MUST NOT assign
-  per-PBI reviewers to Developers. Sprint-end review is owned by
-  the Scrum Master and performed by independent reviewer
-  sub-agents (see FR-009 Layer 2). The legacy `reviewer_id`
+  per-PBI reviewers to Developers. Per-PBI aspect review runs at
+  the pipeline's **Integrity stage** via Developer-spawned aspect
+  reviewer sub-agents (see FR-009 Layer 1); Sprint-end
+  cross-review is the Scrum-Master-owned **audit-only** ceremony
+  (see FR-009 Layer 2). The legacy `reviewer_id`
   field is removed from `backlog.json` items, and `assigned_work`
   no longer contains a `review` array.
 
@@ -390,36 +427,47 @@ Observe implementation and verify Developers use support sub-agents.
   their respective source set — never the opposing artifact —
   enforcing black-box UT discipline. Verdicts (PASS/FAIL with
   structured findings) feed the pipeline's deterministic termination
-  gates (success / stagnation / divergence / hard cap N=5). **Layer
-  2 (Sprint-end cross-review)**: after each per-PBI merge, the PBI
-  is queued at `status: awaiting_cross_review`. At Sprint end the
-  Scrum Master runs the `cross-review` skill which transitions each
-  queued PBI to `status: cross_review` and runs static analysis
-  once (Python `ruff`, Shell `shellcheck`) before spawning **5
-  aspect-specialized reviewers in parallel over the whole Sprint
-  (no per-PBI fan-out)**:
-  `requirement-conformance-reviewer`, `functional-quality-reviewer`
-  (cross-PBI seams only), `security-reviewer`,
-  `maintainability-reviewer` (dead-code claims grounded in static
-  analysis), and `docs-consistency-reviewer` (`docs/**` vs.
-  implementation drift). Findings tag PBIs by `paths_touched`
-  reverse-lookup; multi-PBI Findings are copied to each affected
-  PBI digest. Per-PBI review files at
-  `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{last}.md` are read for
-  context but NOT re-evaluated. **FAIL routing splits by aspect:**
-  aspect 1/2/3 Critical|High → PBI returns to
-  `status: in_progress_impl` (Developer fix loop, full 5-aspect
-  re-evaluation on re-merge); aspect 4/5 Critical|High → PBI
-  proceeds to `done` and a follow-up draft PBI is appended to the
-  backlog with title prefix `[cross-review-followup:<pbi-id>:<aspect>]`
-  and `parent_pbi_id` set (dedup by title). The Codex-fallback
-  rule still applies to Layer 1 reviewers (`codex-impl-reviewer`,
-  `codex-ut-reviewer`).
+  gates (success / stagnation / divergence / hard cap N=5). At the
+  Round tail, before ready-to-merge, the conductor runs the
+  **Integrity stage**: the 5 aspect-specialized reviewers
+  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer` — kind=code spawns all 5; kind=docs
+  spawns aspects 1 + 5 only) review this one PBI's diff
+  (`{base_sha}..{review_sha}` scoped to `paths_touched`) and return
+  markdown `**Verdict: PASS | FAIL**` + Findings (not the codex JSON
+  envelope). Any Critical|High finding reverts the PBI to
+  `status: in_progress_impl` for the next Round (bounded by the
+  `impl_round` hard cap N=5), its findings folding into the next
+  Round's impl/UT fix input; a PASS writes the consolidated
+  `.scrum/reviews/<pbi-id>-review.md`, sets `review_doc_path`, and
+  proceeds to ready-to-merge. **Layer 2 (Sprint-end cross-review,
+  audit-only)**: after each per-PBI merge, the PBI is queued at
+  `status: awaiting_cross_review`. At Sprint end the Scrum Master
+  runs the `cross-review` skill which transitions each queued PBI to
+  `status: cross_review`, runs static analysis once (Python `ruff`,
+  Shell `shellcheck` intra-file lint + a whole-repo dead-export /
+  reachability pass) feeding the redundancy axis, then spawns the
+  whole-repo `codebase-audit` along **four axes in parallel**
+  (`spec-conformance`, `logic-defect`, `redundancy`,
+  `product-security`) over the accumulated codebase at HEAD —
+  defects no single PBI or Sprint diff can see. The audit is
+  **non-blocking**: it never reverts a PBI; its Critical|High
+  findings become draft PBIs for the **next** Sprint (title prefix
+  `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
+  across Sprints, `[REGRESSION]`-tagged when a closed finding
+  recurs), and every reviewed PBI transitions `cross_review → done`.
+  The Codex-fallback rule still applies to Layer 1 codex reviewers
+  (`codex-impl-reviewer`, `codex-ut-reviewer`).
 
 - **FR-010**: At Sprint Review, the Scrum Master MUST present the
-  Increment with a change summary. A live demo MUST be performed
-  only when the Increment includes UX changes; otherwise the
-  demo is omitted.
+  Increment with a change summary and demonstrate every completed
+  PBI by executing its `demo_plan` locally (`ux_change` selects the
+  demo form: a UI walkthrough when true, an observable local check —
+  CLI / HTTP probe / data assertion — when false). A PBI that cannot
+  be demonstrated locally is a Sprint Review finding recorded as a
+  draft defect PBI; "read the code" or "requires a cloud deploy" are
+  not acceptable demo outcomes.
 
 - **FR-011**: The Scrum Master MUST report Product Backlog
   remaining scope and Product Goal achievement progress at every
@@ -456,7 +504,7 @@ Observe implementation and verify Developers use support sub-agents.
   (a) **Sprint Overview** — Sprint Goal, selected PBIs, assigned
   Developers, and current project workflow phase
   (`state.json.phase`, e.g. `pbi_pipeline_active`);
-  (b) **Real-time PBI Progress Board** — each PBI's 12-value
+  (b) **Real-time PBI Progress Board** — each PBI's 13-value
   status (see Q&A 2026-02-25 below and `docs/data-model.md` §
   State Transitions: status) updated as work progresses;
   (c) **Work Log** — a single chronological stream merging
@@ -490,8 +538,9 @@ Observe implementation and verify Developers use support sub-agents.
   `pragma-audit-r{n}.json`). Existing tests must continue to pass
   (no regressions); linter/formatter must pass. After per-PBI merge
   succeeds the PBI sits at `awaiting_cross_review`; the Sprint-end
-  `cross-review` (FR-009 Layer 2) transitions it through
-  `cross_review` and PASS reaches `done`.
+  `cross-review` (FR-009 Layer 2) is audit-only and non-blocking —
+  every reviewed PBI transitions `cross_review → done`
+  unconditionally.
 
 - **FR-018**: The system MUST be launchable via a shell script
   (`scrum-start.sh`) that the user runs from the CLI. The
@@ -537,7 +586,7 @@ Observe implementation and verify Developers use support sub-agents.
   resolved via `[<scope>] PO_DECISION dec_id=<dec-NNNN>`, and
   persisted to `.scrum/po/decisions.json` through
   `.scrum/scripts/append-po-decision.sh`. The team MUST be drivable
-  end-to-end (Requirements Sprint → Development Sprints →
+  end-to-end (Requirement Definition → Development Sprints →
   Integration Sprint → release decision) without human input by
   the `scripts/autonomous/watchdog.sh` outer loop. The watchdog
   MUST enforce all of: `max_iterations`, `max_wall_clock_hours`,
@@ -573,13 +622,15 @@ Observe implementation and verify Developers use support sub-agents.
   needed to achieve the Product Goal. Managed by the Scrum Master.
   PBIs start coarse-grained and are progressively refined.
 
-- **Product Backlog Item (PBI)**: A unit of work with a 12-state
+- **Product Backlog Item (PBI)**: A unit of work with a 13-state
   lifecycle split between SM-managed and Developer-managed states
   (see Q&A 2026-02-25 below for the full enum, and
   `docs/data-model.md` § PBI for the schema and transition graph).
   `escalated` is the gate-trip / merge-failure state resolved by
   SM `pbi-escalation-handler`; `blocked` is an SM-decided hold for
-  external blockers. Each refined PBI produces three deliverables:
+  external blockers (hold-and-resume only); `cancelled` is the
+  SM-decided terminal state for PBIs merged into another PBI or no
+  longer needed. Each refined PBI produces three deliverables:
   design document, implementation, and tests. Design is completed
   and reviewed before implementation begins.
 
@@ -591,7 +642,7 @@ Observe implementation and verify Developers use support sub-agents.
   Definition of Done.
 
 - **Requirements Document**: The single source of truth for what
-  the product must do. Produced in the Requirements Sprint.
+  the product must do. Produced in the Requirement Definition.
 
 - **Design Documents**: Design knowledge base that grows
   incrementally across Sprints. Each Sprint adds design documents
@@ -617,22 +668,23 @@ Observe implementation and verify Developers use support sub-agents.
 ## Success Criteria
 
 - **SC-001**: The user can go from zero to a running Scrum team
-  with a single shell command (`sh ./claude-scrum-team/scrum-start.sh`)
+  with a single shell command (`sh ./maul-team/scrum-start.sh`)
   after installing prerequisites (Claude Code, Python 3.9+, TUI
   packages). The script checks prerequisites and provides actionable
   error messages if any are missing.
 
-- **SC-002**: The Requirements Sprint produces a complete
+- **SC-002**: The Requirement Definition produces a complete
   requirements document through natural language conversation
   alone — the user never edits structured files.
 
 - **SC-003**: Every Development Sprint produces at least one
-  Increment that meets the Definition of Done, including
-  Sprint-end cross-review by 5 aspect-specialized reviewer
-  sub-agents (`requirement-conformance-reviewer`,
-  `functional-quality-reviewer`, `security-reviewer`,
-  `maintainability-reviewer`, `docs-consistency-reviewer`) spawned
-  in parallel by the Scrum Master.
+  Increment that meets the Definition of Done, including a per-PBI
+  Integrity-stage review by 5 aspect-specialized reviewer sub-agents
+  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
+  `security-reviewer`, `maintainability-reviewer`,
+  `docs-consistency-reviewer`) spawned by the Developer conductor
+  before ready-to-merge, plus a non-blocking Sprint-end whole-repo
+  `codebase-audit` (4 axes) spawned by the Scrum Master.
 
 - **SC-004**: The user can understand project status at any time
   through the TUI dashboard without inspecting code, logs, or
@@ -677,7 +729,7 @@ Observe implementation and verify Developers use support sub-agents.
   setup overhead, as stated in the Claude Code Agent Teams
   documentation. The Scrum Master (team lead) session persists
   across Sprints; Developer teammates are spawned per Sprint.
-- The user clones or downloads the claude-scrum-team repository
+- The user clones or downloads the maul-team repository
   and runs the shell script from within or alongside their
   project directory.
 
@@ -694,7 +746,7 @@ Observe implementation and verify Developers use support sub-agents.
 
 ### 2026-04-12
 
-- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly.
+- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly. (superseded 2026-07-11: two-tier review — the 5 aspect reviewers moved per-PBI to the pipeline's Integrity stage (FR-009 Layer 1), and Sprint-end cross-review became the audit-only whole-repo 4-axis `codebase-audit`, non-blocking, every reviewed PBI transitions `cross_review → done`; see FR-009 and US5)
 - Q: Where do specialist sub-agents come from? A: All sub-agents are project-managed in `agents/` and distributed by `setup-user.sh`. The external awesome-claude-code-subagents catalog dependency was removed. FR-019 and User Story 5 updated.
 
 ### 2026-02-26
@@ -708,7 +760,7 @@ Observe implementation and verify Developers use support sub-agents.
 - Q: Where are project artifacts stored on disk? A: A `.scrum/` directory in the project root with flat JSON files (one file per concern: `state.json`, `backlog.json`, `sprint.json`, etc.) and a `reviews/` subdirectory. Design documents live separately under `docs/design/specs/{category}/`, governed by `docs/design/catalog.md`.
 - Q: What serialization format for state files? A: JSON — one file per concern (e.g., `state.json`, `backlog.json`, `improvements.json`).
 - Q: How are cross-Sprint context limits managed? A: Fresh context per Sprint — the Scrum Master (team lead) reads state files from disk at Sprint start; Developer teammates receive only their assigned artifacts (PBI, relevant design docs, requirements).
-- Q: What are the explicit PBI lifecycle states? A: 12 states (v2 schema), actor-split — see `docs/data-model.md` § State Transitions for the canonical enum list and ASCII transition graph. The legacy 6-state model (`draft → refined → in_progress → review → done | blocked`) was replaced when the `pbi-state.json.phase` field was removed; status is the sole SSOT.
+- Q: What are the explicit PBI lifecycle states? A: 13 states (v2 schema), actor-split — see `docs/data-model.md` § State Transitions for the canonical enum list and ASCII transition graph. The legacy 6-state model (`draft → refined → in_progress → review → done | blocked`) was replaced when the `pbi-state.json.phase` field was removed; status is the sole SSOT.
 - Q: Can Agent Teams teammates use specialist sub-agents from the catalog? A: Yes — teammates are full Claude Code sessions that load `.claude/agents/` automatically. They install sub-agent `.md` files from the catalog and use them via the Task tool. This is distinct from Agent Teams itself: teammates coordinate via shared task list and messaging, while sub-agents are ephemeral workers within a teammate's session.
 
 ### 2026-02-21
