@@ -48,8 +48,19 @@ decision is `choice:start_sprint`. No additional PO request is needed.
    .scrum/scripts/update-state-phase.sh sprint_planning
    ```
 3. Propose Sprint Goal→user approval before proceeding
-4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008)
-5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation
+4. Select refined PBIs. Avoid dependent PBIs in same Sprint (FR-008).
+   **Skeleton first**: when a feature group's walking-skeleton PBI (the
+   one its siblings name in `depends_on_pbi_ids`) is refined and not
+   yet done, select it before any dependent of the group — the
+   dependents wait for a later Sprint (FR-008 already forbids pairing
+   them in the same Sprint)
+5. **Evaluate + split oversized PBIs**: Too large→create child PBIs (status: "refined", parent_pbi_id set, split acceptance_criteria, copy design_doc_paths/ux_change)→remove parent from Sprint→replace with children→user confirmation.
+   Children must themselves be vertical slices (checklist:
+   `../backlog-refinement/SKILL.md` Step 3.a1 — never split into
+   frontend/API/DB children), and each child needs its own `demo_plan`
+   (copy or split the parent's) set via `set-backlog-item-field.sh`
+   **before** flipping it to `refined` — `update-backlog-status.sh`
+   refuses otherwise
 6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
 7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — the per-PBI 5-aspect review runs inside pbi-pipeline (Integrity stage); Sprint-end cross-review is an audit-only SM ceremony (FR-009 Layer 2)
 8. **Roll over the previous Sprint, then create sprint.json + update

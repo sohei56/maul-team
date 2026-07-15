@@ -50,10 +50,14 @@ unchanged, and Steps not overridden in this table run verbatim.
    - **po_mode=agent**: do not launch the app from SM; the `po-acceptance` skill (mode=demo) launches it. SM still announces access URL/port observed in `_app.log` for the watching human (observation only, no wait). Launch failure is `fail`, not skip.
 4. **Demo EVERY completed PBI (mandatory)**:
    a. State PBI name
-   b. Show it working (navigate/call API/run command)
+   b. Show it working by executing the PBI's `demo_plan` (backlog.json)
+      — the local demo path decided at refinement, including its
+      stubs/local substitutes. Legacy PBIs refined before `demo_plan`
+      existed: derive the demo from the ACs (navigate/call API/run
+      command) and record the gap per step 9
    c. Point out what to verify (be specific: "login form with email + password fields")
    d. Ask user to confirm→wait→next PBI. Skip only if user explicitly says no need
-   - **po_mode=agent**: skip step 4a–d. Send `[sprint-<N>] PO_DECISION_REQUEST kind=demo_acceptance options=[pass,fail,waive] recommendation=pass pbis=[<list>]`; the PO teammate runs `po-acceptance` (mode=demo) on its own — the skill is on the PO's allowlist, not the SM's. PO operates the app itself, returns one `kind=demo_acceptance` decision per PBI plus the aggregated `PO_ACCEPTANCE_REPORT`. fail → step 9 defect route.
+   - **po_mode=agent**: skip step 4a–d. Send `[sprint-<N>] PO_DECISION_REQUEST kind=demo_acceptance options=[pass,fail,waive] recommendation=pass pbis=[<list>]` — include each PBI's `demo_plan` in the payload; the PO teammate runs `po-acceptance` (mode=demo) on its own — the skill is on the PO's allowlist, not the SM's. PO operates the app itself following each `demo_plan`, verifies each AC by runnable command, and returns one `kind=demo_acceptance` decision per PBI plus the aggregated `PO_ACCEPTANCE_REPORT`. fail → step 9 defect route.
 5. **Doc-implementation consistency**: For every completed PBI→compare docs vs code→mismatch→`add-backlog-item.sh` (status: draft). Track each new pbi-id for the Leftover Summary.
 6. Report remaining backlog scope + Product Goal progress
 7. Append the SprintSummary to `sprint-history.json` via the wrapper
@@ -76,6 +80,11 @@ unchanged, and Steps not overridden in this table run verbatim.
 9. **Defect/change handling**:
    a. **NEVER fix during Sprint Review** (not even quick fixes — inspection ceremony only)
    b. Each defect/change/feedback item → `add-backlog-item.sh` (status: draft). Track each new pbi-id.
+   b2. **A demo gap is a defect.** A PBI whose `demo_plan` cannot be
+      executed locally — or that has none and cannot be demonstrated —
+      is recorded as a draft PBI (`Demo gap: <pbi-id> — <what blocks a
+      local demo>`). "Read the code instead" and "needs cloud deploy to
+      see it" are never acceptable demo outcomes.
    c. "Will be prioritized in next Sprint via Backlog Refinement→Sprint Planning"
    d. After user confirms "that's all"→proceed
    - **po_mode=agent**: replace the "repeat until user says that's all" loop with **one** PO pass. SM sends `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[high,medium,low,reject] recommendation=<...>` once; the PO returns a single message listing (a) gaps against `docs/product/vision.md` and (b) demo-observed defects, terminated by `FEEDBACK_COMPLETE`. Each listed defect produces a separate `kind=defect_triage` decision + a draft PBI via `add-backlog-item.sh`. No further round-trips.

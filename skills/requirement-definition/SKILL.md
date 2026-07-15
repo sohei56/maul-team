@@ -158,6 +158,11 @@ re-targeted as follows:
      --ac "<acceptance criterion 2>"
    # ...repeat per coarse PBI
    ```
+   Cut coarse PBIs by **user experience / capability**, never by
+   architectural component, and for a large feature make the first
+   coarse PBI its **walking skeleton** (minimal user experience,
+   end-to-end through the whole system). Canonical slicing rules:
+   `../backlog-refinement/SKILL.md` Step 3.a.
 8. Present requirements summary + initial backlog→user confirmation
 9. **CLAUDE.md initialization** (project root):
    - Exists→ask user: overwrite / append / skip
