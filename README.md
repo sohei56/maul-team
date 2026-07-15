@@ -9,12 +9,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest"><img src="https://img.shields.io/github/v/release/sohei56/maul-team?style=flat-square&color=28c8e6&label=release" alt="Latest release"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
+</p>
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ Download MaulTeam.app for macOS</strong></a><br>
+  <sub>Signed &amp; Apple-notarized · macOS 13+ · or <code>brew install --cask maul-team</code></sub>
 </p>
 
 <p align="center">
@@ -60,10 +66,11 @@ The easiest way in is the **Mac App** — a native macOS app that wraps the whol
 
 ### Install
 
-**Download the app** — grab the latest signed, Apple-notarized `.dmg` from the
-[**Releases page**](https://github.com/sohei56/maul-team/releases/latest), open
-it, and drag **MaulTeam.app** to Applications. It opens without Gatekeeper
-warnings.
+**Download the app** — grab the latest signed, Apple-notarized
+[**MaulTeam.dmg**](https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg),
+open it, and drag **MaulTeam.app** to Applications. It opens without Gatekeeper
+warnings. All versions and release notes are on the
+[Releases page](https://github.com/sohei56/maul-team/releases/latest).
 
 **Or via Homebrew:**
 

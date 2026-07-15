@@ -9,12 +9,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest"><img src="https://img.shields.io/github/v/release/sohei56/maul-team?style=flat-square&color=28c8e6&label=release" alt="Latest release"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
+</p>
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ MaulTeam.app をダウンロード（macOS）</strong></a><br>
+  <sub>署名・Apple 公証済み · macOS 13+ · または <code>brew install --cask maul-team</code></sub>
 </p>
 
 <p align="center">
@@ -63,10 +69,11 @@ Linux の方やターミナルを好まれる方は [コマンドライン](#コ
 
 ### インストール
 
-**アプリをダウンロード** — 署名・Apple 公証済みの最新 `.dmg` を
-[**Releases ページ**](https://github.com/sohei56/maul-team/releases/latest)
-から入手し、開いて **MaulTeam.app** を Applications へドラッグします。
-Gatekeeper の警告なしに起動できます。
+**アプリをダウンロード** — 署名・Apple 公証済みの最新
+[**MaulTeam.dmg**](https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg)
+をダウンロードして開き、**MaulTeam.app** を Applications へドラッグします。
+Gatekeeper の警告なしに起動できます。過去のバージョンとリリースノートは
+[Releases ページ](https://github.com/sohei56/maul-team/releases/latest) にあります。
 
 **または Homebrew で:**
 

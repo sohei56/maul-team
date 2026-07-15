@@ -141,6 +141,14 @@ to the Release (channels ①②) → renders and pushes the cask to the tap
 - **② Release**: same asset, linked from the landing page / README.
 - **③ Homebrew**: `brew tap sohei56/homebrew-tap && brew install --cask maul-team`.
 
+Alongside the versioned asset, the upload step publishes a **version-less
+alias** — `MaulTeam.dmg` + `MaulTeam.dmg.sha256` (byte-identical copy) — so
+the stable direct-download URL
+`https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg`
+never rots on version bumps. The landing page's and README's download buttons
+point at this alias; the cask keeps using the versioned asset (its `url`
+embeds `#{version}`).
+
 Until the secrets exist, the pipeline still runs and produces an **unsigned**
 dmg (useful for testing; Gatekeeper warns end users) — signing/notarization and
 the tap bump activate automatically the moment their secrets are present.
