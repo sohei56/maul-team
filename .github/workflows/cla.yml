@@ -47,7 +47,4 @@ jobs:
           # GitHub App whose login ends in [bot], so a wildcard would let
           # unsigned humans route contributions through a self-made bot to
           # bypass the CLA.
-          # `claude` is the GitHub login the Claude Code `Co-Authored-By:
-          # Claude … <noreply@anthropic.com>` trailer resolves to (the earlier
-          # `claude[bot]` entry never matched — that login does not exist).
-          allowlist: sohei56,dependabot[bot],github-actions[bot],claude[bot],claude
+          allowlist: sohei56,dependabot[bot],github-actions[bot],claude[bot]
