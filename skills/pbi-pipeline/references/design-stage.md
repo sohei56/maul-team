@@ -49,7 +49,11 @@ reads those directly.
      `<main>/docs/design/specs/...`) must be relocated into the
      worktree before proceeding — full procedure in
      `worktree-containment.md`.
-   - Parse JSON envelope from output. If status=error → escalate.
+   - Parse JSON envelope from output. If status=error, branch:
+     `next_actions` names an **unresolved spec question** → the
+     SPEC_QUESTION route (SKILL.md § Escalation): forward to SM, hold
+     the Round, re-spawn the designer with the relayed answer (same
+     Round). A harness incident or any other error → escalate.
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status in_review`
 
 3. **Step 2: Spawn codex-design-reviewer** (single Agent call,

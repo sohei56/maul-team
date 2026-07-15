@@ -170,7 +170,17 @@ mirrors `../rules/scrum-context.md` § Agent tool unavailability.
 - **Library specs are web-verified only.** Never record an API fact in
   an S-070 spec that you cannot cite to a source URL read this session;
   never fabricate a signature. Do not select a library from memory.
-- If requirements unclear, raise to Developer (do not guess).
+- **Escalate before guessing — escalation is cheap, a wrong guess is
+  not.** Apply `../rules/scrum-context.md` § "What counts as 'must
+  escalate' vs 'guess ok'": if the settled approach in the PBI
+  description conflicts with the codebase, an AC's intent is
+  ambiguous, or any interface / business-rule / I-O-contract unknown
+  could change observable behavior, do NOT emit a guessed design.md.
+  End the Round with status=error, the question in `findings[]`, and
+  a `next_actions` entry naming the unresolved spec point; the
+  Developer forwards it as `[<pbi-id>] SPEC_QUESTION` and you resume
+  on the answer. A PO clarification round costs less than a
+  wrong-but-confident design landing in review.
 - If an AC cannot be mapped to any interface, escalate (see
   `Acceptance Criteria Mapping` rules above). Do not emit a partial
   mapping table.

@@ -249,6 +249,16 @@ When a termination gate triggers escalation, set backlog status to
 notify SM via Agent Teams. SM handles via the
 `pbi-escalation-handler` skill.
 
+A sub-agent ending its Round with an **unresolved spec question**
+(status=error + the question in `findings[]`/`next_actions`, per
+`rules/scrum-context.md` § Escalation route) is NOT a
+termination-gate trip. The conductor forwards
+`[<pbi-id>] SPEC_QUESTION` to SM, holds the Round, and re-spawns the
+sub-agent with the relayed PO answer (same Round). Flip to
+`escalated` with `escalation_reason=requirements_unclear` only when
+the answer cannot be obtained (parked in `.scrum/po/attention.md`)
+or the answer invalidates the PBI.
+
 See [termination gates](references/termination-gates.md) for the
 composite gate matrix (success / stagnation / divergence / hard cap)
 evaluated at end of each Round.
