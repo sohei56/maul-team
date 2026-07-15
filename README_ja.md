@@ -9,12 +9,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest"><img src="https://img.shields.io/github/v/release/sohei56/maul-team?style=flat-square&color=28c8e6&label=release" alt="Latest release"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
+</p>
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ MaulTeam.app をダウンロード（macOS）</strong></a><br>
+  <sub>署名・Apple 公証済み · macOS 13+ · または <code>brew install --cask maul-team</code></sub>
 </p>
 
 <p align="center">
@@ -61,9 +67,23 @@ https://github.com/user-attachments/assets/e71c5fc3-b269-4df3-a585-f5da03e292bc
 いちばん簡単な入り口は **Mac App** — フレームワーク全体を包むネイティブ macOS アプリです。
 Linux の方やターミナルを好まれる方は [コマンドライン](#コマンドライン-上級) を使うこともできます。
 
-### インストール (early access — ソースからビルド)
+### インストール
 
-現在、MaulTeam.app はソースからビルドして利用できます。署名・公証済みの `.dmg` と Homebrew でのインストールは、最初の公開リリースで提供予定です。
+**アプリをダウンロード** — 署名・Apple 公証済みの最新
+[**MaulTeam.dmg**](https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg)
+をダウンロードして開き、**MaulTeam.app** を Applications へドラッグします。
+Gatekeeper の警告なしに起動できます。過去のバージョンとリリースノートは
+[Releases ページ](https://github.com/sohei56/maul-team/releases/latest) にあります。
+
+**または Homebrew で:**
+
+```bash
+brew tap sohei56/homebrew-tap
+brew install --cask maul-team
+```
+
+<details>
+<summary>ソースからビルドする場合</summary>
 
 ```bash
 git clone git@github.com:sohei56/maul-team.git
@@ -71,6 +91,8 @@ cd maul-team
 sh macapp/scripts/make-app.sh release
 open macapp/build/MaulTeam.app
 ```
+
+</details>
 
 **必要要件:**
 

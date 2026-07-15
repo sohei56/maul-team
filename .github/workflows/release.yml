@@ -89,15 +89,25 @@ jobs:
           cat "$DMG.sha256"
 
       # Attach the DMG + checksum to the Release that triggered this run.
+      # A version-less alias (MaulTeam.dmg + .sha256) is uploaded alongside the
+      # canonical versioned asset so the stable direct-download URL
+      # /releases/latest/download/MaulTeam.dmg never rots on version bumps
+      # (the site's / README's download buttons point there).
       - name: Upload assets to release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          cd macapp/build
+          DMG=$(ls MaulTeam-*.dmg | head -1)
+          cp "$DMG" MaulTeam.dmg
+          shasum -a 256 MaulTeam.dmg > MaulTeam.dmg.sha256
           gh release upload "$TAG" \
-            macapp/build/MaulTeam-*.dmg \
-            macapp/build/MaulTeam-*.dmg.sha256 \
+            "$DMG" \
+            "$DMG.sha256" \
+            MaulTeam.dmg \
+            MaulTeam.dmg.sha256 \
             --clobber
 
       # Channel ③ (Homebrew): render Casks/maul-team.rb for this version and

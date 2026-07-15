@@ -35,7 +35,7 @@
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "license": "https://github.com/sohei56/maul-team/blob/main/macapp/LICENSE",
       "author": { "@type": "Person", "name": "sohei56", "url": "https://github.com/sohei56" },
-      "downloadUrl": "https://github.com/sohei56/maul-team",
+      "downloadUrl": "https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg",
       "alternateName": ["claude-scrum-team", "Claude Scrum Team"],
       "applicationSubCategory": "AI Agent Orchestration",
       "keywords": "AI scrum team, Claude Code multi-agent, autonomous AI development team, AI dev team Mac app, open-source AI framework",
@@ -96,6 +96,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the download safe to open?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The app and the .dmg are signed with an Apple Developer ID and notarized by Apple, so macOS Gatekeeper opens them without warnings. Every release also publishes a .sha256 checksum — run shasum -a 256 MaulTeam.dmg and compare it against the value on the Releases page."
           }
         }
       ]
@@ -209,7 +217,14 @@ button{font:inherit; color:inherit}
   color:var(--text); background:var(--panel-2); border:1px solid var(--line-strong);
   padding:7px 14px; border-radius:999px; transition:border-color .18s, background .18s, transform .18s var(--ease-out)}
 .nav-gh:hover{border-color:rgba(62,220,245,.55); background:#152340; transform:translateY(-1px)}
-@media (max-width:760px){ .nav-links a:not(.nav-gh){display:none} }
+.nav-links a.nav-dl{display:inline-flex; align-items:center; gap:7px; margin-left:8px;
+  color:#02131f; font-weight:650; border-radius:10px; padding:7px 15px;
+  background:linear-gradient(180deg, var(--cyan-hi), var(--cyan));
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 4px 14px rgba(40,200,230,.35);
+  transition:transform .18s, box-shadow .18s}
+.nav-links a.nav-dl:hover{color:#02131f; background:linear-gradient(180deg, var(--cyan-hi), var(--cyan));
+  transform:translateY(-1px); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 8px 22px rgba(40,200,230,.5)}
+@media (max-width:760px){ .nav-links a:not(.nav-gh):not(.nav-dl){display:none} }
 
 /* ---------- shared layout ---------- */
 .section{max-width:var(--maxw); margin:0 auto; padding:104px 24px 0}
@@ -252,6 +267,9 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .btn-primary:hover{transform:translateY(-2px); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 12px 36px rgba(40,200,230,.5)}
 .btn-ghost{color:var(--text); border:1px solid var(--line-strong); background:rgba(13,21,40,.5)}
 .btn-ghost:hover{transform:translateY(-2px); border-color:rgba(154,190,255,.28); background:#14213c}
+.hero-dlnote{margin-top:14px; font-family:var(--font-mono); font-size:12px; color:var(--text-3); text-align:center}
+.hero-dlnote a{color:var(--text-2); text-decoration:underline; text-decoration-color:rgba(255,255,255,.25); text-underline-offset:3px}
+.hero-dlnote a:hover{color:var(--text)}
 .trust-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:34px}
 .chip{font-family:var(--font-mono); font-size:12px; color:var(--text-3);
   border:1px solid var(--line); background:rgba(9,16,32,.55); padding:5px 12px; border-radius:999px}
@@ -767,17 +785,23 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .copy-btn:hover{color:var(--text); border-color:rgba(62,220,245,.5)}
 .copy-btn.copied{color:var(--green); border-color:rgba(52,211,153,.5)}
 .install-note{font-size:12.5px; color:var(--text-3); margin-top:14px; font-family:var(--font-mono)}
+.install-note a{color:var(--text-2)}
+.dl-steps{list-style:none; counter-reset:dlstep; display:flex; flex-direction:column; gap:10px; margin-bottom:24px}
+.dl-steps li{display:flex; gap:12px; align-items:baseline; font-size:14px; color:var(--text-2); counter-increment:dlstep}
+.dl-steps li::before{content:counter(dlstep); flex:none; font-family:var(--font-mono); font-size:11.5px;
+  color:var(--cyan-hi); border:1px solid rgba(40,200,230,.4); background:var(--cyan-soft);
+  width:22px; height:22px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+  position:relative; top:4px}
+.dl-steps .mono{color:var(--text); font-size:.94em}
 .install-side{display:flex; flex-direction:column; gap:16px}
-.soon-card{border:1px solid var(--line); border-radius:16px; padding:26px 26px; background:var(--panel);
-  position:relative; opacity:.75}
-.soon-card h3{font-family:var(--font-display); font-size:17px; font-weight:650; margin-bottom:6px; color:var(--text-2)}
-.soon-card p{color:var(--text-3); font-size:13.5px}
-.soon-pill{position:absolute; top:20px; right:20px; font-family:var(--font-mono); font-size:10.5px;
-  letter-spacing:.1em; text-transform:uppercase; color:var(--text-3);
-  border:1px dashed rgba(255,255,255,.22); padding:4px 10px; border-radius:999px}
-.soon-card .fake-cmd{font-family:var(--font-mono); font-size:12.5px; color:var(--text-3);
-  background:rgba(255,255,255,.03); border:1px dashed var(--line); border-radius:8px;
-  padding:10px 14px; margin-top:14px; text-decoration:line-through; text-decoration-color:rgba(255,255,255,.2)}
+.side-card{border:1px solid var(--line); border-radius:16px; padding:26px 26px; background:var(--panel); position:relative}
+.side-card h3{font-family:var(--font-display); font-size:17px; font-weight:650; margin-bottom:6px; color:var(--text-2)}
+.side-card p{color:var(--text-3); font-size:13.5px}
+.side-card .mono{color:var(--text-2); font-size:.95em}
+.side-card .side-cmd{font-family:var(--font-mono); font-size:12.5px; color:var(--text);
+  background:#091224; border:1px solid var(--line-strong); border-radius:8px;
+  padding:10px 14px; margin-top:14px; line-height:1.8; overflow-x:auto}
+.side-card .codeblock{margin-top:14px; padding:14px 16px; font-size:12px; line-height:1.8}
 .reqs{margin-top:26px; border-top:1px solid var(--line); padding-top:22px}
 .reqs h4{font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
   color:var(--text-3); margin-bottom:14px}
@@ -785,6 +809,18 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .reqs li{display:flex; gap:11px; font-size:13.5px; color:var(--text-2); align-items:baseline}
 .reqs li::before{content:"▸"; color:var(--cyan); font-family:var(--font-mono); flex:none}
 .reqs .mono{color:var(--text); font-size:.94em}
+
+/* ---------- bottom CTA ---------- */
+.cta-band{text-align:center; border:1px solid rgba(62,220,245,.45); border-radius:20px;
+  padding:72px 32px 64px; position:relative; overflow:hidden;
+  background:radial-gradient(120% 160% at 50% -30%, rgba(40,200,230,.18), rgba(8,17,36,.6) 55%)}
+.cta-band .kicker{margin-bottom:14px}
+.cta-band h2{font-family:var(--font-display); font-size:clamp(30px,4.6vw,44px); font-weight:700;
+  letter-spacing:-.02em; line-height:1.12; margin-bottom:16px}
+.cta-sub{color:var(--text-2); font-size:15.5px; max-width:520px; margin:0 auto}
+.cta-actions{display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:32px}
+.cta-brew{margin-top:16px; font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+.cta-brew .mono{color:var(--text-2)}
 
 /* ---------- footer ---------- */
 footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gradient(180deg, transparent, rgba(40,200,230,.04))}
@@ -870,6 +906,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <a href="#features">Features</a>
       <a href="#install">Install</a>
       <a class="nav-gh" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
+      <a class="nav-dl" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download</a>
     </nav>
   </div>
 </header>
@@ -887,9 +924,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       or delegate that role in autonomous mode.
     </p>
     <div class="hero-ctas hload d4">
-      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download for macOS</a>
       <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">View on GitHub ↗</a>
     </div>
+    <p class="hero-dlnote hload d4">Signed &amp; Apple-notarized · macOS 13+<span id="latestVer"></span> · also via <a href="#install">Homebrew or source build</a></p>
     <div class="trust-row hload d5" aria-label="Technology requirements">
       <span class="chip">macOS 13+</span>
       <span class="chip">Swift 5.9+</span>
@@ -1531,31 +1569,32 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ INSTALL ============ -->
   <section class="section" id="install" aria-labelledby="install-h">
     <p class="kicker reveal">Get started</p>
-    <h2 id="install-h" class="reveal" style="--d:.06s">Early access. Build it yourself<br>in a couple of minutes.</h2>
+    <h2 id="install-h" class="reveal" style="--d:.06s">Download. Drag to Applications.<br>Meet your team.</h2>
     <p class="lede reveal" style="--d:.12s">
-      MaulTeam.app is source-available, free for personal and internal business use under
-      its commercial license, and built on the MIT-licensed open-source framework. It is
-      not yet notarized; today the working path is a source build — four commands, no surprises.
+      MaulTeam.app ships as a signed, Apple-notarized <span class="mono">.dmg</span> that opens
+      with no Gatekeeper warnings — free for personal and internal business use, built on the
+      MIT-licensed open-source framework. Prefer a package manager or a compiler?
+      Homebrew and a source build are right here too.
     </p>
 
     <div class="install-grid">
       <div class="install-main reveal" style="--d:.05s">
         <div class="install-main-inner">
-          <span class="install-flag">● Available now</span>
-          <h3>Build from source</h3>
-          <p>Clone, build, launch. <span class="mono" style="font-size:.9em">make-app.sh release</span> produces a universal2 build for Apple&nbsp;Silicon and Intel.</p>
-          <div class="codeblock">
-            <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
-            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
-<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
-<span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span> release</span>
-<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
-          </div>
-          <p class="install-note">First build fetches SwiftTerm from the network. Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
+          <span class="install-flag">● Recommended</span>
+          <h3>Download the app</h3>
+          <p>Three steps, no toolchain. Universal binary for Apple&nbsp;Silicon and Intel.</p>
+          <ol class="dl-steps">
+            <li>Download the <span class="mono">.dmg</span> below</li>
+            <li>Drag <span class="mono">MaulTeam.app</span> to Applications</li>
+            <li>Open it and point the team at a project</li>
+          </ol>
+          <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download for macOS</a>
+          <p class="install-note">Every release ships a <span class="mono">.sha256</span> checksum —
+            <a href="https://github.com/sohei56/maul-team/releases/latest" target="_blank" rel="noopener">all releases &amp; notes ↗</a></p>
           <div class="reqs">
             <h4>Requirements</h4>
             <ul>
-              <li><span class="mono">macOS 13+</span> and <span class="mono">Xcode 15+</span> (Swift 5.9+) for the source build</li>
+              <li><span class="mono">macOS 13+</span> (Apple Silicon or Intel)</li>
               <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
               <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
               <li><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
@@ -1564,16 +1603,23 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         </div>
       </div>
       <div class="install-side">
-        <div class="soon-card reveal" style="--d:.1s">
-          <span class="soon-pill">Coming soon</span>
-          <h3>.dmg direct download</h3>
-          <p>Signed and notarized drag-to-Applications build — pending Apple Developer notarization.</p>
-        </div>
-        <div class="soon-card reveal" style="--d:.16s">
-          <span class="soon-pill">Coming soon</span>
+        <div class="side-card reveal" style="--d:.1s">
           <h3>Homebrew tap</h3>
-          <p>One-line cask install once the notarized build ships.</p>
-          <div class="fake-cmd" aria-label="Homebrew command not yet available">brew install --cask maul-team</div>
+          <p>Two lines, updates with <span class="mono">brew upgrade</span>:</p>
+          <div class="side-cmd" aria-label="Homebrew install command">brew tap sohei56/homebrew-tap<br>brew install --cask maul-team</div>
+        </div>
+        <div class="side-card reveal" style="--d:.16s">
+          <h3>Build from source</h3>
+          <p><span class="mono">make-app.sh release</span> produces the same universal2 build.
+             Needs <span class="mono">Xcode 15+</span> (Swift 5.9+); the first build fetches SwiftTerm.</p>
+          <div class="codeblock">
+            <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
+            <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
+<span class="c-p">$ </span><span class="c-cmd">cd maul-team</span>
+<span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span> release</span>
+<span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
+          </div>
+          <p class="install-note">Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
         </div>
       </div>
     </div>
@@ -1700,6 +1746,30 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <p>A whole team of agents with real Scrum gates, not a single autonomous engineer;
            source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat.</p>
       </article>
+      <article class="feature reveal" style="--d:.18s">
+        <span class="f-ico" aria-hidden="true">?</span>
+        <h3>Is the download safe to open?</h3>
+        <p>Yes — the app and the <span class="mono">.dmg</span> are signed with an Apple Developer&nbsp;ID
+           and notarized by Apple, so Gatekeeper opens them without warnings. Every release also
+           publishes a <span class="mono">.sha256</span> checksum: run
+           <span class="mono">shasum -a 256 MaulTeam.dmg</span> and compare it against the value on the
+           <a href="https://github.com/sohei56/maul-team/releases/latest" target="_blank" rel="noopener">Releases page ↗</a>.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ BOTTOM CTA ============ -->
+  <section class="section" aria-labelledby="cta-h">
+    <div class="cta-band reveal">
+      <p class="kicker">Ready when you are</p>
+      <h2 id="cta-h">Hand your next project<br>to a team.</h2>
+      <p class="cta-sub">Download, drag to Applications, and start Sprint&nbsp;1.
+         Free for personal and internal business use.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download for macOS</a>
+        <a class="btn btn-ghost" href="#install">Other install options</a>
+      </div>
+      <p class="cta-brew">or <span class="mono">brew install --cask maul-team</span></p>
     </div>
   </section>
 
@@ -1720,6 +1790,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <nav class="footer-links" aria-label="Footer">
       <div>
         <h5>Project</h5>
+        <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download for macOS</a>
         <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener">GitHub repository ↗</a>
         <a href="https://github.com/sohei56/maul-team#license" target="_blank" rel="noopener">Licenses (framework + app)</a>
         <a href="./terms.html">Terms of Use</a>
@@ -1802,13 +1873,26 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     }, true);
   }
 
+  /* ---------- latest release version (hero microcopy) ---------- */
+  var verEl = document.getElementById("latestVer");
+  if (verEl && window.fetch) {
+    fetch("https://api.github.com/repos/sohei56/maul-team/releases/latest")
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(rel){
+        if (rel && typeof rel.tag_name === "string" && /^v[0-9][\w.-]*$/.test(rel.tag_name)) {
+          verEl.textContent = " · " + rel.tag_name;
+        }
+      })
+      .catch(function(){ /* offline / rate-limited: line reads fine without a version */ });
+  }
+
   /* ---------- copy install commands ---------- */
   var copyBtn = document.getElementById("copyBtn");
   if (copyBtn) {
     var CMDS = [
       "git clone git@github.com:sohei56/maul-team.git",
       "cd maul-team",
-      "sh macapp/scripts/make-app.sh",
+      "sh macapp/scripts/make-app.sh release",
       "open macapp/build/MaulTeam.app"
     ].join("\n");
     copyBtn.addEventListener("click", function(){
