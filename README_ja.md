@@ -61,9 +61,22 @@ https://github.com/user-attachments/assets/e71c5fc3-b269-4df3-a585-f5da03e292bc
 いちばん簡単な入り口は **Mac App** — フレームワーク全体を包むネイティブ macOS アプリです。
 Linux の方やターミナルを好まれる方は [コマンドライン](#コマンドライン-上級) を使うこともできます。
 
-### インストール (early access — ソースからビルド)
+### インストール
 
-現在、MaulTeam.app はソースからビルドして利用できます。署名・公証済みの `.dmg` と Homebrew でのインストールは、最初の公開リリースで提供予定です。
+**アプリをダウンロード** — 署名・Apple 公証済みの最新 `.dmg` を
+[**Releases ページ**](https://github.com/sohei56/maul-team/releases/latest)
+から入手し、開いて **MaulTeam.app** を Applications へドラッグします。
+Gatekeeper の警告なしに起動できます。
+
+**または Homebrew で:**
+
+```bash
+brew tap sohei56/homebrew-tap
+brew install --cask maul-team
+```
+
+<details>
+<summary>ソースからビルドする場合</summary>
 
 ```bash
 git clone git@github.com:sohei56/maul-team.git
@@ -71,6 +84,8 @@ cd maul-team
 sh macapp/scripts/make-app.sh release
 open macapp/build/MaulTeam.app
 ```
+
+</details>
 
 **必要要件:**
 

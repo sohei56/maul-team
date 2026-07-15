@@ -58,9 +58,22 @@ Pick or create a project, then talk to the Scrum Master in the embedded terminal
 
 The easiest way in is the **Mac App** — a native macOS app that wraps the whole framework. On Linux, or if you prefer a terminal, you can also use the [command line](#command-line-advanced).
 
-### Install (early access — build from source)
+### Install
 
-MaulTeam.app is currently available as a source build. Signed and notarized `.dmg` and Homebrew installation are planned for the first public release.
+**Download the app** — grab the latest signed, Apple-notarized `.dmg` from the
+[**Releases page**](https://github.com/sohei56/maul-team/releases/latest), open
+it, and drag **MaulTeam.app** to Applications. It opens without Gatekeeper
+warnings.
+
+**Or via Homebrew:**
+
+```bash
+brew tap sohei56/homebrew-tap
+brew install --cask maul-team
+```
+
+<details>
+<summary>Build from source instead</summary>
 
 ```bash
 git clone git@github.com:sohei56/maul-team.git
@@ -68,6 +81,8 @@ cd maul-team
 sh macapp/scripts/make-app.sh release
 open macapp/build/MaulTeam.app
 ```
+
+</details>
 
 **Requirements:**
 

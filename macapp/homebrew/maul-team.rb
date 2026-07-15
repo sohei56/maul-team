@@ -18,7 +18,7 @@ cask "maul-team" do
   homepage "https://github.com/sohei56/maul-team"
 
   # Matches LSMinimumSystemVersion (14.0) in make-app.sh's Info.plist.
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "MaulTeam.app"
 
