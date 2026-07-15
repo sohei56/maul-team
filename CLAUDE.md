@@ -148,6 +148,12 @@ sh /path/to/maul-team/scrum-start.sh
   (violation → `escalated(kind_mismatch)`). Full flow:
   `skills/pbi-pipeline/SKILL.md` § Stages + `docs/data-model.md`
   § kind=docs override.
+- PBIs are **vertical slices** (one user experience / capability
+  extension end-to-end — never component splits of one experience),
+  with a walking-skeleton-first rule per feature epic and a mandatory
+  local `demo_plan` for kind=code (`update-backlog-status.sh` refuses
+  `→refined` while it is empty). Canonical:
+  `skills/backlog-refinement/SKILL.md` Steps 3.a–3.c2.
 - `po_mode` selects the PO seat. Absent or `"human"` → the user
   (default). `"agent"` → the `product-owner` teammate (FR-023).
   Skills do not branch on mode; every "ask the user" prompt resolves

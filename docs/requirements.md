@@ -366,6 +366,17 @@ use support sub-agents.
   granularity when selected for a Sprint. The number of `refined`
   PBIs SHOULD be limited to 1-2 Sprints of capacity (6-12 PBIs)
   to avoid over-refinement of items that may change.
+  PBIs MUST be cut as vertical slices — one user-observable
+  experience or capability extension, end-to-end through every layer
+  it needs — never as component splits of a single experience
+  (frontend / API / DB as separate PBIs). For a large feature epic,
+  the first refined PBI MUST be a walking skeleton (minimal user
+  experience, end-to-end) that the epic's remaining PBIs depend on.
+  Every refined `kind=code` PBI MUST carry a non-empty `demo_plan`
+  describing a fully local demonstration (machine-enforced by
+  `update-backlog-status.sh` at the transition into `refined`).
+  Canonical slicing and demo-plan rules:
+  `skills/backlog-refinement/SKILL.md` Steps 3.a–3.c2.
 
 - **FR-004**: Each Development Sprint MUST drive each assigned PBI
   through the `pbi-pipeline` skill (the Developer is the conductor;
@@ -450,9 +461,13 @@ use support sub-agents.
   (`codex-impl-reviewer`, `codex-ut-reviewer`).
 
 - **FR-010**: At Sprint Review, the Scrum Master MUST present the
-  Increment with a change summary. A live demo MUST be performed
-  only when the Increment includes UX changes; otherwise the
-  demo is omitted.
+  Increment with a change summary and demonstrate every completed
+  PBI by executing its `demo_plan` locally (`ux_change` selects the
+  demo form: a UI walkthrough when true, an observable local check —
+  CLI / HTTP probe / data assertion — when false). A PBI that cannot
+  be demonstrated locally is a Sprint Review finding recorded as a
+  draft defect PBI; "read the code" or "requires a cloud deploy" are
+  not acceptable demo outcomes.
 
 - **FR-011**: The Scrum Master MUST report Product Backlog
   remaining scope and Product Goal achievement progress at every

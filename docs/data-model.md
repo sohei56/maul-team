@@ -97,7 +97,8 @@ Valid phases:
 | `review_doc_path` | string \| null | Path to review results relative to project root |
 | `catalog_targets` | string[] | Catalog spec paths the PBI may touch. Recorded by `sprint-planning` skill; used to prevent parallel write contention (Layer 1 of `catalog-contention` defense). |
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
-| `ux_change` | boolean | Whether this PBI involves UX changes (determines live demo in FR-010) |
+| `ux_change` | boolean | Whether this PBI involves UX changes (determines the demo form in FR-010: UI walkthrough vs observable local check) |
+| `demo_plan` | string \| null | How the PBI is demonstrated locally at Sprint Review (start command, steps, local substitutes for cloud-only parts). Set during `backlog-refinement` (canonical: `skills/backlog-refinement/SKILL.md` Step 3.c2); `update-backlog-status.sh` refuses the transition into `refined` while empty for `kind=code` (`kind=docs` exempt). Consumed by `sprint-review` / `po-acceptance`. |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). Set during `backlog-refinement` (the Opus 3-axis OR rule is canonical in `skills/backlog-refinement/SKILL.md`). For how `kind=docs` reshapes the pipeline, see the **kind=docs override** subsection below (and `skills/pbi-pipeline/SKILL.md` § Stages). |
 | `created_at` | ISO 8601 string | Creation timestamp |
