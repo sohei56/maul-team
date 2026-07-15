@@ -16,7 +16,7 @@ disable-model-invocation: false
 
 ## Outputs
 
-- `backlog.json` → items[].status: refined, acceptance_criteria (non-empty), ux_change, design_doc_paths, priority (non-negative integer)
+- `backlog.json` → items[].status: refined, acceptance_criteria (non-empty), ux_change, demo_plan (non-empty for kind=code), design_doc_paths, priority (non-negative integer)
 - Every refined PBI carries a **settled approach/method** — the
   solution direction is recorded in `description` (and the doc it will
   shape is named in `design_doc_paths`), with no PO-only spec question
@@ -52,7 +52,41 @@ resolution:
 1. Read backlog.json
 2. Count refined PBIs. If ≥12→skip (WIP cap reached)
 3. Each draft PBI (up to WIP cap 12 total refined):
-   a. Break into implementation-ready items (per function/screen/API/component)
+   a. Break into implementation-ready items as **vertical slices**: each
+      item is one user experience or one capability extension, cut
+      end-to-end through every layer it needs (UI + API + persistence
+      together). NEVER split a single user experience into component
+      items ("frontend PBI / API PBI / DB PBI") — component splits let
+      per-layer work drift apart; in a target project they produced
+      large late-stage inconsistencies and dead branches between
+      components, discovered only at integration testing.
+
+      **Walking skeleton first (per feature epic).** When a draft PBI
+      is a large feature addition/overhaul that refines into multiple
+      items, the FIRST item of the group is a walking skeleton: the
+      minimal user experience that already runs end-to-end through the
+      whole system, exercisable locally. Later items of the group flesh
+      it out one experience unit at a time; give each of them
+      `depends_on_pbi_ids` naming the skeleton (step 3.e) and give the
+      skeleton the lowest priority number of the group (step 3.f) so
+      sprint-planning's dependency rule (FR-008) lands it in an earlier
+      Sprint.
+
+   a1. **Vertical-slice inspection checklist (mandatory, per item).**
+      - *Demonstrable alone?* Merged by itself, can this item show a
+        user-observable behavior locally?
+      - *Value-worded?* Do title/description name a user outcome, not a
+        layer or component? ("implement API for X" fails; "user can X"
+        passes.)
+      - *No sibling-coupled value?* If NO user-visible behavior exists
+        until a sibling item of the same group also lands, it is a
+        component split — merge the items or recut them vertically.
+
+      A split you cannot confidently settle is a PO decision, not a
+      guess: raise `[<pbi-id>] PO_DECISION_REQUEST kind=pbi_split
+      options=[...]` with the proposed vertical recut as the
+      recommendation (same decision shape as sprint-planning Step 5;
+      human mode: ask the user per § PO seat resolution).
 
    a2. **Approach & prior-art clarity gate (mandatory, before AC).**
       The goal of refinement is to hand the Developer a PBI whose
@@ -190,6 +224,7 @@ resolution:
 
           Inputs:
           - PBI id, title, description, ux_change
+          - demo_plan (string; null when not yet set)
           - Draft acceptance_criteria (string array)
           - catalog_targets (string array; may be empty)
           - PBI type signal: derive from description keywords
@@ -250,6 +285,16 @@ resolution:
             tests passed without anyone (human or model) reading the
             doc. Never again.
 
+          Extra Check 6 — demo_plan locality (applies when
+          kind == "code"):
+          - Flag a demo_plan that is null/empty, requires a cloud
+            deployment ("deploy to ...", a cloud provider name as the
+            only way to observe behavior), or reduces to "read the
+            code" / "inspect the diff". A valid plan names a local
+            start command and an observable check; cloud-only
+            dependencies name their local substitute (stub / fake /
+            local container).
+
           Output: JSON
             {
               "verdict": "pass" | "needs_revision",
@@ -259,7 +304,8 @@ resolution:
                 { "index": 1, "text": "...", "issues": ["..."],
                   "rewrite_suggestion": "..." | null }
               ],
-              "missing_acs": [ "<concrete AC to add>" ]
+              "missing_acs": [ "<concrete AC to add>" ],
+              "demo_plan_issue": "<why the plan is not locally executable>" | null
             }
         EOF
       })
@@ -267,7 +313,9 @@ resolution:
 
       SM main loop reads the JSON. If `verdict == "needs_revision"`,
       apply `rewrite_suggestion` for flagged AC and append every
-      `missing_acs` entry before persisting. Do not advance status to
+      `missing_acs` entry before persisting; a non-null
+      `demo_plan_issue` means the demo_plan is not locally executable —
+      rewrite it per step 3.c2. Do not advance status to
       `refined` until the next audit returns `verdict: pass`. If an AC
       cannot be made verifiable without a PO-only decision (e.g. an
       undecided acceptance threshold), route that question through step
@@ -290,6 +338,28 @@ resolution:
       ```bash
       .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" ux_change <true|false>
       ```
+   c2. Set demo_plan (mandatory for kind=code — machine-gated: the
+      status wrapper refuses `refined` while it is empty):
+      ```bash
+      .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" demo_plan \
+        "<start command; URL/CLI steps; what to observe>"
+      ```
+      Decide NOW how this PBI will be shown **running locally** at
+      Sprint Review:
+      - A cloud-only dependency (managed DB / queue / auth / storage)
+        never blocks the demo — name its local substitute: a stub under
+        `tests/stubs/`, an in-memory fake, or a local container. Stub
+        philosophy is canonical in
+        `../integration-tests/references/stub-construction.md` (stub
+        only non-locally-reproducible interfaces; never an `if TEST`
+        branch in product code).
+      - `ux_change=false` → the plan names the observable local check
+        (CLI invocation / curl / data assertion), not a UI tour.
+      - `kind=docs` → exempt (the doc is the demo); leave it null.
+
+      "Deploy to <cloud> to see it" and "read the code" are NOT demo
+      plans. If no local demonstration path exists, the item is not
+      refinement-ready — route the scope question through step 3.a3.
    d. Set design_doc_paths (docs needing creation/update) via wrapper:
       ```bash
       .scrum/scripts/set-backlog-item-field.sh "$PBI_ID" \
@@ -337,6 +407,12 @@ Ref: FR-003
 
 - All selected PBIs status: refined
 - Every refined PBI: non-empty acceptance_criteria, ux_change set, design_doc_paths set, priority set (integer), kind set (`code` or `docs`)
+- Every refined PBI passed the vertical-slice checklist (Step 3.a1);
+  each multi-PBI feature group has exactly one walking-skeleton PBI
+  that its sibling items name in `depends_on_pbi_ids`
+- Every refined `kind=code` PBI has a non-empty `demo_plan` naming a
+  fully local demonstration (Step 3.c2; `update-backlog-status.sh`
+  enforces this at `→refined`)
 - Every `acceptance_criteria[i]` is independently verifiable per Step 3b
   (Given/When/Then or measurable assertion; no bare vague adjective)
 - For kind=docs PBIs: no AC reduces to a grep-pattern hit count (see Check 5 above)
