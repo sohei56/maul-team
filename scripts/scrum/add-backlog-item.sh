@@ -102,6 +102,7 @@ NEW_ITEM_JSON="$(
       review_doc_path: null,
       depends_on_pbi_ids: [],
       ux_change: $ux,
+      demo_plan: null,
       kind: $kind,
       parent_pbi_id: (if $parent == "" then null else $parent end),
       created_at: $now,

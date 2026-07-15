@@ -149,3 +149,34 @@ backlog_updated_at() {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001
   [ "$status" -eq 64 ]
 }
+
+# --- demo_plan gate: ->refined requires a local demo plan for kind=code ---
+
+@test "update-backlog-status: refuses ->refined when kind=code and demo_plan null" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan null
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"demo_plan"* ]]
+}
+
+@test "update-backlog-status: refuses ->refined when demo_plan is empty string" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan ""
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"demo_plan"* ]]
+}
+
+@test "update-backlog-status: accepts ->refined for kind=docs without demo_plan" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 kind docs
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan null
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 0 ]
+  [ "$(backlog_status pbi-001)" = "refined" ]
+}
+
+@test "update-backlog-status: gate is scoped to refined (->done ok without demo_plan)" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan null
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 done
+  [ "$status" -eq 0 ]
+  [ "$(backlog_status pbi-001)" = "done" ]
+}

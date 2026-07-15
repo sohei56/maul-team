@@ -12,6 +12,7 @@
 #   set-backlog-item-field.sh <pbi-id> priority <non-negative-integer|null>
 #   set-backlog-item-field.sh <pbi-id> description <text|null>
 #   set-backlog-item-field.sh <pbi-id> ux_change <true|false>
+#   set-backlog-item-field.sh <pbi-id> demo_plan <text|null>
 #   set-backlog-item-field.sh <pbi-id> acceptance_criteria <json-array-of-strings>
 #   set-backlog-item-field.sh <pbi-id> design_doc_paths <json-array-of-strings>
 #   set-backlog-item-field.sh <pbi-id> depends_on_pbi_ids <json-array-of-pbi-ids>
@@ -95,6 +96,13 @@ case "$FIELD" in
       *) fail E_INVALID_ARG "bad ux_change: $VALUE (expected true or false)" ;;
     esac
     ;;
+  demo_plan)
+    if [ "$VALUE" = "null" ]; then
+      VALUE_JSON="null"
+    else
+      VALUE_JSON="$(printf '%s' "$VALUE" | jq -Rs .)"
+    fi
+    ;;
   depends_on_pbi_ids)
     if ! VALUE_JSON="$(printf '%s' "$VALUE" | jq -ce '.')"; then
       fail E_INVALID_ARG "depends_on_pbi_ids: not valid JSON: $VALUE"
@@ -112,7 +120,7 @@ case "$FIELD" in
   status)
     fail E_INVALID_ARG "use update-backlog-status.sh to write status (13-value enum has its own wrapper)"
     ;;
-  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind)" ;;
+  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|demo_plan|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind)" ;;
 esac
 
 PATHF=".scrum/backlog.json"

@@ -26,6 +26,8 @@ teardown() {
   [ "$output" = "draft" ]
   run jq -r '.items[] | select(.id=="pbi-002") | .title' "$TEST_TMP/.scrum/backlog.json"
   [ "$output" = "New leftover" ]
+  run jq -c '.items[] | select(.id=="pbi-002") | .demo_plan' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "null" ]
   run jq -r '.next_pbi_id' "$TEST_TMP/.scrum/backlog.json"
   [ "$output" = "3" ]
 }

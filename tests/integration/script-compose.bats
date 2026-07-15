@@ -131,7 +131,7 @@ setup_status_sandbox() {
 {"pbi_id":"pbi-001","started_at":"2026-05-06T10:00:00Z","updated_at":"2026-05-06T10:00:00Z","merge_failure_count":0}
 EOF
   cat > .scrum/backlog.json <<'EOF'
-{"items":[{"id":"pbi-001","title":"x","status":"refined"}]}
+{"items":[{"id":"pbi-001","title":"x","status":"refined","demo_plan":"run x"}]}
 EOF
 }
 

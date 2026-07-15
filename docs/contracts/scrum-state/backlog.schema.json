@@ -39,6 +39,10 @@
           "review_doc_path": {"type": ["string", "null"]},
           "depends_on_pbi_ids": {"type": "array", "items": {"type": "string", "pattern": "^pbi-[0-9]+$"}},
           "ux_change": {"type": "boolean"},
+          "demo_plan": {
+            "type": ["string", "null"],
+            "description": "How this PBI is demonstrated LOCALLY at Sprint Review (commands/URL/steps; local substitutes for cloud-only parts). Set by backlog-refinement; update-backlog-status.sh refuses ->refined while empty for kind=code. kind=docs is exempt (the doc is the demo)."
+          },
           "kind": {
             "enum": ["code", "docs"],
             "default": "code",

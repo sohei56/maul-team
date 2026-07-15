@@ -170,3 +170,15 @@ field_value() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad kind"* ]]
 }
+
+@test "set-backlog-item-field: sets demo_plan" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan 'make run; curl -sf http://localhost:8080/healthz; observe "ok"'
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 demo_plan)" = '"make run; curl -sf http://localhost:8080/healthz; observe \"ok\""' ]
+}
+
+@test "set-backlog-item-field: clears demo_plan via null" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan null
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 demo_plan)" = "null" ]
+}

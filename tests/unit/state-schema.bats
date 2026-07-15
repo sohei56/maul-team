@@ -174,6 +174,15 @@ EOF
   assert_success
 }
 
+@test "backlog demo_plan is typed string|null" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  run jq -e '
+    .properties.items.items.properties.demo_plan.type
+    == ["string", "null"]
+  ' "$schema"
+  assert_success
+}
+
 @test "kind=docs fixture validates: kind is one of {code, docs}" {
   local file="$FIXTURES_DIR/valid-backlog-kind-docs.json"
   run jq -e '
