@@ -88,13 +88,20 @@ notary_submit() {
 
 # Refuse to notarize an ad-hoc signature — Apple rejects it and the failure is
 # confusing. make-app.sh must have run with DEVELOPER_ID_APP set.
+#
+# Capture into a variable and match with `case` rather than piping to `grep -q`:
+# under `set -o pipefail`, grep -q closes the pipe on first match, codesign dies
+# with SIGPIPE (141), and the pipeline is reported as failed even though it
+# matched — which would wrongly flag a properly-signed app as ad-hoc.
 assert_developer_id_signed() {
-  if ! codesign -dvv "$1" 2>&1 | grep -q "Authority=Developer ID Application"; then
-    echo "Error: $1 is not Developer ID signed (ad-hoc or unsigned)." >&2
-    echo "       Run: DEVELOPER_ID_APP='Developer ID Application: … (TEAMID)' \\" >&2
-    echo "            sh macapp/scripts/make-app.sh release" >&2
-    exit 1
-  fi
+  info="$(codesign -dvv "$1" 2>&1 || true)"
+  case "$info" in
+    *"Authority=Developer ID Application"*) return 0 ;;
+  esac
+  echo "Error: $1 is not Developer ID signed (ad-hoc or unsigned)." >&2
+  echo "       Run: DEVELOPER_ID_APP='Developer ID Application: … (TEAMID)' \\" >&2
+  echo "            sh macapp/scripts/make-app.sh release" >&2
+  exit 1
 }
 
 newest_dmg() {
@@ -122,7 +129,9 @@ notarize_app() {
 }
 
 notarize_dmg() {
-  dmg="$(newest_dmg)"
+  # `|| true`: newest_dmg's `ls | head` can exit 141 (head closes the pipe →
+  # ls SIGPIPE) under pipefail; the first line is already captured correctly.
+  dmg="$(newest_dmg || true)"
   [ -n "$dmg" ] || { echo "Error: no $BUILD/${APP_NAME}-*.dmg — run make-dmg.sh first" >&2; exit 1; }
   assert_developer_id_signed "$dmg"
   echo "==> notarytool submit (dmg: $(basename "$dmg")) — waiting for Apple"
