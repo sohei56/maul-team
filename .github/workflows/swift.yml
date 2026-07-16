@@ -20,7 +20,7 @@ jobs:
     name: Swift Build (macapp)
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show toolchain
         run: swift --version
@@ -28,7 +28,7 @@ jobs:
       # Cache the resolved SwiftTerm checkout + build products, keyed on the
       # pinned dependency graph so a lockfile change busts the cache.
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: macapp/.build
           key: spm-${{ runner.os }}-${{ hashFiles('macapp/Package.resolved') }}
