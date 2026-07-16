@@ -12,10 +12,29 @@ the numbers when deciding what to improve on the LP.
   `9005e05d-1557-4ac1-bb9e-bc05201b77db`).
 - **GitHub Releases `download_count`** — the funnel's bottom step.
   `.github/workflows/download-stats.yml` snapshots it weekly into
-  `metrics/downloads.jsonl` (the API only exposes a cumulative counter,
-  so trends exist only from snapshot diffs). Homebrew-cask installs pull
-  the same dmg asset, so they are included in the count but cannot be
-  distinguished from LP-button downloads.
+  `metrics/downloads.jsonl` on the data-only **`metrics` branch**
+  (`main` is protected, so the append lives on its own branch; raw:
+  <https://raw.githubusercontent.com/sohei56/maul-team/metrics/metrics/downloads.jsonl>).
+  The API only exposes a cumulative counter, so trends exist only from
+  snapshot diffs. Homebrew-cask installs pull the same dmg asset, so
+  they are included in the count but cannot be distinguished from
+  LP-button downloads.
+
+## Public display of download counts
+
+The snapshot file is for trend analysis only — the *current* cumulative
+count is available live and needs no infrastructure:
+
+- **README (EN/JA)**: shields.io badge
+  `https://img.shields.io/github/downloads/sohei56/maul-team/total`
+- **LP (option, not wired)**: client-side fetch of
+  `api.github.com/repos/sohei56/maul-team/releases` and summing
+  `assets[].download_count` (same pattern as the existing latest-version
+  fetch); the raw jsonl above is CORS-readable if a trend sparkline is
+  ever wanted.
+- **Umami numbers are not for public display**: they count button clicks
+  (intent), not completed downloads, and exposing them would require an
+  API key the static page cannot hold safely.
 
 ## Event schema
 

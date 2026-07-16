@@ -1,11 +1,16 @@
 name: Record release download counts
 
 # Appends a weekly snapshot of GitHub Releases asset download counts to
-# `metrics/downloads.jsonl` (one JSON object per line). `download_count` is
-# cumulative-only in the API, so the funnel's bottom step (dmg downloads over
-# time) can only be reconstructed from periodic snapshots like these.
-# The file lives outside `site/` on purpose: pages.yml redeploys on any
-# `site/**` push, and a metrics commit should not trigger a Pages deploy.
+# `metrics/downloads.jsonl` (one JSON object per line) on the data-only
+# `metrics` branch. `download_count` is cumulative-only in the API, so the
+# funnel's bottom step (dmg downloads over time) can only be reconstructed
+# from periodic snapshots like these.
+# The snapshots live on a dedicated branch because `main` is protected
+# (PRs + required checks): a weekly data append should neither open PRs nor
+# loosen protection. The branch was seeded once by hand; if it is ever
+# deleted, re-seed it before this workflow can run.
+# Read the data raw:
+# https://raw.githubusercontent.com/sohei56/maul-team/metrics/metrics/downloads.jsonl
 on:
   schedule:
     - cron: "0 21 * * 0" # weekly, Sunday 21:00 UTC = Monday 06:00 JST
@@ -24,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: metrics
 
       - name: Append snapshot
         env:
@@ -53,4 +60,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore(metrics): weekly release download snapshot [skip ci]"
-          git push
+          git push origin HEAD:metrics
