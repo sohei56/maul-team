@@ -225,6 +225,7 @@ button{font:inherit; color:inherit}
 .nav-links a.nav-dl:hover{color:#02131f; background:linear-gradient(180deg, var(--cyan-hi), var(--cyan));
   transform:translateY(-1px); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 8px 22px rgba(40,200,230,.5)}
 @media (max-width:760px){ .nav-links a:not(.nav-gh):not(.nav-dl){display:none} }
+@media (max-width:420px){ .nav-gh{display:none} }
 
 /* ---------- shared layout ---------- */
 .section{max-width:var(--maxw); margin:0 auto; padding:104px 24px 0}
@@ -313,9 +314,9 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .ha-tb-info{margin-left:auto; color:var(--text-3)}
 /* three-pane body */
 .ha-body{flex:1 1 auto; display:grid; grid-template-columns:186px 1fr 274px; min-height:0}
-@media (max-width:1000px){ .ha-body{grid-template-columns:1fr 262px} .ha-explorer{display:none} }
-@media (max-width:720px){ .ha-body{display:flex; flex-direction:column} .ha-explorer{display:none}
-  .ha-center{border-right:0; border-bottom:1px solid var(--line)} }
+/* narrow screens never stack the panes: the whole three-pane app is scaled
+   down as one unit by the fit-scale JS, preserving the desktop composition */
+.hero-app{transform-origin:top left}
 /* shared column head (aligned across the three panes) */
 .ha-colhead{display:flex; align-items:center; gap:7px; height:34px; padding:0 13px; flex:none;
   background:#0e1a32; border-bottom:1px solid var(--line);
@@ -362,7 +363,6 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 .ha-term{flex:1 1 auto; min-height:0; overflow:hidden; padding:11px 15px 9px;
   display:flex; flex-direction:column; justify-content:flex-end;
   font-family:var(--font-mono); font-size:11.4px; line-height:1.55; color:var(--text-2)}
-@media (max-width:720px){ .ha-term{flex:none; height:172px} }
 .ha-line{margin-bottom:8px; white-space:pre-wrap; word-break:break-word}
 .ha-line.he{opacity:0; transform:translateY(4px)}
 .ha-line.show{opacity:1; transform:none; transition:opacity .3s var(--ease-out), transform .3s var(--ease-out)}
@@ -647,11 +647,8 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
   border-bottom:1px solid var(--line)}
 .term-head .term-title{margin:0 auto; transform:translateX(-26px); font-size:11.5px; color:var(--text-3)}
 /* tmux split */
-.tmux-panes{display:grid; grid-template-columns:1fr 1.16fr}
-@media (max-width:840px){
-  .tmux-panes{grid-template-columns:1fr}
-  .tmux-pane.tp-right{border-left:none; border-top:1px solid var(--line-strong)}
-}
+.tmux-panes{display:grid; grid-template-columns:1fr 1.16fr; transform-origin:top left}
+/* narrow screens: the two-pane tmux layout is scaled down as one unit (fit-scale JS) */
 .tmux-pane{display:flex; flex-direction:column; padding:13px 15px 10px; line-height:1.68;
   color:var(--text-2); overflow:hidden; min-width:0}
 .tmux-pane.tp-right{border-left:1px solid var(--line-strong); background:#081124}
@@ -1248,15 +1245,15 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="ld-item on" data-step="04" style="--c:#28c8e6">
         <div class="ld-row"><span class="ld-num">04</span>
         <div><h3>Development Pipeline<span class="phase-tag">parallel</span></h3>
-        <p>Each Developer conducts rounds of design → implementation + black-box unit tests →
-           review — cross-model via Codex when available, with a Claude-based fallback —
-           in its own git worktree, with deterministic termination gates, real C0/C1 coverage,
-           and a final 5-aspect integrity gate. Finished PBIs land via
-           <span class="mono">--no-ff</span> merge plus a regression gate — three strikes and
-           the PBI escalates instead of limping forward. At Sprint end, four parallel auditors
-           sweep the whole repo for spec drift, wiring-level logic defects, dead code, and
-           cross-cutting security gaps per-PBI review structurally can't see; findings become
-           next-Sprint PBIs.</p></div></div>
+        <p><strong>Each Developer builds its PBI in an isolated git worktree, in parallel.</strong>
+           Every Round of design → implementation + black-box unit tests is
+           <strong>cross-reviewed by Codex</strong> (Claude-based fallback), with deterministic
+           termination gates and real C0/C1 coverage. And <strong>no PBI merges until its
+           tests and a 5-aspect integrity gate pass</strong> — then the SM lands it with a
+           <span class="mono">--no-ff</span> merge plus a regression gate; three strikes and
+           it escalates instead of limping forward. At Sprint end, four parallel auditors
+           sweep the whole repo for the drift per-PBI review structurally can't see;
+           findings become next-Sprint PBIs.</p></div></div>
         <!-- ===== signature: animated sprint board (shown with this step) ===== -->
         <div class="board-wrap">
           <div class="board-frame">
@@ -1347,10 +1344,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="loop-card reveal" style="--d:.05s">
         <span class="loop-depth">Innermost · build &amp; verify</span>
         <h3>The Development pipeline loop</h3>
-        <p>Per PBI: design, then implementation with black-box unit tests, then review —
-           repeated in Rounds until deterministic termination gates pass (success,
-           stagnation, divergence, hard cap). Codex provides cross-model review when
-           available, with a Claude-based fallback; coverage is measured by real tooling.</p>
+        <p>Per PBI, in its own git worktree: design, implementation with black-box unit
+           tests, and Codex cross-model review, repeated in Rounds until deterministic
+           termination gates pass. The merge stays locked until tests and review clear —
+           coverage measured by real tooling, not self-reported.</p>
         <span class="loop-map">≈ agent loop + verification loop</span>
       </article>
       <article class="loop-card reveal" style="--d:.12s">
@@ -1451,8 +1448,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature orch reveal" style="--d:.03s">
         <h3>Multi-agent orchestration, native to Claude Code</h3>
         <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
-           orchestrating up to 6 parallel Developer agents, one per PBI. Each Developer is
-           itself a conductor, spawning per-round specialist sub-agents.</p>
+           orchestrating up to 6 parallel Developer agents, one per PBI, each building in
+           an isolated git worktree. Each Developer is itself a conductor, spawning
+           per-round specialist sub-agents.</p>
         <svg viewBox="0 0 880 430" role="img"
              aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents. Codex cross-model review is used when available, with a Claude-based fallback.">
           <!-- SM -> devs wires -->
@@ -1559,9 +1557,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">◎</span>
         <h3>AI-native adaptations</h3>
-        <p>Dynamic team sizing, mandatory requirement definition first, no work without a
-           PBI, a per-PBI 5-aspect integrity gate, and a Sprint-end whole-repo audit —
-           Scrum re-derived for agents.</p>
+        <p>Dynamic team sizing, mandatory requirement definition first, no work without
+           a PBI — Scrum re-derived for how agents actually work.</p>
       </article>
     </div>
   </section>
@@ -1716,9 +1713,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <h3>How do AI agents actually run a Scrum sprint?</h3>
         <p>A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
            item. Each Developer designs, implements, and writes black-box unit tests in its own
-           git worktree. Codex provides cross-model review when available, with a Claude-based
-           fallback. Merges are gated by regression tests; the Sprint ends with a demo to you.
-           It's the ceremony loop, not a prompt chain.</p>
+           git worktree, with Codex cross-model review (Claude-based fallback). A PBI merges
+           only after its tests and reviews pass — then a regression gate at merge. The Sprint
+           ends with a demo to you. It's the ceremony loop, not a prompt chain.</p>
       </article>
       <article class="feature reveal" style="--d:.06s">
         <span class="f-ico" aria-hidden="true">?</span>
@@ -1853,6 +1850,37 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       raf = null;
       heroWin.style.transform =
         "rotateX(" + (-ty * 3.2) + "deg) rotateY(" + (tx * 4.2) + "deg) translateY(" + (ty * -5) + "px)";
+    }
+  }
+
+  /* ---------- fit-scale: keep desktop pane layouts on small screens ----------
+     Instead of stacking panes on narrow viewports, freeze each multi-pane
+     mockup at its design width and scale it down to fit its container.
+     transform doesn't shrink the layout box, so a negative margin-bottom
+     compensates for the reclaimed height. */
+  var FITS = [
+    { el: document.querySelector(".hero-app"),   w: 1000 },
+    { el: document.querySelector(".tmux-panes"), w: 860 }
+  ].filter(function(f){ return f.el; });
+  function fitAll(){
+    FITS.forEach(function(f){
+      var cw = f.el.parentElement.clientWidth;
+      if (cw >= f.w) {
+        f.el.style.width = ""; f.el.style.transform = ""; f.el.style.marginBottom = "";
+        return;
+      }
+      f.el.style.width = f.w + "px";
+      var s = cw / f.w;
+      f.el.style.transform = "scale(" + s + ")";
+      f.el.style.marginBottom = -(f.el.offsetHeight * (1 - s)) + "px";
+    });
+  }
+  if (FITS.length) {
+    fitAll();
+    window.addEventListener("resize", fitAll);
+    if ("ResizeObserver" in window) {
+      var fitRo = new ResizeObserver(fitAll);
+      FITS.forEach(function(f){ fitRo.observe(f.el); fitRo.observe(f.el.parentElement); });
     }
   }
 
