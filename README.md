@@ -24,6 +24,10 @@
 </p>
 
 <p align="center">
+  <a href="https://sohei56.github.io/maul-team/"><strong>🌐 Website</strong></a> — see the team in action
+</p>
+
+<p align="center">
   <strong>English</strong> | <a href="README_ja.md">日本語</a>
 </p>
 
@@ -113,7 +117,10 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
 2. **Requirement Definition** — the Scrum Master spawns a Requirements Analyst to elicit requirements and write `requirements.md`
 3. **Backlog Refinement** — the SM creates and refines PBIs from your requirements
 4. **Sprint Planning** — the SM proposes a Sprint Goal; you approve or adjust
-5. **PBI Development (parallel, per-PBI)** — each Developer acts as a conductor running the `pbi-pipeline` skill on its assigned PBI in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`): rounds of design → implementation + black-box UT → review (cross-model via Codex when available, with a Claude-based fallback), with deterministic termination gates and real C0/C1 coverage; before ready-to-merge, an Integrity stage runs 5 aspect reviewers (requirement-conformance, functional-quality, security, maintainability, docs-consistency) over the PBI's diff. The SM merges each PBI on completion.
+5. **PBI Development (parallel, per-PBI)** — each Developer runs the `pbi-pipeline` skill on its assigned PBI:
+   - **Isolated & parallel** — every Developer works in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`), so PBIs proceed in parallel without stepping on each other
+   - **Cross-model review** — each Round (design → implementation + black-box UT) is reviewed by **Codex** when available (Claude-based fallback), with deterministic termination gates
+   - **Merge is gated, not granted** — a PBI reaches the SM's merge only after its black-box UT passes with real C0/C1 coverage and a 5-aspect Integrity review (requirement-conformance, functional-quality, security, maintainability, docs-consistency) clears its diff
 6. **Cross-Review** — once all PBIs are merged, the SM runs an audit-only cross-review: a whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). It is non-blocking — Critical/High findings become draft PBIs for the next Sprint
 7. **Sprint Review** — the SM launches the app and demos each completed PBI in turn; you confirm each works
 8. **Retrospective** — the team reflects and records improvements for future Sprints
@@ -139,7 +146,7 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
 
 **Loop engineering** means designing a system in which agents repeatedly plan, act, verify, and improve instead of relying on isolated prompts. Maul Team implements it at three levels: **Development pipeline**, **Sprint**, and **autonomous execution**.
 
-- **Development pipeline loop (innermost — build & verify).** Per PBI: design → implementation + black-box unit tests → review, repeated in Rounds until deterministic termination gates pass (success / stagnation / divergence / hard cap). Codex provides cross-model review when available, with a Claude-based fallback; C0/C1 coverage is measured by real tooling.
+- **Development pipeline loop (innermost — build & verify).** Per PBI, in its own git worktree: Rounds of design → implementation + black-box unit tests → Codex cross-model review, until deterministic termination gates pass (success / stagnation / divergence / hard cap) — and the merge stays locked until tests and review clear. Details: [What a Sprint looks like](#what-a-sprint-looks-like).
 - **Sprint loop (middle — drift detection & self-improvement).** Every Sprint ends with a whole-repo, 4-axis `codebase-audit` that detects drift between the merged code and the requirements/design; its Critical/High findings are filed as draft PBIs for the next Sprint, and the Retrospective feeds process improvements forward the same way. The product and the process both hill-climb. *(LangChain's hill-climbing loop.)*
 - **Autonomous execution loop (outermost — event-driven, unattended).** Co-author a product brief and even the PO seat becomes an agent (`po_mode=agent`); an outer [Ralph-Loop](https://ghuntley.com/ralph/) watchdog re-launches headless sessions iteration after iteration, enforces safety valves (iterations / wall-clock / Sprints / failure budgets), sleeps through API rate limits and resumes, and writes you a morning report. *(LangChain's event-driven loop.)*
 
@@ -150,14 +157,15 @@ Background: [Addy Osmani, “Loop Engineering”](https://addyosmani.com/blog/lo
 ## Features
 
 - **Native Mac app** — MaulTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
-- **19 Skills** covering the full Scrum lifecycle: product-brief co-authoring, requirements elicitation, backlog refinement, sprint planning, PBI Development (design + impl + UT + per-PBI review), per-PBI merge, cross-review (whole-repo codebase audit), sprint review, retrospective, integration testing, and UAT & release
+- **19 Skills, full lifecycle** — every ceremony from product-brief co-authoring through requirements, planning, PBI development, merge, audit, review, and retrospective to integration testing and UAT & release is a versioned, inspectable Skill
 - **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
+- **Gated parallel development** — Developers build PBIs in parallel in isolated git worktrees, Codex cross-reviews every Round, and a PBI merges only after its black-box unit tests and Integrity review pass
 - **Autonomous PO mode** — replace even the PO with an AI Product Owner to drive development end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **Design document governance** — an immutable catalog (`catalog.md`) plus an editable enablement config (`catalog-config.json`), enforced by status-gate hooks, control the documents AI agents are allowed to create
-- **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow enforcement (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`), quality gates (Definition of Done), session context restoration, plus an external stall watchdog (`scripts/stall-watchdog.sh`) in human mode — turning the behaviors you want agents to follow into mechanisms
+- **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow and Definition-of-Done checks, session context restoration, plus an external stall watchdog — the behaviors you want agents to follow, turned into mechanisms they cannot skip
 - **State persistence** — all state is saved to `.scrum/` JSON files; sessions resume
 - **Retrospective-driven improvement** — improvements from past Sprints are applied automatically
-- **Automated testing** — Integration Tests derives design-driven test cases covering boundary values and flow/pattern branches on top of smoke tests (unit + e2e), automated as committable API + Playwright UI tests; UAT & Release then runs a story-driven UAT (Playwright MCP / Chrome DevTools MCP-assisted) and the release decision
+- **Automated testing** — Integration Tests derive design-driven cases (boundary values, flow/pattern branches) on top of smoke tests, automated as committable API + Playwright UI tests; UAT & Release then runs a story-driven UAT and the release decision
 
 ### AI-Specific Adaptations
 
@@ -194,15 +202,16 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  │          ▼                                                  │
  │  4. Spawn Teammates   Launch Developer agents + worktrees   │
  │          ▼                                                  │
- │  5. PBI Pipeline      Per Developer / per PBI, in parallel: │
+ │  5. PBI Pipeline      Per Developer / per PBI, in parallel, │
+ │                         each in its own git worktree:       │
  │                         design → impl + black-box UT →      │
- │                         review (Codex when available), with │
+ │                         Codex cross-model review, with      │
  │                         deterministic termination gates     │
  │                         and real C0/C1 coverage,            │
  │                         then a 5-aspect Integrity stage     │
  │          ▼                                                  │
- │  6. Per-PBI Merge     SM merges each ready PBI immediately  │
- │                         (--no-ff + regression gate;         │
+ │  6. Per-PBI Merge     Gate: merge only after UT + review    │
+ │                         pass (--no-ff + regression gate;    │
  │                         3-strike escalation)                │
  │          ▼                                                  │
  │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
@@ -252,7 +261,7 @@ For detailed setup, see [quickstart.md](docs/quickstart.md); for autonomous-mode
 
 ### Command-line prerequisites
 
-- **Claude Code CLI** ≥ **2.1.172** and **Python 3.9+** — see the shared prerequisites under [Get Started](#install-early-access--build-from-source)
+- **Claude Code CLI** ≥ **2.1.172** and **Python 3.9+** — see the shared prerequisites under [Get Started](#install)
 - **tmux** (recommended) for the side-by-side dashboard layout
 
 #### Claude Code version
