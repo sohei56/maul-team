@@ -38,8 +38,8 @@ enum LaunchMode: String, CaseIterable, Identifiable, Codable {
 
     var subtitle: String {
         switch self {
-        case .normal:     return "You drive — interactive"
-        case .autonomous: return "Hands-off — runs on its own"
+        case .normal:     return "Human-in-the-loop — interactive"
+        case .autonomous: return "Loop engineering — runs on its own"
         }
     }
 
@@ -60,11 +60,11 @@ enum LaunchMode: String, CaseIterable, Identifiable, Codable {
                 + "products you want to shape interactively, or when you want full "
                 + "control over scope and acceptance."
         case .autonomous:
-            return "The team runs end-to-end without you. A watchdog re-launches "
-                + "Claude iterations and an agent Product Owner makes the scope and "
-                + "acceptance decisions, bounded by safety valves (max sprints / "
-                + "hours / failures). It needs a product brief to anchor scope — if "
-                + "one doesn't exist yet, the terminal guides you through writing it "
+            return "Specify the end state in a product brief — then an agent "
+                + "Product Owner and the Scrum Master keep the Scrum loop turning "
+                + "toward it without you. A watchdog re-launches Claude iterations, "
+                + "bounded by safety valves (max sprints / hours / failures). If no "
+                + "brief exists yet, the terminal guides you through writing it "
                 + "first. Best for letting the team build unattended."
         }
     }
