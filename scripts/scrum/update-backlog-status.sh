@@ -2,17 +2,17 @@
 # scripts/scrum/update-backlog-status.sh — set a PBI's status in .scrum/backlog.json.
 # Usage: update-backlog-status.sh <pbi-id> <status>
 #
-# Status is the sole SSOT for PBI lifecycle (13-value enum). All actors write
-# this directly through the wrapper; there is no derived projection from
-# pbi-state.json anymore.
+# Status is the sole SSOT for PBI lifecycle. All actors write this directly
+# through the wrapper; there is no derived projection from pbi-state.json
+# anymore.
 #
-# Status enum (matches docs/contracts/scrum-state/backlog.schema.json):
-#   SM-managed:   draft, refined, blocked, awaiting_cross_review,
-#                 cross_review, escalated, done, cancelled
-#   Dev-managed:  in_progress_design, in_progress_impl, in_progress_pbi_review,
-#                 in_progress_ut_run, in_progress_merge
+# The set of valid statuses is read at runtime from the DEPLOYED
+# docs/contracts/scrum-state/backlog.schema.json (status enum) — not
+# hardcoded here — so the wrapper and the schema cannot drift apart when the
+# enum evolves. Actor ownership (SM-managed vs Dev-managed values) is
+# documented in CLAUDE.md "PBI status flow" and docs/data-model.md.
 #
-# Actor ownership above is a doc-only convention (see CLAUDE.md "PBI
+# Actor ownership is a doc-only convention (see CLAUDE.md "PBI
 # status flow" and docs/data-model.md "State Transitions"). This wrapper
 # does NOT enforce which actor calls it for which transition — agents
 # are trusted to follow the documented graph. Adding machine-level
@@ -36,16 +36,18 @@ source "$HERE/lib/queries.sh"
 [ "$#" -eq 2 ] || fail E_INVALID_ARG "usage: update-backlog-status.sh <pbi-id> <status>"
 PBI="$1"; STATUS="$2"
 assert_pbi_id "$PBI"
-case "$STATUS" in
-  draft|refined|blocked|\
-in_progress_design|in_progress_impl|in_progress_pbi_review|\
-in_progress_ut_run|in_progress_merge|\
-awaiting_cross_review|cross_review|escalated|done|cancelled) ;;
-  *) fail E_INVALID_ARG "bad status: $STATUS" ;;
-esac
 
 PATHF=".scrum/backlog.json"
 SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+
+# Validate the status against the deployed schema's enum (single source —
+# no hardcoded copy to drift). Fast-fail with the accepted list so a caller
+# holding newer framework docs can tell a typo from a stale deployment.
+STATUS_ENUM="$(backlog_status_enum "$SCHEMA")"
+if ! printf '%s\n' "$STATUS_ENUM" | grep -Fxq "$STATUS"; then
+  ACCEPTED="$(printf '%s\n' "$STATUS_ENUM" | paste -sd, -)"
+  fail E_INVALID_ARG "bad status: $STATUS (accepted: $ACCEPTED). If a recently-added status is missing from this list, the deployed framework may be stale — check .scrum/deploy-stamp.json and re-run setup from the framework checkout."
+fi
 
 # Pre-check existence of the pbi-id (atomic_write cannot tell us "not found")
 pbi_in_backlog "$PBI" "$PATHF" || fail E_INVALID_ARG "pbi not found: $PBI"

@@ -76,6 +76,22 @@ alloc_next_id() {
   printf '%s%0*d' "$prefix" "$pad" "$next_n"
 }
 
+# backlog_status_enum <schema_path>
+# Print the PBI status enum from the deployed backlog.schema.json, one value
+# per line. The schema is the sole authority on valid statuses — wrappers must
+# derive their allow-lists from it rather than hardcode a parallel copy (a
+# hardcoded list drifts when the enum grows; see the `cancelled` incident in
+# docs/MIGRATION-scrum-state-tools.md). Calls `fail` from lib/errors.sh —
+# ensure errors.sh is sourced first.
+backlog_status_enum() {
+  local schema="$1"
+  [ -f "$schema" ] || fail E_FILE_MISSING "$schema"
+  local out
+  out="$(jq -r '.properties.items.items.properties.status.enum[]' "$schema" 2>/dev/null || true)"
+  [ -n "$out" ] || fail E_SCHEMA "cannot read status enum from $(basename "$schema")"
+  printf '%s\n' "$out"
+}
+
 # read_pbi_worktree_state <pbi_id>
 # Read .scrum/pbi/<pbi-id>/state.json and populate the globals
 # `PBI_WT`, `PBI_BRANCH`, `PBI_BASE_SHA`. Fails (via lib/errors.sh::fail)
