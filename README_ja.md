@@ -24,6 +24,10 @@
 </p>
 
 <p align="center">
+  <a href="https://sohei56.github.io/maul-team/"><strong>🌐 紹介ページ</strong></a> — チームが動く様子を見る
+</p>
+
+<p align="center">
   <a href="README.md">English</a> | <strong>日本語</strong>
 </p>
 
@@ -116,7 +120,10 @@ open macapp/build/MaulTeam.app
 2. **要件定義** — Scrum Master が Requirements Analyst を spawn し、要件を引き出して `requirements.md` を書く
 3. **Backlog Refinement** — SM が要件から PBI を作成・洗練する
 4. **Sprint Planning** — SM が Sprint Goal を提案し、あなたが承認または調整する
-5. **PBI Development (PBI ごとに並列)** — 各 Developer は conductor として、自分が担当する PBI 専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で `pbi-pipeline` スキルを走らせる。design → implementation + black-box UT → review（Codex が利用可能ならクロスモデル、未導入なら Claude ベースにフォールバック）のラウンドを、決定論的な終了ゲートと実測の C0/C1 カバレッジで回す。ready-to-merge の前には Integrity ステージとして 5 つの観点別レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff に対して走る。PBI 完了時には SM がマージする。
+5. **PBI Development (PBI ごとに並列)** — 各 Developer が担当 PBI の `pbi-pipeline` スキルを回す:
+   - **worktree 分離 × 並列** — Developer ごとに専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で開発するため、PBI 同士が干渉せずに並走する
+   - **クロスモデルレビュー** — design → implementation + black-box UT の各 Round を **Codex** がレビューし (未導入なら Claude ベースにフォールバック)、終了は決定論的なゲートで判定する
+   - **マージはゲート制** — black-box UT が実測の C0/C1 カバレッジ付きで通り、5 観点の Integrity レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff を通過して初めて、SM がマージする
 6. **Cross-Review** — 全 PBI のマージ後、SM が監査専任の cross-review を実行: リポジトリ全体への 4 軸 `codebase-audit` (spec-conformance / logic-defect / redundancy / product-security)。non-blocking で、Critical/High の指摘は次 Sprint の draft PBI になる
 7. **Sprint Review** — SM がアプリを起動し、完了した PBI を順にデモ。あなたがそれぞれの動作を確認する
 8. **Retrospective** — チームが振り返り、次 Sprint 以降への改善を記録する
@@ -128,6 +135,8 @@ open macapp/build/MaulTeam.app
 
 ## Product Owner としてのあなたの役割
 
+これがデフォルトの **human-in-the-loop** モードです: デリバリーはチームが回し、あなたは要所のゲートでプロダクト判断を下します。
+
 | あなたがやること | AI チームがやること |
 |--------|-----------------|
 | 何を作りたいかを伝える | 要件を引き出し、詳細に書き起こす |
@@ -136,15 +145,15 @@ open macapp/build/MaulTeam.app
 | UAT で欠陥を報告する | 欠陥を修正し、再テストする |
 | リリース判断を下す | 自動テストスイートを実行する |
 
-> PO の席は `po_mode=agent` (自律モード) で `product-owner` エージェントに委譲することもできます。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)。
+> ループの中に座らない選択肢もあります。**自律モード** (`po_mode=agent`) では PO の席を `product-owner` エージェントに委譲します: 目指すべき状態をプロダクトブリーフで最初に指定すれば、あとはエージェント PO と Scrum Master がその状態に向かってスクラムを回し続けます — 下記 [Loop Engineering](#loop-engineering) の考え方です。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)。
 
 ## Loop Engineering
 
 **Loop engineering (ループエンジニアリング)** は、単発のプロンプトではなく、エージェントが計画・実行・検証・改善を繰り返す仕組みを設計する考え方です。Maul Team はこれを **Development pipeline**、**Sprint**、**自律実行**の 3 層で実装しています。
 
-- **Development pipeline ループ (最内 — 構築と検証)。** PBI ごとに design → implementation + black-box unit test → review を、決定論的な終了ゲート (success / stagnation / divergence / hard cap) が通るまで Round として反復する。Codex が利用可能ならクロスモデルレビューを行い、未導入なら Claude ベースのレビューにフォールバックする。C0/C1 カバレッジは実測ツールで計測する。
+- **Development pipeline ループ (最内 — 構築と検証)。** PBI ごとに専用の git worktree で、design → implementation + black-box unit test → Codex クロスモデルレビューの Round を、決定論的な終了ゲート (success / stagnation / divergence / hard cap) が通るまで反復する。テストとレビューを通過するまでマージは開かない。詳細は [Scrum 開発の流れ](#scrum-開発の流れ)。
 - **Sprint ループ (中間 — ドリフト検出と自己改善)。** 各 Sprint の末尾で、マージ済みコードと要件・設計の乖離を検出するリポジトリ全体・4 軸の `codebase-audit` を実行する。Critical/High の指摘は次 Sprint の draft PBI として起票され、Retrospective も同じ形でプロセス改善を前へ送る。プロダクトとプロセスの双方が hill-climb する。*(LangChain の hill-climbing ループ。)*
-- **自律実行ループ (最外 — イベント駆動・無人)。** プロダクトブリーフを共同作成すれば、PO の席さえエージェントになる (`po_mode=agent`)。外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
+- **自律実行ループ (最外 — イベント駆動・無人)。** 目指すべき状態をプロダクトブリーフとして一度指定すれば、PO の席さえエージェントになる (`po_mode=agent`): エージェント PO と Scrum Master がその状態に向かってスクラムを回し続け、外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
 
 主なリスクは、ループの出力をそのまま受け入れてしまう **cognitive surrender (認知的な明け渡し)** です。Maul Team は、state-write とブランチのルール、決定論的なゲート、実測カバレッジ、曖昧な要件のエスカレーションによってこれを抑えます。
 
@@ -153,14 +162,15 @@ open macapp/build/MaulTeam.app
 ## 機能
 
 - **ネイティブ Mac アプリ** — MaulTeam.app はチーム全体を 1 つの macOS ウィンドウで動かす (プロジェクトピッカー、埋め込み Scrum Master ターミナル、タブ式コードエディタ、native ダッシュボード)。
-- **19 個の Skill** で Scrum ライフサイクル全体をカバー: プロダクトブリーフ共同作成、要件抽出、バックログリファインメント、スプリントプランニング、PBI Development (design + impl + UT + per-PBI review)、per-PBI merge、cross-review (リポジトリ全体の codebase audit)、sprint review、retrospective、integration testing、UAT & release
+- **19 個の Skill でライフサイクル全体をカバー** — プロダクトブリーフ共同作成から要件定義・プランニング・PBI 開発・マージ・監査・レビュー・レトロスペクティブ、そして integration testing・UAT & release まで、すべてのセレモニーがバージョン管理された検査可能な Skill
 - **マルチエージェント連携** — Scrum Master (Delegate モード) が Sprint あたり最大 6 並列の Developer (1 PBI に Developer 1 名、上限 6) を統括
-- **自律 PO モード** — AI Product Owner でPOさえもエージェントに置き換えて開発をエンドツーエンドに駆動。外側の Ralph-Loop ウォッチドッグ がヘッドレスの Claude セッションを再起動し、安全弁を強制しつつレポートを `.scrum/reports/` に書き出す。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)
+- **ゲート制の並列開発** — Developer は分離された git worktree で PBI を並列に開発し、各 Round を Codex がクロスレビュー。black-box UT と Integrity レビューを通過した PBI だけがマージされる
+- **自律モード (Loop Engineering)** — 目指すべき状態をプロダクトブリーフで指定し、PO の席さえ AI Product Owner に委譲。エージェント PO と Scrum Master がその状態に向かってスクラムをエンドツーエンドに回し続ける。外側の Ralph-Loop ウォッチドッグがヘッドレスの Claude セッションを再起動し、安全弁を強制しつつレポートを `.scrum/reports/` に書き出す。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **設計書ガバナンス** — 不可変の catalog (`catalog.md`) + 編集可能な有効化設定 (`catalog-config.json`)をstatus-gate フックで強制することで、AIが作成するドキュメントを制御
-- **品質フック** — status gate、path guard、branch-ops guard、作業完了時フロー強制 (`stop-dispatch.sh` → `dashboard-event.sh` + `completion-gate.sh`)、quality gate (Definition of Done)、session context restoration、加えて human モードでは外部の stall watchdog (`scripts/stall-watchdog.sh`)でエージェントに守らせたい挙動を仕組み化
+- **品質フック** — status gate、path guard、branch-ops guard、作業完了時フローと Definition of Done のチェック、session context restoration、外部の stall watchdog — エージェントに守らせたい挙動を、スキップできない仕組みに変換
 - **状態の永続化** — すべての状態を `.scrum/` の JSON ファイルに保存。セッション再開可能
 - **Retrospective 駆動の改善** — 過去 Sprint の改善が自動的に反映される
-- **自動テスト** — Integration Tests が smoke test (unit + e2e) に加えて境界値・フロー/パターン分岐網羅の設計駆動テストケースを導出し、API テスト + Playwright UI テストとしてコミット可能な形で自動化。続く UAT & Release が Playwright MCP / Chrome DevTools MCP 支援のストーリー駆動 UAT とリリース判定を実行
+- **自動テスト** — Integration Tests が設計駆動のテストケース (境界値、フロー/パターン分岐) を smoke test に加えて導出し、API + Playwright UI テストとしてコミット可能な形で自動化。続く UAT & Release がストーリー駆動 UAT とリリース判定を実行
 
 ### AI 特有の適応
 
@@ -197,15 +207,16 @@ open macapp/build/MaulTeam.app
  │          ▼                                                  │
  │  4. Spawn Teammates   Launch Developer agents + worktrees   │
  │          ▼                                                  │
- │  5. PBI Pipeline      Per Developer / per PBI, in parallel: │
+ │  5. PBI Pipeline      Per Developer / per PBI, in parallel, │
+ │                         each in its own git worktree:       │
  │                         design → impl + black-box UT →      │
- │                         review (Codex when available), with │
+ │                         Codex cross-model review, with      │
  │                         deterministic termination gates     │
  │                         and real C0/C1 coverage,            │
  │                         then a 5-aspect Integrity stage     │
  │          ▼                                                  │
- │  6. Per-PBI Merge     SM merges each ready PBI immediately  │
- │                         (--no-ff + regression gate;         │
+ │  6. Per-PBI Merge     Gate: merge only after UT + review    │
+ │                         pass (--no-ff + regression gate;    │
  │                         3-strike escalation)                │
  │          ▼                                                  │
  │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
@@ -239,7 +250,7 @@ cd /path/to/your/project
 # Scrum チームを起動 (必要なら Python 依存を自動インストール)
 sh /path/to/maul-team/scrum-start.sh
 
-# あるいは: 自律 PO モードで起動 (キーボード前に人間が不要)
+# あるいは: 自律モード — ブリーフでゴールを一度指定すれば、エージェント PO + SM が無人でループ
 sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 

@@ -123,6 +123,12 @@ public release is gated on Apple Developer enrollment (Developer ID certificate
 - **DMG** — `sh macapp/scripts/make-dmg.sh` produces
   `build/MaulTeam-<ver>.dmg` (zero deps, `hdiutil`) with an `/Applications`
   drag-install symlink; it also signs the DMG when `DEVELOPER_ID_APP` is set.
+  The installer window is styled via Finder scripting (background rendered by
+  `scripts/dmg-background.swift` at build time, icon layout via `osascript`) —
+  the first local run prompts "Terminal wants to control Finder" (TCC
+  Automation); click Allow. Styling is best-effort: on failure the script
+  ships an unstyled dmg (`DMG_STYLE_STRICT=1` to fail hard, `DMG_NO_STYLE=1`
+  to skip).
 - **Release CI** — `.github/workflows/release.yml` fires on
   `release: published` (a bare tag push does **not** trigger it — cutting a
   Release is an explicit opt-in): it builds universal2, packages the DMG,

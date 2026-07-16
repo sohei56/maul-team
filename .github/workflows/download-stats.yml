@@ -1,0 +1,56 @@
+name: Record release download counts
+
+# Appends a weekly snapshot of GitHub Releases asset download counts to
+# `metrics/downloads.jsonl` (one JSON object per line). `download_count` is
+# cumulative-only in the API, so the funnel's bottom step (dmg downloads over
+# time) can only be reconstructed from periodic snapshots like these.
+# The file lives outside `site/` on purpose: pages.yml redeploys on any
+# `site/**` push, and a metrics commit should not trigger a Pages deploy.
+on:
+  schedule:
+    - cron: "0 21 * * 0" # weekly, Sunday 21:00 UTC = Monday 06:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-stats
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Snapshot download_count into metrics/downloads.jsonl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Append snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p metrics
+          # -s (slurp) + add: --paginate emits one array per page; merge them
+          # so multi-page release lists still produce a single snapshot line.
+          gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate |
+            jq -c -s --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+              add // []
+              | [ .[] | {tag: .tag_name, assets: [ .assets[] | {name: .name, download_count: .download_count} ]} ]
+              | {date: $date,
+                 releases: .,
+                 total: ([ .[].assets[].download_count ] | add // 0)}
+            ' >> metrics/downloads.jsonl
+
+      - name: Commit snapshot
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add metrics/downloads.jsonl
+          if git diff --cached --quiet; then
+            echo "No change to commit."
+            exit 0
+          fi
+          git commit -m "chore(metrics): weekly release download snapshot [skip ci]"
+          git push

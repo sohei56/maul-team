@@ -91,6 +91,13 @@ struct MaulTeamApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    UpdateChecker.shared.checkForUpdates()
+                }
+            }
+        }
 
         Settings {
             AdvancedSettingsView()
