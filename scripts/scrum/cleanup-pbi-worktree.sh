@@ -18,6 +18,10 @@ STATE=".scrum/pbi/$PBI/state.json"
 BACKLOG=".scrum/backlog.json"
 [ -f "$BACKLOG" ] || fail E_FILE_MISSING "$BACKLOG"
 STATUS="$(get_pbi_status "$PBI" "$BACKLOG")"
+# This list is a POLICY subset (which statuses permit cleanup), not a copy of
+# the schema enum — it stays hardcoded on purpose. A lint test
+# (tests/lint/no-hardcoded-status-enum.bats) pins every value here to the
+# schema enum so a renamed/removed status cannot linger silently.
 case "$STATUS" in
   awaiting_cross_review|cross_review|escalated|done|cancelled) ;;
   *) fail E_INVALID_ARG "refuse to cleanup pbi $PBI in status=$STATUS (need awaiting_cross_review|cross_review|escalated|done|cancelled)" ;;

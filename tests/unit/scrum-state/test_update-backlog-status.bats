@@ -180,3 +180,48 @@ backlog_updated_at() {
   [ "$status" -eq 0 ]
   [ "$(backlog_status pbi-001)" = "done" ]
 }
+
+# --- allow-list is derived from the DEPLOYED schema, not hardcoded ---------
+# The wrapper resolves the schema relative to its own location (deployed:
+# .scrum/scripts/../../docs/contracts/scrum-state). To exercise a schema that
+# differs from the framework's, reproduce the deployed layout in the sandbox
+# and run the deployed copy.
+
+_deploy_wrapper() {
+  mkdir -p .scrum/scripts/lib
+  cp "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" .scrum/scripts/
+  cp "$PROJECT_ROOT/scripts/scrum/lib/"*.sh .scrum/scripts/lib/
+}
+
+_schema_enum_edit() {
+  # _schema_enum_edit <jq_expr> — rewrite the sandbox copy of the schema.
+  jq "$1" docs/contracts/scrum-state/backlog.schema.json > schema.tmp.json
+  mv schema.tmp.json docs/contracts/scrum-state/backlog.schema.json
+}
+
+@test "update-backlog-status: accepts a status newly added to the deployed schema (no wrapper change)" {
+  _deploy_wrapper
+  _schema_enum_edit '.properties.items.items.properties.status.enum += ["parked"]'
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli .scrum/scripts/update-backlog-status.sh pbi-001 parked
+  [ "$status" -eq 0 ]
+  [ "$(backlog_status pbi-001)" = "parked" ]
+}
+
+@test "update-backlog-status: rejects a status absent from the deployed schema with a stale-deployment hint" {
+  # Simulate the `cancelled` drift incident: deployed schema predates the value.
+  _deploy_wrapper
+  _schema_enum_edit '.properties.items.items.properties.status.enum -= ["cancelled"]'
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli .scrum/scripts/update-backlog-status.sh pbi-001 cancelled
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad status: cancelled"* ]]
+  [[ "$output" == *"accepted:"* ]]
+  [[ "$output" == *"deployed framework may be stale"* ]]
+}
+
+@test "update-backlog-status: fails E_SCHEMA when the schema enum is unreadable" {
+  _deploy_wrapper
+  _schema_enum_edit 'del(.properties.items.items.properties.status.enum)'
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli .scrum/scripts/update-backlog-status.sh pbi-001 draft
+  [ "$status" -eq 65 ]
+  [[ "$output" == *"cannot read status enum"* ]]
+}

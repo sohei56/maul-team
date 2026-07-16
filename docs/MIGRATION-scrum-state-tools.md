@@ -136,13 +136,62 @@ The wrappers probe for a JSON Schema validator at runtime via `lib/check-validat
 
 `scripts/setup-dev.sh` probes and reports the resolved runner. CI / test runs that need determinism set `SCRUM_VALIDATOR_OVERRIDE` to one of `ajv`, `check-jsonschema`, `jsonschema-cli`, `python` to bypass auto-detection. If none of the four runners is available, `lib/check-validator.sh` prints `[scrum-tool] E_NO_VALIDATOR: …` to stderr and exits `1`; the calling wrapper fails its schema-validation step and exits `65` (`E_SCHEMA`) with that message embedded (see § Failure modes).
 
+## State migrations & upgrade safety (2026-07-17)
+
+The framework evolves continuously and schema changes will keep
+happening. A target project that starts using a newer framework
+version must not break — the `cancelled` incident (a deployed
+`update-backlog-status.sh` predating the enum addition rejected the
+value while the schema allowed it, and the in-target agent misread
+the drift as "no source wrapper exists") is the failure class this
+machinery closes.
+
+Four mechanisms, no version bookkeeping:
+
+1. **Schema-derived allow-lists.** `update-backlog-status.sh` reads
+   the status enum from the *deployed* `backlog.schema.json`
+   (`lib/queries.sh::backlog_status_enum`) instead of hardcoding a
+   parallel copy, so the wrapper and the schema cannot drift apart.
+   Policy subsets (e.g. `cleanup-pbi-worktree.sh`'s terminal list)
+   stay hardcoded but are pinned to the enum by
+   `tests/lint/no-hardcoded-status-enum.bats`.
+2. **Idempotent migrations, run on every launch.**
+   `scripts/scrum/migrations/NNN-<slug>.sh` (deployed to
+   `.scrum/scripts/migrations/`) are executed in lexical order by
+   `migrate-state.sh`. Contract: cwd = target root; idempotent
+   (second run is a cheap no-op — there is deliberately **no version
+   cursor**; one can be added later without changing the contract if
+   the migration count ever makes launches slow); missing target
+   files are a clean no-op; rewrites are schema-validated; optional
+   `--dry-run`. A breaking schema change ships its migration **in the
+   same commit** — the NNN prefix provides stable ordering, and a
+   forgotten migration is caught loudly by the validation phase, not
+   silently.
+3. **Launch-time validation gate.** `scrum-start.sh` runs
+   `bash .scrum/scripts/migrate-state.sh` right after `setup-user.sh`
+   and **hard-fails the launch** (exit 65 for validation, listing
+   every offender) instead of letting the team run on drifted state.
+   Wrapper-written SSOT files block; hook-owned hot-path files
+   (`communications` / `dashboard` / `autonomy` / `stop-gate`) only
+   WARN, because their writers deliberately skip per-append
+   re-validation (see `docs/contracts/scrum-state/README.md`) and a
+   telemetry glitch must not brick a launch. `--check` runs the
+   validation phase alone.
+4. **Clean-slate wrapper deploy + stamp.** `setup-user.sh` deletes
+   deployed `.scrum/scripts/**/*.sh` before copying (the directory is
+   framework-owned), so renamed/removed wrappers cannot linger, and
+   writes `.scrum/deploy-stamp.json` (framework sha, dirty flag,
+   `deployed_at`, `framework_root`) so "which framework rev are these
+   wrappers from?" is answerable from inside the target. Wrapper
+   error messages and the gate point at the stamp.
+
 ## Known gaps (follow-ups)
 
 The current wrapper set covers the pbi-pipeline migration, the four migrated skill SKILL files, and the sprint-planning per-PBI item-field updates. Remaining gaps:
 
 1. ~~**Sprint creation / init** (sprint-planning step 8) requires a fresh `.scrum/sprint.json`; no `init-sprint.sh` wrapper exists yet — the existing wrappers all assume the file is present (`E_FILE_MISSING` otherwise).~~ **Resolved**: `init-sprint.sh` lands `.scrum/sprint.json` AND updates `state.current_sprint_id` in one wrapper call performing two sequential atomic writes (rollback on second-write failure), rather than a single atomic transaction across both files. Closes the recurring `current_sprint_id` lag bug surfaced by retrospectives across target projects (IMP-003 / IMP-009 / imp-s28-02).
 2. **Append-only siblings** — `.scrum/session-map.json` has no schema and no wrapper. Out of scope for this PR; defer until the MVP soaks. ~~`.scrum/test-results.json`~~ **Resolved**: same failure mode as the two below — the `smoke-test` skill initialized it with raw JSON and both it and `design-completeness-check` appended TestCategories via the agent tool surface, which the `pre-tool-use-scrum-state-guard.sh` blocks; downstream, `completion-gate.sh` (integration_sprint) and `append-po-decision.sh` (`release_decision=go`) gate on the file existing with a green `overall_status`, so a blocked write could deadlock an autonomous Integration Sprint. `test-results.schema.json` + `record-test-result.sh` land the wrapper (upsert by `--name` so a suite re-run replaces its category with fresh counts; `overall_status` recomputed on every call). ~~`.scrum/improvements.json`~~ **Resolved**: surfaced when an autonomous-mode Retrospective hit the `pre-tool-use-scrum-state-guard.sh` block writing the entry. `improvements.schema.json` + `append-improvement.sh` land the missing wrapper (auto-assigned `imp-NNNN`, optional `dec_id` for the `po_mode=agent` `PO_DECISION_REQUEST → improvement` linkage). ~~3-Sprint consolidation is still wrapper-less~~ **Resolved**: `consolidate-improvements.sh` executes the retrospective's archival decision (explicit `--archive imp-NNNN` flags; zero flags records a reviewed-nothing-stale pass) and bumps `last_consolidation_sprint` in one atomic schema-validated write; already-archived ids skip-warn (idempotent retry), unknown ids hard-fail. Left unconsolidated, a target project's active list grew past 150 entries with the pass 20+ Sprints overdue. ~~`.scrum/sprint-history.json`~~ **Resolved**: same failure mode — `sprint-review` SKILL step 7 instructs an append the guard then blocks, and `completion-gate.sh` makes the `sprint_review` exit hinge on the entry existing (so a missing wrapper can stall the Stop gate, not just lose data). `sprint-history.schema.json` + `append-sprint-history.sh` land the wrapper (`--id`/`--goal` required, optional `--type`/`--pbis-completed`/`--pbis-total`/`--started-at`/`--completed-at`; idempotent on `--id` so a retried Review never double-counts a Sprint in the watchdog `max_sprints` tally).
-3. **Read-side validation** — `dashboard/app.py` and the various hooks that read `.scrum/*.json` do not validate against the schemas. Defensive read-side patches (e.g. UnicodeDecodeError handling) stay; schema-driven validation is a future hardening pass.
+3. **Read-side validation** — ~~launch-time~~ **Partially resolved**: `migrate-state.sh` now validates every present `.scrum/*.json` against the deployed schemas at launch (see § State migrations & upgrade safety), so a target cannot start a Sprint on drifted state. Still open: `dashboard/app.py` and the hooks do not validate on their own reads mid-session; defensive read-side patches (e.g. UnicodeDecodeError handling) stay, and per-read schema validation remains a future hardening pass.
 4. **`TeammateIdle` hook gate as the source-level fix for silent-death teammates.** The current `scripts/stall-watchdog.sh` daemon catches the *symptom* (no `.scrum/dashboard.json` / `.scrum/pbi/*/` mtime change inside `idle_threshold_minutes`) but the *cause* — Agent-tool teammates terminating without surfacing the cause to the SM — is not handled at the source. A cleaner fix is to gate `TeammateIdle` events in a hook so the SM is woken with the actual `reason`/`exit-code` payload instead of inferring liveness from filesystem mtimes. **Blocker for the spike**: the `TeammateIdle` payload contract (which fields are guaranteed, when the event fires, what `reason` values exist) is not documented in any current Claude Code reference — needs a live-CLI spike on a recent release to nail down the schema before the hook can be written. Until then the external watchdog stands in.
 5. **Single-Stop-hook display verification.** The dispatcher (`hooks/stop-dispatch.sh`) folds two registered Stop hooks into one to reduce the Claude Code session UI's `"Ran 2 stop hooks"` notification to `"Ran 1 stop hook"`. The wording, the threshold for plural-vs-singular, and whether the timeline counts the dispatcher-spawned child processes as separate hooks are all **unofficial implementation details** of the CLI's session UI — not part of any public contract. The display change after the rollout has therefore been reasoned through but not verified against a live session; the first autonomous-mode dogfooding run should confirm the count drops to 1 (or note the actual observed wording for follow-up).
 
@@ -190,15 +239,17 @@ unifies these into a single 12-value `status` enum and removes the
 the terminal `cancelled` status.)
 
 The one-shot migration is now performed via
-`scripts/scrum/migrate-legacy.sh`, which folds the v1→v2 status remap
-into the broader legacy-cleanup pass (lowercases enum casing, drops
-removed fields, etc.). The previously-named
-`scripts/migrate-status-v2.sh` was retired in favour of that single
-entry point; the original status mapping table, run procedure, and
-caveats are preserved under the retiring commit's snapshot of this
-file. Concretely: `in_progress → in_progress_design` and
-`review → awaiting_cross_review` are applied in
-`migrate-legacy.sh`'s backlog branch.
+`scripts/scrum/migrations/001-legacy-to-ssot.sh` (formerly
+`scripts/scrum/migrate-legacy.sh`; run automatically by
+`migrate-state.sh` — see § State migrations & upgrade safety), which
+folds the v1→v2 status remap into the broader legacy-cleanup pass
+(lowercases enum casing, drops removed fields, etc.). The
+previously-named `scripts/migrate-status-v2.sh` was retired in favour
+of that single entry point; the original status mapping table, run
+procedure, and caveats are preserved under the retiring commit's
+snapshot of this file. Concretely: `in_progress → in_progress_design`
+and `review → awaiting_cross_review` are applied in the migration's
+backlog branch.
 
 The dashboard event type `phase_transition` was renamed to
 `status_transition` in v2. New writes always use `status_transition`
@@ -238,7 +289,7 @@ For consistency in dashboards and refinement audit logging,
 backfill an explicit `kind: "code"` on every existing item:
 
 ```bash
-.scrum/scripts/migrate-add-kind-field.sh
+.scrum/scripts/migrations/002-add-kind-field.sh
 ```
 
 The wrapper is idempotent (second run prints `no-op`). It refuses
@@ -251,12 +302,15 @@ shipping the changes keeps fixtures honest.
 ### Operator checklist
 
 1. Pull the framework repo to a revision that includes PR-1 .. PR-5.
-2. Re-run `setup-user.sh <target>` so the target project picks up
-   the updated `scripts/scrum/*.sh` (including
-   `migrate-add-kind-field.sh`) and the schema files.
-3. In the target project, run
-   `.scrum/scripts/migrate-add-kind-field.sh`.
-4. Optionally hand-promote already-doc-shaped PBIs to
+2. From inside the target project, relaunch via
+   `sh <framework>/scrum-start.sh` — the launcher re-runs
+   `setup-user.sh` (which takes **no arguments** and deploys into the
+   current working directory) and then runs all state migrations and
+   schema validation automatically (§ State migrations & upgrade
+   safety). For a deploy without launching, run
+   `cd <target> && sh <framework>/scripts/setup-user.sh` followed by
+   `bash .scrum/scripts/migrate-state.sh`.
+3. Optionally hand-promote already-doc-shaped PBIs to
    `kind="docs"` via
    `.scrum/scripts/set-backlog-item-field.sh <pbi-id> kind docs`.
    This is purely cosmetic until those PBIs re-enter the pipeline;

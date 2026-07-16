@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# tests/unit/scrum-state/test_migrate-add-kind-field.bats —
+# tests/unit/scrum-state/test_migration-002-add-kind-field.bats —
 # One-shot migration that backfills kind="code" on existing PBIs.
 
 setup() {
@@ -47,33 +47,33 @@ _seed_legacy_backlog() {
 EOF
 }
 
-@test "migrate-add-kind-field: backfills kind=code on every legacy item" {
+@test "002-add-kind-field: backfills kind=code on every legacy item" {
   _seed_legacy_backlog
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"backfilled kind=\"code\" on 3 items"* ]]
   run jq -r '[.items[].kind] | unique[]' .scrum/backlog.json
   [ "$output" = "code" ]
 }
 
-@test "migrate-add-kind-field: idempotent (second run is no-op)" {
+@test "002-add-kind-field: idempotent (second run is no-op)" {
   _seed_legacy_backlog
-  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
   HASH_BEFORE="$(jq -S '.items' .scrum/backlog.json | shasum | awk '{print $1}')"
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"no-op"* ]]
   HASH_AFTER="$(jq -S '.items' .scrum/backlog.json | shasum | awk '{print $1}')"
   [ "$HASH_BEFORE" = "$HASH_AFTER" ]
 }
 
-@test "migrate-add-kind-field: preserves pre-existing kind=docs" {
+@test "002-add-kind-field: preserves pre-existing kind=docs" {
   _seed_legacy_backlog
   # Promote pbi-002 to kind=docs (as if refinement had already tagged it
   # before the migration ran).
   jq '(.items[] | select(.id == "pbi-002")).kind = "docs"' .scrum/backlog.json > tmp.json
   mv tmp.json .scrum/backlog.json
-  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
   run jq -r '.items[] | select(.id == "pbi-002") | .kind' .scrum/backlog.json
   [ "$output" = "docs" ]
   run jq -r '.items[] | select(.id == "pbi-001") | .kind' .scrum/backlog.json
@@ -82,14 +82,25 @@ EOF
   [ "$output" = "code" ]
 }
 
-@test "migrate-add-kind-field: refuses when backlog.json missing" {
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
-  [ "$status" -eq 67 ]
+@test "002-add-kind-field: clean no-op when backlog.json missing (migration contract)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"skip"* ]]
 }
 
-@test "migrate-add-kind-field: no-op on already-modern backlog (all kinds set)" {
+@test "002-add-kind-field: --dry-run reports the plan without writing" {
+  _seed_legacy_backlog
+  HASH_BEFORE="$(shasum .scrum/backlog.json | awk '{print $1}')"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh" --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"would backfill"*"3 items"* ]]
+  HASH_AFTER="$(shasum .scrum/backlog.json | awk '{print $1}')"
+  [ "$HASH_BEFORE" = "$HASH_AFTER" ]
+}
+
+@test "002-add-kind-field: no-op on already-modern backlog (all kinds set)" {
   cp "$PROJECT_ROOT/tests/fixtures/valid-backlog-kind-docs.json" .scrum/backlog.json
-  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrate-add-kind-field.sh"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/migrations/002-add-kind-field.sh"
   [ "$status" -eq 0 ]
   [[ "$output" == *"no-op"* ]]
 }

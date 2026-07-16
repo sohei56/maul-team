@@ -77,7 +77,7 @@ docs/design/             # Design document governance
 bats tests/unit/ tests/lint/
 
 # Lint shell scripts
-shellcheck scrum-start.sh scripts/*.sh scripts/lib/*.sh scripts/scrum/*.sh scripts/scrum/lib/*.sh scripts/autonomous/*.sh scripts/autonomous/lib/*.sh hooks/*.sh hooks/lib/*.sh
+shellcheck scrum-start.sh scripts/*.sh scripts/lib/*.sh scripts/scrum/*.sh scripts/scrum/lib/*.sh scripts/scrum/migrations/*.sh scripts/autonomous/*.sh scripts/autonomous/lib/*.sh hooks/*.sh hooks/lib/*.sh
 
 # Lint/format Python
 ruff check dashboard/
@@ -207,11 +207,22 @@ are written **without** a `.scrum/scripts/*.sh` wrapper because
 they are hot-path bookkeeping rather than agent state — for
 example, `.scrum/stop-gate.json`, the Stop-hook dedup ledger
 written by `hooks/lib/stop-gate-state.sh` (human mode only; schema
-`stop-gate.schema.json`), and `.scrum/runtime.json`, which records
+`stop-gate.schema.json`), `.scrum/runtime.json`, which records
 the tmux session, the SM pane id, and the stall-watchdog PID
 written by `scrum-start.sh` (consumed by
-`scripts/stall-watchdog.sh`). The canonical file-by-file writer
-enumeration lives in `docs/contracts/scrum-state/README.md`. These
+`scripts/stall-watchdog.sh`), and `.scrum/deploy-stamp.json`,
+which records the framework revision `setup-user.sh` deployed the
+wrappers/schemas from (staleness diagnosis). The canonical
+file-by-file writer
+enumeration lives in `docs/contracts/scrum-state/README.md`.
+Framework upgrades are made safe by the launch-time gate: on every
+`scrum-start.sh` launch, `migrate-state.sh` runs all idempotent
+migrations (`scripts/scrum/migrations/NNN-*.sh`) and validates
+existing `.scrum/*.json` against the freshly-deployed schemas,
+hard-failing before the team spawns; a breaking schema change must
+ship its migration in the same commit. See
+`docs/MIGRATION-scrum-state-tools.md` § State migrations & upgrade
+safety. These
 files still match the guard's `.scrum/**/*.json` pattern, but their
 writers run outside agent tool calls (hook process / launcher
 script), so the guard never intercepts them; agents editing these

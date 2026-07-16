@@ -227,27 +227,28 @@ jq_write_inplace() {
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 sh "$SCRIPT_DIR/scripts/setup-user.sh"
 
+# --- Upgrade gate: migrate state + validate against the deployed schemas ---
+# setup-user.sh above just refreshed .scrum/scripts/ and the schemas; existing
+# .scrum/ state written under an older framework version must be migrated
+# (idempotent migrations, lexical order) and must validate against the new
+# schemas BEFORE the team is spawned. Hard-fail: launching agents on drifted
+# state produces confusing mid-Sprint failures. Fresh projects (no state
+# files yet) flow through as a no-op. Deployed copy on purpose — its schema
+# probe resolves against the target project, and it requires bash (sourced
+# libs use BASH_SOURCE).
+if ! bash .scrum/scripts/migrate-state.sh; then
+  echo "" >&2
+  echo "ERROR: .scrum state migration/validation failed — NOT launching the team." >&2
+  echo "  Inspect:  bash .scrum/scripts/migrate-state.sh --check" >&2
+  echo "  Deployed framework rev: .scrum/deploy-stamp.json" >&2
+  exit 1
+fi
+
 # --- Detect new vs resume and set initial prompt ---
 IS_NEW_PROJECT=0
 if [ -f ".scrum/state.json" ]; then
   echo ""
   echo "Existing project detected — resuming from saved state."
-
-  # Migrate legacy .scrum/*.json (pre-SSOT layout) idempotently before launch.
-  # No-op if files are already canonical. Keeps .legacy.bak alongside changes.
-  if [ -x "$SCRIPT_DIR/scripts/scrum/migrate-legacy.sh" ]; then
-    sh "$SCRIPT_DIR/scripts/scrum/migrate-legacy.sh" || \
-      echo "Warning: migrate-legacy.sh reported issues (continuing)" >&2
-  fi
-
-  # Backfill `kind: "code"` on backlog items lacking it (idempotent one-shot).
-  # The script fails with E_FILE_MISSING when .scrum/backlog.json is absent,
-  # so gate on the file's existence.
-  if [ -x "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" ] \
-     && [ -f ".scrum/backlog.json" ]; then
-    sh "$SCRIPT_DIR/scripts/scrum/migrate-add-kind-field.sh" || \
-      echo "Warning: migrate-add-kind-field.sh reported issues (continuing)" >&2
-  fi
 
   phase="$(jq -r '.phase // "unknown"' .scrum/state.json)"
   echo "  Current phase: $phase"

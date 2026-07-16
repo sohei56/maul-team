@@ -207,9 +207,19 @@ ensure_gitignore_excludes_scrum
 # the wrappers, agents have no permitted way to mutate state.
 # Deploy under .scrum/scripts/ to keep framework artifacts out of the user's
 # scripts/ tree (where they were easy to confuse with project deliverables).
+#
+# Clean-slate deploy: .scrum/scripts/ is framework-owned (no user files live
+# here), so stale wrappers from renamed/removed framework scripts are deleted
+# rather than left to linger — an old wrapper that keeps answering with
+# outdated behavior is exactly the drift class behind the `cancelled`
+# incident (docs/MIGRATION-scrum-state-tools.md § State migrations).
 echo "Copying scrum-state wrappers to $TARGET_DIR/.scrum/scripts/..."
+rm -f "$TARGET_DIR/.scrum/scripts/"*.sh \
+      "$TARGET_DIR/.scrum/scripts/lib/"*.sh \
+      "$TARGET_DIR/.scrum/scripts/migrations/"*.sh
 copy_tree "$PROJECT_ROOT/scripts/scrum/*.sh" "$TARGET_DIR/.scrum/scripts" true
 copy_tree "$PROJECT_ROOT/scripts/scrum/lib/*.sh" "$TARGET_DIR/.scrum/scripts/lib"
+copy_tree "$PROJECT_ROOT/scripts/scrum/migrations/*.sh" "$TARGET_DIR/.scrum/scripts/migrations" true
 
 # --- Copy PBI Pipeline configuration template ---
 # Provide .scrum-config.example.json so users can copy it to .scrum/config.json
@@ -226,12 +236,37 @@ if [ -d "$PROJECT_ROOT/docs/contracts" ]; then
   cp "$PROJECT_ROOT/docs/contracts/"*.schema.json "$TARGET_DIR/docs/contracts/" 2>/dev/null || true
 fi
 # --- Copy scrum-state SSOT schemas ---
-# Required by scripts/scrum/migrate-legacy.sh (and any hand-run validation).
+# Required by scripts/scrum/migrate-state.sh (and any hand-run validation).
 if [ -d "$PROJECT_ROOT/docs/contracts/scrum-state" ]; then
   mkdir -p "$TARGET_DIR/docs/contracts/scrum-state"
   cp "$PROJECT_ROOT/docs/contracts/scrum-state/"*.schema.json \
      "$TARGET_DIR/docs/contracts/scrum-state/" 2>/dev/null || true
 fi
+
+# --- Deploy stamp ---
+# Record WHICH framework revision the wrappers/schemas in this target came
+# from, so a stale deployment is diagnosable from inside the target ("the
+# wrapper rejects a documented value" → check the stamp, re-run setup) instead
+# of being misread as a missing feature. Written by this launcher process
+# (outside agent tool calls, like .scrum/runtime.json), so the scrum-state
+# guard never intercepts it; agents must not write it. Enumerated in
+# docs/contracts/scrum-state/README.md.
+FRAMEWORK_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+FRAMEWORK_DIRTY=false
+if [ "$FRAMEWORK_SHA" != "unknown" ] \
+   && [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
+  FRAMEWORK_DIRTY=true
+fi
+STAMP_TMP="$TARGET_DIR/.scrum/deploy-stamp.json.tmp.$$"
+jq -n \
+  --arg sha "$FRAMEWORK_SHA" \
+  --argjson dirty "$FRAMEWORK_DIRTY" \
+  --arg at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg root "$PROJECT_ROOT" \
+  '{framework_sha: $sha, framework_dirty: $dirty, deployed_at: $at, framework_root: $root}' \
+  > "$STAMP_TMP"
+mv "$STAMP_TMP" "$TARGET_DIR/.scrum/deploy-stamp.json"
+echo "  Deploy stamp: framework $FRAMEWORK_SHA (dirty=$FRAMEWORK_DIRTY) -> .scrum/deploy-stamp.json"
 
 # --- Copy design catalog ---
 echo "Copying design catalog to $TARGET_DIR/docs/design/..."
