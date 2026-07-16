@@ -45,7 +45,7 @@
         "Multi-agent Scrum Master + Developer orchestration on Claude Code",
         "Full Sprint lifecycle: requirements, planning, development pipeline, sprint review, retrospective, UAT",
         "Native SwiftUI Mac app with live Sprint board",
-        "Autonomous PO mode",
+        "Autonomous mode (Loop Engineering)",
         "Optional Codex cross-model review with Claude-based fallback"
       ]
     },
@@ -71,7 +71,7 @@
           "name": "Is this autonomous AI development, or am I babysitting prompts?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Sprint execution is hands-off; you make Product-Owner decisions at the gates. --autonomous mode runs fully unattended."
+            "text": "Both. In human-in-the-loop mode Sprint execution is hands-off and you make the Product-Owner decisions at the gates. In --autonomous mode you specify the end state once and an agent PO and the Scrum Master keep the loop turning unattended."
           }
         },
         {
@@ -917,8 +917,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
     <p class="hero-sub hload d3">
       A native Mac app — or one shell command — runs a multi-agent Scrum team on your project,
-      powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>,
-      or delegate that role in autonomous mode.
+      powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>
+      (human-in-the-loop), or specify the end state and let the team loop on its own.
     </p>
     <div class="hero-ctas hload d4">
       <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg">Download for macOS</a>
@@ -1362,7 +1362,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="loop-card reveal" style="--d:.19s">
         <span class="loop-depth">Outermost · unattended</span>
         <h3>The Autonomous execution loop</h3>
-        <p>Write a product brief and even the Product Owner seat becomes an agent. An outer
+        <p>Specify the end state in a product brief and even the Product Owner seat becomes
+           an agent — the agent PO and the Scrum Master keep running Scrum toward it. An outer
            Ralph-Loop watchdog re-launches headless sessions iteration after iteration,
            enforces safety valves, sleeps through API rate limits and resumes, and leaves you
            a morning report. The loop keeps turning while you sleep.</p>
@@ -1396,8 +1397,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <p class="kicker reveal">Your seat</p>
     <h2 id="po-h" class="reveal" style="--d:.06s">You set product direction.<br>The team runs delivery.</h2>
     <p class="lede reveal" style="--d:.12s">
-      In the default mode, you approve goals, review working software, and make release
-      decisions. The team handles requirements, planning, implementation, review, and testing.
+      In the default human-in-the-loop mode, you approve goals, review working software, and
+      make release decisions. The team handles requirements, planning, implementation, review,
+      and testing.
     </p>
 
     <div class="po-headline reveal" aria-hidden="true">
@@ -1520,9 +1522,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">∞</span>
-        <h3>Autonomous PO mode</h3>
-        <p>Run <span class="f-mono">--autonomous</span> from the command line: a Ralph-Loop watchdog drives the team
-           end-to-end with an AI Product Owner, safety valves, and a morning report.</p>
+        <h3>Autonomous mode (Loop Engineering)</h3>
+        <p>Run <span class="f-mono">--autonomous</span> from the command line: specify the end state in a
+           product brief, and an agent Product Owner and the Scrum Master keep running Scrum
+           toward it — Ralph-Loop watchdog, safety valves, morning report.</p>
       </article>
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">§</span>
@@ -1720,8 +1723,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.06s">
         <span class="f-ico" aria-hidden="true">?</span>
         <h3>Is this autonomous AI development, or am I babysitting prompts?</h3>
-        <p>Sprint execution is hands-off; you make Product-Owner decisions at the gates.
-           <span class="f-mono">--autonomous</span> mode runs fully unattended.</p>
+        <p>Both. In human-in-the-loop mode Sprint execution is hands-off and you make the
+           Product-Owner decisions at the gates. In <span class="f-mono">--autonomous</span> mode you specify the
+           end state once and an agent PO and the Scrum Master keep the loop turning unattended.</p>
       </article>
       <article class="feature reveal" style="--d:.09s">
         <span class="f-ico" aria-hidden="true">?</span>

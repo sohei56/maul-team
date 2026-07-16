@@ -132,6 +132,8 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
 
 ## Your role as Product Owner
 
+This is the default **human-in-the-loop** mode: the team runs delivery, and you make the product calls at the gates.
+
 | You do | The AI team does |
 |--------|-----------------|
 | Describe what you want to build | Elicit and write detailed requirements |
@@ -140,7 +142,7 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
 | Report defects during UAT | Fix defects and re-test |
 | Make release decisions | Run automated test suites |
 
-> The PO seat can also be delegated to the `product-owner` agent via `po_mode=agent` (autonomous mode). See [docs/autonomous-mode.md](docs/autonomous-mode.md).
+> Prefer not to sit in the loop? In **autonomous mode** the PO seat is delegated to the `product-owner` agent (`po_mode=agent`): specify the end state once in a product brief, and the agent Product Owner and the Scrum Master keep the Scrum loop turning toward it — the [Loop Engineering](#loop-engineering) approach below. See [docs/autonomous-mode.md](docs/autonomous-mode.md).
 
 ## Loop Engineering
 
@@ -148,7 +150,7 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
 
 - **Development pipeline loop (innermost — build & verify).** Per PBI, in its own git worktree: Rounds of design → implementation + black-box unit tests → Codex cross-model review, until deterministic termination gates pass (success / stagnation / divergence / hard cap) — and the merge stays locked until tests and review clear. Details: [What a Sprint looks like](#what-a-sprint-looks-like).
 - **Sprint loop (middle — drift detection & self-improvement).** Every Sprint ends with a whole-repo, 4-axis `codebase-audit` that detects drift between the merged code and the requirements/design; its Critical/High findings are filed as draft PBIs for the next Sprint, and the Retrospective feeds process improvements forward the same way. The product and the process both hill-climb. *(LangChain's hill-climbing loop.)*
-- **Autonomous execution loop (outermost — event-driven, unattended).** Co-author a product brief and even the PO seat becomes an agent (`po_mode=agent`); an outer [Ralph-Loop](https://ghuntley.com/ralph/) watchdog re-launches headless sessions iteration after iteration, enforces safety valves (iterations / wall-clock / Sprints / failure budgets), sleeps through API rate limits and resumes, and writes you a morning report. *(LangChain's event-driven loop.)*
+- **Autonomous execution loop (outermost — event-driven, unattended).** Specify the end state once in a co-authored product brief and even the PO seat becomes an agent (`po_mode=agent`): the agent Product Owner and the Scrum Master keep running Scrum toward that end state while an outer [Ralph-Loop](https://ghuntley.com/ralph/) watchdog re-launches headless sessions iteration after iteration, enforces safety valves (iterations / wall-clock / Sprints / failure budgets), sleeps through API rate limits and resumes, and writes you a morning report. *(LangChain's event-driven loop.)*
 
 The main risk is **cognitive surrender**: accepting whatever an autonomous loop produces. Maul Team counters it with enforced state and branch rules, deterministic gates, measured coverage, and escalation of unclear requirements.
 
@@ -160,7 +162,7 @@ Background: [Addy Osmani, “Loop Engineering”](https://addyosmani.com/blog/lo
 - **19 Skills, full lifecycle** — every ceremony from product-brief co-authoring through requirements, planning, PBI development, merge, audit, review, and retrospective to integration testing and UAT & release is a versioned, inspectable Skill
 - **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
 - **Gated parallel development** — Developers build PBIs in parallel in isolated git worktrees, Codex cross-reviews every Round, and a PBI merges only after its black-box unit tests and Integrity review pass
-- **Autonomous PO mode** — replace even the PO with an AI Product Owner to drive development end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
+- **Autonomous mode (Loop Engineering)** — specify the end state in a product brief and hand even the PO seat to an AI Product Owner; it and the Scrum Master keep running Scrum toward that state end-to-end. An outer Ralph-Loop watchdog re-launches headless Claude sessions, enforcing safety valves while writing reports to `.scrum/reports/`. See [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **Design document governance** — an immutable catalog (`catalog.md`) plus an editable enablement config (`catalog-config.json`), enforced by status-gate hooks, control the documents AI agents are allowed to create
 - **Quality enforcement hooks** — status gates, path guards, branch-ops guard, completion-flow and Definition-of-Done checks, session context restoration, plus an external stall watchdog — the behaviors you want agents to follow, turned into mechanisms they cannot skip
 - **State persistence** — all state is saved to `.scrum/` JSON files; sessions resume
@@ -245,7 +247,7 @@ cd /path/to/your/project
 # Launch the Scrum team (auto-installs Python dependencies if needed)
 sh /path/to/maul-team/scrum-start.sh
 
-# Or: launch in autonomous PO mode (no human at the keyboard)
+# Or: autonomous mode — state the end goal in a brief; the agent PO + SM loop unattended
 sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 

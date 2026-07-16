@@ -135,6 +135,8 @@ open macapp/build/MaulTeam.app
 
 ## Product Owner としてのあなたの役割
 
+これがデフォルトの **human-in-the-loop** モードです: デリバリーはチームが回し、あなたは要所のゲートでプロダクト判断を下します。
+
 | あなたがやること | AI チームがやること |
 |--------|-----------------|
 | 何を作りたいかを伝える | 要件を引き出し、詳細に書き起こす |
@@ -143,7 +145,7 @@ open macapp/build/MaulTeam.app
 | UAT で欠陥を報告する | 欠陥を修正し、再テストする |
 | リリース判断を下す | 自動テストスイートを実行する |
 
-> PO の席は `po_mode=agent` (自律モード) で `product-owner` エージェントに委譲することもできます。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)。
+> ループの中に座らない選択肢もあります。**自律モード** (`po_mode=agent`) では PO の席を `product-owner` エージェントに委譲します: 目指すべき状態をプロダクトブリーフで最初に指定すれば、あとはエージェント PO と Scrum Master がその状態に向かってスクラムを回し続けます — 下記 [Loop Engineering](#loop-engineering) の考え方です。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)。
 
 ## Loop Engineering
 
@@ -151,7 +153,7 @@ open macapp/build/MaulTeam.app
 
 - **Development pipeline ループ (最内 — 構築と検証)。** PBI ごとに専用の git worktree で、design → implementation + black-box unit test → Codex クロスモデルレビューの Round を、決定論的な終了ゲート (success / stagnation / divergence / hard cap) が通るまで反復する。テストとレビューを通過するまでマージは開かない。詳細は [Scrum 開発の流れ](#scrum-開発の流れ)。
 - **Sprint ループ (中間 — ドリフト検出と自己改善)。** 各 Sprint の末尾で、マージ済みコードと要件・設計の乖離を検出するリポジトリ全体・4 軸の `codebase-audit` を実行する。Critical/High の指摘は次 Sprint の draft PBI として起票され、Retrospective も同じ形でプロセス改善を前へ送る。プロダクトとプロセスの双方が hill-climb する。*(LangChain の hill-climbing ループ。)*
-- **自律実行ループ (最外 — イベント駆動・無人)。** プロダクトブリーフを共同作成すれば、PO の席さえエージェントになる (`po_mode=agent`)。外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
+- **自律実行ループ (最外 — イベント駆動・無人)。** 目指すべき状態をプロダクトブリーフとして一度指定すれば、PO の席さえエージェントになる (`po_mode=agent`): エージェント PO と Scrum Master がその状態に向かってスクラムを回し続け、外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
 
 主なリスクは、ループの出力をそのまま受け入れてしまう **cognitive surrender (認知的な明け渡し)** です。Maul Team は、state-write とブランチのルール、決定論的なゲート、実測カバレッジ、曖昧な要件のエスカレーションによってこれを抑えます。
 
@@ -163,7 +165,7 @@ open macapp/build/MaulTeam.app
 - **19 個の Skill でライフサイクル全体をカバー** — プロダクトブリーフ共同作成から要件定義・プランニング・PBI 開発・マージ・監査・レビュー・レトロスペクティブ、そして integration testing・UAT & release まで、すべてのセレモニーがバージョン管理された検査可能な Skill
 - **マルチエージェント連携** — Scrum Master (Delegate モード) が Sprint あたり最大 6 並列の Developer (1 PBI に Developer 1 名、上限 6) を統括
 - **ゲート制の並列開発** — Developer は分離された git worktree で PBI を並列に開発し、各 Round を Codex がクロスレビュー。black-box UT と Integrity レビューを通過した PBI だけがマージされる
-- **自律 PO モード** — AI Product Owner でPOさえもエージェントに置き換えて開発をエンドツーエンドに駆動。外側の Ralph-Loop ウォッチドッグ がヘッドレスの Claude セッションを再起動し、安全弁を強制しつつレポートを `.scrum/reports/` に書き出す。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)
+- **自律モード (Loop Engineering)** — 目指すべき状態をプロダクトブリーフで指定し、PO の席さえ AI Product Owner に委譲。エージェント PO と Scrum Master がその状態に向かってスクラムをエンドツーエンドに回し続ける。外側の Ralph-Loop ウォッチドッグがヘッドレスの Claude セッションを再起動し、安全弁を強制しつつレポートを `.scrum/reports/` に書き出す。詳細は [docs/autonomous-mode.md](docs/autonomous-mode.md)
 - **設計書ガバナンス** — 不可変の catalog (`catalog.md`) + 編集可能な有効化設定 (`catalog-config.json`)をstatus-gate フックで強制することで、AIが作成するドキュメントを制御
 - **品質フック** — status gate、path guard、branch-ops guard、作業完了時フローと Definition of Done のチェック、session context restoration、外部の stall watchdog — エージェントに守らせたい挙動を、スキップできない仕組みに変換
 - **状態の永続化** — すべての状態を `.scrum/` の JSON ファイルに保存。セッション再開可能
@@ -248,7 +250,7 @@ cd /path/to/your/project
 # Scrum チームを起動 (必要なら Python 依存を自動インストール)
 sh /path/to/maul-team/scrum-start.sh
 
-# あるいは: 自律 PO モードで起動 (キーボード前に人間が不要)
+# あるいは: 自律モード — ブリーフでゴールを一度指定すれば、エージェント PO + SM が無人でループ
 sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
 ```
 
