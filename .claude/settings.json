@@ -58,7 +58,6 @@
       "Bash(git branch -D *)",
       "Bash(git stash drop*)",
       "Edit(.claude/settings.json)",
-      "Write(.claude/settings.json)",
       "Read(*.secrets/*)",
       "Bash(*.secrets/*)"
     ]
