@@ -37,3 +37,6 @@ jobs:
 
       - name: Build
         run: swift build --package-path macapp
+
+      - name: Test
+        run: swift test --package-path macapp
