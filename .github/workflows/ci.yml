@@ -88,6 +88,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bats jq
       - name: Run unit tests
-        run: bats tests/unit/
+        # -r: bats does not recurse on its own — without it the scrum-state/,
+        # hooks/, and autonomous/ subdirectories are silently skipped.
+        run: bats -r tests/unit/
       - name: Run lint tests
         run: bats tests/lint/
+      - name: Run integration tests
+        run: bats tests/integration/script-compose.bats
