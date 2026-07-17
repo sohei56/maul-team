@@ -31,19 +31,24 @@ manifest_add() {
 "
 }
 
-# copy_tree <source_glob> <target_dir> [executable_bool] [manifest_rel_dir]
-# Copies each file matching the unquoted source glob into target_dir,
+# copy_tree <source_dir> <pattern> <target_dir> [executable_bool] [manifest_rel_dir]
+# Copies each file in source_dir matching the glob pattern into target_dir,
 # creating target_dir first. Sets executable bit when executable_bool=true.
 # When manifest_rel_dir is given (a target-relative dir under .claude/), each
 # copied file is recorded in the deploy manifest as
 # "<manifest_rel_dir>/<basename>".
+# source_dir and pattern are separate arguments so the directory part stays
+# quoted during expansion: a single unquoted glob word-splits on spaces and
+# silently copies NOTHING when the framework lives under a path like
+# "~/Library/Application Support/…" (the Mac app's extracted bundle).
 copy_tree() {
-  local source_glob="$1"
-  local target_dir="$2"
-  local make_exec="${3:-false}"
-  local manifest_rel="${4:-}"
+  local source_dir="$1"
+  local pattern="$2"
+  local target_dir="$3"
+  local make_exec="${4:-false}"
+  local manifest_rel="${5:-}"
   mkdir -p "$target_dir"
-  for f in $source_glob; do
+  for f in "$source_dir"/$pattern; do
     [ -e "$f" ] || continue
     cp "$f" "$target_dir/"
     if [ "$make_exec" = "true" ]; then
@@ -131,7 +136,7 @@ echo ""
 
 # --- Copy agent definitions ---
 echo "Copying agent definitions to $TARGET_DIR/.claude/agents/..."
-copy_tree "$PROJECT_ROOT/agents/*.md" "$TARGET_DIR/.claude/agents" false ".claude/agents"
+copy_tree "$PROJECT_ROOT/agents" "*.md" "$TARGET_DIR/.claude/agents" false ".claude/agents"
 
 # --- Copy skill definitions ---
 echo "Copying skill definitions to $TARGET_DIR/.claude/skills/..."
@@ -155,8 +160,8 @@ done
 
 # --- Copy hook scripts ---
 echo "Copying hook scripts to $TARGET_DIR/.claude/hooks/..."
-copy_tree "$PROJECT_ROOT/hooks/*.sh" "$TARGET_DIR/.claude/hooks" true ".claude/hooks"
-copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib" false ".claude/hooks/lib"
+copy_tree "$PROJECT_ROOT/hooks" "*.sh" "$TARGET_DIR/.claude/hooks" true ".claude/hooks"
+copy_tree "$PROJECT_ROOT/hooks/lib" "*.sh" "$TARGET_DIR/.claude/hooks/lib" false ".claude/hooks/lib"
 
 # --- Copy shared rules ---
 # `.claude/rules/*.md` is auto-loaded by Claude Code at session start for the
@@ -164,7 +169,7 @@ copy_tree "$PROJECT_ROOT/hooks/lib/*.sh" "$TARGET_DIR/.claude/hooks/lib" false "
 # reads them. Contains the cross-cutting Scrum context (team map, SSOT
 # locations, communication protocol, uncertainty handling).
 echo "Copying shared rules to $TARGET_DIR/.claude/rules/..."
-copy_tree "$PROJECT_ROOT/rules/*.md" "$TARGET_DIR/.claude/rules" false ".claude/rules"
+copy_tree "$PROJECT_ROOT/rules" "*.md" "$TARGET_DIR/.claude/rules" false ".claude/rules"
 
 # --- Copy runtime-doc subset (framework prose cited by deployed agents/skills) ---
 # Deployed agents and skills reference framework prose (data-model, contracts,
@@ -196,7 +201,7 @@ done
 # `.claude/hooks/lib/`. The codex-design-reviewer.md instruction sources it
 # at `scripts/lib/codex-invoke.sh` (relative to project root).
 echo "Copying agent helpers to $TARGET_DIR/scripts/lib/..."
-copy_tree "$PROJECT_ROOT/scripts/lib/*.sh" "$TARGET_DIR/scripts/lib"
+copy_tree "$PROJECT_ROOT/scripts/lib" "*.sh" "$TARGET_DIR/scripts/lib"
 
 # --- Ensure .scrum/ is gitignored (must run BEFORE any .scrum/ write) ---
 echo "Ensuring .scrum/ is gitignored in $TARGET_DIR..."
@@ -217,9 +222,9 @@ echo "Copying scrum-state wrappers to $TARGET_DIR/.scrum/scripts/..."
 rm -f "$TARGET_DIR/.scrum/scripts/"*.sh \
       "$TARGET_DIR/.scrum/scripts/lib/"*.sh \
       "$TARGET_DIR/.scrum/scripts/migrations/"*.sh
-copy_tree "$PROJECT_ROOT/scripts/scrum/*.sh" "$TARGET_DIR/.scrum/scripts" true
-copy_tree "$PROJECT_ROOT/scripts/scrum/lib/*.sh" "$TARGET_DIR/.scrum/scripts/lib"
-copy_tree "$PROJECT_ROOT/scripts/scrum/migrations/*.sh" "$TARGET_DIR/.scrum/scripts/migrations" true
+copy_tree "$PROJECT_ROOT/scripts/scrum" "*.sh" "$TARGET_DIR/.scrum/scripts" true
+copy_tree "$PROJECT_ROOT/scripts/scrum/lib" "*.sh" "$TARGET_DIR/.scrum/scripts/lib"
+copy_tree "$PROJECT_ROOT/scripts/scrum/migrations" "*.sh" "$TARGET_DIR/.scrum/scripts/migrations" true
 
 # --- Copy PBI Pipeline configuration template ---
 # Provide .scrum-config.example.json so users can copy it to .scrum/config.json
@@ -251,11 +256,25 @@ fi
 # (outside agent tool calls, like .scrum/runtime.json), so the scrum-state
 # guard never intercepts it; agents must not write it. Enumerated in
 # docs/contracts/scrum-state/README.md.
-FRAMEWORK_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# Revision sources, most-trustworthy first:
+#   1. .framework-rev — content marker baked by macapp/scripts/make-app.sh
+#      into the bundled framework (a `git archive` extraction has no .git,
+#      and its content is exactly the committed rev → never dirty).
+#   2. git HEAD — but only when PROJECT_ROOT is itself the repo toplevel;
+#      without that guard, `git -C` on a non-repo extraction walks UP the
+#      directory tree and stamps the sha of whatever unrelated ancestor
+#      repo it finds.
+FRAMEWORK_SHA=unknown
 FRAMEWORK_DIRTY=false
-if [ "$FRAMEWORK_SHA" != "unknown" ] \
-   && [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
-  FRAMEWORK_DIRTY=true
+if [ -f "$PROJECT_ROOT/.framework-rev" ]; then
+  FRAMEWORK_SHA="$(cut -c1-12 "$PROJECT_ROOT/.framework-rev" | head -n1)"
+  [ -n "$FRAMEWORK_SHA" ] || FRAMEWORK_SHA=unknown
+elif [ "$(git -C "$PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null)" = "$(cd "$PROJECT_ROOT" && pwd -P)" ]; then
+  FRAMEWORK_SHA="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  if [ "$FRAMEWORK_SHA" != "unknown" ] \
+     && [ -n "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ]; then
+    FRAMEWORK_DIRTY=true
+  fi
 fi
 STAMP_TMP="$TARGET_DIR/.scrum/deploy-stamp.json.tmp.$$"
 jq -n \
