@@ -35,6 +35,11 @@ let package = Package(
                 .product(name: "CodeEditor", package: "CodeEditor")
             ],
             path: "Sources/MaulTeam"
+        ),
+        .testTarget(
+            name: "MaulTeamTests",
+            dependencies: ["MaulTeam"],
+            path: "Tests/MaulTeamTests"
         )
     ]
 )

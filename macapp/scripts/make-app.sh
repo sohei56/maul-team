@@ -124,8 +124,18 @@ git -C "$ROOT/.." archive --format=tar HEAD | tar -x -C "$FW"
 # Dev-only trees the runtime never needs (keeps the bundle small + clean).
 rm -rf "$FW/macapp" "$FW/tests" "$FW/.github" "$FW/.claude" "$FW/images" \
        "$FW/.gitignore" "$FW/docs/superpowers"
-if [ ! -f "$FW/scrum-start.sh" ] || [ ! -f "$FW/dashboard/app.py" ]; then
-  echo "Error: bundled framework is missing scrum-start.sh / dashboard/app.py" >&2
+# Content marker: the exact commit baked into the bundle. FrameworkLocator
+# keys the Application Support extraction dir on this rev, and setup-user.sh
+# stamps it into targets' .scrum/deploy-stamp.json — the app version alone
+# (last tag via `git describe`) cannot distinguish same-version rebuilds.
+git -C "$ROOT/.." rev-parse HEAD > "$FW/.framework-rev"
+if [ -n "$(git -C "$ROOT/.." status --porcelain 2>/dev/null)" ]; then
+  echo "WARNING: working tree is dirty — uncommitted changes are NOT in the" >&2
+  echo "         bundled framework (git archive packs HEAD, not the worktree)." >&2
+fi
+if [ ! -f "$FW/scrum-start.sh" ] || [ ! -f "$FW/dashboard/app.py" ] \
+   || [ ! -s "$FW/.framework-rev" ]; then
+  echo "Error: bundled framework is missing scrum-start.sh / dashboard/app.py / .framework-rev" >&2
   exit 1
 fi
 
