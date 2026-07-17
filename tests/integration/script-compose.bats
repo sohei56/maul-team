@@ -301,6 +301,75 @@ PY
   [ -f ".claude/agents/scrum-master.md" ]
 }
 
+# --- setup-user.sh: space-safe deploy from an extracted (non-git) framework ---
+#
+# The Mac app extracts the bundled framework to
+# "~/Library/Application Support/MaulTeam/framework-<ver>/" — a path with a
+# SPACE and no .git. A word-splitting copy_tree once copied NOTHING from such
+# a path while exiting 0 (skills used a quoted loop and kept deploying), so
+# targets silently ran new skills against stale .scrum/scripts wrappers.
+# These tests deploy from a spaced, git-less framework copy end-to-end.
+make_spaced_framework() {
+  # Mirror the app-extracted layout: working-tree content (NOT git archive —
+  # uncommitted fixes must be under test), no .git, space in the path.
+  local fw="$TEMP_DIR/Application Support/framework"
+  mkdir -p "$fw"
+  local d
+  for d in agents skills hooks rules docs scripts; do
+    cp -R "$PROJECT_ROOT/$d" "$fw/"
+  done
+  cp "$PROJECT_ROOT/.scrum-config.example.json" "$fw/"
+  echo "$fw"
+}
+
+@test "setup-user.sh deploys wrappers/agents/hooks/rules from a path with spaces" {
+  local bin; bin="$(make_prereq_stubs)"
+  local fw; fw="$(make_spaced_framework)"
+  mkdir -p "$TEMP_DIR/target"
+  cd "$TEMP_DIR/target"
+
+  run env PATH="$bin:$PATH" bash "$fw/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+
+  # The copy_tree-deployed classes — every one of these was silently skipped
+  # by the word-splitting bug.
+  [ -x ".scrum/scripts/update-backlog-status.sh" ]
+  [ -x ".scrum/scripts/set-backlog-item-field.sh" ]
+  [ -f ".scrum/scripts/lib/queries.sh" ]
+  [ -x ".scrum/scripts/migrations/001-legacy-to-ssot.sh" ]
+  [ -f ".claude/agents/scrum-master.md" ]
+  [ -x ".claude/hooks/stop-dispatch.sh" ]
+  [ -f ".claude/hooks/lib/validate.sh" ]
+  [ -f ".claude/rules/scrum-context.md" ]
+  [ -f "scripts/lib/codex-invoke.sh" ]
+
+  # The deployed wrapper must carry the current contract, not a stale one.
+  run grep -q "demo_plan" ".scrum/scripts/set-backlog-item-field.sh"
+  assert_success
+}
+
+@test "setup-user.sh deploy stamp prefers .framework-rev and never inherits an ancestor repo sha" {
+  local bin; bin="$(make_prereq_stubs)"
+  local fw; fw="$(make_spaced_framework)"
+
+  # Extracted bundle, no marker: not a git toplevel → sha must be unknown
+  # (never the sha of whatever repo happens to sit above the extraction dir).
+  mkdir -p "$TEMP_DIR/target-a"
+  cd "$TEMP_DIR/target-a"
+  run env PATH="$bin:$PATH" bash "$fw/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+  assert_json_match ".scrum/deploy-stamp.json" ".framework_sha" "unknown"
+
+  # With the make-app.sh content marker present, the stamp carries it.
+  printf '%s\n' "0123456789abcdef0123456789abcdef01234567" > "$fw/.framework-rev"
+  mkdir -p "$TEMP_DIR/target-b"
+  cd "$TEMP_DIR/target-b"
+  run env PATH="$bin:$PATH" bash "$fw/scripts/setup-user.sh"
+  [ "$status" -eq 0 ]
+  assert_json_match ".scrum/deploy-stamp.json" ".framework_sha" "0123456789ab"
+  assert_json_match ".scrum/deploy-stamp.json" ".framework_dirty" "false"
+}
+
 @test "setup-user.sh skips prune when previous manifest has an unsafe path" {
   local bin; bin="$(make_prereq_stubs)"
   cd "$TEMP_DIR"

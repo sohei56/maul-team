@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# migrate-legacy.sh — convert pre-SSOT .scrum/*.json to current schema.
+# migrations/001-legacy-to-ssot.sh — convert pre-SSOT .scrum/*.json to the
+# current schema. Runs under scripts/scrum/migrate-state.sh (see its header
+# for the migration contract: cwd = target root, idempotent, --dry-run,
+# schema-validated writes, missing files are a clean no-op).
 #
 # Targets the artifacts the dashboard reads at top level:
 #   .scrum/backlog.json   — rename .pbis -> .items, lowercase ids, drop unknown
@@ -21,7 +24,7 @@
 # before relying on the migrated state. This script is the sole v1 -> v2 path.
 #
 # Idempotent: a second run reports "already canonical".
-# Usage: scripts/scrum/migrate-legacy.sh [--dry-run]
+# Usage: scripts/scrum/migrations/001-legacy-to-ssot.sh [--dry-run]
 set -euo pipefail
 
 DRY_RUN=0
@@ -33,16 +36,16 @@ esac
 
 SCRUM_DIR=".scrum"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib/errors.sh
-source "$SCRIPT_DIR/lib/errors.sh"
-# shellcheck source=lib/atomic.sh
-source "$SCRIPT_DIR/lib/atomic.sh"
+# shellcheck source=../lib/errors.sh
+source "$SCRIPT_DIR/../lib/errors.sh"
+# shellcheck source=../lib/atomic.sh
+source "$SCRIPT_DIR/../lib/atomic.sh"
 
 # Locate scrum-state schemas. Try the source repo layout and the target
 # project layout (where setup-user.sh copies them).
 SCHEMA_DIR=""
 for candidate in \
-  "$SCRIPT_DIR/../../docs/contracts/scrum-state" \
+  "$SCRIPT_DIR/../../../docs/contracts/scrum-state" \
   "$PWD/docs/contracts/scrum-state"; do
   if [ -d "$candidate" ]; then
     SCHEMA_DIR="$(cd "$candidate" && pwd)"
