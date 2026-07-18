@@ -58,7 +58,7 @@ Vibe coding's speed is attractive, but order erodes as a project runs longer. Sp
   <img alt="MaulTeam.app — the three-pane workspace" src="images/macapp-hero.png" width="900">
 </p>
 
-https://github.com/user-attachments/assets/e71c5fc3-b269-4df3-a585-f5da03e292bc
+https://github.com/user-attachments/assets/3dac534a-e0f7-42a5-83be-899c3082e60b
 
 **MaulTeam.app** brings the information and controls you need for Scrum development into a single window.
 
