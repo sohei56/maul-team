@@ -111,9 +111,24 @@ other common locations) by default.
 
 ## Distribution
 
-The distribution tooling is **built and wired, but not yet signed** — the first
-public release is gated on Apple Developer enrollment (Developer ID certificate
-+ notarization credentials). What already works today:
+Releases are **signed with a Developer ID certificate, notarized, and
+stapled** — the shipped DMG installs Gatekeeper-clean on other machines.
+Distribution channels:
+
+- **GitHub Releases** — signed universal2 `MaulTeam-<ver>.dmg` (+ sha256
+  checksums), latest at
+  [releases/latest](https://github.com/sohei56/maul-team/releases/latest).
+- **Homebrew** — `brew tap sohei56/homebrew-tap && brew install --cask
+  maul-team` (cask rendered from `macapp/homebrew/maul-team.rb` by
+  `bump-tap.sh` per release).
+- **In-app updates** — Sparkle with an EdDSA-signed appcast
+  (`auto_updates` enabled), so installed apps self-update.
+- **Landing page** — <https://sohei56.github.io/maul-team/>.
+
+Operator setup (Secrets, certificates, tap wiring):
+[`docs/macapp-distribution-setup.md`](../docs/macapp-distribution-setup.md).
+
+The underlying build tooling:
 
 - **universal2 build** — `sh macapp/scripts/make-app.sh release` builds a fat
   (arm64 + x86_64) binary via per-arch native builds + `lipo`, applies Hardened
@@ -132,21 +147,10 @@ public release is gated on Apple Developer enrollment (Developer ID certificate
 - **Release CI** — `.github/workflows/release.yml` fires on
   `release: published` (a bare tag push does **not** trigger it — cutting a
   Release is an explicit opt-in): it builds universal2, packages the DMG,
-  generates sha256 checksums, and uploads them to the GitHub Release. Code
-  signing → `notarytool` → `stapler staple` activate automatically once the
-  signing Secrets are present; otherwise the job ships an **unsigned** DMG
-  (usable for testing, but Gatekeeper warns end users).
-
-Still pending (blocked on Apple Developer Program enrollment, $99/yr):
-
-- Developer ID signing + notarization + stapling of the `.app`, its bundled
-  `.sh` / `python3` / `dylib`, and the DMG (an unsigned `.app` is rejected by
-  Gatekeeper on other machines; `swift run` / `swift build` are local-dev only).
-- Homebrew tap (`sohei56/homebrew-tap`) + cask referencing the Release DMG.
-- Landing page and root-README onboarding links.
-
-Full plan and phase status:
-`docs/superpowers/plans/2026-06-29-macapp-distribution-and-onboarding.md`.
+  generates sha256 checksums, signs (`DEVELOPER_ID_APP`), notarizes
+  (`notarytool`), staples, and uploads to the GitHub Release. If the signing
+  Secrets are absent the job falls back to an **unsigned** DMG (usable for
+  testing, but Gatekeeper warns end users).
 
 ## CI
 
@@ -156,12 +160,10 @@ unrelated commits).
 
 ## Status
 
-Builds and runs locally (verified via `scripts/make-app.sh`, debug and
-`release`/universal2). The center pane embeds the live SM session (SwiftTerm);
-the dashboard and Work Log are native SwiftUI views (no Python dashboard process
-runs). Distribution tooling (universal2, framework bundling, DMG, Release CI) is
-in place; signing/notarization is pending Apple Developer enrollment (see
-[Distribution](#distribution)).
+Shipping — signed/notarized releases are published on GitHub Releases and
+Homebrew, with Sparkle self-updates (see [Distribution](#distribution)).
+The center pane embeds the live SM session (SwiftTerm); the dashboard and
+Work Log are native SwiftUI views (no Python dashboard process runs).
 
 ## License
 
