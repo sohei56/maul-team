@@ -30,6 +30,12 @@ jobs:
       # PAT with push access to the Homebrew tap repo (channel ③). When absent,
       # the tap-bump step is skipped and only the DMG + Release are produced.
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      # 9th, OPTIONAL secret — the Sparkle EdDSA private key (channel ④, in-app
+      # auto-update). When absent, every appcast step below is skipped: the
+      # release still ships through channels ①②③, but the in-app updater won't
+      # see this version until the secret is configured. See
+      # docs/macapp-distribution-setup.md § Sparkle appcast.
+      SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
 
     steps:
       - uses: actions/checkout@v7
@@ -109,6 +115,94 @@ jobs:
             MaulTeam.dmg \
             MaulTeam.dmg.sha256 \
             --clobber
+
+      # ── Channel ④ (Sparkle in-app auto-update) ────────────────────────────
+      # Everything below activates ONLY when SPARKLE_ED_PRIVATE_KEY is set —
+      # same graceful-degrade style as the signing / tap steps above. Absent →
+      # the release still ships via ①②③ and these steps are skipped; the
+      # in-app updater just won't see this version until the secret exists.
+
+      # Fetch Sparkle's appcast tooling from a PINNED upstream release and
+      # verify its SHA-256 before executing anything from it — a mismatch
+      # aborts the run rather than running an unexpected binary. The tarball
+      # ships ./bin/generate_appcast (+ generate_keys, sign_update, LICENSE).
+      - name: Fetch Sparkle tooling
+        if: env.SPARKLE_ED_PRIVATE_KEY != ''
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          URL="https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz"
+          EXPECTED="ce89daf967db1e1893ed3ebd67575ed82d3902563e3191ca92aaec9164fbdef9"
+          curl -fL "$URL" -o sparkle.tar.xz
+          echo "$EXPECTED  sparkle.tar.xz" | shasum -a 256 -c -
+          mkdir -p sparkle-tools
+          tar -xf sparkle.tar.xz -C sparkle-tools   # bsdtar autodetects xz
+          test -x sparkle-tools/bin/generate_appcast
+
+      # Generate appcast.xml over ONLY the versioned dmg. The version-less
+      # MaulTeam.dmg alias is deliberately excluded: it is a byte-identical
+      # copy, and feeding both would emit two <item>s with the same
+      # sparkle:version. The EdDSA private key is read from stdin (never
+      # written to disk); --download-url-prefix makes each enclosure resolve to
+      # the Release asset URL. VERSION is derived exactly as bump-tap.sh does.
+      - name: Generate appcast
+        if: env.SPARKLE_ED_PRIVATE_KEY != ''
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          STAGE="$RUNNER_TEMP/appcast-stage"
+          mkdir -p "$STAGE"
+          cp "macapp/build/MaulTeam-${VERSION}.dmg" "$STAGE/"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | \
+            "$RUNNER_TEMP/sparkle-tools/bin/generate_appcast" \
+              --ed-key-file - \
+              --download-url-prefix "https://github.com/sohei56/maul-team/releases/download/v${VERSION}/" \
+              -o "$RUNNER_TEMP/appcast.xml" \
+              "$STAGE"
+          echo "---- appcast.xml ----"
+          cat "$RUNNER_TEMP/appcast.xml"
+
+      # Publish (1/2): attach appcast.xml to the Release as an asset, so every
+      # feed the app ever consumed is auditable from the Releases page.
+      - name: Upload appcast asset to release
+        if: env.SPARKLE_ED_PRIVATE_KEY != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "$RUNNER_TEMP/appcast.xml" --clobber
+
+      # Publish (2/2): serve appcast.xml at the stable, non-redirecting URL the
+      # app uses as its SUFeedURL —
+      # https://raw.githubusercontent.com/sohei56/maul-team/appcast/appcast.xml
+      # `main` is push-protected, so — mirroring the `metrics` branch idiom in
+      # download-stats.yml — the feed lives on a dedicated single-file branch,
+      # kept as one force-pushed orphan commit per release. A throwaway git dir
+      # keeps the checked-out working tree untouched; auth uses the workflow's
+      # own token (contents: write is already granted at the workflow level).
+      - name: Publish appcast branch
+        if: env.SPARKLE_ED_PRIVATE_KEY != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          PUB="$RUNNER_TEMP/appcast-branch"
+          mkdir -p "$PUB"
+          cp "$RUNNER_TEMP/appcast.xml" "$PUB/appcast.xml"
+          cd "$PUB"
+          git init -q
+          git checkout -q --orphan appcast
+          git add appcast.xml
+          git -c user.name="maul-team-release-bot" \
+              -c user.email="release-bot@users.noreply.github.com" \
+              commit -q -m "chore(appcast): ${TAG}"
+          git push --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            HEAD:refs/heads/appcast
 
       # Channel ③ (Homebrew): render Casks/maul-team.rb for this version and
       # push it to the personal tap. Skipped when HOMEBREW_TAP_TOKEN is absent.
