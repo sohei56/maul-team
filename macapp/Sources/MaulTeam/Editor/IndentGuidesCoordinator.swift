@@ -36,8 +36,18 @@ final class IndentGuidesCoordinator: TextViewCoordinator {
         overlay?.setNeedsDisplay(overlay?.visibleRect ?? .zero)
     }
 
+    /// Re-adds the overlay after CESE's `setText` stripped it (see install).
+    private func reattachIfNeeded() {
+        guard let controller, let overlay, overlay.superview == nil,
+              let textView = controller.textView else { return }
+        overlay.frame = textView.bounds
+        textView.addSubview(overlay)
+        overlay.needsDisplay = true
+    }
+
     func destroy() {
         removeObservers()
+        overlay?.onRemovedFromSuperview = nil // teardown is final — no self-heal
         overlay?.removeFromSuperview()
         overlay = nil
         controller = nil
@@ -63,6 +73,14 @@ final class IndentGuidesCoordinator: TextViewCoordinator {
         overlay.controller = controller
         overlay.frame = textView.bounds
         overlay.isHidden = !isEnabled
+        // CodeEditTextView's `setText` strips ALL subviews from the text view
+        // (TextView+SetText.swift) — including once during controller init,
+        // right after coordinators are prepared. Self-heal: whenever the
+        // overlay is detached, hop off the current runloop turn (the removal
+        // happens inside CESE's own subview enumeration) and re-attach.
+        overlay.onRemovedFromSuperview = { [weak self] in
+            DispatchQueue.main.async { self?.reattachIfNeeded() }
+        }
         textView.addSubview(overlay)
         self.overlay = overlay
 

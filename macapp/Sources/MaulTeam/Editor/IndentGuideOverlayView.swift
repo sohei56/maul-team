@@ -47,6 +47,19 @@ final class IndentGuideOverlayView: NSView {
     // or the caret — it is purely decorative.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
+    /// Invoked (async-safe) after the overlay is detached from the text view.
+    /// CodeEditTextView's `setText` removes ALL of the text view's subviews
+    /// (TextView+SetText.swift), including this overlay — the coordinator uses
+    /// this hook to re-attach. Cleared by `destroy()` so teardown stays final.
+    var onRemovedFromSuperview: (() -> Void)?
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        if superview == nil {
+            onRemovedFromSuperview?()
+        }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
