@@ -59,6 +59,11 @@ final class ScrumBoardWindowController: NSObject, NSWindowDelegate {
         self.window = window
     }
 
+    /// Close the board window (no-op when it isn't open).
+    func closeBoard() {
+        window?.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
         window = nil
     }

@@ -12,20 +12,11 @@
   <a href="https://github.com/sohei56/maul-team/releases/latest"><img src="https://img.shields.io/github/v/release/sohei56/maul-team?style=flat-square&color=28c8e6&label=release" alt="Latest release"></a>
   <a href="https://github.com/sohei56/maul-team/releases"><img src="https://img.shields.io/github/downloads/sohei56/maul-team/total?style=flat-square&color=28c8e6&label=downloads" alt="Total downloads"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
-  <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
-</p>
-
-<p align="center">
-  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ Download MaulTeam.app for macOS</strong></a><br>
-  <sub>Signed &amp; Apple-notarized · macOS 13+ · or <code>brew install --cask maul-team</code></sub>
-</p>
-
-<p align="center">
-  <a href="https://sohei56.github.io/maul-team/"><strong>🌐 Website</strong></a> — see the team in action
 </p>
 
 <p align="center">
@@ -46,6 +37,14 @@
 ---
 
 Open a project in **MaulTeam.app** (or run `scrum-start.sh` from a terminal) and a full AI Scrum team takes over — a **Scrum Master** coordinates **Developer** agents through Sprint cycles while you act as the **Product Owner**, approving goals and reviewing the working product.
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-Apple_Silicon_%26_Intel-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download MaulTeam.app for macOS (Apple Silicon & Intel)"></a>
+  &nbsp;
+  <a href="https://sohei56.github.io/maul-team/"><img src="https://img.shields.io/badge/Website-See_it_in_action-28c8e6?style=for-the-badge&logo=safari&logoColor=white" alt="Website — see the team in action"></a>
+  <br>
+  <sub>Signed &amp; Apple-notarized · macOS 14+ · or <code>brew install --cask maul-team</code></sub>
+</p>
 
 ## Why?
 
@@ -100,7 +99,7 @@ open macapp/build/MaulTeam.app
 
 | Requirement | Version | Purpose / notes |
 |------|-----------|-----------|
-| **macOS + Xcode** | macOS 13+ / Xcode 15+ (Swift 5.9+) | For the source build; the first build needs network access to fetch [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) |
+| **macOS + Xcode** | macOS 14+ / Xcode 16+ (Swift 6 toolchain) | For the source build; the first build needs network access to fetch [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) |
 | **Claude Code CLI** | 2.1.172 or later (on PATH) | The app runs `scrum-start.sh`, whose PBI pipeline relies on sub-agents spawning further sub-agents (unlocked in 2.1.172). See [Claude Code version](#claude-code-version) |
 | **Python** | 3.9+ | `scrum-start.sh` validates it at launch and installs `textual` + `watchdog` if missing (the Mac App's dashboard is native SwiftUI, but the launcher still checks these) |
 | **Codex CLI** | Optional, recommended | Enables cross-model review; without it, the review stages fall back to Claude-based review |

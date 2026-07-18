@@ -41,7 +41,7 @@ the `.p12` + its password, the `AuthKey_*.p8` + Key ID + Issuer ID.
 
 ---
 
-## Part B — GitHub secrets (8)
+## Part B — GitHub secrets (9)
 
 Set them on this repo. `gh secret set NAME` reads the value from stdin, so no
 secret is ever echoed on the command line or stored in shell history.
@@ -56,6 +56,7 @@ secret is ever echoed on the command line or stored in shell history.
 | `NOTARY_KEY_ID` | the key id |
 | `NOTARY_ISSUER_ID` | the issuer uuid |
 | `HOMEBREW_TAP_TOKEN` | a PAT that can push to the tap repo (Part C) |
+| `SPARKLE_ED_PRIVATE_KEY` | **optional** — Sparkle EdDSA private key for the in-app auto-update appcast (Part C.3). Absent = releases still ship, appcast is skipped. |
 
 ```sh
 # text secrets (typed/pasted at the prompt, then Ctrl-D):
@@ -74,7 +75,10 @@ base64 -i /path/to/AuthKey_XXXXXXXXXX.p8  | gh secret set NOTARY_KEY_P8
 repo with **Contents: Read and write**, then
 `gh secret set HOMEBREW_TAP_TOKEN`.
 
-Sanity check afterwards: `gh secret list` should show all 8.
+Sanity check afterwards: `gh secret list` should show the 8 signing/tap
+secrets above, plus `SPARKLE_ED_PRIVATE_KEY` once you complete Part C.3 (9 in
+total). The Sparkle key is the only optional one — the other 8 gate
+signing/notarization and the tap bump.
 
 ---
 
@@ -91,6 +95,45 @@ Sanity check afterwards: `gh secret list` should show all 8.
 2. **Enable GitHub Pages** for the landing page (channel ⓪, already deployed by
    `.github/workflows/pages.yml` on push to `main` touching `site/**`):
    repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+3. **Generate the Sparkle EdDSA key pair** (channel ④, in-app auto-update).
+   Sparkle signs every appcast entry with an EdDSA private key; the app
+   verifies it with the matching **public** key baked into the bundle. Do this
+   once:
+
+   ```sh
+   # Download the pinned Sparkle 2.9.4 tooling and verify its checksum before
+   # running anything from it (same tarball release.yml uses):
+   curl -fL -o Sparkle-2.9.4.tar.xz \
+     https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz
+   echo "ce89daf967db1e1893ed3ebd67575ed82d3902563e3191ca92aaec9164fbdef9  Sparkle-2.9.4.tar.xz" \
+     | shasum -a 256 -c -
+   mkdir -p sparkle && tar -xf Sparkle-2.9.4.tar.xz -C sparkle
+
+   # Create the key pair. The PRIVATE key is stored in your login Keychain;
+   # this prints the PUBLIC key (single-line base64) to stdout — copy it.
+   ./sparkle/bin/generate_keys
+
+   # Export the private key to a file so it can be pushed as a repo secret,
+   # then hand it to GitHub and DELETE the local copy immediately:
+   ./sparkle/bin/generate_keys -x sparkle_private_key.txt
+   gh secret set SPARKLE_ED_PRIVATE_KEY --repo sohei56/maul-team < sparkle_private_key.txt
+   rm -f sparkle_private_key.txt
+   ```
+
+   Then commit the **public** key so the build embeds it:
+
+   ```sh
+   # Paste the single-line base64 public key printed by generate_keys:
+   printf '%s\n' "<public-key-base64>" > macapp/sparkle-public-key.txt
+   git add macapp/sparkle-public-key.txt && git commit -m "chore(macapp): add Sparkle public key"
+   ```
+
+   `make-app.sh` reads `macapp/sparkle-public-key.txt` — a release build
+   **fails without it**. The private key never leaves your Keychain / the repo
+   secret; only the public key is committed. Losing the private key means you
+   must ship a new public key and every existing installed app can no longer
+   verify updates, so back up the Keychain item.
 
 ---
 
@@ -141,6 +184,19 @@ to the Release (channels ①②) → renders and pushes the cask to the tap
 - **② Release**: same asset, linked from the landing page / README.
 - **③ Homebrew**: `brew tap sohei56/homebrew-tap && brew install --cask maul-team`.
 
+When `SPARKLE_ED_PRIVATE_KEY` is present, the run also drives **channel ④
+(in-app auto-update)**: it generates `appcast.xml` over the versioned dmg,
+attaches it to the Release as an asset, and force-pushes it to a dedicated
+single-file **`appcast` branch**. That branch is created automatically by the
+first release run with the secret configured — you do not seed it by hand (it
+mirrors how `.github/workflows/download-stats.yml` maintains the `metrics`
+branch). The app's `SUFeedURL` points at the stable raw URL served from that
+branch:
+
+```
+https://raw.githubusercontent.com/sohei56/maul-team/appcast/appcast.xml
+```
+
 Alongside the versioned asset, the upload step publishes a **version-less
 alias** — `MaulTeam.dmg` + `MaulTeam.dmg.sha256` (byte-identical copy) — so
 the stable direct-download URL
@@ -152,6 +208,30 @@ embeds `#{version}`).
 Until the secrets exist, the pipeline still runs and produces an **unsigned**
 dmg (useful for testing; Gatekeeper warns end users) — signing/notarization and
 the tap bump activate automatically the moment their secrets are present.
+
+---
+
+## Part F — verifying a shipped release
+
+After the run finishes, confirm all channels landed:
+
+1. **DMG + checksum** on the Release page (channels ①②), and the version-less
+   `MaulTeam.dmg` alias present.
+2. **Homebrew** (channel ③): the tap's `Casks/maul-team.rb` bumped to the new
+   version.
+3. **Appcast** (channel ④), when `SPARKLE_ED_PRIVATE_KEY` is set:
+   - the `appcast.xml` **asset** exists on the Release;
+   - the **`appcast` branch** advanced (its commit message names this tag),
+     and `https://raw.githubusercontent.com/sohei56/maul-team/appcast/appcast.xml`
+     serves the new `<item>`;
+   - **in-app update works from the PREVIOUS app version**: install version
+     N, publish N+1, and confirm N offers and applies the update via Sparkle.
+
+   **First-release caveat**: the very first Sparkle-enabled release cannot be
+   delivered through Sparkle to anyone — there is no prior in-app updater to
+   pull it. In-app auto-update only works from N→N+1 onward. Users on older
+   (pre-Sparkle) builds still upgrade through the dmg funnel (channels ①②③),
+   not the appcast.
 
 ---
 

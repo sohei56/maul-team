@@ -20,6 +20,12 @@ cask "maul-team" do
   # Matches LSMinimumSystemVersion (14.0) in make-app.sh's Info.plist.
   depends_on macos: :sonoma
 
+  # The app self-updates via Sparkle (EdDSA-signed appcast). Declaring this
+  # stops a plain `brew upgrade` from clobbering a copy Sparkle already moved
+  # to a newer version. `brew upgrade --greedy` still reinstalls a
+  # same-or-newer cask because bump-tap.sh bumps the tap on every release.
+  auto_updates true
+
   app "MaulTeam.app"
 
   # The app shells out to these at runtime. Homebrew can't install Claude Code

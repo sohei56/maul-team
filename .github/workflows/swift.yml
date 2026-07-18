@@ -18,22 +18,34 @@ on:
 jobs:
   build:
     name: Swift Build (macapp)
-    runs-on: macos-14
+    # CodeEditSourceEditor uses Swift 6 syntax (@preconcurrency conformances),
+    # so the runner must default to Xcode 16+ — macos-14's Xcode 15 (Swift
+    # 5.10) cannot compile it.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
+
+      # The image-default Xcode 16.4 ships Swift 6.1, whose SwiftPM
+      # misclassifies binary-artifact plugin tools as "built from source"
+      # (breaks the SwiftLint prebuild plugin in CodeEdit deps). Pick the
+      # newest stable Xcode installed on the image instead.
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n1)/Contents/Developer"
 
       - name: Show toolchain
         run: swift --version
 
       # Cache the resolved SwiftTerm checkout + build products, keyed on the
-      # pinned dependency graph so a lockfile change busts the cache.
+      # pinned dependency graph so a lockfile change busts the cache. The
+      # runner image is part of the key: a .build populated by an older
+      # toolchain breaks plugin/artifact resolution on a newer one.
       - name: Cache SwiftPM
         uses: actions/cache@v6
         with:
           path: macapp/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('macapp/Package.resolved') }}
+          key: spm-macos15-${{ hashFiles('macapp/Package.resolved') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            spm-macos15-
 
       - name: Build
         run: swift build --package-path macapp

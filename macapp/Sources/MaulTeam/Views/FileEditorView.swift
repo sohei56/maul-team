@@ -8,15 +8,27 @@
 
 import SwiftUI
 import AppKit
-import CodeEditor
+import CodeEditSourceEditor
+import CodeEditLanguages
 
 /// Renders a single EditorTab: syntax-highlighted code (editable when the file
 /// isn't protected, or when Advanced is unlocked), or an image / binary notice.
-/// Used both in the center editor tabs and in detached editor windows.
+/// Hosted in the detached editor windows opened by EditorWindowController.
 struct FileEditorView: View {
     @EnvironmentObject var state: AppState
     @ObservedObject var tab: EditorTab
     let projectRoot: String
+
+    @State private var editorState = SourceEditorState()
+    @AppStorage("editor.wrapLines") private var wrapLines = false
+    @AppStorage("editor.showInvisibles") private var showInvisibles = false
+    @AppStorage("editor.showMinimap") private var showMinimap = false
+    @AppStorage("editor.showReformattingGuide") private var showReformattingGuide = false
+    @AppStorage("editor.indentGuides") private var showIndentGuides = true
+    @State private var showViewOptions = false
+    // CESE stores coordinators weakly; this strong @State reference is what
+    // keeps the indent-guide overlay alive (see IndentGuidesCoordinator).
+    @State private var guidesCoordinator = IndentGuidesCoordinator()
 
     private var relativePath: String {
         let root = projectRoot.hasSuffix("/") ? projectRoot : projectRoot + "/"
@@ -47,14 +59,55 @@ struct FileEditorView: View {
             }
             Spacer()
             if case .text = tab.kind {
+                if let pos = editorState.cursorPositions?.first?.start, pos.line > 0 {
+                    Text("Ln \(pos.line), Col \(pos.column)")
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
+                Button {
+                    tab.undoManager.undo()
+                } label: { Image(systemName: "arrow.uturn.backward") }
+                    .disabled(!editable || !tab.undoManager.canUndo)
+                    .help("Undo (⌘Z)")
+                Button {
+                    tab.undoManager.redo()
+                } label: { Image(systemName: "arrow.uturn.forward") }
+                    .disabled(!editable || !tab.undoManager.canRedo)
+                    .help("Redo (⇧⌘Z)")
+                Button {
+                    editorState.findPanelVisible = !(editorState.findPanelVisible ?? false)
+                } label: { Image(systemName: "magnifyingglass") }
+                    .keyboardShortcut("f")
+                    .help("Find / Replace (⌘F)")
+                Button {
+                    showViewOptions.toggle()
+                } label: { Image(systemName: "eye") }
+                    .help("View options")
+                    .popover(isPresented: $showViewOptions, arrowEdge: .bottom) {
+                        viewOptions
+                    }
                 if tab.isDirty { Text("• Edited").font(.caption).foregroundStyle(.orange) }
                 Button("Save") { tab.save() }
                     .disabled(!editable || !tab.isDirty)
                     .keyboardShortcut("s")
             }
         }
+        .buttonStyle(.borderless)
         .padding(.horizontal, 12).padding(.vertical, 6)
         .background(.bar)
+    }
+
+    private var viewOptions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Wrap lines", isOn: $wrapLines)
+            Toggle("Invisible characters", isOn: $showInvisibles)
+            Toggle("Minimap", isOn: $showMinimap)
+            Toggle("Reformatting guide", isOn: $showReformattingGuide)
+            Toggle("Indent guides", isOn: $showIndentGuides)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .padding(12)
+        .frame(width: 220)
     }
 
     @ViewBuilder
@@ -64,13 +117,39 @@ struct FileEditorView: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .text:
-            CodeEditor(
-                source: $tab.text,
-                language: Self.language(for: tab.url),
-                theme: CodeEditor.ThemeName(rawValue: "atom-one-dark"),
-                flags: editable ? [.selectable, .editable, .smartIndent] : [.selectable],
-                indentStyle: .softTab(width: 2)
+            SourceEditor(
+                $tab.text,
+                language: CodeLanguage.detectLanguageFrom(url: tab.url),
+                configuration: SourceEditorConfiguration(
+                    appearance: .init(
+                        theme: .maulDark,
+                        font: .monospacedSystemFont(ofSize: 12, weight: .regular),
+                        wrapLines: wrapLines,
+                        tabWidth: 2
+                    ),
+                    behavior: .init(
+                        isEditable: editable,
+                        indentOption: .spaces(count: 2)
+                    ),
+                    peripherals: .init(
+                        showMinimap: showMinimap,
+                        showReformattingGuide: showReformattingGuide,
+                        invisibleCharactersConfiguration: showInvisibles
+                            ? InvisibleCharactersConfiguration(
+                                showSpaces: true, showTabs: true, showLineEndings: true)
+                            : .empty
+                    )
+                ),
+                state: $editorState,
+                undoManager: tab.undoManager,
+                coordinators: [guidesCoordinator]
             )
+            // The gutter (line numbers + folding ribbon) is a floating subview
+            // that draws outside the scroll bounds — without clipping it slides
+            // over the toolbar above.
+            .clipped()
+            .onAppear { guidesCoordinator.isEnabled = showIndentGuides }
+            .onChange(of: showIndentGuides) { guidesCoordinator.isEnabled = showIndentGuides }
             .onChange(of: tab.text) { tab.isDirty = true }
 
         case .image(let img):
@@ -102,31 +181,5 @@ struct FileEditorView: View {
 
     private func byteString(_ bytes: Int) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-    }
-
-    /// Map a file extension to a highlight.js language id (nil => plain text).
-    static func language(for url: URL) -> CodeEditor.Language? {
-        let map: [String: String] = [
-            "md": "markdown", "markdown": "markdown",
-            "json": "json", "yml": "yaml", "yaml": "yaml", "toml": "ini", "ini": "ini",
-            "sh": "bash", "bash": "bash", "zsh": "bash",
-            "py": "python", "rb": "ruby", "go": "go", "rs": "rust",
-            "swift": "swift", "js": "javascript", "mjs": "javascript",
-            "ts": "typescript", "tsx": "typescript", "jsx": "javascript",
-            "c": "c", "h": "c", "cpp": "cpp", "cc": "cpp", "hpp": "cpp",
-            "java": "java", "kt": "kotlin", "php": "php",
-            "html": "xml", "xml": "xml", "css": "css", "scss": "scss",
-            "sql": "sql", "diff": "diff", "patch": "diff",
-        ]
-        if let name = map[url.pathExtension.lowercased()] {
-            return CodeEditor.Language(rawValue: name)
-        }
-        if url.lastPathComponent.lowercased() == "dockerfile" {
-            return CodeEditor.Language(rawValue: "dockerfile")
-        }
-        if url.lastPathComponent.lowercased().hasPrefix("makefile") {
-            return CodeEditor.Language(rawValue: "makefile")
-        }
-        return nil
     }
 }

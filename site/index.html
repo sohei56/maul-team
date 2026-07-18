@@ -30,7 +30,7 @@
       "@type": "SoftwareApplication",
       "name": "MaulTeam.app",
       "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "macOS 13+",
+      "operatingSystem": "macOS 14+",
       "url": "https://sohei56.github.io/maul-team/",
       "description": "Native Mac app that hands your project to a full AI Scrum team powered by Claude Code Agent Teams. A Scrum Master coordinates Developer agents through Sprint cycles while you act as Product Owner.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -925,9 +925,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="hero">Download for macOS</a>
       <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="hero">View on GitHub ↗</a>
     </div>
-    <p class="hero-dlnote hload d4">Signed &amp; Apple-notarized · macOS 13+<span id="latestVer"></span> · also via <a href="#install">Homebrew or source build</a></p>
+    <p class="hero-dlnote hload d4">Signed &amp; Apple-notarized · macOS 14+<span id="latestVer"></span> · also via <a href="#install">Homebrew or source build</a></p>
     <div class="trust-row hload d5" aria-label="Technology requirements">
-      <span class="chip">macOS 13+</span>
+      <span class="chip">macOS 14+</span>
       <span class="chip">Swift 5.9+</span>
       <span class="chip">Python 3.9+</span>
       <span class="chip">Claude Code Agent Teams</span>
@@ -1595,7 +1595,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <div class="reqs">
             <h4>Requirements</h4>
             <ul>
-              <li><span class="mono">macOS 13+</span> (Apple Silicon or Intel)</li>
+              <li><span class="mono">macOS 14+</span> (Apple Silicon or Intel)</li>
               <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
               <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
               <li><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
@@ -1612,7 +1612,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <div class="side-card reveal" style="--d:.16s">
           <h3>Build from source</h3>
           <p><span class="mono">make-app.sh release</span> produces the same universal2 build.
-             Needs <span class="mono">Xcode 15+</span> (Swift 5.9+); the first build fetches SwiftTerm.</p>
+             Needs <span class="mono">Xcode 16+</span> (Swift 6 toolchain); the first build fetches SwiftTerm.</p>
           <div class="codeblock">
             <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
             <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
