@@ -45,6 +45,11 @@ jobs:
         with:
           fetch-depth: 0   # make-app.sh needs tags (git describe) + git archive HEAD
 
+      # Same Xcode selection as swift.yml: the image-default Xcode 16.4
+      # (Swift 6.1) breaks the SwiftLint prebuild plugin in CodeEdit deps.
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n1)/Contents/Developer"
+
       - name: Show toolchain
         run: swift --version
 

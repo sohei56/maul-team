@@ -25,6 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The image-default Xcode 16.4 ships Swift 6.1, whose SwiftPM
+      # misclassifies binary-artifact plugin tools as "built from source"
+      # (breaks the SwiftLint prebuild plugin in CodeEdit deps). Pick the
+      # newest stable Xcode installed on the image instead.
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n1)/Contents/Developer"
+
       - name: Show toolchain
         run: swift --version
 
