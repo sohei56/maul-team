@@ -13,7 +13,10 @@ permissions:
 jobs:
   build:
     name: Build, (sign), package DMG
-    runs-on: macos-14
+    # CodeEditSourceEditor uses Swift 6 syntax (@preconcurrency conformances),
+    # so the runner must default to Xcode 16+ — macos-14's Xcode 15 (Swift
+    # 5.10) cannot compile it. Keep in sync with swift.yml.
+    runs-on: macos-15
 
     # Signing + notarization activate ONLY when the corresponding secrets are
     # set. Until then the job still runs and produces an UNSIGNED dmg (usable
