@@ -8,7 +8,8 @@
 
 import SwiftUI
 import AppKit
-import CodeEditor
+import CodeEditSourceEditor
+import CodeEditLanguages
 
 /// Renders a single EditorTab: syntax-highlighted code (editable when the file
 /// isn't protected, or when Advanced is unlocked), or an image / binary notice.
@@ -17,6 +18,8 @@ struct FileEditorView: View {
     @EnvironmentObject var state: AppState
     @ObservedObject var tab: EditorTab
     let projectRoot: String
+
+    @State private var editorState = SourceEditorState()
 
     private var relativePath: String {
         let root = projectRoot.hasSuffix("/") ? projectRoot : projectRoot + "/"
@@ -64,12 +67,23 @@ struct FileEditorView: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
 
         case .text:
-            CodeEditor(
-                source: $tab.text,
-                language: Self.language(for: tab.url),
-                theme: CodeEditor.ThemeName(rawValue: "atom-one-dark"),
-                flags: editable ? [.selectable, .editable, .smartIndent] : [.selectable],
-                indentStyle: .softTab(width: 2)
+            SourceEditor(
+                $tab.text,
+                language: CodeLanguage.detectLanguageFrom(url: tab.url),
+                configuration: SourceEditorConfiguration(
+                    appearance: .init(
+                        theme: .maulDark,
+                        font: .monospacedSystemFont(ofSize: 12, weight: .regular),
+                        wrapLines: false,
+                        tabWidth: 2
+                    ),
+                    behavior: .init(
+                        isEditable: editable,
+                        indentOption: .spaces(count: 2)
+                    ),
+                    peripherals: .init(showMinimap: false)
+                ),
+                state: $editorState
             )
             .onChange(of: tab.text) { tab.isDirty = true }
 
@@ -102,31 +116,5 @@ struct FileEditorView: View {
 
     private func byteString(_ bytes: Int) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-    }
-
-    /// Map a file extension to a highlight.js language id (nil => plain text).
-    static func language(for url: URL) -> CodeEditor.Language? {
-        let map: [String: String] = [
-            "md": "markdown", "markdown": "markdown",
-            "json": "json", "yml": "yaml", "yaml": "yaml", "toml": "ini", "ini": "ini",
-            "sh": "bash", "bash": "bash", "zsh": "bash",
-            "py": "python", "rb": "ruby", "go": "go", "rs": "rust",
-            "swift": "swift", "js": "javascript", "mjs": "javascript",
-            "ts": "typescript", "tsx": "typescript", "jsx": "javascript",
-            "c": "c", "h": "c", "cpp": "cpp", "cc": "cpp", "hpp": "cpp",
-            "java": "java", "kt": "kotlin", "php": "php",
-            "html": "xml", "xml": "xml", "css": "css", "scss": "scss",
-            "sql": "sql", "diff": "diff", "patch": "diff",
-        ]
-        if let name = map[url.pathExtension.lowercased()] {
-            return CodeEditor.Language(rawValue: name)
-        }
-        if url.lastPathComponent.lowercased() == "dockerfile" {
-            return CodeEditor.Language(rawValue: "dockerfile")
-        }
-        if url.lastPathComponent.lowercased().hasPrefix("makefile") {
-            return CodeEditor.Language(rawValue: "makefile")
-        }
-        return nil
     }
 }

@@ -24,15 +24,24 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
-        // Highlightr-based SwiftUI code editor: syntax highlighting + themes.
-        .package(url: "https://github.com/ZeeZide/CodeEditor", from: "1.2.0")
+        // Tree-sitter based code editor (CodeEdit): semantic highlighting,
+        // line-number gutter, find/replace. Pinned exact — upstream README
+        // declares the package "not ready for production use", so upgrades
+        // must be deliberate, spike-tested bumps.
+        .package(url: "https://github.com/CodeEditApp/CodeEditSourceEditor", exact: "0.15.2"),
+        // Local overrides of CodeEditSourceEditor's transitive dependencies —
+        // both are patched for CLI-built (non-Xcode) apps; see each
+        // Vendor/*/Package.swift header for the specific defect.
+        .package(path: "Vendor/CodeEditLanguages"),
+        .package(path: "Vendor/CodeEditSymbols")
     ],
     targets: [
         .executableTarget(
             name: "MaulTeam",
             dependencies: [
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
-                .product(name: "CodeEditor", package: "CodeEditor")
+                .product(name: "CodeEditSourceEditor", package: "CodeEditSourceEditor"),
+                .product(name: "CodeEditLanguages", package: "CodeEditLanguages")
             ],
             path: "Sources/MaulTeam"
         ),

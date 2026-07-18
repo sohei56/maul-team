@@ -61,10 +61,12 @@ if [ "$CONFIG" = "release" ]; then
   BIN="$ROOT/.build/${APP_NAME}-universal"
   echo "==> lipo -create (arm64 + x86_64) -> universal2"
   lipo -create "$ARM_BIN" "$X86_BIN" -output "$BIN"
+  BUNDLE_DIR="$(dirname "$ARM_BIN")"
 else
   echo "==> swift build -c $CONFIG"
   swift build --package-path "$ROOT" -c "$CONFIG"
   BIN="$(swift build --package-path "$ROOT" -c "$CONFIG" --show-bin-path)/$APP_NAME"
+  BUNDLE_DIR="$(dirname "$BIN")"
 fi
 
 [ -x "$BIN" ] || { echo "Error: binary not found at $BIN" >&2; exit 1; }
@@ -73,6 +75,16 @@ echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
+
+# SwiftPM resource bundles (tree-sitter highlight queries, symbol assets,
+# SwiftTerm's Metal shader …) are emitted next to the binary, but at runtime
+# Bundle.module resolves them relative to Contents/Resources of the .app —
+# without this copy, syntax highlighting silently renders plain text.
+# Resource bundles are arch-independent, so the arm64 set is fine in release.
+for b in "$BUNDLE_DIR"/*.bundle; do
+  [ -e "$b" ] || continue
+  cp -R "$b" "$APP/Contents/Resources/"
+done
 
 # Generate the app icon (.icns) from images/macos_icon.png if present.
 ICON_PLIST=""
