@@ -29,14 +29,16 @@ jobs:
         run: swift --version
 
       # Cache the resolved SwiftTerm checkout + build products, keyed on the
-      # pinned dependency graph so a lockfile change busts the cache.
+      # pinned dependency graph so a lockfile change busts the cache. The
+      # runner image is part of the key: a .build populated by an older
+      # toolchain breaks plugin/artifact resolution on a newer one.
       - name: Cache SwiftPM
         uses: actions/cache@v6
         with:
           path: macapp/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('macapp/Package.resolved') }}
+          key: spm-macos15-${{ hashFiles('macapp/Package.resolved') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            spm-macos15-
 
       - name: Build
         run: swift build --package-path macapp

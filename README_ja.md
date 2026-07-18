@@ -12,7 +12,7 @@
   <a href="https://github.com/sohei56/maul-team/releases/latest"><img src="https://img.shields.io/github/v/release/sohei56/maul-team?style=flat-square&color=28c8e6&label=release" alt="Latest release"></a>
   <a href="https://github.com/sohei56/maul-team/releases"><img src="https://img.shields.io/github/downloads/sohei56/maul-team/total?style=flat-square&color=28c8e6&label=downloads" alt="Total downloads"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
-  <img src="https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
@@ -43,7 +43,7 @@
   &nbsp;
   <a href="https://sohei56.github.io/maul-team/"><img src="https://img.shields.io/badge/Website-See_it_in_action-28c8e6?style=for-the-badge&logo=safari&logoColor=white" alt="紹介ページ — チームが動く様子を見る"></a>
   <br>
-  <sub>署名・Apple 公証済み · macOS 13+ · または <code>brew install --cask maul-team</code></sub>
+  <sub>署名・Apple 公証済み · macOS 14+ · または <code>brew install --cask maul-team</code></sub>
 </p>
 
 ## Why?
@@ -102,7 +102,7 @@ open macapp/build/MaulTeam.app
 
 | 要件 | バージョン | 用途・備考 |
 |------|-----------|-----------|
-| **macOS + Xcode** | macOS 13+ / Xcode 15+ (Swift 5.9+) | ソースビルド用。初回ビルド時は [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) 取得のためネットワークアクセスが必要 |
+| **macOS + Xcode** | macOS 14+ / Xcode 16+ (Swift 6 toolchain) | ソースビルド用。初回ビルド時は [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) 取得のためネットワークアクセスが必要 |
 | **Claude Code CLI** | 2.1.172 以上 (PATH 上) | アプリは `scrum-start.sh` を実行し、その PBI パイプラインはサブエージェントがさらにサブエージェントを spawn する機能 (2.1.172 で解禁) に依存。[Claude Code のバージョン](#claude-code-のバージョン) 参照 |
 | **Python** | 3.9+ | `scrum-start.sh` が起動時に検証し、無ければ `textual` + `watchdog` を導入 (Mac App 自身のダッシュボードは native SwiftUI だが、ランチャは依然これらを確認する) |
 | **Codex CLI** | 任意・推奨 | クロスモデルレビューを有効化。未導入の場合、レビュー工程は Claude ベースのレビューにフォールバック |
