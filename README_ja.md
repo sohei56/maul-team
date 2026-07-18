@@ -20,15 +20,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ MaulTeam.app をダウンロード（macOS）</strong></a><br>
-  <sub>署名・Apple 公証済み · macOS 13+ · または <code>brew install --cask maul-team</code></sub>
-</p>
-
-<p align="center">
-  <a href="https://sohei56.github.io/maul-team/"><strong>🌐 紹介ページ</strong></a> — チームが動く様子を見る
-</p>
-
-<p align="center">
   <a href="README.md">English</a> | <strong>日本語</strong>
 </p>
 
@@ -46,6 +37,14 @@
 ---
 
 **MaulTeam.app** を開く（あるいはターミナルで `scrum-start.sh` を実行する）と、AI による Scrum チームが立ち上がります。**Scrum Master** が **Developer** エージェントを束ねて Sprint を回し、あなたは **Product Owner** としてゴールを承認し、動くプロダクトをレビューします。
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-Apple_Silicon_%26_Intel-000000?style=for-the-badge&logo=apple&logoColor=white" alt="MaulTeam.app をダウンロード（macOS / Apple Silicon & Intel）"></a>
+  &nbsp;
+  <a href="https://sohei56.github.io/maul-team/"><img src="https://img.shields.io/badge/Website-See_it_in_action-28c8e6?style=for-the-badge&logo=safari&logoColor=white" alt="紹介ページ — チームが動く様子を見る"></a>
+  <br>
+  <sub>署名・Apple 公証済み · macOS 13+ · または <code>brew install --cask maul-team</code></sub>
+</p>
 
 ## Why?
 

@@ -20,15 +20,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><strong>⬇ Download MaulTeam.app for macOS</strong></a><br>
-  <sub>Signed &amp; Apple-notarized · macOS 13+ · or <code>brew install --cask maul-team</code></sub>
-</p>
-
-<p align="center">
-  <a href="https://sohei56.github.io/maul-team/"><strong>🌐 Website</strong></a> — see the team in action
-</p>
-
-<p align="center">
   <strong>English</strong> | <a href="README_ja.md">日本語</a>
 </p>
 
@@ -46,6 +37,14 @@
 ---
 
 Open a project in **MaulTeam.app** (or run `scrum-start.sh` from a terminal) and a full AI Scrum team takes over — a **Scrum Master** coordinates **Developer** agents through Sprint cycles while you act as the **Product Owner**, approving goals and reviewing the working product.
+
+<p align="center">
+  <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-Apple_Silicon_%26_Intel-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download MaulTeam.app for macOS (Apple Silicon & Intel)"></a>
+  &nbsp;
+  <a href="https://sohei56.github.io/maul-team/"><img src="https://img.shields.io/badge/Website-See_it_in_action-28c8e6?style=for-the-badge&logo=safari&logoColor=white" alt="Website — see the team in action"></a>
+  <br>
+  <sub>Signed &amp; Apple-notarized · macOS 13+ · or <code>brew install --cask maul-team</code></sub>
+</p>
 
 ## Why?
 
