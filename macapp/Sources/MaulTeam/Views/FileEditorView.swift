@@ -13,13 +13,14 @@ import CodeEditLanguages
 
 /// Renders a single EditorTab: syntax-highlighted code (editable when the file
 /// isn't protected, or when Advanced is unlocked), or an image / binary notice.
-/// Used both in the center editor tabs and in detached editor windows.
+/// Hosted in the detached editor windows opened by EditorWindowController.
 struct FileEditorView: View {
     @EnvironmentObject var state: AppState
     @ObservedObject var tab: EditorTab
     let projectRoot: String
 
     @State private var editorState = SourceEditorState()
+    @AppStorage("editor.wrapLines") private var wrapLines = false
 
     private var relativePath: String {
         let root = projectRoot.hasSuffix("/") ? projectRoot : projectRoot + "/"
@@ -50,12 +51,37 @@ struct FileEditorView: View {
             }
             Spacer()
             if case .text = tab.kind {
+                if let pos = editorState.cursorPositions?.first?.start, pos.line > 0 {
+                    Text("Ln \(pos.line), Col \(pos.column)")
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
+                Button {
+                    tab.undoManager.undo()
+                } label: { Image(systemName: "arrow.uturn.backward") }
+                    .disabled(!editable || !tab.undoManager.canUndo)
+                    .help("Undo (⌘Z)")
+                Button {
+                    tab.undoManager.redo()
+                } label: { Image(systemName: "arrow.uturn.forward") }
+                    .disabled(!editable || !tab.undoManager.canRedo)
+                    .help("Redo (⇧⌘Z)")
+                Button {
+                    editorState.findPanelVisible = !(editorState.findPanelVisible ?? false)
+                } label: { Image(systemName: "magnifyingglass") }
+                    .keyboardShortcut("f")
+                    .help("Find / Replace (⌘F)")
+                Button {
+                    wrapLines.toggle()
+                } label: { Image(systemName: "text.wrap") }
+                    .foregroundStyle(wrapLines ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                    .help(wrapLines ? "Disable line wrapping" : "Wrap long lines")
                 if tab.isDirty { Text("• Edited").font(.caption).foregroundStyle(.orange) }
                 Button("Save") { tab.save() }
                     .disabled(!editable || !tab.isDirty)
                     .keyboardShortcut("s")
             }
         }
+        .buttonStyle(.borderless)
         .padding(.horizontal, 12).padding(.vertical, 6)
         .background(.bar)
     }
@@ -74,7 +100,7 @@ struct FileEditorView: View {
                     appearance: .init(
                         theme: .maulDark,
                         font: .monospacedSystemFont(ofSize: 12, weight: .regular),
-                        wrapLines: false,
+                        wrapLines: wrapLines,
                         tabWidth: 2
                     ),
                     behavior: .init(
@@ -83,8 +109,13 @@ struct FileEditorView: View {
                     ),
                     peripherals: .init(showMinimap: false)
                 ),
-                state: $editorState
+                state: $editorState,
+                undoManager: tab.undoManager
             )
+            // The gutter (line numbers + folding ribbon) is a floating subview
+            // that draws outside the scroll bounds — without clipping it slides
+            // over the toolbar above.
+            .clipped()
             .onChange(of: tab.text) { tab.isDirty = true }
 
         case .image(let img):

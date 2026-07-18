@@ -8,9 +8,10 @@
 
 import Foundation
 import AppKit
+import CodeEditTextView
 
-/// One open file in the editor. Holds its text + dirty/save state. A tab can be
-/// shared between the center editor and a detached window so edits stay in sync.
+/// One open file in the editor. Holds its text + dirty/save state, and backs
+/// the editor window showing the file.
 @MainActor
 final class EditorTab: ObservableObject, Identifiable {
     let id = UUID()
@@ -20,6 +21,10 @@ final class EditorTab: ObservableObject, Identifiable {
     @Published var isDirty = false
     @Published private(set) var kind: Kind = .loading
     @Published var saveError: String?
+
+    /// Owned here (not left to the editor's default) so the window toolbar's
+    /// Undo/Redo buttons can drive and query the same manager the editor uses.
+    let undoManager = CEUndoManager()
 
     enum Kind {
         case loading
@@ -75,32 +80,25 @@ final class EditorTab: ObservableObject, Identifiable {
     }
 }
 
-/// The set of files open as tabs in the center editor.
+/// Registry of files open in editor windows. De-duplicates by URL and keeps
+/// tab state alive while a window shows it (EditorWindowController closes the
+/// tab when its window goes away).
 @MainActor
 final class EditorModel: ObservableObject {
     @Published private(set) var tabs: [EditorTab] = []
-    @Published var activeID: EditorTab.ID?
 
-    var activeTab: EditorTab? { tabs.first { $0.id == activeID } }
-
-    /// Open (or focus) a file as a center tab, returning its tab.
+    /// Return the open tab for a file, creating one if needed.
     @discardableResult
     func open(_ url: URL) -> EditorTab {
         if let existing = tabs.first(where: { $0.url == url }) {
-            activeID = existing.id
             return existing
         }
         let tab = EditorTab(url: url)
         tabs.append(tab)
-        activeID = tab.id
         return tab
     }
 
     func close(_ id: EditorTab.ID) {
-        guard let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
-        tabs.remove(at: idx)
-        if activeID == id {
-            activeID = tabs.indices.contains(idx) ? tabs[idx].id : tabs.last?.id
-        }
+        tabs.removeAll { $0.id == id }
     }
 }

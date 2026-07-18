@@ -31,18 +31,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// in windowShouldClose, so by here any sessions are already stopped).
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// ⌘Q path: confirm if sessions are running.
+    /// ⌘Q path: guard unsaved editor windows first (quitting skips their
+    /// per-window close confirmation), then confirm if sessions are running.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let dirty = EditorWindowController.shared.dirtyTabs
+        if !dirty.isEmpty && !confirmDiscardEdits(names: dirty.map(\.name)) {
+            return .terminateCancel
+        }
         if SessionStore.shared.runningCount == 0 { return .terminateNow }
         return confirmQuit() ? .terminateNow : .terminateCancel
+    }
+
+    private func confirmDiscardEdits(names: [String]) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Discard unsaved editor changes?"
+        alert.informativeText = "Unsaved changes in: \(names.joined(separator: ", "))"
+        alert.addButton(withTitle: "Discard and Quit")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Red-button path: confirm before the window actually closes. Cancel keeps
     /// the window open; Quit stops sessions and lets the close (→ terminate)
     /// proceed without a second prompt (runningCount is 0 by then).
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if SessionStore.shared.runningCount == 0 { return true }
-        return confirmQuit()
+        let dirty = EditorWindowController.shared.dirtyTabs
+        if !dirty.isEmpty && !confirmDiscardEdits(names: dirty.map(\.name)) {
+            return false
+        }
+        if SessionStore.shared.runningCount > 0 && !confirmQuit() { return false }
+        // Closing the main window means quitting — take the auxiliary editor /
+        // Scrum Board windows down too, or they keep the app alive headless.
+        EditorWindowController.shared.closeAll()
+        ScrumBoardWindowController.shared.closeBoard()
+        return true
     }
 
     /// Show the quit confirmation. Returns true if the user chose Quit (and

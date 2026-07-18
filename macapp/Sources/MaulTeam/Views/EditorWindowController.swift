@@ -7,20 +7,33 @@
 //
 
 import AppKit
+import Combine
 import SwiftUI
 
-/// Opens a file in its own free-floating, draggable window (VS Code's "move
-/// editor into new window"). The window hosts the SAME EditorTab as the center
-/// tab, so edits and dirty state stay in sync between them.
+/// Opens a file in its own free-floating, draggable editor window — the sole
+/// editor surface (the Explorer opens files here on double-click). Windows are
+/// de-duplicated by file URL; closing one releases its tab from EditorModel.
 @MainActor
 final class EditorWindowController: NSObject, NSWindowDelegate {
     static let shared = EditorWindowController()
 
-    private var windows: [ObjectIdentifier: NSWindow] = [:]
+    private struct Entry {
+        let window: NSWindow
+        let tab: EditorTab
+        weak var model: EditorModel?
+        let dirtyObservation: AnyCancellable
+    }
 
-    func open(tab: EditorTab, projectRoot: String, state: AppState) {
+    private static let frameName = "editorWindow"
+    private var entries: [ObjectIdentifier: Entry] = [:]
+    private var cascadePoint = NSPoint.zero
+
+    /// Tabs with unsaved edits across all open editor windows (quit guard).
+    var dirtyTabs: [EditorTab] { entries.values.map(\.tab).filter(\.isDirty) }
+
+    func open(tab: EditorTab, projectRoot: String, state: AppState, model: EditorModel? = nil) {
         // If a window for this file is already up, just focus it.
-        if let existing = windows.values.first(where: { $0.title == tab.name }) {
+        if let existing = entries.values.first(where: { $0.tab.url == tab.url })?.window {
             existing.makeKeyAndOrderFront(nil)
             return
         }
@@ -36,16 +49,64 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = tab.name
+        window.subtitle = Self.relativePath(of: tab.url, projectRoot: projectRoot)
+        window.representedURL = tab.url
         window.contentView = NSHostingView(rootView: root)
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.center()
+
+        // Restore the last editor-window frame (autosave-name registration
+        // fails for second and later windows — harmless), then cascade so
+        // stacked windows don't cover each other exactly.
+        if !window.setFrameUsingName(Self.frameName) { window.center() }
+        window.setFrameAutosaveName(Self.frameName)
+        cascadePoint = window.cascadeTopLeft(from: cascadePoint)
+
+        let dirtyObservation = tab.$isDirty.sink { [weak window] dirty in
+            window?.isDocumentEdited = dirty
+        }
+        entries[ObjectIdentifier(window)] = Entry(
+            window: window, tab: tab, model: model, dirtyObservation: dirtyObservation
+        )
         window.makeKeyAndOrderFront(nil)
-        windows[ObjectIdentifier(window)] = window
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let entry = entries[ObjectIdentifier(sender)], entry.tab.isDirty else { return true }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Save changes to “\(entry.tab.name)”?"
+        alert.informativeText = "Your changes will be lost if you don't save them."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Don't Save")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            entry.tab.save()
+            // On failure keep the window open so the save-error alert is seen.
+            return entry.tab.saveError == nil
+        case .alertThirdButtonReturn:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Close every editor window without re-prompting — callers that care
+    /// about unsaved edits confirm via ``dirtyTabs`` first.
+    func closeAll() {
+        for window in entries.values.map(\.window) { window.close() }
     }
 
     func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else { return }
-        windows[ObjectIdentifier(window)] = nil
+        guard let window = notification.object as? NSWindow,
+              let entry = entries.removeValue(forKey: ObjectIdentifier(window)) else { return }
+        entry.model?.close(entry.tab.id)
+    }
+
+    private static func relativePath(of url: URL, projectRoot: String) -> String {
+        let root = projectRoot.hasSuffix("/") ? projectRoot : projectRoot + "/"
+        let path = url.path
+        return path.hasPrefix(root) ? String(path.dropFirst(root.count)) : path
     }
 }

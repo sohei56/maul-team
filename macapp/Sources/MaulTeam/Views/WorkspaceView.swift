@@ -68,16 +68,9 @@ struct WorkspaceView: View {
         // set your defaults). Env objects must be injected per hosted pane — they
         // do not cross the NSHostingView boundary inside SplitContainer.
         let left = AnyView(
-            SplitContainer(
-                isVertical: false, storageKey: "ws.left",
-                minSizes: [120, 120], initialFractions: [0.504],
-                panes: [
-                    AnyView(FileTreeView(rootPath: project.path)
-                        .environmentObject(editor).environmentObject(state)
-                        .textSelection(.enabled)),
-                    AnyView(EditorPane(model: editor, projectRoot: project.path)
-                        .environmentObject(state)),
-                ])
+            FileTreeView(rootPath: project.path)
+                .environmentObject(editor).environmentObject(state)
+                .textSelection(.enabled)
         )
         let center = AnyView(
             SplitContainer(
