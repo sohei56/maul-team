@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AppKit
+import Sparkle
 
 /// Ensures the app behaves as a normal foreground app (Dock icon, menu bar,
 /// front window) even when launched as a bare SPM binary rather than a signed
@@ -98,6 +99,17 @@ struct MaulTeamApp: App {
     @StateObject private var state = AppState()
     @StateObject private var sessions = SessionStore.shared
 
+    // Sparkle's updater controller. The documented SwiftUI pattern is a plain
+    // `let` on the App struct: `startingUpdater: true` kicks off scheduled
+    // checks (SUEnableAutomaticChecks is unset, so Sparkle asks for consent on
+    // the 2nd launch first). Delegates are nil — the standard user driver
+    // handles the whole UI.
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -116,9 +128,7 @@ struct MaulTeamApp: App {
         .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") {
-                    UpdateChecker.shared.checkForUpdates()
-                }
+                CheckForUpdatesView(updater: updaterController.updater)
             }
         }
 

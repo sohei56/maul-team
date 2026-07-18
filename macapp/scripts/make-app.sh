@@ -8,7 +8,9 @@
 #
 # make-app.sh — build MaulTeam and assemble a runnable .app bundle.
 #
-# Produces build/MaulTeam.app with an Info.plist and an app icon. Signing
+# Produces build/MaulTeam.app with an Info.plist, an app icon, an embedded
+# Sparkle.framework (in-app auto-update, nested code), and the bundled maul-team
+# framework tree (Contents/Resources/framework — data, not code). Signing
 # depends on the environment:
 #
 #   DEVELOPER_ID_APP unset  -> ad-hoc signature (LOCAL dev only, not
@@ -32,6 +34,14 @@ APP="$ROOT/build/${APP_NAME}.app"
 ICON_SRC="$ROOT/../images/macos_icon.png"
 ENTITLEMENTS="$ROOT/entitlements.plist"
 SIGN_ID="${DEVELOPER_ID_APP:-}"
+
+# Sparkle (in-app auto-update). The EdDSA public key is read from a single-line
+# base64 file the maintainer provides out-of-band (never committed alongside the
+# private key). SUFeedURL points at the appcast on the `appcast` branch. When
+# the key file is present both keys go into Info.plist; when absent a release
+# build hard-fails and a debug build ships without update keys (see below).
+SPARKLE_KEY_FILE="$ROOT/sparkle-public-key.txt"
+SPARKLE_FEED_URL="https://raw.githubusercontent.com/sohei56/maul-team/appcast/appcast.xml"
 
 # Version matches the GitHub release: the latest git tag (e.g. v1.4.3 -> 1.4.3).
 VERSION="$(git -C "$ROOT/.." describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
@@ -86,6 +96,48 @@ for b in "$BUNDLE_DIR"/*.bundle; do
   cp -R "$b" "$APP/Contents/Resources/"
 done
 
+# Embed Sparkle.framework (in-app auto-update). Sparkle ships as a prebuilt
+# universal XCFramework via SwiftPM (binaryTarget — no compilation), so we just
+# copy the resolved macOS slice's Sparkle.framework into Contents/Frameworks,
+# preserving its Versions/B + Current symlink structure (`ditto`). The app is
+# NOT sandboxed, so Sparkle's XPCServices (Downloader.xpc / Installer.xpc) are
+# unnecessary and removed — see Sparkle docs, "Removing XPC Services".
+echo "==> embedding Sparkle.framework"
+SPARKLE_MATCHES=("$ROOT"/.build/artifacts/*/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework)
+if [ "${#SPARKLE_MATCHES[@]}" -ne 1 ] || [ ! -d "${SPARKLE_MATCHES[0]}" ]; then
+  echo "Error: expected exactly one Sparkle.framework under $ROOT/.build/artifacts;" >&2
+  echo "       found ${#SPARKLE_MATCHES[@]}: ${SPARKLE_MATCHES[*]}" >&2
+  echo "       Run 'swift build' first to resolve the Sparkle SPM artifact." >&2
+  exit 1
+fi
+SPARKLE_SRC="${SPARKLE_MATCHES[0]}"
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
+# Remove the versioned XPCServices dir AND its top-level convenience symlink
+# (XPCServices -> Versions/Current/XPCServices), which would otherwise dangle.
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices"
+rm -f "$APP/Contents/Frameworks/Sparkle.framework/XPCServices"
+
+# rpath: the SwiftPM-linked binary finds Sparkle via @loader_path in the build
+# dir; in the shipped bundle the framework lives in Contents/Frameworks, so the
+# binary needs an @executable_path/../Frameworks rpath. Also strip any absolute
+# build-machine rpath pointing into .build (a machine-path leak) so @rpath
+# resolves only via the bundle-relative entry. Must run before signing.
+BUNDLE_BIN="$APP/Contents/MacOS/$APP_NAME"
+if ! otool -l "$BUNDLE_BIN" | grep -q "@executable_path/../Frameworks"; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$BUNDLE_BIN"
+fi
+# Piped (not process substitution) so this stays valid under `sh` too; the
+# loop only calls install_name_tool (a filesystem side effect), so running in
+# the pipe's subshell is fine — no shell state needs to survive it.
+otool -l "$BUNDLE_BIN" | awk '/LC_RPATH/{getline; getline; print $2}' \
+  | while IFS= read -r rp; do
+      case "$rp" in
+        */.build/*) echo "==> stripping build-machine rpath: $rp"
+                    install_name_tool -delete_rpath "$rp" "$BUNDLE_BIN" ;;
+      esac
+    done
+
 # Generate the app icon (.icns) from images/macos_icon.png if present.
 ICON_PLIST=""
 if [ -f "$ICON_SRC" ]; then
@@ -105,6 +157,28 @@ else
   echo "==> no icon source at $ICON_SRC — skipping icon"
 fi
 
+# Sparkle Info.plist keys. Built as an optional fragment (same technique as
+# ICON_PLIST): present the SUFeedURL + SUPublicEDKey pair only when the public
+# key file exists and is non-empty. A release build with no key is a hard error
+# (a shippable build MUST be able to verify appcast signatures); a debug build
+# without it just can't self-update, which is fine for local dev.
+SU_PLIST=""
+if [ -s "$SPARKLE_KEY_FILE" ]; then
+  SPARKLE_PUBKEY="$(tr -d '[:space:]' < "$SPARKLE_KEY_FILE")"
+  echo "==> Sparkle: injecting SUFeedURL + SUPublicEDKey"
+  SU_PLIST="  <key>SUFeedURL</key>              <string>${SPARKLE_FEED_URL}</string>
+  <key>SUPublicEDKey</key>           <string>${SPARKLE_PUBKEY}</string>
+"
+elif [ "$CONFIG" = "release" ]; then
+  echo "Error: release build requires $SPARKLE_KEY_FILE (Sparkle EdDSA public key)." >&2
+  echo "       Provide a single-line base64 key (the public half from Sparkle's" >&2
+  echo "       generate_keys -p); without it the app cannot verify update signatures." >&2
+  exit 1
+else
+  echo "WARNING: $SPARKLE_KEY_FILE missing — debug build ships WITHOUT update keys" >&2
+  echo "         (SUFeedURL/SUPublicEDKey omitted; this build cannot self-update)." >&2
+fi
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -117,7 +191,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>     <string>APPL</string>
   <key>CFBundleShortVersionString</key> <string>${VERSION}</string>
   <key>CFBundleVersion</key>         <string>${VERSION}</string>
-${ICON_PLIST}  <key>LSMinimumSystemVersion</key>  <string>14.0</string>
+${SU_PLIST}${ICON_PLIST}  <key>LSMinimumSystemVersion</key>  <string>14.0</string>
   <key>NSHighResolutionCapable</key> <true/>
   <key>NSPrincipalClass</key>        <string>NSApplication</string>
 </dict>
@@ -153,19 +227,39 @@ fi
 
 # Codesign. With a Developer ID identity we enable Hardened Runtime +
 # entitlements (notarization prerequisite); otherwise an ad-hoc signature for
-# local dev. NOTE: `--deep` applies one signature pass to the whole bundle and
-# is fine while there is no embedded nested code. Once the framework + a Python
-# interpreter are bundled (Phase 3), nested binaries must be signed inside-out
-# by sign-and-notarize.sh, not with `--deep` here.
+# local dev.
+#
+# The "Phase 3 inside-out" moment predicted here has arrived — but for Sparkle,
+# not the Python interpreter. Contents/Frameworks/Sparkle.framework is embedded
+# NESTED CODE (a framework with its own helper executables Autoupdate +
+# Updater.app), so `--deep` no longer applies: `--deep` cannot give each nested
+# component the right options and re-signs them all with the outer entitlements,
+# which Sparkle's helpers must NOT carry. Per Sparkle's docs we sign inside-out
+# — the framework's nested executables, then the framework, then the outer app.
+# (Note the nuance: Contents/Resources/framework is the maul-team git-archive
+# tree — DATA, not code — so it needs no signing pass of its own.)
 if [ -n "$SIGN_ID" ]; then
   echo "==> Developer ID codesign + Hardened Runtime ($SIGN_ID)"
-  codesign --force --deep --options runtime \
+  SPARKLE_EMBED="$APP/Contents/Frameworks/Sparkle.framework"
+  # Inside-out: nested helpers first (Hardened Runtime, timestamped, NO
+  # entitlements), then the framework bundle, THEN the outer app (with the app
+  # entitlements) — and WITHOUT --deep.
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_ID" "$SPARKLE_EMBED/Versions/B/Autoupdate"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_ID" "$SPARKLE_EMBED/Versions/B/Updater.app"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_ID" "$SPARKLE_EMBED"
+  codesign --force --options runtime \
     --entitlements "$ENTITLEMENTS" \
     --timestamp \
     --sign "$SIGN_ID" "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 else
   echo "==> ad-hoc codesign (local only — NOT distributable)"
+  # Ad-hoc dev signature: --deep is acceptable here (no notarization, no
+  # per-component entitlement concerns), and it re-seals Sparkle.framework after
+  # the XPCServices removal in one pass.
   codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || \
     echo "  (codesign skipped/failed — app still runs locally)"
 fi

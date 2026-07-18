@@ -33,7 +33,12 @@ let package = Package(
         // both are patched for CLI-built (non-Xcode) apps; see each
         // Vendor/*/Package.swift header for the specific defect.
         .package(path: "Vendor/CodeEditLanguages"),
-        .package(path: "Vendor/CodeEditSymbols")
+        .package(path: "Vendor/CodeEditSymbols"),
+        // Sparkle 2 — in-app auto-update (EdDSA-signed appcast). Pinned exact:
+        // the embedded framework is re-signed inside-out by make-app.sh and the
+        // appcast is EdDSA-signed per release, so an upstream bump must be a
+        // deliberate re-verification of both, not a silent range upgrade.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.4")
     ],
     targets: [
         .executableTarget(
@@ -41,7 +46,8 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "CodeEditSourceEditor", package: "CodeEditSourceEditor"),
-                .product(name: "CodeEditLanguages", package: "CodeEditLanguages")
+                .product(name: "CodeEditLanguages", package: "CodeEditLanguages"),
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/MaulTeam"
         ),
