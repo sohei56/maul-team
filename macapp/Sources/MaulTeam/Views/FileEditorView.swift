@@ -21,6 +21,14 @@ struct FileEditorView: View {
 
     @State private var editorState = SourceEditorState()
     @AppStorage("editor.wrapLines") private var wrapLines = false
+    @AppStorage("editor.showInvisibles") private var showInvisibles = false
+    @AppStorage("editor.showMinimap") private var showMinimap = false
+    @AppStorage("editor.showReformattingGuide") private var showReformattingGuide = false
+    @AppStorage("editor.indentGuides") private var showIndentGuides = true
+    @State private var showViewOptions = false
+    // CESE stores coordinators weakly; this strong @State reference is what
+    // keeps the indent-guide overlay alive (see IndentGuidesCoordinator).
+    @State private var guidesCoordinator = IndentGuidesCoordinator()
 
     private var relativePath: String {
         let root = projectRoot.hasSuffix("/") ? projectRoot : projectRoot + "/"
@@ -71,10 +79,12 @@ struct FileEditorView: View {
                     .keyboardShortcut("f")
                     .help("Find / Replace (⌘F)")
                 Button {
-                    wrapLines.toggle()
-                } label: { Image(systemName: "text.wrap") }
-                    .foregroundStyle(wrapLines ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
-                    .help(wrapLines ? "Disable line wrapping" : "Wrap long lines")
+                    showViewOptions.toggle()
+                } label: { Image(systemName: "eye") }
+                    .help("View options")
+                    .popover(isPresented: $showViewOptions, arrowEdge: .bottom) {
+                        viewOptions
+                    }
                 if tab.isDirty { Text("• Edited").font(.caption).foregroundStyle(.orange) }
                 Button("Save") { tab.save() }
                     .disabled(!editable || !tab.isDirty)
@@ -84,6 +94,20 @@ struct FileEditorView: View {
         .buttonStyle(.borderless)
         .padding(.horizontal, 12).padding(.vertical, 6)
         .background(.bar)
+    }
+
+    private var viewOptions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Wrap lines", isOn: $wrapLines)
+            Toggle("Invisible characters", isOn: $showInvisibles)
+            Toggle("Minimap", isOn: $showMinimap)
+            Toggle("Reformatting guide", isOn: $showReformattingGuide)
+            Toggle("Indent guides", isOn: $showIndentGuides)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .padding(12)
+        .frame(width: 220)
     }
 
     @ViewBuilder
@@ -107,15 +131,25 @@ struct FileEditorView: View {
                         isEditable: editable,
                         indentOption: .spaces(count: 2)
                     ),
-                    peripherals: .init(showMinimap: false)
+                    peripherals: .init(
+                        showMinimap: showMinimap,
+                        showReformattingGuide: showReformattingGuide,
+                        invisibleCharactersConfiguration: showInvisibles
+                            ? InvisibleCharactersConfiguration(
+                                showSpaces: true, showTabs: true, showLineEndings: true)
+                            : .empty
+                    )
                 ),
                 state: $editorState,
-                undoManager: tab.undoManager
+                undoManager: tab.undoManager,
+                coordinators: [guidesCoordinator]
             )
             // The gutter (line numbers + folding ribbon) is a floating subview
             // that draws outside the scroll bounds — without clipping it slides
             // over the toolbar above.
             .clipped()
+            .onAppear { guidesCoordinator.isEnabled = showIndentGuides }
+            .onChange(of: showIndentGuides) { guidesCoordinator.isEnabled = showIndentGuides }
             .onChange(of: tab.text) { tab.isDirty = true }
 
         case .image(let img):
