@@ -16,9 +16,10 @@ responsibilities (what it owns).
   implementation work; can only manage tasks, communicate with teammates,
   and review output). Enforced via agent definition instruction +
   Shift+Tab toggle at runtime.
-**Skills**: The SM preloads 13 ceremony Skills via its `skills:` field
-  (see `agents/scrum-master.md`). The repo ships 18 Skills total; the
-  remainder are preloaded by other agents — 4 by the Developer
+**Skills**: The SM preloads its ceremony Skills via its `skills:` field
+  (`agents/scrum-master.md` frontmatter is the authoritative list). The
+  full Skill set ships under `skills/`; the remainder are preloaded by
+  other agents — 4 by the Developer
   (`pbi-pipeline`, `install-subagents`, `smoke-test`,
   `integration-tests`), `po-acceptance` by the `product-owner`
   teammate (SM only invokes it indirectly by sending
@@ -64,7 +65,7 @@ responsibilities (what it owns).
 | FR-006 | Assign implementers (one per PBI). Per-PBI aspect review runs inside the pipeline (Developer-conducted Integrity stage); Sprint-end audit is owned by SM via cross-review (FR-009) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` as an **audit-only** ceremony — static analysis + the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). The audit is non-blocking: Critical/High findings become next-Sprint draft PBIs; it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`. |
+| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` as an audit-only, non-blocking ceremony (regulation: `skills/codebase-audit/SKILL.md`). |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -79,6 +80,12 @@ responsibilities (what it owns).
 | FR-022 | Detect teammate failure, reassign PBI |
 
 ### Skills Mapping
+
+This table maps only the skills tied to SM responsibilities (FRs).
+Three skills are absent by design: `create-brief` (run by the
+`scrum-start.sh` launcher as an interactive pre-flight), `codebase-audit`
+(runs inside `cross-review`), and `po-acceptance` (invoked by the
+`product-owner` teammate). The full set appears in the index below.
 
 | Skill | Ceremony / Phase | Key FRs |
 |-------|-----------------|---------|
@@ -117,7 +124,7 @@ named SKILL.md for the exact required state and files/keys written.
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
 | `pbi-merge` | SM-side per-PBI merge into main (rollback / strike rule: see Skills Mapping above) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
 | `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
-| `cross-review` | Sprint-end audit-only ceremony (static analysis + whole-repo 4-axis `codebase-audit`; non-blocking) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `cross-review` | Sprint-end audit-only ceremony (runs `codebase-audit`; regulation: `skills/codebase-audit/SKILL.md`) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
 | `codebase-audit` | Whole-repo 4-axis audit (embedded in cross-review; thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
 | `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
 | `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
@@ -277,10 +284,9 @@ Full sub-agent catalog (roles, spawning parents, tool sandboxes) in
 `security-reviewer`, `maintainability-reviewer`,
 `docs-consistency-reviewer`) are spawned **per-PBI by the Developer** at
 the pipeline's Integrity stage (not Sprint-end). Sprint-end cross-review
-is audit-only: 4 whole-repo `codebase-audit` axes (`spec-conformance`,
-`logic-defect`, `redundancy`, `product-security`) spawned by the SM as
-general-purpose `Agent` calls (not named catalog agents), driven by
-`skills/codebase-audit/references/axes.md`. PBI Pipeline uses
+runs the whole-repo `codebase-audit` axes as general-purpose `Agent`
+spawns by the SM (not named catalog agents); audit-only regulation:
+`skills/codebase-audit/SKILL.md`. PBI Pipeline uses
 `pbi-{designer, implementer, ut-author}` workers and `codex-{design,
 impl, ut}-reviewer` critics per Round.
 
@@ -297,16 +303,10 @@ impl, ut}-reviewer` critics per Round.
   have no `Write` tool)
 - File modifications (developer support sub-agents, if applicable)
 
-**Integrity-stage aspect reviewers return markdown, not the JSON
-envelope.** The 5 aspect reviewers spawned at the pipeline's Integrity
-stage return a `**Verdict: PASS | FAIL**` line plus a markdown Findings
-list as their final assistant message — they do **not** emit the
-pbi-pipeline JSON envelope. The envelope contract
-(`docs/contracts/pbi-pipeline-envelope.schema.json`, whose `criterion_key`
-enum is codex-reviewer-specific) remains scoped to the codex reviewers
-only. The conductor parses the markdown verdicts and synthesizes its own
-aggregate `.scrum/pbi/<id>/metrics/integrity-r{n}.json`, which is a
-conductor-owned artifact and is **not** bound by that schema.
+The 5 Integrity-stage aspect reviewers return a markdown
+`**Verdict: PASS | FAIL**` instead of the pbi-pipeline JSON envelope,
+which is scoped to the six pipeline sub-agents. Details:
+`docs/contracts/sub-agents.md`.
 
 ### Responsibilities
 - Reviewer sub-agents: evaluate code against requirements and design docs, produce review reports
@@ -525,11 +525,18 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 - **Mode-dependent policy**:
   - *Autonomy loop active* (`autonomy_loop_active` = autonomous mode
     **and** a live watchdog, verified via `kill -0 watchdog_pid`):
-    block on every Stop while the condition holds; the Ralph-Loop
-    watchdog drives iteration counts and the
-    `stop_block_budget_per_phase` circuit breaker. With no live
-    watchdog the gate degrades to the human-mode fallback below
-    (no point storming a session nothing will re-launch).
+    only the healthy `pipeline_in_flight` inner-loop condition blocks
+    unbounded on every Stop. Bounded exit-criteria blocks
+    (`review_incomplete`, `sprint_history_missing`, `tests_failed`,
+    `escalated_unresolved`, …) are stepped through the per-phase
+    circuit breaker (`autonomous.stop_block_budget_per_phase`)
+    **inside `completion-gate.sh` itself**: each such block consumes
+    the budget, and once it trips the gate allows exit (exit 0) so
+    the watchdog can surface the stuck run. The Ralph-Loop watchdog
+    only resets the per-phase counter at each iteration and observes
+    trips — it does not drive the breaker. With no live watchdog the
+    gate degrades to the human-mode fallback below (no point
+    storming a session nothing will re-launch).
   - *Human mode*: fingerprint-dedup. First block of a
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In
@@ -552,7 +559,11 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 ### TaskCompleted Hook
 - **Script**: `hooks/quality-gate.sh`
 - **Reads**: PBI status, design docs, test files, lint results (scoped to git-changed files)
-- **Output**: Advisory warnings to stderr (does not hard-block)
+- **Output**: status-scoped. A failed DoD check is an advisory stderr
+  warning (exit 0) while the PBI status is mid-/pre-pipeline; it
+  hard-blocks (exit 2) when `items[].status` is one of
+  `{in_progress_merge, awaiting_cross_review, cross_review, done}` —
+  DoD is only claimable at merge-readiness.
 - **Purpose**: Enforce Definition of Done (FR-017) before marking tasks complete
 
 ---

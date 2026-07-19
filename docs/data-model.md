@@ -205,9 +205,9 @@ State descriptions:
 - `in_progress_pbi_review` — Per-PBI Round review: `codex-impl-reviewer` + `codex-ut-reviewer` evaluating; FAIL loops back to `in_progress_impl`.
 - `in_progress_ut_run` — Real test execution + coverage gate; FAIL loops back to `in_progress_impl`.
 - `in_progress_merge` — Developer has signalled ready-for-merge (`mark-pbi-ready-to-merge.sh`); SM is about to run `merge-pbi.sh`.
-- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` ceremony (now a whole-repo 4-axis codebase audit).
-- `cross_review` — Sprint-end `cross-review` ceremony running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
-- `done` — Sprint-end ceremony complete. The PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
+- `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` ceremony (see `cross_review` entry).
+- `cross_review` — Sprint-end `cross-review` ceremony (whole-repo 4-axis codebase audit) running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
+- `done` — Sprint-end ceremony complete (see `cross_review` entry); the PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
 - `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
 - `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears. **Not** for PBIs that will never resume — those go to `cancelled`.
 - `cancelled` — SM-decided terminal state: the PBI was merged into another PBI, superseded, or is no longer needed (including the `pbi-escalation-handler` **abandon** verdict). No outbound transitions. Completion gates and Sprint carry-over treat `cancelled` like `done` (no remaining work), but it is never counted as delivered.
@@ -493,11 +493,13 @@ with the work events from `.scrum/dashboard.json`.
 | `content` | string | Human-readable message summary |
 | `pbi_id` | string \| absent | Optional `pbi-NNN` link to the PBI the message concerns. Set by the writer (`hooks/dashboard-event.sh`) when the message concerns a PBI; omitted otherwise. |
 
-### Rules
-- Messages are appended by hook scripts (`hooks/dashboard-event.sh`) when
-  Agent Teams messaging events are detected.
-- The file is capped at `max_messages` entries; oldest are trimmed on each append.
-- If the file does not exist, the first hook creates it with an empty `messages` array.
+### Rules (hook-appended log file semantics)
+- Entries are appended by hook scripts (`hooks/dashboard-event.sh`) —
+  here, when Agent Teams messaging events are detected.
+- The file is capped (cap key here: `max_messages`); oldest entries are
+  trimmed on each append.
+- If the file does not exist, the first hook creates it with an empty
+  entry array (here: `messages`).
 - Dashboard readers tolerate a missing or empty file gracefully.
 
 ---
@@ -534,10 +536,8 @@ and the status line for real-time agent activity.
 | `detail` | string | Human-readable event description |
 
 ### Rules
-- Events are appended by hook scripts (`hooks/dashboard-event.sh`).
-- The file is capped at `max_events` entries; oldest are trimmed on each append.
-- If the file does not exist, the first hook creates it with an empty `events` array.
-- Dashboard readers tolerate a missing or empty file gracefully.
+- Same hook-appended log semantics as CommunicationsLog; cap key
+  `max_events`, entry array `events`.
 
 ---
 
@@ -749,6 +749,7 @@ kind_mismatch
 | `pragma_pattern` | string \| object \| absent | Pragma marker for the pragma-audit step — a plain string (single global marker, as in `.scrum-config.example.json`) or an object keyed per language. |
 | `path_guard` | object \| absent | `impl_globs[]` and `test_globs[]` consumed by `pre-tool-use-path-guard.sh` for `pbi-implementer` / `pbi-ut-author`. |
 | `merge_regression` | object \| absent | `command` run by `merge-pbi.sh` after each per-PBI merge; skipped with WARN when absent. |
+| `static_analysis` | object \| absent | `commands[]` (`{name, command}` pairs, each run via `bash -c` from the repo root) declaring reachability / dead-export tools for the cross-review whole-repo dead-code pass; stdout + exit are aggregated into `.scrum/reviews/static-analysis-r{n}.json`. Absent or empty → the pass falls back to the built-in Python `vulture` auto-run (when available). |
 | `po_mode` | enum (`"human"` \| `"agent"`) \| absent | Who plays the Product Owner role. Absent or `"human"` → the user; `"agent"` → the `product-owner` teammate (see `agents/product-owner.md`). Default-absent preserves existing behavior bit-for-bit. |
 | `po` | object \| absent | Settings for the autonomous PO (only consulted when `po_mode == "agent"`). |
 | `po.max_clarification_rounds` | integer ≥ 0 | Max `PO_CLARIFY` round-trips per `PO_DECISION_REQUEST` before the PO must commit a decision with `assumption=true` (default 2 when key absent). |
@@ -780,7 +781,10 @@ documents them and is copied verbatim by `setup-user.sh`).
 - Direct edits via Write/Edit are blocked by
   `pre-tool-use-scrum-state-guard.sh`; the file is written by the
   user manually (interactive mode) or by `scrum-start.sh
-  --autonomous` (autonomous mode).
+  --autonomous` (autonomous mode). One exception: the
+  `merge_regression` block is written via its sanctioned wrapper
+  `.scrum/scripts/set-merge-regression-command.sh` (Sprint-Planning
+  `quality_gate_config` decision).
 - `po_mode` absent and `po_mode == "human"` are
   behaviourally identical — every Skill's "ask the user" prompt
   resolves to the human.
@@ -862,7 +866,7 @@ human or autonomous). Schema:
 |-------|------|-------------|
 | `id` | string | Auto-assigned `dec-NNNN` (zero-padded). The wrapper echoes this on stdout; the PO must include it in the `PO_DECISION` reply so SM can back-link. |
 | `timestamp` | ISO 8601 string | When the decision was recorded. |
-| `kind` | enum (13 values) | `sprint_goal_approval` \| `pbi_split` \| `escalation_choice` \| `spec_clarification` \| `change_request` \| `demo_acceptance` \| `uat_item` \| `defect_triage` \| `release_decision` \| `git_dirty` \| `backlog_approval` \| `scope_change` \| `sprint_continuation` (Retrospective → next-Sprint handshake; `decision ∈ {choice:next_sprint, choice:integration_sprint, choice:complete}`). |
+| `kind` | enum | SSOT: `po-decisions.schema.json` (message-kind semantics: `agents/product-owner.md` § Communication protocol). Do not maintain a parallel copy of the value list here. |
 | `sprint_id` | string \| `null` | Set when scope is sprint-bound (`sprint-N` pattern). |
 | `pbi_id` | string \| `null` | Set when scope is PBI-bound (`pbi-N` pattern). |
 | `request` | string \| absent | Summary of what SM asked the PO to decide. |

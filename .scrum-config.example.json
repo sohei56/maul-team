@@ -17,10 +17,20 @@
     "impl_globs": ["src/**", "lib/**"],
     "test_globs": ["tests/**", "**/*_test.py"]
   },
+  "merge_regression": {
+    "command": "pytest --tb=short -q"
+  },
   "static_analysis": {
     "commands": [
       {"name": "vulture", "command": "vulture src/ --min-confidence 80"}
     ]
+  },
+  "stall_watchdog": {
+    "enabled": true,
+    "idle_threshold_minutes": 15,
+    "pbi_idle_threshold_minutes": 15,
+    "cooldown_minutes": 15,
+    "poll_interval_seconds": 60
   },
   "po_mode": "human",
   "po": {
