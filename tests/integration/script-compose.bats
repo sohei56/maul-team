@@ -114,6 +114,44 @@ EOF
   [[ "$output" == *"1 draft"* ]]
 }
 
+@test "statusline.sh excludes cancelled PBIs from the Sprint total" {
+  cd "$TEMP_DIR"
+  mkdir -p .scrum
+  cat > .scrum/state.json << 'EOF'
+{
+  "product_goal": "Test",
+  "current_sprint_id": "sprint-1",
+  "phase": "pbi_pipeline_active",
+  "created_at": "2026-03-01T10:00:00Z",
+  "updated_at": "2026-03-01T10:00:00Z"
+}
+EOF
+  cat > .scrum/sprint.json << 'EOF'
+{
+  "id": "sprint-1",
+  "goal": "Test goal",
+  "status": "active",
+  "developers": []
+}
+EOF
+  cat > .scrum/backlog.json << 'EOF'
+{
+  "product_goal": "Test",
+  "items": [
+    {"id": "pbi-001", "title": "Done PBI", "status": "done", "sprint_id": "sprint-1"},
+    {"id": "pbi-002", "title": "Active PBI", "status": "in_progress_impl", "sprint_id": "sprint-1"},
+    {"id": "pbi-003", "title": "Cancelled PBI", "status": "cancelled", "sprint_id": "sprint-1"}
+  ],
+  "next_pbi_id": 4
+}
+EOF
+  run bash "$PROJECT_ROOT/scripts/statusline.sh" < /dev/null
+  assert_success
+  # cancelled is descoped work: total counts 2, not 3 (matches
+  # rollover-sprint.sh and dashboard/app.py semantics).
+  [[ "$output" == *"1/2 PBIs done"* ]]
+}
+
 # --- 13-value status SSOT: direct-write through wrappers ---
 
 # These tests compose multiple wrappers (update-backlog-status / update-pbi-state /
