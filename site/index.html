@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020610">
 <link rel="icon" type="image/png" href="./assets/app-icon.png">
-<title>MaulTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
-<meta name="description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<title data-i18n="meta.title">MaulTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
+<meta name="description" data-i18n-attr="content:meta.description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
 <link rel="canonical" href="https://sohei56.github.io/maul-team/">
 <meta property="og:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
 <meta property="og:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
@@ -22,6 +22,7 @@
 <meta name="twitter:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
 <meta name="twitter:image:alt" content="Maul Team — AI Scrum Team for Claude Code">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="9005e05d-1557-4ac1-bb9e-bc05201b77db" data-domains="sohei56.github.io"></script>
+<script defer src="./i18n.js"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -227,6 +228,27 @@ button{font:inherit; color:inherit}
   transform:translateY(-1px); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 8px 22px rgba(40,200,230,.5)}
 @media (max-width:760px){ .nav-links a:not(.nav-gh):not(.nav-dl){display:none} }
 @media (max-width:420px){ .nav-gh{display:none} }
+
+/* ---------- language switcher ---------- */
+.lang-switch{position:relative; margin-left:10px}
+.lang-switch summary{list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+  font-size:13px; color:var(--text-2); padding:7px 11px; border-radius:999px; user-select:none;
+  border:1px solid var(--line-strong); background:var(--panel-2);
+  transition:color .18s, border-color .18s}
+.lang-switch summary::-webkit-details-marker{display:none}
+.lang-switch summary:hover{color:var(--text); border-color:rgba(62,220,245,.55)}
+.lang-switch[open] summary{color:var(--text); border-color:rgba(62,220,245,.55)}
+.lang-switch .ls-caret{font-size:9px; color:var(--text-3); transform:translateY(1px)}
+.lang-switch ul{position:absolute; right:0; top:calc(100% + 8px); margin:0; padding:6px; list-style:none;
+  min-width:148px; background:var(--panel-2); border:1px solid var(--line-strong); border-radius:12px;
+  box-shadow:0 18px 44px rgba(0,0,0,.55); z-index:80}
+.lang-switch li{margin:0}
+.lang-switch ul button{display:block; width:100%; text-align:left; font:inherit; font-size:13.5px;
+  color:var(--text-2); background:none; border:0; border-radius:8px; padding:8px 11px; cursor:pointer;
+  transition:color .15s, background .15s}
+.lang-switch ul button:hover{color:var(--text); background:rgba(255,255,255,.06)}
+.lang-switch ul button.on{color:var(--cyan-hi)}
+@media (max-width:420px){ .lang-switch #langCur{display:none} .lang-switch summary{gap:3px} }
 
 /* ---------- shared layout ---------- */
 .section{max-width:var(--maxw); margin:0 auto; padding:104px 24px 0}
@@ -897,14 +919,26 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       MaulTeam<span class="tld">.app</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
-      <a href="#why">Why</a>
-      <a href="#demo">Demo</a>
-      <a href="#how">How it works</a>
-      <a href="#loop">Loop engineering</a>
-      <a href="#features">Features</a>
-      <a href="#install">Install</a>
+      <a href="#why" data-i18n="nav.why">Why</a>
+      <a href="#demo" data-i18n="nav.demo">Demo</a>
+      <a href="#how" data-i18n="nav.how">How it works</a>
+      <a href="#loop" data-i18n="nav.loop">Loop engineering</a>
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
+      <details class="lang-switch" id="langSwitch">
+        <summary aria-label="Language">🌐&nbsp;<span id="langCur">EN</span><span class="ls-caret" aria-hidden="true">▾</span></summary>
+        <ul aria-label="Language">
+          <li><button type="button" data-lang="en" lang="en">English</button></li>
+          <li><button type="button" data-lang="ja" lang="ja">日本語</button></li>
+          <li><button type="button" data-lang="fr" lang="fr">Français</button></li>
+          <li><button type="button" data-lang="es" lang="es">Español</button></li>
+          <li><button type="button" data-lang="de" lang="de">Deutsch</button></li>
+          <li><button type="button" data-lang="zh-Hans" lang="zh-Hans">简体中文</button></li>
+          <li><button type="button" data-lang="ko" lang="ko">한국어</button></li>
+        </ul>
+      </details>
       <a class="nav-gh" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="nav">GitHub&nbsp;↗</a>
-      <a class="nav-dl" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="nav">Download</a>
+      <a class="nav-dl" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="nav" data-i18n="nav.download">Download</a>
     </nav>
   </div>
 </header>
@@ -915,17 +949,17 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <section class="hero" aria-label="Introduction">
     <img class="hero-appicon hload d1" src="./assets/app-icon.png" alt="MaulTeam.app app icon" width="92" height="92">
     <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · source-available</p>
-    <h1 class="hload d2">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
-    <p class="hero-sub hload d3">
+    <h1 class="hload d2" data-i18n="hero.title">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
+    <p class="hero-sub hload d3" data-i18n="hero.sub">
       A native Mac app — or one shell command — runs a multi-agent Scrum team on your project,
       powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>
       (human-in-the-loop), or specify the end state and let the team loop on its own.
     </p>
     <div class="hero-ctas hload d4">
-      <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="hero">Download for macOS</a>
-      <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="hero">View on GitHub ↗</a>
+      <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="hero" data-i18n="common.download_mac">Download for macOS</a>
+      <a class="btn btn-ghost" href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="hero" data-i18n="hero.view_gh">View on GitHub ↗</a>
     </div>
-    <p class="hero-dlnote hload d4">Signed &amp; Apple-notarized · macOS 14+<span id="latestVer"></span> · also via <a href="#install">Homebrew or source build</a></p>
+    <p class="hero-dlnote hload d4"><span data-i18n="hero.dlnote1">Signed &amp; Apple-notarized · macOS 14+</span><span id="latestVer"></span><span data-i18n="hero.dlnote2"> · also via <a href="#install">Homebrew or source build</a></span></p>
     <div class="trust-row hload d5" aria-label="Technology requirements">
       <span class="chip">macOS 14+</span>
       <span class="chip">Swift 5.9+</span>
@@ -940,7 +974,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <span class="tl-dot r"></span><span class="tl-dot y"></span><span class="tl-dot g"></span>
           <span class="mac-title">MaulTeam — test_demo</span>
         </div>
-        <div class="hero-app" role="img"
+        <div class="hero-app" role="img" data-i18n-attr="aria-label:hero.app_aria"
              aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: you type 'Build a retro 8-bit Snake game in a single index.html' into the Scrum Master's input bar; it answers 'Understood — starting Sprint 1', plans the backlog, spawns two Developer agents, and streams status — design review PASS, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and no-fast-forward merges — above a live Work Log of agent events. Right: the Dashboard, where the Sprint phase advances Planning → PBI Development → Sprint Review, the progress bar fills from 0 to 2 of 2 PBIs done, and the pbi-001/pbi-002 badges advance refined → design → impl → pbi-review → merge → done as the terminal reports each step.">
           <div class="ha-toolbar" aria-hidden="true">
             <span class="ha-tb-back">‹ Projects</span>
@@ -1063,9 +1097,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ WHY ============ -->
   <section class="section" id="why" aria-labelledby="why-h">
-    <p class="kicker reveal">The problem</p>
-    <h2 id="why-h" class="reveal" style="--d:.06s">Vibe coding decays.<br>Spec-driven suffocates.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="why.kicker">The problem</p>
+    <h2 id="why-h" class="reveal" style="--d:.06s" data-i18n="why.title">Vibe coding decays.<br>Spec-driven suffocates.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="why.lede">
       Most real projects live between the two extremes. Maul Team brings Scrum's
       inspect-and-adapt loop to Claude Code — structured iteration without a complete
       spec on day one.
@@ -1073,23 +1107,23 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <div class="why-grid">
       <article class="why-card reveal" style="--d:.05s">
         <span class="why-x" aria-hidden="true">✕</span>
-        <span class="why-tag">Vibe coding</span>
-        <h3>Fast, then fragile</h3>
-        <p>Prompt, accept, repeat. Speed is real — but as the project runs longer,
+        <span class="why-tag" data-i18n="why.c1_tag">Vibe coding</span>
+        <h3 data-i18n="why.c1_h">Fast, then fragile</h3>
+        <p data-i18n="why.c1_p">Prompt, accept, repeat. Speed is real — but as the project runs longer,
            order erodes. No requirements, no tests, no memory of why anything is the way it is.</p>
       </article>
       <article class="why-card reveal" style="--d:.12s">
         <span class="why-x" aria-hidden="true">✕</span>
-        <span class="why-tag">Spec-Driven Development</span>
-        <h3>Ordered, but upfront-everything</h3>
-        <p>SDD keeps order, but can require more upfront definition than an evolving project
+        <span class="why-tag" data-i18n="why.c2_tag">Spec-Driven Development</span>
+        <h3 data-i18n="why.c2_h">Ordered, but upfront-everything</h3>
+        <p data-i18n="why.c2_p">SDD keeps order, but can require more upfront definition than an evolving project
            can provide. Real projects rarely know everything on day one.</p>
       </article>
       <article class="why-card answer reveal" style="--d:.19s">
         <span class="why-x" aria-hidden="true">✓</span>
-        <span class="why-tag">The Scrum loop</span>
-        <h3>Inspect and adapt, every Sprint</h3>
-        <p>An AI team plans a Sprint, builds a working Increment, demos it to you,
+        <span class="why-tag" data-i18n="why.c3_tag">The Scrum loop</span>
+        <h3 data-i18n="why.c3_h">Inspect and adapt, every Sprint</h3>
+        <p data-i18n="why.c3_p">An AI team plans a Sprint, builds a working Increment, demos it to you,
            and adapts from your feedback. Requirements sharpen as the product grows —
            and you never leave the Product Owner seat.</p>
       </article>
@@ -1098,46 +1132,46 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ DEMO ============ -->
   <section class="section" id="demo" aria-labelledby="demo-h">
-    <p class="kicker reveal">See it run</p>
-    <h2 id="demo-h" class="reveal" style="--d:.06s">Your whole team, one window.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="demo.kicker">See it run</p>
+    <h2 id="demo-h" class="reveal" style="--d:.06s" data-i18n="demo.title">Your whole team, one window.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="demo.lede">
       Watch a real session: the Scrum Master plans, Developers build in parallel,
       and PBIs move across the board — while you review the working product.
     </p>
 
     <div class="video-shell reveal" style="--d:.1s">
-      <video id="demoVideo" controls preload="none" playsinline
+      <video id="demoVideo" controls preload="none" playsinline data-i18n-attr="aria-label:demo.video_aria"
              aria-label="Screen recording of MaulTeam.app running a Sprint">
         <source src="https://github.com/user-attachments/assets/3dac534a-e0f7-42a5-83be-899c3082e60b" type="video/mp4">
       </video>
-      <button class="video-cover" id="videoCover" type="button" aria-label="Play the MaulTeam.app demo video">
+      <button class="video-cover" id="videoCover" type="button" data-i18n-attr="aria-label:demo.cover_aria" aria-label="Play the MaulTeam.app demo video">
         <div class="fake-panes" aria-hidden="true"><span></span><span></span><span></span></div>
-        <span class="play-pill"><span class="tri" aria-hidden="true"></span>Play the demo</span>
-        <small>2-minute screen recording · real session</small>
+        <span class="play-pill" data-i18n="demo.play"><span class="tri" aria-hidden="true"></span>Play the demo</span>
+        <small data-i18n="demo.play_small">2-minute screen recording · real session</small>
       </button>
     </div>
     <p class="reveal" style="--d:.16s">
-      <a class="video-fallback-link" href="https://github.com/user-attachments/assets/3dac534a-e0f7-42a5-83be-899c3082e60b"
+      <a class="video-fallback-link" data-i18n="demo.fallback" href="https://github.com/user-attachments/assets/3dac534a-e0f7-42a5-83be-899c3082e60b"
          target="_blank" rel="noopener">Video not loading? Watch the demo on GitHub ↗</a>
     </p>
 
     <div class="pane-cards">
       <article class="pane-card reveal" style="--d:.05s">
-        <span class="pane-num">PANE 01 — LEFT</span>
-        <h3>Your code, live</h3>
-        <p>File tree and a tabbed code editor with syntax highlighting. Tabs detach into
+        <span class="pane-num" data-i18n="demo.p1_num">PANE 01 — LEFT</span>
+        <h3 data-i18n="demo.p1_h">Your code, live</h3>
+        <p data-i18n="demo.p1_p">File tree and a tabbed code editor with syntax highlighting. Tabs detach into
            their own windows; framework files are lock-marked so you always know what's yours.</p>
       </article>
       <article class="pane-card reveal" style="--d:.12s">
-        <span class="pane-num">PANE 02 — CENTER</span>
-        <h3>The Scrum Master, embedded</h3>
-        <p>A real terminal running the Scrum Master, plus a native Work Log streaming every
+        <span class="pane-num" data-i18n="demo.p2_num">PANE 02 — CENTER</span>
+        <h3 data-i18n="demo.p2_h">The Scrum Master, embedded</h3>
+        <p data-i18n="demo.p2_p">A real terminal running the Scrum Master, plus a native Work Log streaming every
            agent spawn, file change, and message as it happens.</p>
       </article>
       <article class="pane-card reveal" style="--d:.19s">
-        <span class="pane-num">PANE 03 — RIGHT</span>
-        <h3>Mission-control dashboard</h3>
-        <p>Native sprint overview and PBI board — click any PBI for details — plus
+        <span class="pane-num" data-i18n="demo.p3_num">PANE 03 — RIGHT</span>
+        <h3 data-i18n="demo.p3_h">Mission-control dashboard</h3>
+        <p data-i18n="demo.p3_p">Native sprint overview and PBI board — click any PBI for details — plus
            integration test results, updating as the team works.</p>
       </article>
     </div>
@@ -1145,9 +1179,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ HOW IT WORKS ============ -->
   <section class="section" id="how" aria-labelledby="how-h">
-    <p class="kicker reveal">The lifecycle</p>
-    <h2 id="how-h" class="reveal" style="--d:.06s">Real Scrum. Real gates.<br>No hand-waving.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="how.kicker">The lifecycle</p>
+    <h2 id="how-h" class="reveal" style="--d:.06s" data-i18n="how.title">Real Scrum. Real gates.<br>No hand-waving.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="how.lede">
       Every Sprint runs the full ceremony loop — with deterministic termination gates,
       measured coverage, and review with an optional cross-model pass. Not a prompt chain
       wearing a Scrum costume.
@@ -1155,15 +1189,15 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
     <div class="loop-flow reveal" style="--d:.05s">
       <div class="loop-gate-col">
-        <span class="gate-col-label">Before the loop</span>
-        <button class="gate-chip" type="button" data-step="01" style="--c:#a48af0"
+        <span class="gate-col-label" data-i18n="how.before_loop">Before the loop</span>
+        <button class="gate-chip" type="button" data-step="01" style="--c:#a48af0" data-i18n-attr="aria-label:how.g1_aria"
                 aria-label="Step 01 — Requirements Definition">
-          <span class="gc-body"><span class="gc-num">01</span><span class="gc-label">Requirements</span></span>
+          <span class="gc-body"><span class="gc-num">01</span><span class="gc-label" data-i18n="how.g1_label">Requirements</span></span>
         </button>
       </div>
       <div class="loop-connector" aria-hidden="true"></div>
       <div class="loop-ring" id="sprintLoop">
-        <svg viewBox="0 0 640 640" role="group"
+        <svg viewBox="0 0 640 640" role="group" data-i18n-attr="aria-label:how.wheel_aria"
              aria-label="The Sprint loop: backlog refinement, sprint planning, development pipeline, sprint review, retrospective — then around again.">
           <defs>
             <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
@@ -1173,36 +1207,36 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           </defs>
           <circle class="loop-orbit" cx="320" cy="320" r="284" fill="none"
                   stroke="rgba(154,190,255,.16)" stroke-width="1.5" stroke-dasharray="3 12"/>
-          <g class="loop-seg" style="--c:#4a90d9" tabindex="0" role="button" data-step="02"
+          <g class="loop-seg" style="--c:#4a90d9" tabindex="0" role="button" data-step="02" data-i18n-attr="aria-label:how.seg2_aria"
              aria-label="Step 02 — Backlog Refinement">
             <path fill="#4a90d9" d="M80.8 411.3 A256.0 256.0 0 0 1 148.4 130.1 L209.1 149.9 L219.4 208.7 A150.0 150.0 0 0 0 179.9 373.5 L121.4 361.9 Z"/>
             <text class="seg-num" x="127" y="241" text-anchor="middle" fill="#06101f">02</text>
-            <text class="seg-label" x="127" y="267" text-anchor="middle" fill="#06101f">Refinement</text>
+            <text class="seg-label" data-i18n="how.seg2" x="127" y="267" text-anchor="middle" fill="#06101f">Refinement</text>
           </g>
-          <g class="loop-seg" style="--c:#38b6e0" tabindex="0" role="button" data-step="03"
+          <g class="loop-seg" style="--c:#38b6e0" tabindex="0" role="button" data-step="03" data-i18n-attr="aria-label:how.seg3_aria"
              aria-label="Step 03 — Sprint Planning">
             <path fill="#38b6e0" d="M159.2 120.8 A256.0 256.0 0 0 1 447.6 98.1 L447.5 162.0 L394.8 190.0 A150.0 150.0 0 0 0 225.8 203.3 L218.8 144.0 Z"/>
             <text class="seg-num" x="320" y="101" text-anchor="middle" fill="#06101f">03</text>
-            <text class="seg-label" x="320" y="127" text-anchor="middle" fill="#06101f">Planning</text>
+            <text class="seg-label" data-i18n="how.seg3" x="320" y="127" text-anchor="middle" fill="#06101f">Planning</text>
           </g>
-          <g class="loop-seg on" style="--c:#28c8e6" tabindex="0" role="button" data-step="04"
+          <g class="loop-seg on" style="--c:#28c8e6" tabindex="0" role="button" data-step="04" data-i18n-attr="aria-label:how.seg4_aria"
              aria-label="Step 04 — Development Pipeline">
             <path fill="#28c8e6" d="M459.8 105.5 A256.0 256.0 0 0 1 570.5 372.8 L509.6 392.4 L466.8 350.9 A150.0 150.0 0 0 0 401.9 194.3 L456.1 169.4 Z"/>
             <text class="seg-num" x="513" y="232" text-anchor="middle" fill="#06101f">04</text>
-            <text class="seg-label sm" x="513" y="255" text-anchor="middle" fill="#06101f">Development</text>
-            <text class="seg-label sm" x="513" y="276" text-anchor="middle" fill="#06101f">Pipeline</text>
+            <text class="seg-label sm" data-i18n="how.seg4a" x="513" y="255" text-anchor="middle" fill="#06101f">Development</text>
+            <text class="seg-label sm" data-i18n="how.seg4b" x="513" y="276" text-anchor="middle" fill="#06101f">Pipeline</text>
           </g>
-          <g class="loop-seg" style="--c:#2ed2c0" tabindex="0" role="button" data-step="05"
+          <g class="loop-seg" style="--c:#2ed2c0" tabindex="0" role="button" data-step="05" data-i18n-attr="aria-label:how.seg5_aria"
              aria-label="Step 05 — Sprint Review">
             <path fill="#2ed2c0" d="M567.2 386.7 A256.0 256.0 0 0 1 347.2 574.6 L309.7 522.7 L335.9 469.2 A150.0 150.0 0 0 0 464.8 359.1 L505.3 402.9 Z"/>
             <text class="seg-num" x="439" y="468" text-anchor="middle" fill="#06101f">05</text>
-            <text class="seg-label" x="439" y="494" text-anchor="middle" fill="#06101f">Sprint Review</text>
+            <text class="seg-label" data-i18n="how.seg5" x="439" y="494" text-anchor="middle" fill="#06101f">Sprint Review</text>
           </g>
-          <g class="loop-seg" style="--c:#34d399" tabindex="0" role="button" data-step="06"
+          <g class="loop-seg" style="--c:#34d399" tabindex="0" role="button" data-step="06" data-i18n-attr="aria-label:how.seg6_aria"
              aria-label="Step 06 — Retrospective">
             <path fill="#34d399" d="M333.0 575.7 A256.0 256.0 0 0 1 86.3 424.5 L124.0 372.9 L183.1 381.2 A150.0 150.0 0 0 0 327.6 469.8 L298.4 521.9 Z"/>
             <text class="seg-num" x="201" y="468" text-anchor="middle" fill="#06101f">06</text>
-            <text class="seg-label" x="201" y="494" text-anchor="middle" fill="#06101f">Retrospective</text>
+            <text class="seg-label" data-i18n="how.seg6" x="201" y="494" text-anchor="middle" fill="#06101f">Retrospective</text>
           </g>
           <circle cx="320" cy="320" r="130" fill="#081226" stroke="rgba(154,190,255,.22)"/>
           <circle cx="320" cy="320" r="130" fill="url(#hubGlow)"/>
@@ -1212,41 +1246,41 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       </div>
       <div class="loop-connector" aria-hidden="true"></div>
       <div class="loop-gate-col">
-        <span class="gate-col-label">Release train</span>
+        <span class="gate-col-label" data-i18n="how.release_train">Release train</span>
         <div class="gate-row">
-          <button class="gate-chip" type="button" data-step="07" style="--c:#f8c838"
+          <button class="gate-chip" type="button" data-step="07" style="--c:#f8c838" data-i18n-attr="aria-label:how.g7_aria"
                   aria-label="Step 07 — Integration Tests">
-            <span class="gc-body"><span class="gc-num">07</span><span class="gc-label">Integration Tests</span></span>
+            <span class="gc-body"><span class="gc-num">07</span><span class="gc-label" data-i18n="how.g7_label">Integration Tests</span></span>
           </button>
-          <button class="gate-chip" type="button" data-step="08" style="--c:#f2984f"
+          <button class="gate-chip" type="button" data-step="08" style="--c:#f2984f" data-i18n-attr="aria-label:how.g8_aria"
                   aria-label="Step 08 — UAT &amp; Release">
-            <span class="gc-body"><span class="gc-num">08</span><span class="gc-label">UAT &amp; Release</span></span>
+            <span class="gc-body"><span class="gc-num">08</span><span class="gc-label" data-i18n="how.g8_label">UAT &amp; Release</span></span>
           </button>
         </div>
       </div>
     </div>
 
-    <div class="loop-detail reveal" id="loopDetail" style="--d:.1s" role="region" aria-label="Lifecycle step details">
+    <div class="loop-detail reveal" id="loopDetail" style="--d:.1s" role="region" data-i18n-attr="aria-label:how.detail_aria" aria-label="Lifecycle step details">
       <div class="ld-item" data-step="01" style="--c:#a48af0">
         <div class="ld-row"><span class="ld-num">01</span>
-        <div><h3>Requirements Definition<span class="phase-tag">Sprint 0</span></h3>
-        <p>A Requirements Analyst interviews you, researches similar products on the web,
+        <div><h3 data-i18n="how.s1_h">Requirements Definition<span class="phase-tag">Sprint 0</span></h3>
+        <p data-i18n="how.s1_p">A Requirements Analyst interviews you, researches similar products on the web,
            and writes <span class="mono">requirements.md</span>.</p></div></div>
       </div>
       <div class="ld-item" data-step="02" style="--c:#4a90d9">
         <div class="ld-row"><span class="ld-num">02</span>
-        <div><h3>Backlog Refinement</h3>
-        <p>Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></div>
+        <div><h3 data-i18n="how.s2_h">Backlog Refinement</h3>
+        <p data-i18n="how.s2_p">Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></div>
       </div>
       <div class="ld-item" data-step="03" style="--c:#38b6e0">
         <div class="ld-row"><span class="ld-num">03</span>
-        <div><h3>Sprint Planning</h3>
-        <p>You approve the Sprint Goal as Product Owner; PBIs are assigned to Developer agents.</p></div></div>
+        <div><h3 data-i18n="how.s3_h">Sprint Planning</h3>
+        <p data-i18n="how.s3_p">You approve the Sprint Goal as Product Owner; PBIs are assigned to Developer agents.</p></div></div>
       </div>
       <div class="ld-item on" data-step="04" style="--c:#28c8e6">
         <div class="ld-row"><span class="ld-num">04</span>
-        <div><h3>Development Pipeline<span class="phase-tag">parallel</span></h3>
-        <p><strong>Each Developer builds its PBI in an isolated git worktree, in parallel.</strong>
+        <div><h3 data-i18n="how.s4_h">Development Pipeline<span class="phase-tag">parallel</span></h3>
+        <p data-i18n="how.s4_p"><strong>Each Developer builds its PBI in an isolated git worktree, in parallel.</strong>
            Every Round of design → implementation + black-box unit tests is
            <strong>cross-reviewed by Codex</strong> (Claude-based fallback), with deterministic
            termination gates and real C0/C1 coverage. And <strong>no PBI merges until its
@@ -1264,7 +1298,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <span class="bt-live"><i aria-hidden="true"></i>LIVE</span>
         </div>
         <div class="board-scroll">
-          <div class="board" id="sprintBoard" role="img"
+          <div class="board" id="sprintBoard" role="img" data-i18n-attr="aria-label:how.board_aria"
                aria-label="Animated Scrum Board mirroring the app: PBI cards flow across the real pipeline — Backlog, Design, Implement, PBI Review, Unit Tests, Merge, Cross-Review, Done.">
             <div class="board-col col-backlog">
               <div class="col-head"><span class="col-dot" aria-hidden="true"></span><h4>Backlog</h4><span class="col-count">0</span></div>
@@ -1301,28 +1335,28 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           </div>
         </div>
       </div>
-          <p class="board-caption">Open the app to follow every PBI from backlog to done.</p>
+          <p class="board-caption" data-i18n="how.board_caption">Open the app to follow every PBI from backlog to done.</p>
         </div>
       </div>
       <div class="ld-item" data-step="05" style="--c:#2ed2c0">
         <div class="ld-row"><span class="ld-num">05</span>
-        <div><h3>Sprint Review</h3>
-        <p>The team demos the working Increment to you. You inspect the product, not a diff.</p></div></div>
+        <div><h3 data-i18n="how.s5_h">Sprint Review</h3>
+        <p data-i18n="how.s5_p">The team demos the working Increment to you. You inspect the product, not a diff.</p></div></div>
       </div>
       <div class="ld-item" data-step="06" style="--c:#34d399">
         <div class="ld-row"><span class="ld-num">06</span>
-        <div><h3>Retrospective</h3>
-        <p>The team inspects its own process and carries improvements into the next Sprint.</p></div></div>
+        <div><h3 data-i18n="how.s6_h">Retrospective</h3>
+        <p data-i18n="how.s6_p">The team inspects its own process and carries improvements into the next Sprint.</p></div></div>
       </div>
       <div class="ld-item" data-step="07" style="--c:#f8c838">
         <div class="ld-row"><span class="ld-num">07</span>
-        <div><h3>Integration Tests<span class="phase-tag">release train</span></h3>
-        <p>Design-driven boundary and branch cases, smoke tests, and API/UI automation.</p></div></div>
+        <div><h3 data-i18n="how.s7_h">Integration Tests<span class="phase-tag">release train</span></h3>
+        <p data-i18n="how.s7_p">Design-driven boundary and branch cases, smoke tests, and API/UI automation.</p></div></div>
       </div>
       <div class="ld-item" data-step="08" style="--c:#f2984f">
         <div class="ld-row"><span class="ld-num">08</span>
-        <div><h3>UAT &amp; Release<span class="phase-tag">release train</span></h3>
-        <p>Story-driven UAT walkthrough, defect routing, and the go/no-go release decision.</p></div></div>
+        <div><h3 data-i18n="how.s8_h">UAT &amp; Release<span class="phase-tag">release train</span></h3>
+        <p data-i18n="how.s8_p">Story-driven UAT walkthrough, defect routing, and the go/no-go release decision.</p></div></div>
       </div>
     </div>
 
@@ -1330,55 +1364,55 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ LOOP ENGINEERING ============ -->
   <section class="section" id="loop" aria-labelledby="loop-h">
-    <p class="kicker reveal">Loop engineering</p>
-    <h2 id="loop-h" class="reveal" style="--d:.06s">Stop prompting agents.<br>Engineer the loops instead.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="loop.kicker">Loop engineering</p>
+    <h2 id="loop-h" class="reveal" style="--d:.06s" data-i18n="loop.title">Stop prompting agents.<br>Engineer the loops instead.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="loop.lede">
       Loop engineering means designing a system in which agents repeatedly plan, act,
       verify, and improve instead of relying on isolated prompts. Maul Team implements
       it at three levels: Development pipeline, Sprint, and autonomous execution.
     </p>
-    <p class="loop-lineage reveal" style="--d:.16s">
+    <p class="loop-lineage reveal" style="--d:.16s" data-i18n="loop.lineage">
       prompt engineering <b>→</b> context engineering <b>→</b> loop engineering
     </p>
 
     <div class="loop-grid">
       <article class="loop-card reveal" style="--d:.05s">
-        <span class="loop-depth">Innermost · build &amp; verify</span>
-        <h3>The Development pipeline loop</h3>
-        <p>Per PBI, in its own git worktree: design, implementation with black-box unit
+        <span class="loop-depth" data-i18n="loop.c1_depth">Innermost · build &amp; verify</span>
+        <h3 data-i18n="loop.c1_h">The Development pipeline loop</h3>
+        <p data-i18n="loop.c1_p">Per PBI, in its own git worktree: design, implementation with black-box unit
            tests, and Codex cross-model review, repeated in Rounds until deterministic
            termination gates pass. The merge stays locked until tests and review clear —
            coverage measured by real tooling, not self-reported.</p>
-        <span class="loop-map">≈ agent loop + verification loop</span>
+        <span class="loop-map" data-i18n="loop.c1_map">≈ agent loop + verification loop</span>
       </article>
       <article class="loop-card reveal" style="--d:.12s">
-        <span class="loop-depth">Middle · drift detection</span>
-        <h3>The Sprint loop</h3>
-        <p>Every Sprint ends with a whole-repo, four-axis audit that catches drift between
+        <span class="loop-depth" data-i18n="loop.c2_depth">Middle · drift detection</span>
+        <h3 data-i18n="loop.c2_h">The Sprint loop</h3>
+        <p data-i18n="loop.c2_p">Every Sprint ends with a whole-repo, four-axis audit that catches drift between
            the merged code and its requirements. Critical findings become draft PBIs for the
            next Sprint; the retrospective feeds process fixes forward the same way. Product
            and process both hill-climb.</p>
-        <span class="loop-map">≈ hill-climbing loop</span>
+        <span class="loop-map" data-i18n="loop.c2_map">≈ hill-climbing loop</span>
       </article>
       <article class="loop-card reveal" style="--d:.19s">
-        <span class="loop-depth">Outermost · unattended</span>
-        <h3>The Autonomous execution loop</h3>
-        <p>Specify the end state in a product brief and even the Product Owner seat becomes
+        <span class="loop-depth" data-i18n="loop.c3_depth">Outermost · unattended</span>
+        <h3 data-i18n="loop.c3_h">The Autonomous execution loop</h3>
+        <p data-i18n="loop.c3_p">Specify the end state in a product brief and even the Product Owner seat becomes
            an agent — the agent PO and the Scrum Master keep running Scrum toward it. An outer
            Ralph-Loop watchdog re-launches headless sessions iteration after iteration,
            enforces safety valves, sleeps through API rate limits and resumes, and leaves you
            a morning report. The loop keeps turning while you sleep.</p>
-        <span class="loop-map">≈ event-driven loop</span>
+        <span class="loop-map" data-i18n="loop.c3_map">≈ event-driven loop</span>
       </article>
     </div>
 
     <blockquote class="loop-quote reveal" style="--d:.08s">
-      <p>“You shouldn't be prompting coding agents anymore. You should be designing loops
+      <p data-i18n="loop.quote">“You shouldn't be prompting coding agents anymore. You should be designing loops
          that prompt your agents.”</p>
-      <cite>— Peter Steinberger, quoted in Addy Osmani, “Loop Engineering”</cite>
+      <cite data-i18n="loop.cite">— Peter Steinberger, quoted in Addy Osmani, “Loop Engineering”</cite>
     </blockquote>
 
-    <p class="loop-closer reveal" style="--d:.10s">
+    <p class="loop-closer reveal" style="--d:.10s" data-i18n="loop.closer">
       The risk in any loop is <strong>cognitive surrender</strong> — letting it run and
       quietly accepting whatever comes back. Our answer is gates, not trust: hooks enforce
       the rules, termination is deterministic, coverage is real, and unclear requirements
@@ -1395,52 +1429,52 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ PO SECTION ============ -->
   <section class="section" id="po" aria-labelledby="po-h">
-    <p class="kicker reveal">Your seat</p>
-    <h2 id="po-h" class="reveal" style="--d:.06s">You set product direction.<br>The team runs delivery.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="po.kicker">Your seat</p>
+    <h2 id="po-h" class="reveal" style="--d:.06s" data-i18n="po.title">You set product direction.<br>The team runs delivery.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="po.lede">
       In the default human-in-the-loop mode, you approve goals, review working software, and
       make release decisions. The team handles requirements, planning, implementation, review,
       and testing.
     </p>
 
     <div class="po-headline reveal" aria-hidden="true">
-      <span class="h-you">You do</span>
-      <span class="h-team">The AI team does</span>
+      <span class="h-you" data-i18n="po.h_you">You do</span>
+      <span class="h-team" data-i18n="po.h_team">The AI team does</span>
     </div>
     <div class="po-rows">
       <div class="po-row reveal" style="--d:.02s">
-        <div class="po-cell po-you">Describe what you want to build</div>
+        <div class="po-cell po-you" data-i18n="po.r1_you">Describe what you want to build</div>
         <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Elicit and write detailed requirements</div>
+        <div class="po-cell po-team" data-i18n="po.r1_team">Elicit and write detailed requirements</div>
       </div>
       <div class="po-row reveal" style="--d:.06s">
-        <div class="po-cell po-you">Approve Sprint Goals</div>
+        <div class="po-cell po-you" data-i18n="po.r2_you">Approve Sprint Goals</div>
         <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Plan Sprints and assign PBIs</div>
+        <div class="po-cell po-team" data-i18n="po.r2_team">Plan Sprints and assign PBIs</div>
       </div>
       <div class="po-row reveal" style="--d:.10s">
-        <div class="po-cell po-you">Review demos in the running app</div>
+        <div class="po-cell po-you" data-i18n="po.r3_you">Review demos in the running app</div>
         <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Design, implement, and cross-review the Increment</div>
+        <div class="po-cell po-team" data-i18n="po.r3_team">Design, implement, and cross-review the Increment</div>
       </div>
       <div class="po-row reveal" style="--d:.14s">
-        <div class="po-cell po-you">Report defects during UAT</div>
+        <div class="po-cell po-you" data-i18n="po.r4_you">Report defects during UAT</div>
         <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Fix defects and re-test automatically</div>
+        <div class="po-cell po-team" data-i18n="po.r4_team">Fix defects and re-test automatically</div>
       </div>
       <div class="po-row reveal" style="--d:.18s">
-        <div class="po-cell po-you">Make release decisions</div>
+        <div class="po-cell po-you" data-i18n="po.r5_you">Make release decisions</div>
         <div class="po-arrow" aria-hidden="true"><svg viewBox="0 0 34 14"><line class="flow" x1="0" y1="7" x2="26" y2="7"/><path d="M26 2 L33 7 L26 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></div>
-        <div class="po-cell po-team">Run automated test suites</div>
+        <div class="po-cell po-team" data-i18n="po.r5_team">Run automated test suites</div>
       </div>
     </div>
   </section>
 
   <!-- ============ FEATURES ============ -->
   <section class="section" id="features" aria-labelledby="features-h">
-    <p class="kicker reveal">Under the hood</p>
-    <h2 id="features-h" class="reveal" style="--d:.06s">Built like infrastructure,<br>not a demo.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="features.kicker">Under the hood</p>
+    <h2 id="features-h" class="reveal" style="--d:.06s" data-i18n="features.title">Built like infrastructure,<br>not a demo.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="features.lede">
       Hooks enforce the process. State survives restarts. Reviews cross model families.
       The framework assumes agents will be confidently wrong — and catches it.
     </p>
@@ -1449,12 +1483,12 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
       <!-- orchestration diagram -->
       <article class="feature orch reveal" style="--d:.03s">
-        <h3>Multi-agent orchestration, native to Claude Code</h3>
-        <p>The Scrum Master runs in Delegate mode — it coordinates, never writes code —
+        <h3 data-i18n="features.orch_h">Multi-agent orchestration, native to Claude Code</h3>
+        <p data-i18n="features.orch_p">The Scrum Master runs in Delegate mode — it coordinates, never writes code —
            orchestrating up to 6 parallel Developer agents, one per PBI, each building in
            an isolated git worktree. Each Developer is itself a conductor, spawning
            per-round specialist sub-agents.</p>
-        <svg viewBox="0 0 880 430" role="img"
+        <svg viewBox="0 0 880 430" role="img" data-i18n-attr="aria-label:features.orch_aria"
              aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents. Codex cross-model review is used when available, with a Claude-based fallback.">
           <!-- SM -> devs wires -->
           <path class="wire wire-hot" d="M440 66 C440 100 100 96 100 138"/>
@@ -1511,57 +1545,57 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">⌘</span>
-        <h3>Native Mac app</h3>
-        <p>Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
+        <h3 data-i18n="features.f1_h">Native Mac app</h3>
+        <p data-i18n="features.f1_p">Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
            and dashboard. SwiftUI, not Electron.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">19</span>
-        <h3>19 Skills, full lifecycle</h3>
-        <p>Every ceremony — from requirement definition through retrospective to UAT and
+        <h3 data-i18n="features.f2_h">19 Skills, full lifecycle</h3>
+        <p data-i18n="features.f2_p">Every ceremony — from requirement definition through retrospective to UAT and
            release — is a versioned, inspectable Skill.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">∞</span>
-        <h3>Autonomous mode (Loop Engineering)</h3>
-        <p>Run <span class="f-mono">--autonomous</span> from the command line: specify the end state in a
+        <h3 data-i18n="features.f3_h">Autonomous mode (Loop Engineering)</h3>
+        <p data-i18n="features.f3_p">Run <span class="f-mono">--autonomous</span> from the command line: specify the end state in a
            product brief, and an agent Product Owner and the Scrum Master keep running Scrum
            toward it — Ralph-Loop watchdog, safety valves, morning report.</p>
       </article>
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">§</span>
-        <h3>Design-doc governance</h3>
-        <p>An immutable document catalog with editable enablement — hooks enforce which
+        <h3 data-i18n="features.f4_h">Design-doc governance</h3>
+        <p data-i18n="features.f4_p">An immutable document catalog with editable enablement — hooks enforce which
            design docs may exist and who may touch them.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">⛨</span>
-        <h3>Quality-enforcement hooks</h3>
-        <p>Status gates, path guards, branch-ops guard, completion-flow and
+        <h3 data-i18n="features.f5_h">Quality-enforcement hooks</h3>
+        <p data-i18n="features.f5_p">Status gates, path guards, branch-ops guard, completion-flow and
            Definition-of-Done checks — process rules the agents cannot skip.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">⟳</span>
-        <h3>State persistence</h3>
-        <p>All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
+        <h3 data-i18n="features.f6_h">State persistence</h3>
+        <p data-i18n="features.f6_p">All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
            relaunch, and the team resumes exactly where it stopped.</p>
       </article>
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">✓</span>
-        <h3>Automated testing</h3>
-        <p>Design-driven integration tests plus story-driven UAT — boundary cases derived
+        <h3 data-i18n="features.f7_h">Automated testing</h3>
+        <p data-i18n="features.f7_p">Design-driven integration tests plus story-driven UAT — boundary cases derived
            from the design docs, not guessed.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">↻</span>
-        <h3>Retrospective-driven improvement</h3>
-        <p>The team retrospects every Sprint and feeds process improvements forward —
+        <h3 data-i18n="features.f8_h">Retrospective-driven improvement</h3>
+        <p data-i18n="features.f8_p">The team retrospects every Sprint and feeds process improvements forward —
            the loop applies to the team itself.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">◎</span>
-        <h3>AI-native adaptations</h3>
-        <p>Dynamic team sizing, mandatory requirement definition first, no work without
+        <h3 data-i18n="features.f9_h">AI-native adaptations</h3>
+        <p data-i18n="features.f9_p">Dynamic team sizing, mandatory requirement definition first, no work without
            a PBI — Scrum re-derived for how agents actually work.</p>
       </article>
     </div>
@@ -1569,9 +1603,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ INSTALL ============ -->
   <section class="section" id="install" aria-labelledby="install-h">
-    <p class="kicker reveal">Get started</p>
-    <h2 id="install-h" class="reveal" style="--d:.06s">Download. Drag to Applications.<br>Meet your team.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="install.kicker">Get started</p>
+    <h2 id="install-h" class="reveal" style="--d:.06s" data-i18n="install.title">Download. Drag to Applications.<br>Meet your team.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="install.lede">
       MaulTeam.app ships as a signed, Apple-notarized <span class="mono">.dmg</span> that opens
       with no Gatekeeper warnings — free for personal and internal business use, built on the
       MIT-licensed open-source framework. Prefer a package manager or a compiler?
@@ -1581,37 +1615,37 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <div class="install-grid">
       <div class="install-main reveal" style="--d:.05s">
         <div class="install-main-inner">
-          <span class="install-flag">● Recommended</span>
-          <h3>Download the app</h3>
-          <p>Three steps, no toolchain. Universal binary for Apple&nbsp;Silicon and Intel.</p>
+          <span class="install-flag" data-i18n="install.flag">● Recommended</span>
+          <h3 data-i18n="install.dl_h">Download the app</h3>
+          <p data-i18n="install.dl_p">Three steps, no toolchain. Universal binary for Apple&nbsp;Silicon and Intel.</p>
           <ol class="dl-steps">
-            <li>Download the <span class="mono">.dmg</span> below</li>
-            <li>Drag <span class="mono">MaulTeam.app</span> to Applications</li>
-            <li>Open it and point the team at a project</li>
+            <li data-i18n="install.step1">Download the <span class="mono">.dmg</span> below</li>
+            <li data-i18n="install.step2">Drag <span class="mono">MaulTeam.app</span> to Applications</li>
+            <li data-i18n="install.step3">Open it and point the team at a project</li>
           </ol>
-          <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="install">Download for macOS</a>
-          <p class="install-note">Every release ships a <span class="mono">.sha256</span> checksum —
+          <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="install" data-i18n="common.download_mac">Download for macOS</a>
+          <p class="install-note" data-i18n="install.checksum">Every release ships a <span class="mono">.sha256</span> checksum —
             <a href="https://github.com/sohei56/maul-team/releases/latest" target="_blank" rel="noopener">all releases &amp; notes ↗</a></p>
           <div class="reqs">
-            <h4>Requirements</h4>
+            <h4 data-i18n="install.reqs_h">Requirements</h4>
             <ul>
-              <li><span class="mono">macOS 14+</span> (Apple Silicon or Intel)</li>
-              <li><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
-              <li><span class="mono">Python 3.9+</span> — the launcher validates it</li>
-              <li><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
+              <li data-i18n="install.req1"><span class="mono">macOS 14+</span> (Apple Silicon or Intel)</li>
+              <li data-i18n="install.req2"><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
+              <li data-i18n="install.req3"><span class="mono">Python 3.9+</span> — the launcher validates it</li>
+              <li data-i18n="install.req4"><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
             </ul>
           </div>
         </div>
       </div>
       <div class="install-side">
         <div class="side-card reveal" style="--d:.1s">
-          <h3>Homebrew tap</h3>
-          <p>Two lines, updates with <span class="mono">brew upgrade</span>:</p>
+          <h3 data-i18n="install.brew_h">Homebrew tap</h3>
+          <p data-i18n="install.brew_p">Two lines, updates with <span class="mono">brew upgrade</span>:</p>
           <div class="side-cmd" aria-label="Homebrew install command">brew tap sohei56/homebrew-tap<br>brew install --cask maul-team</div>
         </div>
         <div class="side-card reveal" style="--d:.16s">
-          <h3>Build from source</h3>
-          <p><span class="mono">make-app.sh release</span> produces the same universal2 build.
+          <h3 data-i18n="install.src_h">Build from source</h3>
+          <p data-i18n="install.src_p"><span class="mono">make-app.sh release</span> produces the same universal2 build.
              Needs <span class="mono">Xcode 16+</span> (Swift 6 toolchain); the first build fetches SwiftTerm.</p>
           <div class="codeblock">
             <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
@@ -1620,7 +1654,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 <span class="c-p">$ </span><span class="c-cmd">sh <span class="c-hl">macapp/scripts/make-app.sh</span> release</span>
 <span class="c-p">$ </span><span class="c-cmd">open macapp/build/MaulTeam.app</span></div>
           </div>
-          <p class="install-note">Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
+          <p class="install-note" data-i18n="install.src_note">Prefer the terminal? Skip the app and run <span style="color:var(--amber-hi)">sh scrum-start.sh</span> in your project.</p>
         </div>
       </div>
     </div>
@@ -1628,17 +1662,17 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <!-- ===== faux terminal (tmux, two panes) ===== -->
     <div class="term-grid">
       <div class="term-copy reveal" style="--d:.05s">
-        <p class="kicker">Or skip the GUI</p>
-        <h3>One command. Same team.</h3>
-        <p>The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
-           launch it from any terminal with <span class="mono">scrum-start.sh</span> and get the
+        <p class="kicker" data-i18n="install.term_kicker">Or skip the GUI</p>
+        <h3 data-i18n="install.term_h">One command. Same team.</h3>
+        <p data-i18n="install.term_p1">The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
+           launch it from any terminal with <span class="mono" style="color:var(--amber-hi)">scrum-start.sh</span> and get the
            identical pipeline in tmux: the Scrum Master on the left, the live team dashboard on
            the right. Workflow and project state stay on your machine; model requests go
            through your installed Claude Code and, when configured, Codex.</p>
-        <p>Agents report facts, not vibes: status transitions, coverage numbers, merge results.
+        <p data-i18n="install.term_p2">Agents report facts, not vibes: status transitions, coverage numbers, merge results.
            When something is genuinely unclear, the team escalates to you instead of guessing.</p>
       </div>
-      <div class="terminal reveal" style="--d:.12s"
+      <div class="terminal reveal" style="--d:.12s" data-i18n-attr="aria-label:install.term_aria"
            aria-label="tmux session with two panes: left, a Claude Code session running the Scrum Master; right, the Maul Team Dashboard TUI showing the Sprint summary, the PBI board, and a live work log. A green tmux status bar runs along the bottom.">
         <div class="term-head">
           <span class="tl-dot r" aria-hidden="true"></span><span class="tl-dot y" aria-hidden="true"></span><span class="tl-dot g" aria-hidden="true"></span>
@@ -1705,17 +1739,17 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ FAQ ============ -->
   <section class="section" id="faq" aria-labelledby="faq-h">
-    <p class="kicker reveal">Questions</p>
-    <h2 id="faq-h" class="reveal" style="--d:.06s">The parts people<br>ask about twice.</h2>
-    <p class="lede reveal" style="--d:.12s">
+    <p class="kicker reveal" data-i18n="faq.kicker">Questions</p>
+    <h2 id="faq-h" class="reveal" style="--d:.06s" data-i18n="faq.title">The parts people<br>ask about twice.</h2>
+    <p class="lede reveal" style="--d:.12s" data-i18n="faq.lede">
       Short answers to what a "team of AI agents running Scrum" actually means in practice.
     </p>
 
     <div class="feature-grid">
       <article class="feature reveal" style="--d:.03s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>How do AI agents actually run a Scrum sprint?</h3>
-        <p>A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
+        <h3 data-i18n="faq.q1_h">How do AI agents actually run a Scrum sprint?</h3>
+        <p data-i18n="faq.q1_p">A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
            item. Each Developer designs, implements, and writes black-box unit tests in its own
            git worktree, with Codex cross-model review (Claude-based fallback). A PBI merges
            only after its tests and reviews pass — then a regression gate at merge. The Sprint
@@ -1723,35 +1757,35 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       </article>
       <article class="feature reveal" style="--d:.06s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>Is this autonomous AI development, or am I babysitting prompts?</h3>
-        <p>Both. In human-in-the-loop mode Sprint execution is hands-off and you make the
+        <h3 data-i18n="faq.q2_h">Is this autonomous AI development, or am I babysitting prompts?</h3>
+        <p data-i18n="faq.q2_p">Both. In human-in-the-loop mode Sprint execution is hands-off and you make the
            Product-Owner decisions at the gates. In <span class="f-mono">--autonomous</span> mode you specify the
            end state once and an agent PO and the Scrum Master keep the loop turning unattended.</p>
       </article>
       <article class="feature reveal" style="--d:.09s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>What is the license, and where does MaulTeam.app run?</h3>
-        <p>The <span class="mono">maul-team</span> framework is MIT-licensed. The Mac app is
+        <h3 data-i18n="faq.q3_h">What is the license, and where does MaulTeam.app run?</h3>
+        <p data-i18n="faq.q3_p">The <span class="mono">maul-team</span> framework is MIT-licensed. The Mac app is
            source-available and free for personal and internal business use under its commercial
            license. Workflow and project state stay on your Mac; model requests go through
            Claude Code and, when configured, Codex.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>Do I need the Mac app, or can I use the terminal?</h3>
-        <p>One shell command runs the identical pipeline in tmux. The Mac app is the friendly
+        <h3 data-i18n="faq.q4_h">Do I need the Mac app, or can I use the terminal?</h3>
+        <p data-i18n="faq.q4_p">One shell command runs the identical pipeline in tmux. The Mac app is the friendly
            front door, not a requirement.</p>
       </article>
       <article class="feature reveal" style="--d:.15s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>How is this different from Devin or other AI software engineers?</h3>
-        <p>A whole team of agents with real Scrum gates, not a single autonomous engineer;
+        <h3 data-i18n="faq.q5_h">How is this different from Devin or other AI software engineers?</h3>
+        <p data-i18n="faq.q5_p">A whole team of agents with real Scrum gates, not a single autonomous engineer;
            source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat.</p>
       </article>
       <article class="feature reveal" style="--d:.18s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3>Is the download safe to open?</h3>
-        <p>Yes — the app and the <span class="mono">.dmg</span> are signed with an Apple Developer&nbsp;ID
+        <h3 data-i18n="faq.q6_h">Is the download safe to open?</h3>
+        <p data-i18n="faq.q6_p">Yes — the app and the <span class="mono">.dmg</span> are signed with an Apple Developer&nbsp;ID
            and notarized by Apple, so Gatekeeper opens them without warnings. Every release also
            publishes a <span class="mono">.sha256</span> checksum: run
            <span class="mono">shasum -a 256 MaulTeam.dmg</span> and compare it against the value on the
@@ -1763,15 +1797,15 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ BOTTOM CTA ============ -->
   <section class="section" aria-labelledby="cta-h">
     <div class="cta-band reveal">
-      <p class="kicker">Ready when you are</p>
-      <h2 id="cta-h">Hand your next project<br>to a team.</h2>
-      <p class="cta-sub">Download, drag to Applications, and start Sprint&nbsp;1.
+      <p class="kicker" data-i18n="cta.kicker">Ready when you are</p>
+      <h2 id="cta-h" data-i18n="cta.title">Hand your next project<br>to a team.</h2>
+      <p class="cta-sub" data-i18n="cta.sub">Download, drag to Applications, and start Sprint&nbsp;1.
          Free for personal and internal business use.</p>
       <div class="cta-actions">
-        <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="final-cta">Download for macOS</a>
-        <a class="btn btn-ghost" href="#install">Other install options</a>
+        <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="final-cta" data-i18n="common.download_mac">Download for macOS</a>
+        <a class="btn btn-ghost" href="#install" data-i18n="cta.other">Other install options</a>
       </div>
-      <p class="cta-brew">or <span class="mono">brew install --cask maul-team</span></p>
+      <p class="cta-brew" data-i18n="cta.brew">or <span class="mono">brew install --cask maul-team</span></p>
     </div>
   </section>
 
@@ -1785,34 +1819,34 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
         MaulTeam<span class="tld">.app</span>
       </a>
-      <p style="color:var(--text-3); font-size:13px; max-width:320px">
+      <p style="color:var(--text-3); font-size:13px; max-width:320px" data-i18n="footer.tagline">
         The native Mac app of the open-source <span class="mono" style="font-size:.92em">maul-team</span> framework.
       </p>
     </div>
     <nav class="footer-links" aria-label="Footer">
       <div>
-        <h5>Project</h5>
-        <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="footer">Download for macOS</a>
-        <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="footer">GitHub repository ↗</a>
-        <a href="https://github.com/sohei56/maul-team#license" target="_blank" rel="noopener">Licenses (framework + app)</a>
-        <a href="./terms.html">Terms of Use</a>
+        <h5 data-i18n="footer.project">Project</h5>
+        <a href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="footer" data-i18n="common.download_mac">Download for macOS</a>
+        <a href="https://github.com/sohei56/maul-team" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="github" data-umami-event-position="footer" data-i18n="footer.gh_repo">GitHub repository ↗</a>
+        <a href="https://github.com/sohei56/maul-team#license" target="_blank" rel="noopener" data-i18n="footer.licenses">Licenses (framework + app)</a>
+        <a href="./terms.html" data-i18n="footer.terms">Terms of Use</a>
       </div>
       <div>
-        <h5>Docs</h5>
+        <h5 data-i18n="footer.docs">Docs</h5>
         <a href="https://github.com/sohei56/maul-team#readme" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="readme-en" data-umami-event-position="footer">README (English)</a>
         <a href="https://github.com/sohei56/maul-team/blob/main/README_ja.md" target="_blank" rel="noopener" data-umami-event="outbound" data-umami-event-target="readme-ja" data-umami-event-position="footer">README（日本語）</a>
       </div>
       <div>
-        <h5>On this page</h5>
-        <a href="#why">Why</a>
-        <a href="#how">How it works</a>
-        <a href="#loop">Loop engineering</a>
-        <a href="#install">Install</a>
+        <h5 data-i18n="footer.onpage">On this page</h5>
+        <a href="#why" data-i18n="nav.why">Why</a>
+        <a href="#how" data-i18n="nav.how">How it works</a>
+        <a href="#loop" data-i18n="nav.loop">Loop engineering</a>
+        <a href="#install" data-i18n="nav.install">Install</a>
       </div>
     </nav>
     <div class="footer-meta">
       <span>© 2026 sohei56 · MIT (framework) + Commercial (app)</span>
-      <span>Built with Claude Code Agent Teams</span>
+      <span data-i18n="footer.built">Built with Claude Code Agent Teams</span>
     </div>
   </div>
 </footer>
@@ -1821,6 +1855,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 (function(){
   "use strict";
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* i18n bridge — resolves at call time; falls back to English if i18n.js is absent */
+  function T(key, fallback){ return window.__t ? window.__t(key, fallback) : fallback; }
 
   /* ---------- analytics helper (no-op when Umami is absent/blocked) ---------- */
   function track(name, data){
@@ -1930,7 +1966,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     });
     video.addEventListener("error", function(){
       var small = cover.querySelector("small");
-      if (small) small.textContent = "Video blocked here — use the GitHub link below";
+      if (small) small.textContent = T("video_blocked", "Video blocked here — use the GitHub link below");
     }, true);
   }
 
@@ -1959,9 +1995,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     copyBtn.addEventListener("click", function(){
       track("copy-build-cmds");
       function done(){
-        copyBtn.textContent = "copied ✓";
+        copyBtn.textContent = T("copy_done", "copied ✓");
         copyBtn.classList.add("copied");
-        setTimeout(function(){ copyBtn.textContent = "copy"; copyBtn.classList.remove("copied"); }, 1800);
+        setTimeout(function(){ copyBtn.textContent = T("copy", "copy"); copyBtn.classList.remove("copied"); }, 1800);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(CMDS).then(done, fallback);
