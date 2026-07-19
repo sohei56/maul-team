@@ -125,30 +125,27 @@ above is unmet.
 At the end of every Retrospective in autonomous mode the SM asks the
 PO what comes next. This is a PO-owned call because it turns on
 whether the **Product Goal** (the brief/vision feature set) is met —
-an engineering checkpoint cannot decide it. The SM sends
-`kind=sprint_continuation options=[next_sprint,integration_sprint,complete]`
-with the just-closed Sprint id, the remaining `refined` PBI count,
-and how many Sprints have run this launch (sprint-history length
-minus `autonomy.json.sprint_baseline`) vs `autonomous.max_sprints`
-as payload.
+an engineering checkpoint cannot decide it. Request payload and the
+choice → phase mapping are canonical in the `retrospective` skill
+Step 8; the payload includes how many Sprints have run this launch
+(sprint-history length minus `autonomy.json.sprint_baseline`) vs
+`autonomous.max_sprints`.
 
 Decide with this precedence:
 
 1. **`choice:next_sprint`** — the Product Goal is **not** yet
    delivered AND ≥1 `refined` PBI remains in the backlog AND the
-   number of Sprints run this launch (sprint-history length minus
-   `autonomy.json.sprint_baseline`) is below `max_sprints`. This is
-   the default while feature work remains. The SM will advance the
-   phase to `backlog_created` and plan the next development Sprint.
+   number of Sprints run this launch (per the payload above) is
+   below `max_sprints`. This is the default while feature work
+   remains.
 2. **`choice:integration_sprint`** — every brief/vision feature is
    delivered (no `refined` feature PBI remains, or the remaining
    ones are explicitly deferred to the "Out" section) and the
-   product has not yet had a product-wide QA pass. The SM will
-   advance to `integration_sprint`.
+   product has not yet had a product-wide QA pass.
 3. **`choice:complete`** — the Product Goal is met **and** an
    Integration Sprint has already passed (or the brief scope was a
-   single increment with no integration phase). The SM will advance
-   the phase to `complete` and the watchdog terminates the run.
+   single increment with no integration phase). The watchdog
+   terminates the run at phase `complete`.
 
 The `rationale` must name the deciding condition: which brief/vision
 clauses remain open (next_sprint), or which are all satisfied
@@ -201,8 +198,7 @@ the SM.
 ```
 
 - `PO_CLARIFY` rounds per `PO_DECISION_REQUEST` are budgeted. The
-  cap is stated once, authoritatively, in § Anti-loop rules below —
-  cite that section; do not restate the number elsewhere.
+  cap semantics are canonical in § Anti-loop rules below.
 
 **Requirement Definition interview (PO ↔ requirements-analyst, direct):**
 
@@ -270,11 +266,10 @@ quality_gate_config
 
 - **Clarification cap.** A single `PO_DECISION_REQUEST` may trigger
   at most `po.max_clarification_rounds` rounds of `PO_CLARIFY` (default
-  2 when the config key is absent). **This is the canonical cap
-  statement** — every other document cites this section instead of
-  restating the number. On exceeding the cap the PO
-  must issue a binding decision and explicitly mark the unknowns
-  it assumed.
+  2 when the config key is absent). This section is canonical for the
+  cap **semantics**; config tables elsewhere may mirror the default
+  value. On exceeding the cap the PO must issue a binding decision
+  and explicitly mark the unknowns it assumed.
   - Invoke `append-po-decision.sh` with the bare `--assumption`
     flag (it takes no argument — it sets `assumption: true` on the
     record) AND begin `rationale` with the literal prefix

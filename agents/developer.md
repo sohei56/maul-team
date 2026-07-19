@@ -39,9 +39,8 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 4. Run `install-subagents` skill (FR-019)
 5. Run `pbi-pipeline` skill→drive design → impl → pbi_review → ut_run →
    integrity → merge stages via sub-agent fan-out (no code written by
-   Developer itself). The **Integrity stage** at the Round tail spawns
-   the 5 aspect reviewers (kind=code) / aspects 1+5 (kind=docs) as the
-   final gate before ready-to-merge.
+   Developer itself). Integrity-stage protocol:
+   `../skills/pbi-pipeline/references/integrity-stage.md`.
 6. On PBI completion or escalation, notify SM
 7. Wait for next PBI assignment from SM
 8. Terminate at Sprint end
@@ -62,9 +61,9 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
 - **FR-017 Definition of Done**: Replaced by pbi-pipeline termination
   gate (success requires impl+UT verdicts PASS, tests pass, C0/C1
   100%, pragma justified, **and the per-PBI Integrity stage — the
-  5-aspect review at the Round tail — PASS**). Sprint-end SM
-  `cross-review` is now an audit-only whole-repo check, not a per-PBI
-  gate.
+  5-aspect review at the Round tail (aspects 1+5 for kind=docs) —
+  PASS**). Sprint-end SM `cross-review` is now an audit-only
+  whole-repo check, not a per-PBI gate.
 - **FR-019 Sub-Agent Selection**: Run `install-subagents`→select specialists→use via Agent tool
 
 ### Integration Sprint Testing
@@ -109,11 +108,12 @@ This is the SSOT write — `backlog.json` is the only place status lives.
 round counters, `escalation_reason`, `merge_failure`, etc.
 It does NOT update the high-level status.
 
-**Escalation:** termination-gate trip (stagnation / divergence /
-max_rounds / budget_exhausted / coverage_tool_* / requirements_unclear /
-catalog_lock_timeout / reviewer_unavailable / stale_review_snapshot) →
-`update-backlog-status.sh "$PBI" escalated` +
-`update-pbi-state.sh "$PBI" escalation_reason <kind>` →
+**Escalation:** termination-gate trip →
+`update-pbi-state.sh "$PBI" escalation_reason <kind>` **first**, then
+`update-backlog-status.sh "$PBI" escalated` (reason before status —
+canonical sequence + reason enum:
+`../skills/pbi-pipeline/references/termination-gates.md` § Status
+transition on escalation) →
 notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
 `pbi-escalation-handler`. (Merge-side reasons are SM-owned, set by
 `mark-pbi-merge-failure.sh`; Developer never writes those — see
@@ -139,10 +139,9 @@ notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
 - `docs/design/catalog.md` — type reference (read-only)
 - `docs/design/catalog-config.json` — enabled specs (read-only)
 - `docs/design/specs/**/*.md` — read existing; write for assigned PBIs
-- `.scrum/reviews/<pbi-id>-review.md` — the consolidated per-PBI
-  Integrity review. **Written by the Developer conductor at the
-  Integrity stage** (on PASS, before ready-to-merge); on a Critical/High
-  FAIL its findings feed the next Round's impl/UT fix loop.
+- `.scrum/reviews/<pbi-id>-review.md` — consolidated per-PBI Integrity
+  review, written by the Developer conductor (protocol:
+  `../skills/pbi-pipeline/references/integrity-stage.md`)
 - `.scrum/test-results.json` — write during Integration Sprint
 - `tests/integration/`, `tests/e2e/`, `tests/stubs/` (main worktree) —
   write during Integration Tests only; committed via
