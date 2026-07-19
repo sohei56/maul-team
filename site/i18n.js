@@ -10,7 +10,7 @@
   "use strict";
 
   var STORE = "mt-lang";
-  var SHORT = { en: "EN", ja: "JA", fr: "FR", es: "ES", de: "DE", "zh-Hans": "ZH", ko: "KO" };
+  var SHORT = { en: "EN", ja: "JA", fr: "FR", es: "ES", de: "DE", pt: "PT", "zh-Hans": "ZH", ko: "KO" };
   var cache = {};          // lang -> dict
   var current = "en";
   var currentDict = null;  // null == English originals
