@@ -30,7 +30,9 @@ fail() {
 }
 
 # assert_hex_sha <label> <value>
-# Validates a 7..40 char lowercase hex string. Fails E_INVALID_ARG with the
+# Cheap sanity check on a sha argument: first char must be lowercase hex and
+# length must be 7..40. NOT a full character-set validation — the schema's
+# ^[0-9a-f]{7,40}$ pattern is the final gate. Fails E_INVALID_ARG with the
 # label embedded in the message. Used by mark-pbi-merged.sh, mark-pbi-merge-
 # failure.sh, update-pbi-state.sh.
 assert_hex_sha() {

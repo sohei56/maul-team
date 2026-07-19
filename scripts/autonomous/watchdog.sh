@@ -52,6 +52,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/../lib/jq-read.sh"
 # shellcheck source=../lib/time.sh
 . "$SCRIPT_DIR/../lib/time.sh"
+# shellcheck source=../lib/ids.sh
+. "$SCRIPT_DIR/../lib/ids.sh"
 
 # --- Configurable test hooks --------------------------------------------------
 AUTON_CLAUDE_BIN="${AUTON_CLAUDE_BIN:-claude}"
@@ -111,25 +113,7 @@ do_sleep() {
   sleep "$effective" 2>/dev/null || true
 }
 
-# Bash 3.2-compatible UUID v4 generator (xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx).
-generate_uuid() {
-  if command -v uuidgen >/dev/null 2>&1; then
-    uuidgen | tr '[:upper:]' '[:lower:]'
-    return 0
-  fi
-  # Fallback: synthesize from /dev/urandom hex.
-  local hex
-  hex="$(od -An -tx1 -N16 /dev/urandom 2>/dev/null | tr -d ' \n')"
-  if [ -z "$hex" ] || [ "${#hex}" -lt 32 ]; then
-    # Last-resort fallback (deterministic-ish): epoch + pid + RANDOM
-    hex="$(printf '%08x%04x%04x%04x%012x' \
-      "$(now_epoch)" "$$" "$RANDOM" "$RANDOM" "$RANDOM")"
-    hex="${hex:0:32}"
-  fi
-  # Force version=4 and variant=10xx
-  printf '%s-%s-4%s-%s%s-%s\n' \
-    "${hex:0:8}" "${hex:8:4}" "${hex:13:3}" "8" "${hex:17:3}" "${hex:20:12}"
-}
+# generate_uuid / portable_sha1 come from scripts/lib/ids.sh (sourced above).
 
 # cfg_value <jq_path> <default>
 # Reads a scalar from .scrum/config.json with fall-through-to-default on
@@ -191,13 +175,7 @@ progress_hash() {
     items=""
   fi
   body="${phase}|${sid}|${items}"
-  if command -v shasum >/dev/null 2>&1; then
-    printf '%s' "$body" | shasum | awk '{print $1}'
-  elif command -v sha1sum >/dev/null 2>&1; then
-    printf '%s' "$body" | sha1sum | awk '{print $1}'
-  else
-    printf '%s' "$body" | cksum | awk '{print $1}'
-  fi
+  printf '%s' "$body" | portable_sha1
 }
 
 # iter_is_rate_limit_error <iter_stdout_path>
@@ -294,9 +272,9 @@ rate_limited_since() {
   local since_epoch="$1"
   [ -f "$DASHBOARD_FILE" ] || return 1
   jq empty "$DASHBOARD_FILE" >/dev/null 2>&1 || return 1
-  # Convert each event's timestamp into epoch using date; portable across
-  # GNU/BSD by allowing the parser to fail (returns 0 then, treated as old).
-  # We do the comparison in awk on the side of robustness.
+  # Convert each event's timestamp into epoch via iso_to_epoch; portable
+  # across GNU/BSD by allowing the parser to fail (returns 0 then, treated as
+  # old). The epoch comparison runs in the bash while-loop below.
   local matches
   matches="$(jq -r --argjson since "$since_epoch" '
     (.events // [])

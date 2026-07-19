@@ -107,12 +107,12 @@ sh /path/to/maul-team/scrum-start.sh
 - Design documents governed by `docs/design/catalog.md` (read-only type reference) + `docs/design/catalog-config.json` (editable enabled list)
 - Developer teammates named with Sprint suffix: `dev-001-s{N}`
 - PBI status flow (13 values, actor-split; status is sole SSOT):
-  - SM-managed: `draft → refined → … → awaiting_cross_review → cross_review → done` (happy path)
-  - Developer-managed: `in_progress_design → in_progress_impl ⇄ in_progress_pbi_review ⇄ in_progress_ut_run → in_progress_merge`
-  - `cancelled` is the SM-only terminal state for PBIs merged into
-    another PBI or no longer needed (incl. escalation `abandon`);
-    `blocked` remains strictly hold-and-resume on an external blocker
-  - Full graph (including failure edges): `docs/data-model.md` § State Transitions
+  SM-managed lifecycle statuses plus Developer-managed
+  `in_progress_*` pipeline statuses. `cancelled` is the SM-only
+  terminal state for PBIs merged into another PBI or no longer
+  needed (incl. escalation `abandon`); `blocked` remains strictly
+  hold-and-resume on an external blocker. Full enum + graph
+  (including failure edges): `docs/data-model.md` § State Transitions
 - Sprint status flow: `planning → active → cross_review → sprint_review → complete | failed` (`failed` is a terminal failure state allowed by `sprint.schema.json`)
 - On a **new project (both modes)**, `scrum-start.sh` co-authors a
   product brief (`docs/product/brief.md`) as an interactive pre-flight
@@ -121,18 +121,26 @@ sh /path/to/maul-team/scrum-start.sh
   per a PO-seat decision) and is a pre-ceremony input, not a
   `state.json.phase` value. TTY / abort rules + full flow:
   [`skills/create-brief/SKILL.md`](skills/create-brief/SKILL.md).
-- Project workflow flow (`state.json.phase`, distinct from PBI status): `new → requirements_sprint → backlog_created → sprint_planning → pbi_pipeline_active → review → sprint_review → retrospective → backlog_created (next Sprint) | integration_sprint → uat_release → complete`. From `integration_sprint`, failing tests route to `backlog_created` (defect-fix loop) instead of advancing; from `uat_release`, UAT defects also route back to `backlog_created`. The `retrospective → {backlog_created | integration_sprint | complete}` edge is chosen by a PO `sprint_continuation` decision (autonomous mode) — the decision's `choice:integration_sprint` label is unchanged even though the phase graph beyond it now runs through `uat_release`; in human mode the user drives it and `sprint-planning` accepts `phase: retrospective` directly. A rollover `backlog_created` (sprint-history non-empty) is a watchdog recycle checkpoint. The `codebase-audit` whole-repo audit runs every Sprint inside cross-review (regulation details: `skills/codebase-audit/SKILL.md`), and `integration_sprint` opens with a thin `codebase-audit` re-check (latest audit fresh + no open Critical/High audit PBIs; otherwise route back to `backlog_created`) before the `integration-tests` skill (design-driven systematic testing); `uat_release` runs the `uat-release` skill (UAT walkthrough + release decision).
+- Project workflow flow (`state.json.phase`, distinct from PBI
+  status): `new → requirements_sprint → backlog_created →
+  sprint_planning → pbi_pipeline_active → review → sprint_review →
+  retrospective → backlog_created (next Sprint) | integration_sprint
+  → uat_release → complete`. The `retrospective → {backlog_created |
+  integration_sprint | complete}` edge is chosen by a PO
+  `sprint_continuation` decision in autonomous mode (the decision's
+  `choice:integration_sprint` label is unchanged even though the
+  phase graph beyond it now runs through `uat_release`); in human
+  mode the user drives it. Full graph including failure routing:
+  `docs/data-model.md` § State Transitions; the integration-entry
+  thin `codebase-audit` re-check conditions:
+  `skills/codebase-audit/SKILL.md`.
 - PBI development flows through the `pbi-pipeline` skill: the
   Developer is a conductor that spawns specialized sub-agents per
   Round (design → impl+UT → review). State per PBI lives at
-  `.scrum/pbi/<pbi-id>/`. During Design the `pbi-designer` runs a
-  **mandatory library selection web search** (proven track record +
-  use-case fit) and records only web-verified library specs into the
-  `S-070` catalog type (`docs/design/specs/technology/S-070-<lib>.md`,
-  one per library, committed + reusable) plus a `Library Selection`
-  section in `design.md`, to prevent API-misuse defects; a stdlib-only
-  PBI records an explicit stdlib-only line, and `codex-design-reviewer`
-  gates on the section's presence + backing specs (`missing_library_spec`).
+  `.scrum/pbi/<pbi-id>/`. Design includes a mandatory
+  library-selection web search recorded as `S-070` specs, gated by
+  `codex-design-reviewer` — see
+  `skills/pbi-pipeline/references/design-stage.md`.
   UT is black-box (UT author cannot read impl
   source). Termination is deterministic via composite gates
   (success/stagnation/divergence/hard cap). Coverage measured by real
@@ -165,34 +173,19 @@ sh /path/to/maul-team/scrum-start.sh
   start after a prior autonomous run does not silently re-spawn the
   PO teammate; the `.autonomous.*` tuning block is preserved.
 - Autonomous mode (`scrum-start.sh --autonomous`) drives the team
-  end-to-end without human input. The outer loop
-  (`scripts/autonomous/watchdog.sh`) re-launches `claude -p`
-  iterations, enforces safety valves (iterations / wall clock /
-  Sprints / consecutive failures / per-phase Stop-block budget),
-  and on API rate-limit / usage-limit / overload errors **sleeps
-  until the limit resets and resumes automatically** (advertised
-  reset time when parseable, else 1h default; rate-limited
-  iterations do not advance the iteration counter). Cost is
-  recorded in `autonomy.json` for observability but not enforced
-  — spend ceilings live in the operator's Claude subscription
-  plan. The watchdog writes a morning report to
-  `.scrum/reports/autonomous-run-<run_id>.md`. PO decisions are
-  audit-logged to `.scrum/po/decisions.json` (append-only) via
-  `append-po-decision.sh`. Full operator guide: `docs/autonomous-mode.md`.
+  end-to-end without human input via the outer watchdog loop
+  (`scripts/autonomous/watchdog.sh`). Run state lives in
+  `.scrum/autonomy.json`, PO decisions in `.scrum/po/decisions.json`
+  (append-only, via `append-po-decision.sh`), and reports in
+  `.scrum/reports/`. Safety valves, rate-limit auto-resume behavior,
+  and the morning report: `docs/autonomous-mode.md`.
 - **Stop-hook block policy diverges by mode.** One Stop entry
   (`hooks/stop-dispatch.sh` → `dashboard-event.sh` best-effort →
-  `completion-gate.sh`). *Autonomous mode + live watchdog*: the
-  unbounded in-flight inner loop (`pipeline_in_flight`) keeps
-  blocking every turn-end, while bounded exit-criteria-miss blocks
-  (incl. `escalated_unresolved`) route through a per-phase circuit
-  breaker (`autonomous.stop_block_budget_per_phase`) that allows exit
-  once the budget trips, so the watchdog can surface a stuck run (no
-  live watchdog → degrades to human mode). *Human mode*:
-  fingerprint-dedup (first block of a `<phase, situation>` exits 2,
-  identical repeats allow exit); `pbi_pipeline_active` blocks only on
-  unresolved `escalated` PBIs, and teammate liveness is handled by
-  the external `scripts/stall-watchdog.sh` daemon. See
-  `docs/contracts/agent-interfaces.md` § Stop Hook.
+  `completion-gate.sh`). Autonomous mode blocks unbounded on
+  `pipeline_in_flight` and routes bounded exit-criteria blocks
+  through a per-phase budget breaker; human mode uses
+  fingerprint-dedup plus the external `scripts/stall-watchdog.sh`
+  daemon. Full policy: `docs/contracts/agent-interfaces.md` § Stop Hook.
 
 ## State management
 
@@ -241,9 +234,8 @@ rule. The sprint schema gained `base_sha` and `base_sha_captured_at`.
 PBI development uses one git worktree per PBI. The Scrum Master
 captures `sprint.base_sha = git rev-parse HEAD` once at Sprint
 start, then creates `.scrum/worktrees/<pbi-id>/` checked out at
-branch `pbi/<pbi-id>` forked from that base. Each worktree has a
-`.scrum -> ../../../.scrum` symlink so the SSOT is shared with the
-main repo.
+branch `pbi/<pbi-id>` forked from that base. Each worktree shares
+the `.scrum/` SSOT with the main repo via a symlink.
 
 Developers commit only via `.scrum/scripts/commit-pbi.sh` (which
 refuses if the checked-out branch is not `pbi/<id>`). On PBI
@@ -260,16 +252,10 @@ test-asset directories (plus repeatable `--allow <path>` exceptions
 for runner config), and blocks the commit if any product-source path
 is staged.
 
-SM merges per-PBI immediately by running the `pbi-merge` skill
-(see [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md) for
-the full protocol: a **merge-scoped** clean check (disjoint tracked
-drift is stashed across the merge and auto-restored, not a blanket
-clean-tree refusal — only drift colliding with `paths_touched`
-blocks), `--no-ff` merge, `paths_touched` verification, a
-per-merge regression gate that runs
-`.scrum/config.json.merge_regression.command` (skipped with WARN when
-unset), SendMessage matrix for `conflict` / `artifact_missing` /
-`regression`, and 3-strike escalation to `pbi-escalation-handler`).
+SM merges per-PBI immediately by running the `pbi-merge` skill —
+the full protocol (merge-scoped clean check, failure matrix,
+3-strike escalation) is canonical in
+[skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md).
 The Sprint-end whole-repo audit (static analysis + 4-axis
 `codebase-audit`) still runs in `cross-review`.
 

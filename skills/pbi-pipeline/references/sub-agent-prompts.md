@@ -141,7 +141,7 @@ Write the design to:
 Select any third-party libraries via mandatory web search and record
 web-verified specs to docs/design/specs/technology/S-070-<lib>.md; emit
 the design.md `Library Selection` section (or the stdlib-only line).
-See ../../../agents/pbi-designer.md § Mandatory library selection &
+See your agent definition § Mandatory library selection &
 verified-spec research.
 
 On catalog-lock timeout, exit with status=error, escalation_reason

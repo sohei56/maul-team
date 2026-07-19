@@ -13,7 +13,7 @@
   <a href="https://github.com/sohei56/maul-team/releases"><img src="https://img.shields.io/github/downloads/sohei56/maul-team/total?style=flat-square&color=28c8e6&label=downloads" alt="Total downloads"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
+  <img src="https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
@@ -161,7 +161,7 @@ open macapp/build/MaulTeam.app
 
 ## 機能
 
-- **ネイティブ Mac アプリ** — MaulTeam.app はチーム全体を 1 つの macOS ウィンドウで動かす (プロジェクトピッカー、埋め込み Scrum Master ターミナル、タブ式コードエディタ、native ダッシュボード)。
+- **ネイティブ Mac アプリ** — MaulTeam.app はチーム全体を 1 つの macOS ウィンドウで動かす (プロジェクトピッカー、埋め込み Scrum Master ターミナル、ファイルごとに独立ウィンドウで開くコードエディタ、native ダッシュボード)。
 - **19 個の Skill でライフサイクル全体をカバー** — プロダクトブリーフ共同作成から要件定義・プランニング・PBI 開発・マージ・監査・レビュー・レトロスペクティブ、そして integration testing・UAT & release まで、すべてのセレモニーがバージョン管理された検査可能な Skill
 - **マルチエージェント連携** — Scrum Master (Delegate モード) が Sprint あたり最大 6 並列の Developer (1 PBI に Developer 1 名、上限 6) を統括
 - **ゲート制の並列開発** — Developer は分離された git worktree で PBI を並列に開発し、各 Round を Codex がクロスレビュー。black-box UT と Integrity レビューを通過した PBI だけがマージされる

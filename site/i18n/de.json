@@ -33,7 +33,7 @@
  "demo.fallback": "Video lädt nicht? Sieh dir die Demo auf GitHub an ↗",
  "demo.p1_num": "BEREICH 01 — LINKS",
  "demo.p1_h": "Dein Code, live",
- "demo.p1_p": "Dateibaum und ein Code-Editor mit Tabs und Syntax-Highlighting. Tabs lösen sich in eigene Fenster; Framework-Dateien sind mit einem Schloss markiert, damit du immer weißt, was dir gehört.",
+ "demo.p1_p": "Dateibaum und ein Code-Editor mit Syntax-Highlighting — ein Doppelklick öffnet jede Datei in ihrem eigenen Editor-Fenster; Framework-Dateien sind mit einem Schloss markiert, damit du immer weißt, was dir gehört.",
  "demo.p2_num": "BEREICH 02 — MITTE",
  "demo.p2_h": "Der Scrum Master, eingebettet",
  "demo.p2_p": "Ein echtes Terminal, das den Scrum Master ausführt, plus ein natives Work Log, das jeden Agenten-Start, jede Dateiänderung und jede Nachricht in Echtzeit streamt.",

@@ -243,11 +243,14 @@ Catalog write contention: see `references/catalog-contention.md`
 
 ## Escalation
 
-When a termination gate triggers escalation, set backlog status to
-`escalated` via `update-backlog-status.sh`, write
-`escalation_reason` into state.json via `update-pbi-state.sh`, and
-notify SM via Agent Teams. SM handles via the
-`pbi-escalation-handler` skill.
+When a termination gate triggers escalation, write
+`escalation_reason` into state.json via `update-pbi-state.sh`
+**first**, then set backlog status to `escalated` via
+`update-backlog-status.sh` (reason before status — an observer must
+never see `escalated` without a recorded `escalation_reason`;
+canonical sequence: `references/termination-gates.md` § Status
+transition on escalation), and notify SM via Agent Teams. SM handles
+via the `pbi-escalation-handler` skill.
 
 A sub-agent ending its Round with an **unresolved spec question**
 (status=error + the question in `findings[]`/`next_actions`, per

@@ -9,7 +9,7 @@
 import SwiftUI
 
 /// The editor-like workspace:
-///   left   = file tree (top) + tabbed code editor (bottom)
+///   left   = file tree (Explorer); files open in detached editor windows
 ///   center = Scrum Master terminal (top) + native Work Log (bottom)
 ///   right  = native project/PBI/integration dashboard
 ///

@@ -23,10 +23,11 @@ if [ -f "$SPRINT_FILE" ] && [ -n "$sprint_id" ] && [ "$sprint_id" != "null" ]; t
 
   # Count completed PBIs. OD-4 single-source: derive Sprint membership from
   # `backlog.items where sprint_id == current_sprint`; `sprint.pbi_ids` is
-  # gone.
+  # gone. cancelled PBIs are descoped work, not undelivered work — excluded
+  # from total (matches rollover-sprint.sh and dashboard/app.py).
   if [ -f "$BACKLOG_FILE" ]; then
     total="$(jq -r --arg sid "$sprint_id" \
-      '[.items[] | select(.sprint_id == $sid)] | length' \
+      '[.items[] | select(.sprint_id == $sid and .status != "cancelled")] | length' \
       "$BACKLOG_FILE" 2>/dev/null || echo "0")"
     done_count="$(jq -r --arg sid "$sprint_id" \
       '[.items[] | select(.sprint_id == $sid and .status == "done")] | length' \

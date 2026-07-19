@@ -17,12 +17,16 @@ disable-model-invocation: false
 - `.scrum/config.json` (optional) — `merge_regression.command` is a
   single shell string run via `bash -c` from the main repo root after
   the merge commit lands. Absent / empty / null → the regression gate
-  is skipped and a `WARN: no merge regression command configured` line
-  is printed; in `po_mode=agent`, `merge-pbi.sh` additionally appends
+  is skipped with a WARN naming the unset `merge_regression.command`
+  and pointing at `set-merge-regression-command.sh`; in
+  `po_mode=agent`, `merge-pbi.sh` additionally appends
   a once-per-Sprint entry to `.scrum/po/attention.md` so the skipped
   gate cannot stay silent across an autonomous run (a target project
   merged a broken test suite to main repeatedly because the WARN had
-  no reader). Output (stdout+stderr) is captured to
+  no reader). An explicit opt-out recorded via
+  `set-merge-regression-command.sh --none` (`accepted_none`)
+  suppresses both the WARN and the attention append — a single quiet
+  note prints instead. Output (stdout+stderr) is captured to
   `.scrum/pbi/<pbi-id>/merge-regression.log` (overwritten per attempt).
 
 ## Outputs
@@ -61,7 +65,7 @@ leave `merge_failure` / `merge_failure_count` untouched.
   file set does **not** block — it is stashed across the merge and
   restored afterward (a post-merge rollback `git reset --hard` cannot eat
   it). Drift that *intersects* the merge's file set still aborts with
-  `E_INVALID_ARG` (git would refuse to overwrite it anyway). `.scrum/` is
+  preflight exit 1 (git would refuse to overwrite it anyway). `.scrum/` is
   untracked by design; the wrapper additionally asserts `.scrum/` is **not
   tracked at all** (`assert_scrum_untracked`) and aborts if a stray commit
   ever made it tracked.

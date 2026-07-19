@@ -23,8 +23,8 @@ The 8 SM-managed status values (see [../../../docs/data-model.md § State Transi
 ## Schema: `.scrum/pbi/<pbi-id>/state.json`
 
 The canonical schema is
-[docs/contracts/scrum-state/pbi-state.schema.json](../../../docs/contracts/scrum-state/pbi-state.schema.json)
-(field semantics in
+`docs/contracts/scrum-state/pbi-state.schema.json` (path from the
+target project root; field semantics in
 [../../../docs/data-model.md § PbiPipelineState](../../../docs/data-model.md#entity-pbipipelinestate)).
 Do not copy it here — the compact listing below covers only the fields
 the conductor writes, with enums transcribed from the schema:

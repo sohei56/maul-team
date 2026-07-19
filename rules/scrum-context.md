@@ -118,9 +118,12 @@ returning to your caller):
 - **Reports state facts, not narration**: "design.md emitted, 3
   catalog spec updates, 0 findings" — not "I worked on the design
   and I think it looks good".
-- **Sub-agents end output with the JSON envelope** specified by
+- **PBI pipeline sub-agents** (designer / implementer / ut-author /
+  codex reviewers) **end output with the JSON envelope** specified by
   `docs/contracts/pbi-pipeline-envelope.schema.json`. Missing or
   malformed envelopes break the pipeline orchestrator's parser.
+  Integrity aspect reviewers are the exception — they return the
+  markdown `**Verdict: PASS|FAIL**` per their agent definitions.
 
 **PO-channel prefixes** (SM ↔ product-owner teammate when
 `po_mode=agent`). All are prefixed `[<scope>]` where `<scope>` ∈
@@ -145,14 +148,15 @@ formats here. Message shapes:
 
 Escalation routes are fixed — do not invent new ones:
 
-- Developer-side termination gate trip → `update-backlog-status.sh
-  <pbi> escalated` + `update-pbi-state.sh <pbi> escalation_reason
-  <kind>` → notify SM → SM runs `pbi-escalation-handler`.
-- Per-PBI merge failure (SM-owned) → `mark-pbi-merge-failure.sh`
-  records `merge_failure.kind` ∈ `{conflict, artifact_missing,
-  regression}`; 3 consecutive failures flip status to `escalated`.
-  See `../skills/pbi-merge/SKILL.md` § Outputs for the kind →
-  `escalation_reason` mapping.
+- Developer-side termination gate trip → `update-pbi-state.sh <pbi>
+  escalation_reason <kind>` first, then `update-backlog-status.sh
+  <pbi> escalated` (reason before status, so no observer sees
+  `escalated` without a recorded reason) → notify SM → SM runs
+  `pbi-escalation-handler`.
+- Per-PBI merge failure (SM-owned) → recorded by
+  `mark-pbi-merge-failure.sh`; failure kinds, the 3-strike rule, and
+  the kind → `escalation_reason` mapping are canonical in
+  `../skills/pbi-merge/SKILL.md` § Outputs.
 - Requirements unclear (designer/implementer) → raise to Developer →
   SM → PO. Never guess requirements from code. Full route: see
   § Escalation route (below).

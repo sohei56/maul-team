@@ -106,11 +106,10 @@ rules follow.
   Init, not by SM: `in_progress_design` (`in_progress_impl` for
   kind=docs PBIs, which skip Design).
 - Sprint-end cross-review skill start: each `awaiting_cross_review` PBI → `cross_review`
-- cross-review end: every `cross_review` PBI → `done`. There is no
-  revert edge back to `in_progress_impl` — the audit is non-blocking
-  (see FR-009 above).
-- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (retry → `in_progress_design`, or `in_progress_impl` for a kind=docs PBI; hold → stays `escalated`; human-escalate stays `escalated`; abandon → `cancelled`; `blocked` is reserved for parking on an external dependency, not a hold outcome)
-- Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked`). Never park such PBIs at `blocked` — `blocked` is strictly for hold-and-resume on an external blocker.
+- cross-review end: every `cross_review` PBI → `done` (no revert edge
+  — audit-only; see `../skills/codebase-audit/SKILL.md`)
+- Developer notification `[<pbi-id>] ESCALATED reason=<kind>` → run `pbi-escalation-handler` skill (outcome → status mapping: `../skills/pbi-escalation-handler/SKILL.md` § Outputs)
+- Cancellation: a PBI merged into another PBI or no longer needed → `cancelled` (terminal, SM-only; allowed from `draft` / `refined` / `escalated` / `blocked` — never park such PBIs at `blocked`; per-status semantics: linked data-model glossary)
 - Per-PBI merge (`merge-pbi.sh`): success → `awaiting_cross_review`;
   a failure **leaves status `in_progress_merge`** for the Developer to
   fix & retry, and only the **3rd consecutive** failure flips status
@@ -244,34 +243,12 @@ decision.
 
 ### End-of-Sprint continuation (Retrospective → next Sprint)
 
-A Retrospective that finishes with `state.json.phase` still at
-`retrospective` is a dead end in autonomous mode: nothing advances
-the phase, and the watchdog reads the unchanged phase as
-`no_progress` and eventually trips the failure circuit breaker.
-**The PO — not the SM, not the watchdog — decides whether another
-Sprint runs**, because the call depends on Product-Goal completion.
-
-So the last act of every Retrospective (`retrospective` skill,
-Step 8) is a `sprint_continuation` handshake:
-
-1. Send the PO `PO_DECISION_REQUEST kind=sprint_continuation
-   options=[next_sprint,integration_sprint,complete]` with the
-   closed Sprint id, remaining `refined` PBI count, and how many
-   Sprints have run this launch vs `max_sprints` (baseline-relative
-   definition: see § Sprint cap and human attention above).
-2. Advance the phase to match the `PO_DECISION`:
-   `choice:next_sprint → backlog_created`,
-   `choice:integration_sprint → integration_sprint`,
-   `choice:complete → complete`.
-3. End the turn. A rollover `backlog_created` (sprint-history
-   non-empty) is a recycle checkpoint — the watchdog spawns a fresh
-   session that begins the next Sprint's planning.
-
-If this launch's Sprint budget (`max_sprints`) is already exhausted,
-follow *Sprint cap and human attention* above instead: do not request
-`next_sprint`; the PO should reply `choice:complete` (or the SM
-advances to `complete`) after appending the run summary to
-`.scrum/po/attention.md`.
+Every Retrospective must end with the Step-8 `sprint_continuation`
+handshake (request payload + choice → phase mapping:
+`../skills/retrospective/SKILL.md` Step 8; at an exhausted Sprint
+budget follow § Sprint cap and human attention above). Do not leave
+`state.json.phase` at `retrospective` — the watchdog reads the
+unchanged phase as `no_progress`.
 
 ### Cross-session lifecycle
 
@@ -296,7 +273,7 @@ session as potentially short-lived:
    - Backlog Refinement→Sprint Planning (split oversized PBIs before assignment)
    - Enable catalog-config.json→scaffold-design-spec→spawn-teammates
    - Sprint phase transition→Developers run pbi-pipeline
-   - Sprint-end cross-review→SM runs the cross-review skill (audit-only; see FR-009 above)
+   - Sprint-end cross-review→SM runs the cross-review skill (audit-only: `../skills/codebase-audit/SKILL.md`)
    - Each ceremony's PBI-status writes are owned per § Status Ownership above (transition graph: `../docs/data-model.md` § State Transitions)
    - Sprint Review→Retrospective
 3. **Integration Tests** (`integration-tests` skill, phase
@@ -338,8 +315,8 @@ session as potentially short-lived:
 - `communications.json` — agent messaging log
 - `dashboard.json` — dashboard events
 - `test-results.json` — Integration Sprint test results
-- `design-verification-<sprint-id>.md` — Integration Sprint
-  design-completeness matrix
+- `.scrum/integration-tests/<sprint-id>/test-cases.md` — test-case
+  matrix + spec⇄case traceability
 - `docs/design/catalog.md` — doc type reference (read-only)
 - `docs/design/catalog-config.json` — enabled spec IDs (editable)
 
@@ -389,17 +366,10 @@ procedure is canonical in `../skills/codebase-audit/SKILL.md` § Step 2.
 ## Background Subagent + Stop Hook Reading
 
 Stop-hook block behaviour is mode-dependent; the full policy lives in
-`../docs/contracts/agent-interfaces.md` § Stop Hook. What matters for you
-as SM: a Stop block is an **automated state-machine constraint, not
-evidence that a spawned agent failed**. In **human mode** the gate
-fingerprint-dedups (a repeated identical block is logged-only and
-allows exit), and in `pbi_pipeline_active` it blocks only on
-unresolved `escalated` PBIs — not on in-flight PBIs; teammate
-liveness is monitored by the external `scripts/stall-watchdog.sh`
-daemon. In **autonomous mode** the gate keeps blocking while a
-condition holds, bounded up to
-`autonomous.stop_block_budget_per_phase`. The decision rules below for
-"block right after spawn" apply in both modes.
+`../docs/contracts/agent-interfaces.md` § Stop Hook. What matters for
+you as SM: a Stop block is an **automated state-machine constraint,
+not evidence that a spawned agent failed**. The decision rules below
+for "block right after spawn" apply in both modes.
 
 When you spawn an Agent in background and immediately try to stop:
 

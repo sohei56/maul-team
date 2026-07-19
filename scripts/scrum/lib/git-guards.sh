@@ -68,6 +68,24 @@ assert_clean_worktree() {
 # Untracked files are always ignored (.scrum/ is untracked by design). The
 # dirty set is taken from `git diff --name-only HEAD` (tracked changes vs
 # HEAD, staged + unstaged), which yields clean newline-separated paths.
+# conflicting_paths_csv [-C <dir>]
+# Echo the unmerged (conflicted) paths of the (specified) worktree as one
+# comma-separated line (empty when there are no conflicts). Without `-C <dir>`
+# the current worktree is inspected. Shared by merge-pbi.sh /
+# merge-main-into-pbi.sh for merge-failure records.
+conflicting_paths_csv() {
+  local dir=""
+  if [ "${1:-}" = "-C" ]; then
+    [ "$#" -ge 2 ] || fail E_INVALID_ARG "conflicting_paths_csv -C requires a directory"
+    dir="$2"
+  fi
+  if [ -n "$dir" ]; then
+    git -C "$dir" diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//'
+  else
+    git diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//'
+  fi
+}
+
 merge_colliding_dirt() {
   local branch="$1"
   local dirty

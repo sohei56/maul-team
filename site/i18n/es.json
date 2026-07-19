@@ -33,7 +33,7 @@
  "demo.fallback": "¿El video no carga? Mira la demo en GitHub ↗",
  "demo.p1_num": "PANEL 01 — IZQUIERDA",
  "demo.p1_h": "Tu código, en vivo",
- "demo.p1_p": "Árbol de archivos y un editor de código con pestañas y resaltado de sintaxis. Las pestañas se desprenden en sus propias ventanas; los archivos del framework llevan un candado para que siempre sepas qué es tuyo.",
+ "demo.p1_p": "Árbol de archivos y un editor de código con resaltado de sintaxis: haz doble clic en un archivo para abrirlo en su propia ventana de edición; los archivos del framework llevan un candado para que siempre sepas qué es tuyo.",
  "demo.p2_num": "PANEL 02 — CENTRO",
  "demo.p2_h": "El Scrum Master, integrado",
  "demo.p2_p": "Un terminal real ejecutando al Scrum Master, más un Registro de Trabajo nativo que transmite en directo cada agente que se genera, cada cambio de archivo y cada mensaje conforme ocurre.",

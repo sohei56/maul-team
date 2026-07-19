@@ -58,6 +58,7 @@ disable-model-invocation: false
 | `merge_conflict` | Diagnose conflict scope; for trivial cases redirect Developer back to fix on `pbi/<id>` (manual SendMessage; status remains `escalated` until the `mark-pbi-ready-to-merge.sh` round flips it back to `in_progress_merge`). **Before re-notifying, run the partial merge-failure reset only** — `.scrum/scripts/update-pbi-state.sh "$PBI" merge_failure_count 0 merge_failure null` (do NOT run the Step 4 full reset; it zeroes round counters and flips status to `in_progress_design`). Otherwise `mark-pbi-merge-failure.sh` increments from the stale ≥3 count and the PBI re-escalates on the very next merge failure. For structural conflicts, human-escalate. |
 | `merge_artifact_missing` | Confirm whether files were intentionally removed. If unintentional, ask Developer to re-add. If intentional, human-escalate to update `paths_touched`. |
 | `merge_regression` | Read `.scrum/pbi/<pbi-id>/merge-regression.log` to identify the failing test(s). If the failure is in the PBI's own scope, present user with options [split / redesign / hold]. If it crosses PBI boundaries (regression in unrelated code), human-escalate — likely needs PO decision on park vs. revert. |
+| `kind_mismatch` | A kind=docs PBI touched non-.md paths (`mark-pbi-ready-to-merge.sh` boundary check; the offending paths are in its stderr). **First verify the actual diff** in the PBI worktree, then choose: **reclassify** — re-classify the PBI to kind=code via `.scrum/scripts/set-backlog-item-field.sh "$PBI" kind code` and run the standard Step-4 full retry (the code PBI must now pass Design + the UT pipeline it previously skipped); **strip** — redirect the Developer to remove the non-.md changes on `pbi/<id>` and re-run `mark-pbi-ready-to-merge.sh` (status stays `escalated` until that flips it to `in_progress_merge`, like the `merge_conflict` redirect); or park / human-escalate. A plain Step-4 retry **without** resolving the kind violation is invalid — the boundary check trips again on the next handoff. |
 
 ## PO Mode (po_mode: "agent")
 
@@ -82,6 +83,7 @@ Override map (apply per row of the Response Matrix above):
 | `stale_review_snapshot` → human-escalate branch (drift recurred ≥ 2 times) | `kind=escalation_choice options=[retry-once,descope-split,park] recommendation=<...>`. Same `park` semantics. |
 | `max_rounds` / `budget_exhausted` → human-escalate branches | Same shape: `kind=escalation_choice options=[retry-once,descope-split,park] recommendation=<...>`. |
 | `merge_conflict` / `merge_artifact_missing` "human-escalate" branches | `kind=escalation_choice options=[retry-once,descope-split,park] recommendation=<...>`. `park` again routes to `.scrum/po/attention.md` + status `blocked`, never to a blocking human wait. |
+| `kind_mismatch` (the reclassify / strip / park choice) | `kind=escalation_choice options=[reclassify_code,strip_and_retry,park] recommendation=<...>` — `reclassify_code` and `strip_and_retry` follow the matrix row's semantics above; `park` writes to `.scrum/po/attention.md` and flips the PBI to `blocked`. |
 
 Rules common to every row above:
 

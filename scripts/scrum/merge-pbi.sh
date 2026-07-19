@@ -144,7 +144,7 @@ if ! git merge --no-ff "$BRANCH" -m "merge: $PBI" >/dev/null 2>&1; then
   # main exactly, so nothing landed: a successful record → exit 2 (failure
   # matrix); a FAILED record → exit 1 (nothing recorded, main clean, safe to
   # re-run) rather than a misleading exit 2 the SM would route on stale kind.
-  CONFLICT_PATHS="$(git diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//')"
+  CONFLICT_PATHS="$(conflicting_paths_csv)"
   git merge --abort 2>/dev/null || true
   if "$HERE/mark-pbi-merge-failure.sh" "$PBI" conflict "$PRE_HEAD" "${CONFLICT_PATHS:-unknown}"; then
     die 2 "merge conflict: ${CONFLICT_PATHS:-unknown}"

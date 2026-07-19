@@ -235,11 +235,21 @@ After the run finishes, confirm all channels landed:
 
 ---
 
-## Residual verification (not yet done)
+## Residual verification
 
-- `release.yml` has **never been executed on GitHub Actions** — first real run
-  is the true integration test. `actionlint` was not available locally to
-  statically check it.
-- The bundled framework launching the SM pane from the extracted copy was
-  confirmed to *extract*, but the SM pane starting from it was not visually
-  observed.
+The items originally listed here have since been superseded by shipped
+reality:
+
+- `release.yml` **has been executed for real**: signed/notarized releases
+  are published on GitHub Releases and Homebrew, with Sparkle self-updates
+  (see `macapp/README.md` § Status). Part F above is the current
+  per-release verification checklist.
+- The bundled-framework extraction path is exercised by installed releases,
+  and its keying has been hardened to content-addressed directories
+  (`framework-<version>-<rev12>` via the `.framework-rev` marker), so a
+  rebuild at the same tag can no longer serve a stale extraction.
+
+Still open (TODO):
+
+- Run `actionlint` against `release.yml` — it was unavailable locally when
+  the workflow was authored and has not been statically checked since.

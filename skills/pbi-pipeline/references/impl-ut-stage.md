@@ -445,9 +445,10 @@ write_summary "$PBI_DIR/impl/summary.md"
 .scrum/scripts/mark-pbi-ready-to-merge.sh "$PBI_ID"
 # Same wrapper as kind=code, but with the added boundary check:
 # paths_touched MUST be ⊆ **/*.md (PR-1's enforce). Violation →
-# escalated with escalation_reason=kind_mismatch. If the wrapper exits
-# non-zero, the SM has been notified through the status change; the
-# conductor should still notify via SendMessage so the SM does not wait.
+# escalated with escalation_reason=kind_mismatch. The wrapper only
+# flips status (passive state — it messages no one); on a non-zero
+# exit the conductor MUST notify the SM via SendMessage:
+# [<pbi-id>] ESCALATED reason=kind_mismatch.
 .scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "success → in_progress_merge (docs)"
 # Then: notify SM (PBI_READY_TO_MERGE).
 ```

@@ -52,12 +52,11 @@ info() {
   stderr_log "quality-gate" "INFO" "$1"
 }
 
-# Emit a single BLOCKED message (with the uniform hook-notification prefix so
-# the LLM does not misread it as user input) and exit 2 — the Claude Code
-# convention for a blocking TaskCompleted hook.
+# Emit a single BLOCKED message and exit 2 — thin binding over validate.sh's
+# hook_block (the mandated block path), passing the message as <what> with no
+# separate remediation arg (the message carries its own remediation line).
 block() {
-  stderr_log "quality-gate" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $1"
-  exit 2
+  hook_block "quality-gate" "$1"
 }
 
 # ---------------------------------------------------------------------------

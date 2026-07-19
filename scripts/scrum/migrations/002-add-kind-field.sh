@@ -26,14 +26,12 @@ case "${1:-}" in
 esac
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../../.." && pwd)"
 # shellcheck source=../lib/errors.sh
 source "$HERE/../lib/errors.sh"
 # shellcheck source=../lib/atomic.sh
 source "$HERE/../lib/atomic.sh"
 
 PATHF=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
 
 if [ ! -f "$PATHF" ]; then
   echo "[002-add-kind-field] skip: $PATHF not present"
@@ -60,6 +58,11 @@ fi
 # Add kind: "code" only to items that don't already have it; leave the rest
 # alone (including any items where the user has set kind: "docs" already).
 EXPR='.items |= map(if has("kind") then . else .kind = "code" end)'
+
+# Shared source/deployed-layout probe (lib/atomic.sh) — replaces the bare
+# $ROOT construction this file used to carry. Resolved only on the write
+# path so the missing-backlog no-op above stays schema-independent.
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 
 atomic_write "$PATHF" "$EXPR" "$SCHEMA"
 

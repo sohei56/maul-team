@@ -7,15 +7,15 @@ a **project picker** plus an editor-like workspace:
 ┌──────────────┬─────────────────┬──────────────┐
 │  Explorer    │  Scrum Master   │  Dashboard   │
 │  (file tree) │  (live terminal)│  (native:    │
-│──────────────│─────────────────│   project,   │
-│  Editor      │  Work Log       │   PBI board, │
-│  (tabs,      │  (native        │   integration│
-│   highlight) │   activity log) │   results)   │
+│              │─────────────────│   project,   │
+│              │  Work Log       │   PBI board, │
+│              │  (native        │   integration│
+│              │   activity log) │   results)   │
 └──────────────┴─────────────────┴──────────────┘
 ```
 
-- **Left**: file tree on top, a tabbed code editor below it (files open here;
-  a tab can be detached into its own draggable window).
+- **Left**: the Explorer file tree owns the full column; double-clicking a
+  file (or pressing Return) opens it in its own editor window.
 - **Center**: the Scrum Master terminal on top, a native Work Log below it.
 - **Right**: a native dashboard — project/sprint overview, the PBI board
   (click a PBI for details), and Integration Sprint test results.
@@ -56,20 +56,20 @@ menu. Sessions do not survive quitting the app.
 
 ## Editor
 
-The center pane is a tabbed code editor backed by
-[CodeEditor](https://github.com/ZeeZide/CodeEditor) (Highlightr / highlight.js):
+Files open in their own detached windows — there is no in-workspace editor
+pane or tab bar. The editor is backed by
+[CodeEditSourceEditor](https://github.com/CodeEditApp/CodeEditSourceEditor)
+0.15.2 (tree-sitter):
 
-- Clicking a file in the Explorer opens it as a tab with syntax highlighting
-  (dark `atom-one-dark` theme). Images preview inline; large/binary files show
-  a notice.
+- Double-clicking a file in the Explorer (or pressing Return) opens it in
+  its own draggable editor window with tree-sitter syntax highlighting
+  (the Atom One Dark palette, reproduced as `EditorTheme.maulDark`), a
+  line-number gutter, code folding, and find/replace (⌘F). Windows are
+  de-duplicated by file URL — reopening a file focuses its existing window.
+  Images preview inline; large/binary files show a notice.
 - Editing is allowed for non-protected files (or any file when Advanced is
-  unlocked); protected files are read-only. **Save** writes in place (⌘S).
-- **Open in New Window** (Explorer or tab context menu) detaches a file into a
-  free-floating, draggable window that shares state with its center tab.
-
-Not included in this iteration: line-number gutter and in-editor find (the
-chosen component lacks a gutter; adding both would mean swapping to an
-`STTextView`-based editor).
+  unlocked); protected files are read-only. **Save** writes in place (⌘S),
+  and closing an edited window asks to save or discard.
 
 ## Read-only framework sources
 
@@ -84,7 +84,7 @@ copies) with a lock and disables their edit action. **Advanced Settings**
 
 ## Build & run
 
-Requirements: macOS 13+, Xcode 15+ (Swift 5.9+), network access to fetch
+Requirements: macOS 14+, Xcode 16+ (Swift 6 toolchain), network access to fetch
 SwiftTerm on first build.
 
 Launch as a user would see it (proper Dock icon + front window):

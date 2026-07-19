@@ -56,18 +56,8 @@ if [ ! -d .scrum ]; then
 fi
 
 # Locate scrum-state schemas (source repo layout, then deployed target layout
-# where setup-user.sh copies them — same probe as migrations/001).
-SCHEMA_DIR=""
-for candidate in \
-  "$HERE/../../docs/contracts/scrum-state" \
-  "$PWD/docs/contracts/scrum-state"; do
-  if [ -d "$candidate" ]; then
-    SCHEMA_DIR="$(cd "$candidate" && pwd)"
-    break
-  fi
-done
-[ -n "$SCHEMA_DIR" ] || fail E_FILE_MISSING \
-  "scrum-state schemas not found (looked beside this script and under \$PWD/docs/contracts/scrum-state)"
+# where setup-user.sh copies them — shared probe in lib/atomic.sh).
+SCHEMA_DIR="$(resolve_schema_dir)"
 
 MIGRATIONS_DIR="$HERE/migrations"
 
