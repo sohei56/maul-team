@@ -170,8 +170,9 @@ Work Log are native SwiftUI views (no Python dashboard process runs).
 Everything under `macapp/` is **source-available**, not open source, and
 is governed by [`macapp/LICENSE`](LICENSE) — the "MaulTeam for Mac —
 Source-Available Commercial License". You may view the source, build it,
-and use it for your own personal or internal business use; redistribution,
-resale, and distributing derivative builds are not permitted. The
+and use it for your own personal or internal business use — currently free
+of charge (a paid Enterprise tier may be introduced for future versions);
+redistribution, resale, and distributing derivative builds are not permitted. The
 MIT License at the repository root does **not** apply here; it covers only
 the framework outside `macapp/`. Contributions are accepted under the
 [Contributor License Agreement](../docs/CLA.md).

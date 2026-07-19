@@ -311,9 +311,10 @@ maul-team/
 - **フレームワーク**（`macapp/` 以外のすべて）は
   [MIT License](LICENSE) のオープンソースです。
 - `macapp/` 配下の **Mac アプリ**はソース公開型の商用ライセンス
-  [`macapp/LICENSE`](macapp/LICENSE) です。ソースからのビルドと、
-  個人利用・社内利用は自由ですが、再配布・転売・派生ビルドの配布は
-  禁止されています。
+  [`macapp/LICENSE`](macapp/LICENSE) です。ソースからのビルドと
+  個人利用・社内利用は現在無償です（将来のバージョンで Enterprise
+  向け有償プランを導入する可能性があります）。再配布・転売・
+  派生ビルドの配布は禁止されています。
 
 コントリビューションには一度きりの
 [Contributor License Agreement](docs/CLA.md) への署名が必要です。詳細は
