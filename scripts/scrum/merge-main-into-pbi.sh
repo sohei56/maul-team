@@ -59,7 +59,7 @@ if git -C "$PBI_WT" merge --no-ff "$MAIN_SHA" -m "merge: main into $PBI_BRANCH" 
 fi
 
 # Conflict — capture paths, leave worktree in merge state for Developer.
-CONFLICT_PATHS="$(git -C "$PBI_WT" diff --name-only --diff-filter=U | tr '\n' ',' | sed 's/,$//')"
+CONFLICT_PATHS="$(conflicting_paths_csv -C "$PBI_WT")"
 printf '[merge-main-into-pbi] CONFLICT %s ← main(%s) in: %s\n' "$PBI_BRANCH" "$MAIN_SHA" "${CONFLICT_PATHS:-unknown}" >&2
 printf '[merge-main-into-pbi] Developer resolves conflicts in %s, runs commit-pbi.sh, then mark-pbi-ready-to-merge.sh\n' "$PBI_WT" >&2
 exit 1

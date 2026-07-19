@@ -94,7 +94,9 @@ is_enabled_in_config() {
 
 # Extract target file path from tool_input JSON.
 # For Write/Edit tools, the path is in "file_path".
-# For Bash tool, we cannot reliably parse — return empty.
+# The `*)` arm is defensive-unreachable: the fast path in Main allows (and
+# exits) for every tool except Write/Edit before this function is called —
+# Bash included. Kept as a safe empty fallback should the fast path change.
 get_target_path() {
   local tool_name="$1"
   local tool_input="$2"

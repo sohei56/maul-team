@@ -34,12 +34,19 @@ stderr_log() {
 }
 
 # Emit a BLOCKED message and exit 2 (the Claude Code hook deny convention).
-# Usage: hook_block <hook_name> <what> <remediation>
+# Usage: hook_block <hook_name> <what> [remediation]
 # Example: hook_block "scrum-guard" "Edit .scrum/state.json" \
 #                     "Use .scrum/scripts/* instead."
 # Output:  [scrum-guard] BLOCKED: Edit .scrum/state.json. Use .scrum/scripts/* instead.
+# When <remediation> is omitted/empty, <what> is emitted verbatim (no ". "
+# joiner) — callers whose message already carries its own remediation text
+# (e.g. quality-gate.sh) delegate here without reformatting.
 hook_block() {
-  stderr_log "$1" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $2. $3"
+  if [ -n "${3:-}" ]; then
+    stderr_log "$1" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $2. $3"
+  else
+    stderr_log "$1" "BLOCKED" "${HOOK_NOTIFICATION_PREFIX} $2"
+  fi
   exit 2
 }
 

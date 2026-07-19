@@ -150,6 +150,8 @@ fi
 . "$SCRIPT_DIR/scripts/lib/check-python.sh"
 # shellcheck source=scripts/lib/time.sh
 . "$SCRIPT_DIR/scripts/lib/time.sh"
+# shellcheck source=scripts/lib/ids.sh
+. "$SCRIPT_DIR/scripts/lib/ids.sh"
 check_claude_cli
 # Version warning lives only in scrum-start.sh (not setup-user.sh) so the
 # operator sees the upgrade prompt once per launch rather than twice.
@@ -454,12 +456,8 @@ if [ "$AUTONOMOUS" = "1" ]; then
     echo "  PO teammate model: $OPT_PO_MODEL"
   fi
 
-  # Initialise .scrum/autonomy.json. Bash 3.2-compatible UUID generation.
-  if command -v uuidgen >/dev/null 2>&1; then
-    RUN_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-  else
-    RUN_ID="run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-  fi
+  # Initialise .scrum/autonomy.json. UUID via shared scripts/lib/ids.sh.
+  RUN_ID="$(generate_uuid)"
   NOW_ISO="$(iso_utc_now)"
   cat > .scrum/autonomy.json <<EOF
 {
@@ -571,13 +569,7 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
   # below — the user must close or attach explicitly, since silently
   # killing it has previously destroyed the predecessor's running Claude
   # session without warning.
-  if command -v shasum >/dev/null 2>&1; then
-    pwd_hash="$(printf '%s' "$PWD" | shasum | cut -c1-8)"
-  elif command -v sha1sum >/dev/null 2>&1; then
-    pwd_hash="$(printf '%s' "$PWD" | sha1sum | cut -c1-8)"
-  else
-    pwd_hash="$(printf '%s' "$PWD" | cksum | awk '{print $1}')"
-  fi
+  pwd_hash="$(printf '%s' "$PWD" | portable_sha1 | cut -c1-8)"
   raw_basename="$(basename "$PWD")"
   session_basename="$(printf '%s' "$raw_basename" | tr -c 'A-Za-z0-9_-' '_')"
   session_name="scrum-team-${session_basename}-${pwd_hash}"

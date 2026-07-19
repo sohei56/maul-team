@@ -58,29 +58,30 @@ _stop_gate_ensure_dir() {
   return 0
 }
 
-# _stop_gate_write_first <fingerprint> <phase>
-# Atomically write a fresh stop-gate.json with block_count=1. On any error
-# the caller falls back to emitting FIRST (fail-open toward block).
-_stop_gate_write_first() {
-  local fp="$1"
-  local phase="$2"
+# _stop_gate_write <jq_program> [jq_args...]
+# Single atomic writer for stop-gate.json (the tmp+mv idiom lived here twice;
+# now parameterized by the jq program). Renders <jq_program> — with $now bound
+# to the current timestamp plus any extra --arg/--argjson pairs — into a tmp
+# sibling and mv's it into place. Uses the existing file as jq input when it
+# is present and parseable, and `jq -n` (fresh document) otherwise. Returns 1
+# on any failure so callers can fail-open toward FIRST.
+_stop_gate_write() {
+  local prog="$1"
+  shift
   local now tmp
   now="$(_stop_gate_now)"
   _stop_gate_ensure_dir || return 1
   tmp="${STOP_GATE_FILE}.tmp.$$.${RANDOM}"
-  if ! jq -n \
-      --arg phase "$phase" \
-      --arg fp "$fp" \
-      --arg now "$now" \
-      '{
-        phase: $phase,
-        fingerprint: $fp,
-        block_count: 1,
-        first_block_at: $now,
-        last_block_at: $now
-      }' > "$tmp" 2>/dev/null; then
-    rm -f "$tmp" 2>/dev/null
-    return 1
+  if [ -f "$STOP_GATE_FILE" ] && jq empty "$STOP_GATE_FILE" >/dev/null 2>&1; then
+    jq --arg now "$now" "$@" "$prog" "$STOP_GATE_FILE" > "$tmp" 2>/dev/null || {
+      rm -f "$tmp" 2>/dev/null
+      return 1
+    }
+  else
+    jq -n --arg now "$now" "$@" "$prog" > "$tmp" 2>/dev/null || {
+      rm -f "$tmp" 2>/dev/null
+      return 1
+    }
   fi
   mv "$tmp" "$STOP_GATE_FILE" 2>/dev/null || {
     rm -f "$tmp" 2>/dev/null
@@ -89,27 +90,30 @@ _stop_gate_write_first() {
   return 0
 }
 
+# _stop_gate_write_first <fingerprint> <phase>
+# Write a fresh record with block_count=1 (the program constructs the whole
+# document, so any prior record is replaced). On any error the caller falls
+# back to emitting FIRST (fail-open toward block).
+_stop_gate_write_first() {
+  # shellcheck disable=SC2016  # $phase/$fp/$now are jq variables
+  _stop_gate_write '{
+      phase: $phase,
+      fingerprint: $fp,
+      block_count: 1,
+      first_block_at: $now,
+      last_block_at: $now
+    }' \
+    --arg fp "$1" \
+    --arg phase "$2"
+}
+
 # _stop_gate_write_bump <new_count>
-# Atomically bump block_count to <new_count> + refresh last_block_at,
-# preserving phase / fingerprint / first_block_at.
+# Bump block_count to <new_count> + refresh last_block_at, preserving
+# phase / fingerprint / first_block_at.
 _stop_gate_write_bump() {
-  local new_count="$1"
-  local now tmp
-  now="$(_stop_gate_now)"
-  tmp="${STOP_GATE_FILE}.tmp.$$.${RANDOM}"
-  if ! jq \
-      --argjson n "$new_count" \
-      --arg now "$now" \
-      '.block_count = $n | .last_block_at = $now' \
-      "$STOP_GATE_FILE" > "$tmp" 2>/dev/null; then
-    rm -f "$tmp" 2>/dev/null
-    return 1
-  fi
-  mv "$tmp" "$STOP_GATE_FILE" 2>/dev/null || {
-    rm -f "$tmp" 2>/dev/null
-    return 1
-  }
-  return 0
+  # shellcheck disable=SC2016  # $n/$now are jq variables
+  _stop_gate_write '.block_count = $n | .last_block_at = $now' \
+    --argjson n "$1"
 }
 
 # stop_gate_check_and_bump <fingerprint> <phase>

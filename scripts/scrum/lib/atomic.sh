@@ -88,6 +88,30 @@ _iso_utc_now() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+# resolve_schema_dir
+# Echo the absolute path of the scrum-state schema directory. Probes two
+# candidates: (1) docs/contracts/scrum-state three levels above this lib —
+# resolving to the framework repo root in the source layout
+# (scripts/scrum/lib/) and to the target project root in the deployed layout
+# (.scrum/scripts/lib/) — then (2) $PWD/docs/contracts/scrum-state (cwd is
+# the target root per the migration contract). Fails E_FILE_MISSING (via
+# lib/errors.sh — source it first) when neither exists. Single source of the
+# probe formerly copied into migrate-state.sh and migrations/001.
+resolve_schema_dir() {
+  local lib_dir candidate
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  for candidate in \
+    "$lib_dir/../../../docs/contracts/scrum-state" \
+    "$PWD/docs/contracts/scrum-state"; do
+    if [ -d "$candidate" ]; then
+      (cd "$candidate" && pwd)
+      return 0
+    fi
+  done
+  fail E_FILE_MISSING \
+    "scrum-state schemas not found (looked beside this script and under \$PWD/docs/contracts/scrum-state)"
+}
+
 # json_lines_to_array
 # Read newline-delimited items from stdin and emit a compact JSON array of
 # strings (one element per line; special chars JSON-escaped). Empty stdin

@@ -38,3 +38,18 @@ jq_cfg_or() {
   fi
   printf '%s\n' "$val"
 }
+
+# jq_cfg_uint_or <file> <jq_path> <default>
+# Like jq_cfg_or, but additionally validates the scalar is an unsigned
+# integer (digits only; "0" is accepted) and falls back to <default>
+# otherwise — the "positive-integer config fallback" idiom the daemons used
+# to define locally. Note: rejects negatives (unlike
+# hooks/lib/autonomy.sh::autonomy_config_int, a different process family).
+jq_cfg_uint_or() {
+  local v
+  v="$(jq_cfg_or "$1" "$2" "$3")"
+  case "$v" in
+    ''|*[!0-9]*) printf '%s\n' "$3" ;;
+    *) printf '%s\n' "$v" ;;
+  esac
+}

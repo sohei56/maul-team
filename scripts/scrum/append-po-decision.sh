@@ -23,7 +23,7 @@
 #       evidence is a process violation.
 #   (c) For kind=release_decision with decision=go, .scrum/test-results.json
 #       must exist AND .overall_status ∈ {passed, passed_with_skips}.
-#       A release_decision=no-go can be recorded freely.
+#       A release_decision=no_go can be recorded freely.
 #
 # The store file is created on first call (initial content
 # `{"decisions": []}`) and the parent directory `.scrum/po/` is

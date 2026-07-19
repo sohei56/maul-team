@@ -41,19 +41,9 @@ source "$SCRIPT_DIR/../lib/errors.sh"
 # shellcheck source=../lib/atomic.sh
 source "$SCRIPT_DIR/../lib/atomic.sh"
 
-# Locate scrum-state schemas. Try the source repo layout and the target
-# project layout (where setup-user.sh copies them).
-SCHEMA_DIR=""
-for candidate in \
-  "$SCRIPT_DIR/../../../docs/contracts/scrum-state" \
-  "$PWD/docs/contracts/scrum-state"; do
-  if [ -d "$candidate" ]; then
-    SCHEMA_DIR="$(cd "$candidate" && pwd)"
-    break
-  fi
-done
-[ -n "$SCHEMA_DIR" ] || fail E_FILE_MISSING \
-  "scrum-state schemas not found (looked beside this script and under \$PWD/docs/contracts/scrum-state)"
+# Locate scrum-state schemas (source repo layout, then the target project
+# layout where setup-user.sh copies them — shared probe in lib/atomic.sh).
+SCHEMA_DIR="$(resolve_schema_dir)"
 
 if [ ! -d "$SCRUM_DIR" ]; then
   echo "No .scrum/ directory in $PWD — nothing to migrate."

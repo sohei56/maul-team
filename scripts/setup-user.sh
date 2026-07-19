@@ -113,6 +113,8 @@ echo ""
 
 # shellcheck source=lib/check-python.sh
 . "$SCRIPT_DIR/lib/check-python.sh"
+# shellcheck source=lib/time.sh
+. "$SCRIPT_DIR/lib/time.sh"
 check_claude_cli
 check_python_prereqs
 
@@ -280,7 +282,7 @@ STAMP_TMP="$TARGET_DIR/.scrum/deploy-stamp.json.tmp.$$"
 jq -n \
   --arg sha "$FRAMEWORK_SHA" \
   --argjson dirty "$FRAMEWORK_DIRTY" \
-  --arg at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg at "$(iso_utc_now)" \
   --arg root "$PROJECT_ROOT" \
   '{framework_sha: $sha, framework_dirty: $dirty, deployed_at: $at, framework_root: $root}' \
   > "$STAMP_TMP"

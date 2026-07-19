@@ -760,6 +760,18 @@ class UnifiedLog(RichLog):
 PIPELINE_ROUND_WARN_THRESHOLD = 2
 
 
+def _parse_ts(ts: str | None) -> datetime | None:
+    """Parse an ISO-8601 timestamp (``Z``-suffixed or offset-aware).
+
+    Returns ``None`` when the value is missing or unparseable; callers keep
+    their own fallback rendering.
+    """
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 def _format_ts_short(ts: str | None) -> str:
     """Render an ISO-8601 timestamp as ``HH:MM:SS``.
 
@@ -767,11 +779,10 @@ def _format_ts_short(ts: str | None) -> str:
     fails (matches prior inline behavior across both message and event
     log panels).
     """
-    try:
-        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-        return dt.strftime("%H:%M:%S")
-    except (ValueError, AttributeError, TypeError):
+    dt = _parse_ts(ts)
+    if dt is None:
         return str(ts)[:8]
+    return dt.strftime("%H:%M:%S")
 
 
 def _humanize_age(ts: str | None, now: datetime) -> str:
@@ -783,9 +794,8 @@ def _humanize_age(ts: str | None, now: datetime) -> str:
     """
     if not ts or ts == "?":
         return "[dim]?[/dim]"
-    try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except (ValueError, AttributeError, TypeError):
+    dt = _parse_ts(ts)
+    if dt is None:
         return "[dim]?[/dim]"
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)

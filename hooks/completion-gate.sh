@@ -90,6 +90,17 @@ autonomy_breaker_step() {
   printf 'block:%s/%s' "$new_count" "$budget"
 }
 
+# _emit_block_reason [extra]
+# Emit the uniform Stop-block JSON reason on stderr and exit 2. The reason is
+# "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" plus an optional
+# trailing <extra> clause. Relies on the caller's (block_stop's) local
+# $reason and $hint via dynamic scoping — call only from block_stop branches.
+_emit_block_reason() {
+  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}${1:-}" \
+    '{"reason": $r}' >&2
+  exit 2
+}
+
 block_stop() {
   # Usage: block_stop <reason> <block_kind> <signature> [breaker_mode]
   #   <reason>     human-readable text for the LLM (long-form OK).
@@ -126,8 +137,7 @@ block_stop() {
   if autonomy_loop_active; then
     if [ "$breaker_mode" = "unbounded" ]; then
       log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-      exit 2
+      _emit_block_reason
     fi
     local bstep
     bstep="$(autonomy_breaker_step)"
@@ -141,13 +151,11 @@ block_stop() {
         # silently allow an exit-criteria miss). The watchdog's outer
         # max_iterations / wall-clock valves still bound the degenerate case.
         log_hook "completion-gate" "WARN" "Blocked stop (breaker unavailable): $reason"
-        jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-        exit 2
+        _emit_block_reason
         ;;
       *)
         log_hook "completion-gate" "WARN" "Blocked stop (${bstep#block:}): $reason"
-        jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint} (stop-block ${bstep#block:} for phase '${phase:-unknown}')" '{"reason": $r}' >&2
-        exit 2
+        _emit_block_reason " (stop-block ${bstep#block:} for phase '${phase:-unknown}')"
         ;;
     esac
   fi
@@ -161,8 +169,7 @@ block_stop() {
   case "$verdict" in
     FIRST)
       log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-      exit 2
+      _emit_block_reason
       ;;
     REPEAT:*)
       local count
@@ -173,8 +180,7 @@ block_stop() {
     *)
       # Unknown verdict — fail-open toward block (safer than mute).
       log_hook "completion-gate" "WARN" "Blocked stop: $reason"
-      jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} Reason: ${reason}${hint}" '{"reason": $r}' >&2
-      exit 2
+      _emit_block_reason
       ;;
   esac
 }

@@ -200,20 +200,10 @@ read_cfg_or() {
 }
 
 # read_cfg_uint_or <jq_path> <default>
-# Like read_cfg_or, but validates the scalar is an unsigned integer (digits
-# only; "0" is accepted) and falls back to <default> otherwise — the single
-# definition of the "positive-integer config fallback" idiom this file used to
-# repeat inline after every read_cfg_or for a numeric setting. (jq_cfg_or in
-# scripts/lib/jq-read.sh does NO type validation by contract; the shared lib
-# is out of this daemon's edit scope, so the typed reader is defined here as a
-# local wrapper mirroring read_cfg_or.)
+# Thin wrapper over the shared jq_cfg_uint_or (scripts/lib/jq-read.sh),
+# binding the config file — the unsigned-integer variant of read_cfg_or.
 read_cfg_uint_or() {
-  local v
-  v="$(jq_cfg_or "$CONFIG_FILE" "$1" "$2")"
-  case "$v" in
-    ''|*[!0-9]*) printf '%s\n' "$2" ;;
-    *) printf '%s\n' "$v" ;;
-  esac
+  jq_cfg_uint_or "$CONFIG_FILE" "$1" "$2"
 }
 
 # last_nudge_epoch — read from STATE_FILE or 0.
