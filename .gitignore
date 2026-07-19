@@ -45,6 +45,7 @@ docs/superpowers/
 # These files are large (tens–hundreds of MB) and must not be committed.
 *.mov
 *.mp4
+*.mp3
 
 # Local Apple signing credentials + build outputs. These are secrets (private
 # keys / notary API keys) or large derived artifacts and must NEVER be
