@@ -13,7 +13,7 @@
   <a href="https://github.com/sohei56/maul-team/releases"><img src="https://img.shields.io/github/downloads/sohei56/maul-team/total?style=flat-square&color=28c8e6&label=downloads" alt="Total downloads"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue?style=flat-square" alt="License: MIT + Commercial"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 5.9+">
+  <img src="https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6">
   <img src="https://img.shields.io/badge/Claude_Code-Agent_Teams-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Agent Teams">
   <img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash 3.2+">
@@ -158,7 +158,7 @@ Background: [Addy Osmani, “Loop Engineering”](https://addyosmani.com/blog/lo
 
 ## Features
 
-- **Native Mac app** — MaulTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, tabbed code editor, native dashboard)
+- **Native Mac app** — MaulTeam.app runs the whole team in one macOS window (project picker, embedded Scrum Master terminal, native dashboard) with a code editor that opens each file in its own window
 - **19 Skills, full lifecycle** — every ceremony from product-brief co-authoring through requirements, planning, PBI development, merge, audit, review, and retrospective to integration testing and UAT & release is a versioned, inspectable Skill
 - **Multi-agent coordination** — the Scrum Master (Delegate mode) orchestrates up to 6 parallel Developers per Sprint (1 Developer per PBI, capped at 6)
 - **Gated parallel development** — Developers build PBIs in parallel in isolated git worktrees, Codex cross-reviews every Round, and a PBI merges only after its black-box unit tests and Integrity review pass
@@ -286,7 +286,7 @@ Sessions, memory, and settings under `~/.claude/` are preserved across either up
 ```text
 maul-team/
 ├── scrum-start.sh    # Entry point; supports --autonomous --brief <file> --max-sprints <N>
-├── macapp/           # Native macOS shell (SwiftUI + SwiftTerm): project picker, tabbed editor, terminal, dashboard
+├── macapp/           # Native macOS shell (SwiftUI + SwiftTerm): project picker, windowed editor, terminal, dashboard
 ├── agents/           # Agents
 ├── skills/           # Skills
 ├── hooks/            # Behavior and quality-enforcement gates

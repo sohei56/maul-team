@@ -33,7 +33,7 @@
  "demo.fallback": "La vidéo ne se charge pas ? Regardez la démo sur GitHub ↗",
  "demo.p1_num": "VOLET 01 — GAUCHE",
  "demo.p1_h": "Votre code, en direct",
- "demo.p1_p": "Arborescence de fichiers et éditeur de code à onglets avec coloration syntaxique. Les onglets se détachent dans leur propre fenêtre ; les fichiers du framework sont marqués d'un cadenas, pour toujours savoir ce qui vous appartient.",
+ "demo.p1_p": "Arborescence de fichiers et éditeur de code avec coloration syntaxique — double-cliquez sur un fichier pour l'ouvrir dans sa propre fenêtre d'édition ; les fichiers du framework sont marqués d'un cadenas, pour toujours savoir ce qui vous appartient.",
  "demo.p2_num": "VOLET 02 — CENTRE",
  "demo.p2_h": "Le Scrum Master, intégré",
  "demo.p2_p": "Un vrai terminal exécutant le Scrum Master, plus un Work Log natif qui diffuse en direct chaque création d'agent, changement de fichier et message, au fil de l'action.",
