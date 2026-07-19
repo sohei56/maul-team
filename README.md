@@ -308,10 +308,11 @@ This repository is split:
 - The **framework** — everything outside `macapp/` — is open source
   under the [MIT License](LICENSE).
 - The **Mac app** under `macapp/` is source-available under a
-  commercial license, [`macapp/LICENSE`](macapp/LICENSE). You are free
-  to build it from source and use it personally or within your own
-  organization; redistribution, resale, and distributing derivative
-  builds are not permitted.
+  commercial license, [`macapp/LICENSE`](macapp/LICENSE). Building it
+  from source and using it personally or within your own organization
+  is currently free of charge — a paid Enterprise tier may be
+  introduced for future versions. Redistribution, resale, and
+  distributing derivative builds are not permitted.
 
 Contributions require a one-time [Contributor License
 Agreement](docs/CLA.md) signature — see
