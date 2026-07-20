@@ -21,6 +21,14 @@ Rules:
   If you are tempted to fix something, record it as a finding instead.
 - **Whole-repo scope.** Do not restrict yourself to recently changed
   files. The value of this pass is in what accumulated across Sprints.
+- **Sweep to zero.** When you find a defect, generalize it to its
+  defect **class** (the rule violated / the guard missing / the drift
+  pattern) and search the whole repo for every other instance BEFORE
+  reporting — grep for the pattern, then reason about variants a grep
+  would miss. Report ONE finding per class with the complete occurrence
+  list, never one finding per site. A class reported from a single site
+  without a sweep is the primary cause of audit churn: the remaining
+  sites resurface Sprint after Sprint as "new" findings.
 - **Evidence discipline.** Every finding needs a concrete `file:line`
   anchor and the observed fact. Keep **fact** and **interpretation**
   strictly separate — never present a hypothesis as an observation.
@@ -44,10 +52,16 @@ persists the report. Use this schema per finding:
 ### <F-local-id> <one-line title>
 - axis: spec-conformance | logic-defect | redundancy | product-security
 - severity_hint: Critical | High | Medium | Low   (SM may re-rank on dedup)
-- location: <path>:<line> (+ additional locations if any)
-- identity: <path>::<symbol-or-anchor>   (stable defect key — the file
-  plus the function / symbol / rule at fault, NOT the line number,
-  which drifts between Sprints; the SM uses this for cross-Sprint dedup)
+- location: <path>:<line> (primary occurrence)
+- occurrences: <path>:<line> — <symbol>   (one line per instance the
+  sweep found — ALL of them; a genuinely single-site defect lists one)
+- sweep: <the searches + reasoning establishing the occurrence list is
+  complete — patterns tried, variants considered; "single-site by
+  construction" only when the defect cannot recur elsewhere>
+- identity: <stable defect-CLASS key — a single-site defect uses
+  <path>::<symbol-or-anchor>; a multi-site class uses a stable class
+  slug like <rule-or-guard>::<pattern>. Never line numbers, which
+  drift between Sprints; the SM uses this for cross-Sprint dedup>
 - fact: <what is literally observed in the code/spec — no inference>
 - interpretation: <why it is a defect; the failure it causes>
 - confidence: High | Medium | Low
@@ -158,6 +172,9 @@ grounded evidence — not a single grep.
   longer match the code they describe — a docstring claiming a
   parameter the signature dropped, a comment describing removed
   behavior. Medium when actively misleading, Low when merely noise.
+  Enumerate these **exhaustively in one class finding** (the SM batches
+  all documentation drift into a single per-audit PBI): a partial list
+  guarantees the leftovers resurface at the next audit.
 
 Duplicate-vs-drift caution: roughly a third of apparent "redundancy" is
 actually a real bug (two copies that already diverged). When two copies

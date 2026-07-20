@@ -5,6 +5,8 @@ description: >
   ceremony (product-wide integrity): 4 axes — spec-conformance,
   logic/defect hunt, redundancy, and product-security — over the
   ACCUMULATED codebase at HEAD, not the Sprint diff. Findings are
+  swept to zero per defect class — one class = one PBI covering every
+  occurrence, documentation drift batched into a single DOCS PBI — and
   non-blocking: Critical/High become draft PBIs for the NEXT Sprint,
   Medium/Low at PO discretion. At Integration-Sprint entry a thin
   re-check confirms the latest audit is fresh and no open Critical/High
@@ -97,8 +99,12 @@ does **not** re-review single-PBI diff-local security.
   `[codebase-audit:<sprint-id>:F<n>:<Severity>]` (severity in the
   prefix so context (b)'s block-check is prefix-searchable; a
   `[REGRESSION]` tag is added when a previously-closed finding recurs).
-  One per Critical/High finding (mandatory), Medium/Low at PO
-  discretion. Created as `draft` → picked up by next Sprint's
+  Filing granularity is **class-level, not occurrence-level**: one PBI
+  per defect class covering every occurrence the sweep found (Step 3),
+  plus at most one `[codebase-audit:<sprint-id>:DOCS:<Severity>]` batch
+  PBI holding ALL documentation-drift findings of the audit.
+  Critical/High classes are mandatory, Medium/Low at PO discretion.
+  Created as `draft` → picked up by next Sprint's
   Backlog Refinement / Sprint Planning. **Non-blocking in context (a).**
 - **Context (b) only, on an unresolved Critical/High:** `state.json`
   phase → `backlog_created` via `.scrum/scripts/update-state-phase.sh`.
@@ -246,6 +252,25 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   also a spec divergence (`product-security` + `spec-conformance`), or a
   duplicated helper that has already drifted (`redundancy` +
   `logic-defect`). Merge, keep the higher severity, note both axes.
+- **Class-level merge (sweep to zero).** Findings that are instances of
+  the same defect class — the same rule violated, the same guard
+  missing, the same drift pattern, at different sites — merge into ONE
+  class finding that enumerates **every** occurrence (`file:line` each)
+  and records the sweep that establishes the list is complete (auditors
+  return both per `references/axes.md`). Severity = the
+  highest-severity occurrence. If an axis reported a single instance of
+  a pattern that plausibly recurs but returned no sweep, re-ask that
+  axis for the repo-wide sweep before synthesizing — a class filed from
+  an incomplete occurrence list resurfaces as a "new" finding next
+  Sprint, one site at a time, which is exactly the churn this rule
+  exists to prevent.
+- **Documentation-drift batch.** Every finding whose entire fix is
+  documentation (stale docstrings/comments, `*.md`/spec-text drift —
+  typically the redundancy axis's stale-docs class) collapses into one
+  synthetic `DOCS` finding listing all occurrences, severity = highest
+  member. Documentation drift is never filed as individual PBIs — the
+  per-occurrence PBI spread measurably drags Sprint velocity without
+  adding safety.
 - **Redundancy axis is static-analysis-grounded.** In context (a) the
   `redundancy` axis consumes the same two-pass static-analysis file
   cross-review produced (Pass A Sprint-diff lint + Pass B whole-repo
@@ -283,10 +308,12 @@ PBI; the audit only files next-Sprint PBIs.
 
 ### Step 5 — File PBIs with cross-Sprint content dedup
 
-For each finding the PO routed to `next_sprint`, file a draft PBI —
-but the audit runs **every** Sprint, so an unfixed finding re-detected
-next Sprint must NOT spawn a duplicate. Dedup is **content-based on the
-`identity` key**, not on the (per-Sprint) prefix:
+For each **class finding** the PO routed to `next_sprint`, file ONE
+draft PBI covering all of its occurrences (the `DOCS` batch files the
+same way, as a single PBI) — but the audit runs **every** Sprint, so an
+unfixed finding re-detected next Sprint must NOT spawn a duplicate.
+Dedup is **content-based on the `identity` key** (the defect-class key
+from the finding), not on the (per-Sprint) prefix:
 
 ```bash
 # IDENTITY, Fn, SEVERITY, SUMMARY, AC, KIND from the finding
@@ -313,8 +340,8 @@ else
   [ "$DONE_MATCH" -gt 0 ] && REGRESS="[REGRESSION] "   # closed then recurred
   .scrum/scripts/add-backlog-item.sh \
     --title "[codebase-audit:${SPRINT_ID}:${Fn}:${SEVERITY}] ${REGRESS}<summary>" \
-    --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). audit-id: ${IDENTITY}. See ${REPORT}." \
-    --ac "<expected vs actual, independently verifiable>" \
+    --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). audit-id: ${IDENTITY}. Occurrences: <path:line — symbol, one per line, ALL of them>. Sweep: <the search establishing the list is complete>. See ${REPORT}." \
+    --ac "<expected vs actual per the class, independently verifiable>" \
     --kind <code|docs>
 fi
 ```
@@ -326,9 +353,16 @@ fi
 - **No match** → file a new PBI.
 
 Each AC states expected vs actual and is independently verifiable —
-never a bare `grep` hit count. `--kind docs` only when the finding is
-confined to `**/*.md`; else `code`. The `audit-id: <identity>` line in
-the description is the dedup key — it MUST be present and stable.
+never a bare `grep` hit count. **A class PBI's AC closes the whole
+class, not one site**: it carries the full occurrence list plus a
+re-runnable zero-check derived from the sweep ("the sweep pattern
+finds no remaining instance"), so fixing a subset of occurrences does
+not satisfy the AC. `--kind docs` only when every occurrence is
+confined to `**/*.md`; else `code` (the `DOCS` batch commonly mixes
+`*.md` drift with in-source docstrings — then it is `code`). The
+`audit-id: <identity>` line in the description is the dedup key — it
+MUST be present and stable; a `[REGRESSION]` on a class identity means
+the class recurred after being swept to zero.
 
 ### Step 6 — Close out per context
 
@@ -352,6 +386,13 @@ the description is the dedup key — it MUST be present and stable.
 - **No fix without a PBI.** Every actioned finding becomes a draft PBI
   through `.scrum/scripts/add-backlog-item.sh` — never a direct edit,
   never a raw `jq` write to `backlog.json`.
+- **One PBI per defect class, swept to zero.** Never file
+  occurrence-level PBIs for a repo-wide pattern: the class PBI
+  enumerates every occurrence and its AC closes the whole class. A
+  single-site fix of a multi-site class is the churn engine this rule
+  removes.
+- **Documentation drift always batches** into the single per-audit
+  `DOCS` PBI — individual doc-fix PBIs are never filed.
 - **Cross-Sprint dedup is content-based.** Match on the `identity` key
   in the PBI description, not the per-Sprint prefix. An open match →
   skip; a closed-then-recurred match → `[REGRESSION]` PBI. Never file a
@@ -368,9 +409,11 @@ the description is the dedup key — it MUST be present and stable.
 
 - **Context (a):** `.scrum/reviews/codebase-audit-s{N}.md` exists for
   the Sprint with all 4 axes represented, findings deduped (within
-  audit) and severity-classified, fact separated from interpretation.
-  Every Critical/High finding is either a new/regression draft PBI or
-  deduped against an existing open PBI (id noted). Phase untouched.
+  audit), **merged to class level with complete occurrence lists (sweep
+  recorded per class)**, severity-classified, fact separated from
+  interpretation; documentation drift collapsed into the single `DOCS`
+  batch. Every Critical/High class is either a new/regression draft PBI
+  or deduped against an existing open PBI (id noted). Phase untouched.
 - **Context (b):** either **proceed** (fresh report + no open
   Critical/High audit PBI → handed back, phase untouched) or **block**
   (open/newly-found Critical/High → `backlog_created`, blocking PBIs
