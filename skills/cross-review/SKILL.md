@@ -203,12 +203,14 @@ Sprints). At ceremony end every reviewed PBI transitions
      static-analysis file (it is the sole Sprint-level owner of
      whole-repo dead-code findings).
    - Route Critical/High findings to the **next** Sprint as draft PBIs
-     (`[codebase-audit:<sprint-id>:F<n>:<Severity>]`) with the
-     cross-Sprint **content dedup** (skip if an open PBI already tracks
-     the finding's `identity`; `[REGRESSION]` if a closed one recurred);
-     Medium/Low at PO discretion. No PBI revert, no phase transition
-     (per § Role). Full rules + the dedup `jq` live in
-     `../codebase-audit/SKILL.md`.
+     (`[codebase-audit:<sprint-id>:F<n>:<Severity>]`) at **class
+     granularity** — one PBI per defect class covering every occurrence
+     of its repo-wide sweep, documentation drift collapsed into the
+     single `DOCS` batch PBI — with the cross-Sprint **content dedup**
+     (skip if an open PBI already tracks the finding's `identity`;
+     `[REGRESSION]` if a closed one recurred); Medium/Low at PO
+     discretion. No PBI revert, no phase transition (per § Role). Full
+     rules + the dedup `jq` live in `../codebase-audit/SKILL.md`.
    - PO routing is mode-agnostic — in `po_mode=agent` it resolves to one
      `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage
      options=[next_sprint,defer,reject]` carrying the finding list; the
