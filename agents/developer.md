@@ -88,6 +88,7 @@ When assigned→execute Steps 3–6 of the `integration-tests` skill:
 - **No branch ops.** Never run `git checkout -b`, `git switch -c`, `git branch <name>`, `git push`, `git merge`, or `git rebase` directly. Use `.scrum/scripts/*` wrappers (`commit-pbi.sh` for commits, `mark-pbi-ready-to-merge.sh` for handoff). The `pre-tool-use-no-branch-ops.sh` hook will block raw git branch / push / merge / rebase commands.
 - **Commits go through `commit-pbi.sh`** which verifies the worktree is on `pbi/<pbi-id>` and excludes the `.scrum` symlink (raw `git add -A` would leak it onto `main` at merge time — rationale in `../skills/pbi-pipeline/SKILL.md`). A wrong-branch state means the worktree was tampered with — stop and report. Integration Tests test assets are the one exception: commit them via `commit-integration-tests.sh` (stages `tests/` paths only; refuses product source).
 - **PBI completion = `mark-pbi-ready-to-merge.sh`** then notify SM `[<pbi-id>] PBI_READY_TO_MERGE branch=<branch> sha=<sha>`. Stop after notifying — SM owns the merge.
+- **Sub-agent re-instruction = fresh synchronous spawn.** Never `SendMessage` a finished sub-agent — it resumes in the background and its completion notification never arrives, deadlocking you. Canonical: `../skills/pbi-pipeline/SKILL.md` § Sub-agents spawned.
 
 ## Status Ownership (13-value status SSOT)
 

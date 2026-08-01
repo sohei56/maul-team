@@ -170,7 +170,10 @@ timeout as the in-flight backstop), never a hand-rolled spin loop.
   via `pbi-escalation-handler` with
   `escalation_reason = "reviewer_unavailable"`. Do not chain further
   retries — repeated stalls indicate an environment problem, not a
-  prompt problem.
+  prompt problem. The retry is a fresh synchronous Agent spawn —
+  `SendMessage` to the finished reviewer is the same failure class as
+  a background spawn (background resume, no completion notification,
+  conductor deadlock; see `../SKILL.md` § Sub-agents spawned).
 - Do NOT mix codex output and fallback output in the same
   `review-r{n}.md`. The fallback overwrites the file; the codex
   partial output (if any) is discarded.

@@ -198,6 +198,22 @@ references means the synchronous call itself — never a hand-rolled
 poll loop (see `references/reviewer-stall-fallback.md` § Bounded
 waiting for why spinning is forbidden).
 
+**Re-instruction is always a fresh synchronous spawn — never a
+`SendMessage` to a finished sub-agent.** Follow-up instructions,
+fix requests, and Round re-entry go into the prompt of a NEW
+`Agent(..., run_in_background: false)` call (feedback files + prompt
+slots carry the context). `SendMessage` to a completed sub-agent
+resumes it as a *background* task, and its "will notify on
+completion" reply is a false promise: the completion notification is
+never delivered when the parent is an in-process teammate, so the
+conductor waits on a message that cannot arrive and the whole team
+deadlocks (observed 5× in one day in a target project — two unmanned
+stalls of 63 minutes and 8.6 hours, while every synchronous spawn
+succeeded). Corollary: never end a turn "waiting for a completion
+notification". Nothing in this pipeline completes outside a
+synchronous Agent call, so the urge to wait for one is itself the
+signal that you have left this protocol.
+
 **Producer containment.** The three producer prompts (designer /
 implementer / ut-author) each carry a `{worktree_path}` slot with an
 absolute-path write rule, and the conductor verifies after every

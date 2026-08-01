@@ -406,13 +406,11 @@ forms (both default to a 15m window):
 When you observe a `[STALL-WATCHDOG]` nudge (human mode) or the
 autonomous block message `PBI pipeline active: N in-flight (...)`,
 treat it as a probe request — not as evidence that any Teammate
-has failed.
-
-Decision rule:
-1. Read `.scrum/communications.json` latest `agent_spawn` / `progress_update` / `message` to confirm Teammates alive (sub-agent lifecycle lives in `.scrum/dashboard.json` `subagent_start` / `subagent_stop` events).
-2. `TaskGet` works only for Teammates spawned **in this session**. Cross-session: use `SendMessage` probe (no reply within ~120s = possibly stuck, not necessarily failed).
-3. Do NOT re-spawn just because the Stop hook fired or a stall nudge arrived.
-4. Re-spawn only after BOTH: (a) termination confirmed (TaskGet/SendMessage), (b) no recent pipeline progress — the `.scrum/pbi/<id>/pipeline.log` tail is stale (mtime not advancing) AND no newer stage review (`.scrum/pbi/<id>/{design,impl,ut}/review-r{n}.md`) has appeared.
+has failed. Run the procedure in § Periodic pipeline health check
+below (steps a–e); a per-PBI nudge already names the quiet PBI, so
+start at step (c) and probe its owning Developer immediately. The
+probe is unconditional — only the re-spawn in step (d) keeps its
+termination + stale-artifact guard.
 
 Note: Teammates (Agent tool) do NOT fire `SubagentStart` /
 `SubagentStop` hooks in the SM session — only sub-agents (Task tool)
@@ -423,10 +421,57 @@ decorates block messages MAY also be active during
 `pbi_pipeline_active` (not yet verified against a live run — treat
 its presence or absence as informational, not authoritative). In
 autonomous mode the block message's PBI in-flight count is the
-source of truth; in human mode use `.scrum/backlog.json` mtime,
-`.scrum/dashboard.json` mtime, and the deepest mtime inside
-`.scrum/pbi/` (recursive walk) — `scripts/stall-watchdog.sh` reads
-all three, so manual SM diagnosis should consider the same set.
+source of truth; in human mode diagnose staleness with the
+last-activity signals in step (b) of § Periodic pipeline health
+check below (the same signals `scripts/stall-watchdog.sh` polls:
+`.scrum/dashboard.json` mtime globally, plus per-PBI artifact and
+worktree mtimes — it reads `backlog.json` for content only, never
+its mtime).
+
+#### Periodic pipeline health check
+
+Canonical liveness procedure for in-flight PBIs. The stall-nudge
+rule above points here; do not restate these steps elsewhere.
+
+**Scheduling.** At session start — and again on entering
+`pbi_pipeline_active` — if `backlog.json` has any `in_progress_*`
+item, create a recurring session cron via `CronCreate`, every 10
+minutes, with exactly this prompt:
+
+`[PIPELINE-HEALTH] Check all in-flight PBIs per the health-check
+procedure in your agent definition.`
+
+Cron jobs are session-scoped: re-create the job in every new
+session (recurring jobs also auto-expire after 7 days). If the
+Cron tools are absent in this environment, skip scheduling and
+rely on the external `scripts/stall-watchdog.sh` daemon as before.
+Once no `in_progress_*` item remains (all merged or terminal),
+`CronDelete` the job.
+
+**On firing** (and on any stall nudge), deterministically:
+
+a. List `in_progress_*` PBIs from `.scrum/backlog.json`.
+b. Per PBI, last activity = the newest of: deepest mtime under
+   `.scrum/pbi/<id>/`, the `pipeline.log` tail, and the PBI
+   worktree.
+c. Any PBI quiet ≥ 10 minutes → `SendMessage` probe to its owning
+   Developer — always, immediately, unconditionally.
+d. Re-spawn (per `../skills/spawn-teammates/SKILL.md` § Re-Spawn
+   Recovery) only after BOTH: no probe reply within ~120s AND
+   termination confirmed — `TaskGet` for teammates spawned this
+   session; cross-session, probe silence plus a stale
+   `pipeline.log` tail (mtime not advancing) AND no newer stage
+   review (`.scrum/pbi/<id>/{design,impl,ut}/review-r{n}.md`).
+   Never re-spawn on a Stop-hook block or nudge alone.
+e. Third failed recovery attempt on the same PBI → set it
+   `escalated`.
+
+**Forbidden:** skipping the probe on the guess that "the conductor
+looks mid-flow — don't interrupt". That guess has no re-evaluation
+trigger: end the turn on it and nothing ever revisits it. A probe
+is harmless to a genuinely working teammate, and a dormant one
+wakes on the probe itself (observed twice in multi-hour
+target-project stalls).
 
 ## Recovery Wrappers
 

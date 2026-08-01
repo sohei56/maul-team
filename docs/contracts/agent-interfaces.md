@@ -541,9 +541,11 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In
     `pbi_pipeline_active` the gate only blocks on unresolved
-    `escalated` PBIs — Teammate liveness is monitored by the
-    external `scripts/stall-watchdog.sh` daemon launched by
-    `scrum-start.sh`.
+    `escalated` PBIs — Teammate liveness is monitored by the SM's
+    session-cron health check (`agents/scrum-master.md` § Periodic
+    pipeline health check), with the external
+    `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`
+    as fallback.
 - **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
   blocks until `.scrum/test-results.json.overall_status` is `"passed"`
   or `"passed_with_skips"` (`"failed"` blocks naming the failed
