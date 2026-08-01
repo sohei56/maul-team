@@ -299,7 +299,9 @@ Wait for all to return (the synchronous calls themselves — never a
 hand-rolled poll loop; see `reviewer-stall-fallback.md` § Bounded
 waiting). If a reviewer returns **without a parseable `**Verdict:**`
 line** (or an empty/garbled message), respawn that ONE reviewer once
-with the identical prompt; if the second attempt is still unparseable,
+with the identical prompt (a fresh synchronous Agent call — never
+`SendMessage` to the finished reviewer; `../SKILL.md` § Sub-agents
+spawned); if the second attempt is still unparseable,
 run the canonical escalation transition (`termination-gates.md`
 § Status transition on escalation) with
 `<reason>=reviewer_unavailable` and `<stage>=pbi_review`.

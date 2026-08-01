@@ -162,7 +162,7 @@
  "footer.onpage": "本页内容",
  "footer.built": "基于 Claude Code Agent Teams 构建",
  "meta.description": "面向 Claude Code 的 AI Scrum 团队：在原生 Mac 应用或一条 shell 命令中运行多智能体 Sprint，基于开源框架。你始终是 Product Owner。",
- "hero.app_aria": "MaulTeam Mac 应用的动画重现，共三个面板。左侧：test_demo 项目的文件浏览器与一个 requirements.md 编辑器。中央：你在 Scrum Master 的输入栏里键入「Build a retro 8-bit Snake game in a single index.html」；它回答「Understood — starting Sprint 1」，规划 backlog，生成两个 Developer 智能体，并流式呈现状态——设计评审 PASS、黑盒单元测试达到 100% 覆盖率、PBI_READY_TO_MERGE，以及非快进合并——就在一份实时的智能体事件工作日志之上。右侧：仪表盘，Sprint 阶段依次推进 Planning → PBI Development → Sprint Review，进度条从 0 填充至 2 之 2 个 PBI 完成，pbi-001/pbi-002 徽章随终端逐步汇报而推进 refined → design → impl → pbi-review → merge → done。",
+ "hero.app_aria": "MaulTeam Mac 应用的动画重现。顶部的文件夹式标签条列出所有运行中的项目——test_demo 为活动标签，todo_app 在后台持续运行——点击标签即可切换。下方为三个面板。左侧：test_demo 项目的文件浏览器；文件在独立的编辑器窗口中打开。中央：你在 Scrum Master 的输入栏里键入「Build a retro 8-bit Snake game in a single index.html」；它回答「Understood — starting Sprint 1」，规划 backlog，生成两个 Developer 智能体，并流式呈现状态——设计评审 PASS、黑盒单元测试达到 100% 覆盖率、PBI_READY_TO_MERGE，以及非快进合并——就在一份实时的智能体事件工作日志之上。右侧：仪表盘，Sprint 阶段依次推进 Planning → PBI Development → Sprint Review，进度条从 0 填充至 2 之 2 个 PBI 完成，pbi-001/pbi-002 徽章随终端逐步汇报而推进 refined → design → impl → pbi-review → merge → done。",
  "demo.video_aria": "MaulTeam.app 运行一个 Sprint 的屏幕录制",
  "demo.cover_aria": "播放 MaulTeam.app 演示视频",
  "how.g1_aria": "第 01 步 — 需求定义",

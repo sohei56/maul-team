@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Attention message-recovery context",
+  "description": "Schema for .scrum/attention-context.json. Holds the most recent turn ending seen by the Stop hook so that a following idle_prompt Notification — whose own message is generic — can be shown with Claude's actual closing text. Overwritten on every Stop, from any session, so a mismatch on prompt_id is expected and simply falls back to the Notification's own message. Writers: hooks/notification-attention.sh only (no .scrum/scripts/*.sh wrapper — hook hot-path).",
+  "type": "object",
+  "required": ["prompt_id", "last_assistant_message", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "prompt_id": {
+      "description": "The Stop payload's prompt_id. The following Notification for the same turn carries an identical prompt_id; that equality is the match condition. Empty string when the payload carried none, which never matches (the writer requires both sides non-empty).",
+      "type": "string"
+    },
+    "last_assistant_message": {
+      "description": "The turn's final assistant message, truncated to 200 codepoints plus an ellipsis. Empty string when the payload carried none.",
+      "type": "string",
+      "maxLength": 256
+    },
+    "recorded_at": {
+      "description": "ISO-8601 UTC timestamp of the Stop that produced this record.",
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

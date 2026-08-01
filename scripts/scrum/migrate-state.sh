@@ -27,9 +27,10 @@
 #
 # Validation policy: wrapper-written SSOT files must match their schema
 # (blocking). Hook-owned hot-path files (communications/dashboard/autonomy/
-# stop-gate) are validated but only WARN — their writers deliberately skip
-# per-append re-validation (docs/contracts/scrum-state/README.md), and a
-# telemetry glitch must not brick a launch.
+# stop-gate/attention) are validated but only WARN — their writers
+# deliberately skip per-append re-validation
+# (docs/contracts/scrum-state/README.md), and a telemetry glitch must not
+# brick a launch.
 #
 # Exit codes: 0 ok/nothing-to-do; 64 usage; 65 validation failure;
 # a failing migration's own exit code otherwise. Requires bash (the sourced
@@ -97,7 +98,9 @@ STRICT_MAP=".scrum/state.json state.schema.json
 WARN_MAP=".scrum/communications.json communications.schema.json
 .scrum/dashboard.json dashboard.schema.json
 .scrum/autonomy.json autonomy.schema.json
-.scrum/stop-gate.json stop-gate.schema.json"
+.scrum/stop-gate.json stop-gate.schema.json
+.scrum/attention.json attention.schema.json
+.scrum/attention-context.json attention-context.schema.json"
 
 # _check_one <json_path> <schema_basename>
 # Prints "<file>: <validator error>" and returns 1 on violation; silent 0 on
@@ -124,15 +127,32 @@ while read -r f s; do
   fi
 done <<< "$STRICT_MAP"
 
+# Per-PBI state files share one schema, so they are validated in a single
+# validator invocation. A per-file loop here costs one npx/python process per
+# PBI — a project carrying hundreds of PBIs across dozens of Sprints would pay
+# minutes of launch time on every start, and the cost grows with total PBIs
+# ever created (nothing prunes .scrum/pbi/). The batch only answers "all valid
+# or not", so a failing batch falls back to the per-file loop to name the
+# offenders — the slow path runs only when the launch is going to be blocked
+# anyway.
+PBI_FILES=()
 for p in .scrum/pbi/*/state.json; do
   [ -e "$p" ] || continue
-  line=""
-  if ! line="$(_check_one "$p" "pbi-state.schema.json")"; then
-    FAILED="${FAILED}${line}
-"
-    N_BAD=$((N_BAD + 1))
-  fi
+  PBI_FILES+=("$p")
 done
+
+if [ "${#PBI_FILES[@]}" -gt 0 ] && \
+   ! _validate_batch_against_schema \
+       "$SCHEMA_DIR/pbi-state.schema.json" "${PBI_FILES[@]}" 2>/dev/null; then
+  for p in "${PBI_FILES[@]}"; do
+    line=""
+    if ! line="$(_check_one "$p" "pbi-state.schema.json")"; then
+      FAILED="${FAILED}${line}
+"
+      N_BAD=$((N_BAD + 1))
+    fi
+  done
+fi
 
 while read -r f s; do
   [ -n "$f" ] || continue

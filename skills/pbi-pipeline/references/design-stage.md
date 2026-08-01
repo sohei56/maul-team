@@ -53,7 +53,9 @@ reads those directly.
      `next_actions` names an **unresolved spec question** → the
      SPEC_QUESTION route (SKILL.md § Escalation): forward to SM, hold
      the Round, re-spawn the designer with the relayed answer (same
-     Round). A harness incident or any other error → escalate.
+     Round; a fresh synchronous Agent call — never `SendMessage` to
+     the finished designer, see `../SKILL.md` § Sub-agents spawned).
+     A harness incident or any other error → escalate.
    - `.scrum/scripts/update-pbi-state.sh "$PBI_ID" design_status in_review`
 
 3. **Step 2: Spawn codex-design-reviewer** (single Agent call,

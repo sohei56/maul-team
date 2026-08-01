@@ -116,4 +116,12 @@ Rules:
 End with the JSON envelope from
 `docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
 List all modified test file paths AND the `ac-coverage-r{n}.json` path
-in `artifacts`.
+in `artifacts`. `summary` is one or two sentences of outcome (cases
+written, AC covered) — not a walkthrough of the suite.
+
+**Test-code brevity is about prose, not cases.** Keep test names and
+any comments terse and match the project's test idiom; do not narrate
+arrange/act/assert in comments. Never merge distinct cases, skip a
+boundary value, or leave an AC uncovered to keep the suite short —
+coverage is the deliverable. See `../rules/scrum-context.md`
+§ Output discipline.

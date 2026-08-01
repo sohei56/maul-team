@@ -162,7 +162,7 @@
  "footer.onpage": "이 페이지에서",
  "footer.built": "Claude Code Agent Teams로 제작",
  "meta.description": "Claude Code용 AI Scrum 팀: 네이티브 Mac 앱 또는 셸 명령 하나로 실행하는 멀티 에이전트 Sprint, 오픈소스 프레임워크 위에. 여러분은 Product Owner로 남습니다.",
- "hero.app_aria": "MaulTeam Mac 앱의 애니메이션 재현, 세 개의 창. 왼쪽: test_demo 프로젝트의 파일 탐색기와 requirements.md 에디터. 가운데: Scrum Master의 입력 바에 'Build a retro 8-bit Snake game in a single index.html'을 입력하면, 'Understood — starting Sprint 1'이라 답하고, Backlog을 계획하고, 두 개의 개발자 에이전트를 생성하고, 상태를 스트리밍합니다 — 설계 리뷰 PASS, 100% 커버리지의 블랙박스 단위 테스트, PBI_READY_TO_MERGE, 그리고 no-fast-forward 병합 — 에이전트 이벤트의 실시간 작업 로그 위로. 오른쪽: 대시보드, Sprint 단계가 Planning → PBI Development → Sprint Review로 진행되고, 진행 바가 2개 중 0개에서 2개 완료로 채워지며, pbi-001/pbi-002 배지가 터미널이 각 단계를 보고할 때마다 refined → design → impl → pbi-review → merge → done으로 나아갑니다.",
+ "hero.app_aria": "MaulTeam Mac 앱의 애니메이션 재현. 상단의 폴더형 탭 바에 실행 중인 프로젝트가 나열되고 — test_demo가 활성 탭, todo_app은 백그라운드에서 계속 실행 — 탭을 클릭하면 전환됩니다. 그 아래 세 개의 창. 왼쪽: test_demo 프로젝트의 파일 탐색기(파일은 별도의 에디터 창에서 열립니다). 가운데: Scrum Master의 입력 바에 'Build a retro 8-bit Snake game in a single index.html'을 입력하면, 'Understood — starting Sprint 1'이라 답하고, Backlog을 계획하고, 두 개의 개발자 에이전트를 생성하고, 상태를 스트리밍합니다 — 설계 리뷰 PASS, 100% 커버리지의 블랙박스 단위 테스트, PBI_READY_TO_MERGE, 그리고 no-fast-forward 병합 — 에이전트 이벤트의 실시간 작업 로그 위로. 오른쪽: 대시보드, Sprint 단계가 Planning → PBI Development → Sprint Review로 진행되고, 진행 바가 2개 중 0개에서 2개 완료로 채워지며, pbi-001/pbi-002 배지가 터미널이 각 단계를 보고할 때마다 refined → design → impl → pbi-review → merge → done으로 나아갑니다.",
  "demo.video_aria": "Sprint를 실행하는 MaulTeam.app의 화면 녹화",
  "demo.cover_aria": "MaulTeam.app 데모 영상 재생",
  "how.g1_aria": "1단계 — 요구사항 정의",

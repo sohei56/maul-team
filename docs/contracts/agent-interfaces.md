@@ -510,11 +510,11 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 ### Stop Hook
 - **Registered entry**: `hooks/stop-dispatch.sh` — a single
   command that consumes the Stop payload once, forwards it to
-  `hooks/dashboard-event.sh` (best-effort; failures swallowed),
-  and then to `hooks/completion-gate.sh` (exit code propagated
-  verbatim). Two-entry Stop registrations would surface as
-  `"Ran 2 stop hooks"` in the session UI; the dispatcher folds
-  them.
+  `hooks/dashboard-event.sh` and `hooks/notification-attention.sh`
+  (both best-effort; failures swallowed), and then to
+  `hooks/completion-gate.sh` (exit code propagated verbatim).
+  Multi-entry Stop registrations would surface as `"Ran N stop
+  hooks"` in the session UI; the dispatcher folds them.
 - **Gate script**: `hooks/completion-gate.sh`
 - **Reads**: `.scrum/state.json`, relevant state files; in human
   mode also reads/writes `.scrum/stop-gate.json` (dedup ledger)
@@ -541,9 +541,11 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In
     `pbi_pipeline_active` the gate only blocks on unresolved
-    `escalated` PBIs — Teammate liveness is monitored by the
-    external `scripts/stall-watchdog.sh` daemon launched by
-    `scrum-start.sh`.
+    `escalated` PBIs — Teammate liveness is monitored by the SM's
+    session-cron health check (`agents/scrum-master.md` § Periodic
+    pipeline health check), with the external
+    `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`
+    as fallback.
 - **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
   blocks until `.scrum/test-results.json.overall_status` is `"passed"`
   or `"passed_with_skips"` (`"failed"` blocks naming the failed
@@ -555,6 +557,22 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
   `uat-release` skill to run); once both hold, allows exit as a
   checkpoint.
 - **Graceful degradation**: Allows stop (with warning) if state files are missing
+
+### Notification / UserPromptSubmit Hook
+- **Script**: `hooks/notification-attention.sh` (also fed the `Stop`
+  payload by `stop-dispatch.sh`, best-effort)
+- **Writes**: `.scrum/attention.json` — "Claude is blocked on the
+  human", for an external UI (the Mac app) to poll — and its
+  `.scrum/attention-context.json` sidecar. Field-level contract:
+  `docs/contracts/scrum-state/{attention,attention-context}.schema.json`.
+- **Behaviour**: `Notification` raises `pending: true` typed by the
+  payload's `notification_type` (`permission_prompt` / `idle_prompt`);
+  `Stop` caches the turn's `last_assistant_message` so a following
+  `idle_prompt` with the same `prompt_id` can show it instead of the
+  harness's generic text; `UserPromptSubmit` clears `pending`.
+- **Output**: none. Always exits 0 and never writes stdout —
+  `UserPromptSubmit` stdout is injected into the model's context, and
+  exit 2 there would block the user's prompt.
 
 ### TaskCompleted Hook
 - **Script**: `hooks/quality-gate.sh`

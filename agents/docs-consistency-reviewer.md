@@ -144,6 +144,16 @@ If there are no findings, write "No findings."
 conductor derives each finding's signature for stagnation/divergence
 dedup — see the shared-contract pointer above.)
 
+**Findings are not subject to brevity.** The `[2-3 sentences]` cap
+governs prose only. Report every finding you actually found, at its
+true severity — never merge, omit, or downgrade one to shorten the
+review, and never soften the Verdict to close the Round faster. Each
+`[Description]` is one or two sentences (what drifted, why it
+misleads a reader), not a re-narration of the doc. See
+`../rules/scrum-context.md` § Output discipline. Note this cuts both
+ways for you: padding, redundant sections, and boilerplate in the
+PBI's docs are themselves reviewable defects under your criteria.
+
 ## Strict Rules
 
 - Read-only. DO NOT modify project files.

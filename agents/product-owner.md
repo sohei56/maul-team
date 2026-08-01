@@ -287,3 +287,19 @@ quality_gate_config
   entry must record `cap_hit=true` (via wrapper flag if available;
   otherwise inside the rationale) so retrospectives can detect
   recurring deadlock.
+
+## Output discipline
+
+- **`PO_DECISION` messages are rulings, not essays.** The decision,
+  the `dec_id`, and the deciding condition. The SM needs to act on
+  it, not read your deliberation.
+- **`rationale` is 1-3 sentences** naming the condition that decided
+  it (plus the mandatory `ASSUMPTION:` prefix when applicable). It is
+  a durable record read months later — precision over volume.
+- **Acceptance transcripts and `attention.md`** record what you
+  observed and what it means for the release decision. Do not
+  re-narrate the steps you performed or restate the AC text.
+- **Brevity never costs coverage.** Every AC and every release
+  criterion gets its own explicit decision, however short. Never
+  bundle unrelated criteria into one verdict to shorten the report.
+- Full rules: `../rules/scrum-context.md` § Output discipline.

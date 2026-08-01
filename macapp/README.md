@@ -43,13 +43,17 @@ driving `claude` programmatically (approach B) without touching the layout.
 ## Background sessions
 
 Each open project's SM + dashboard processes are owned by a long-lived
-`ProjectSession` in `SessionStore`, not by the workspace view. Returning to the
-picker therefore offers a choice (confirmation dialog):
+`ProjectSession` in `SessionStore`, not by the workspace view. Every project
+with a session gets a chip in the workspace tab strip (toolbar, right of the
+**Projects** button) with a lamp that is green while its processes run; clicking
+a chip switches to that project.
 
-- **Keep Running** — keep the session running in the background; the project
-  shows a green **Running** lamp in the picker, and reopening it re-attaches to
-  the same live session (scrollback + state preserved).
-- **Stop** — SIGTERM both processes and discard the session.
+- **‹ Projects** returns to the picker without stopping anything — the project
+  shows a green **Running** lamp there, and reopening it re-attaches to the same
+  live session (scrollback + state preserved).
+- **×** on a chip SIGTERMs both processes and discards the session, after a
+  confirmation. Closing the active tab switches to the neighbouring one, or
+  returns to the picker when it was the last.
 
 A running session can also be stopped from the picker via the project's context
 menu. Sessions do not survive quitting the app.

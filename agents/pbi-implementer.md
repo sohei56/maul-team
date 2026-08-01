@@ -91,8 +91,18 @@ variant to send (see `../skills/pbi-pipeline/references/sub-agent-prompts.md`
   See `../rules/scrum-context.md` § "When you don't know" for the
   escalation route (implementer → Developer → SM → PO).
 
+- **Match the surrounding code.** Comment density, naming, and idiom
+  follow the file you are editing. Do not add narrating comments that
+  restate the line below them, docstrings on self-evident private
+  helpers, or banner comments to mark sections. (kind=docs: same rule
+  for prose — no filler sections, no summary that repeats the section
+  above it.) This never licenses dropping a comment that records a
+  non-obvious constraint or a rationale the code cannot show.
+
 ## Output Envelope
 
 End with the JSON envelope from
 `docs/contracts/pbi-pipeline-envelope.schema.json`. `verdict` is null.
-List all modified file paths in `artifacts`.
+List all modified file paths in `artifacts`. `summary` is one or two
+sentences; do not restage the diff in prose — the conductor reads the
+files.

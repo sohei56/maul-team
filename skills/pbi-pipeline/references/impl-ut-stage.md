@@ -492,7 +492,10 @@ is `pbi_review` or `ut_run` depending on where the gate fired.
 
 ### Build feedback for next round
 
-See `feedback-routing.md`. Generate:
+See `feedback-routing.md`. Feedback reaches the sub-agents only as
+input to the next Round's fresh synchronous spawns — never via
+`SendMessage` to the previous Round's agents (`../SKILL.md`
+§ Sub-agents spawned). Generate:
 
 - `feedback/impl-r{n+1}.md` (impl-reviewer findings + test failures
   framed for impl)

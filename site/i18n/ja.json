@@ -162,7 +162,7 @@
  "footer.onpage": "このページ内",
  "footer.built": "Claude Code Agent Teams で構築",
  "meta.description": "Claude Code 向けの AI Scrum チーム: ネイティブ Mac アプリ、あるいは 1 つのシェルコマンドで動くマルチエージェント Sprint。オープンソースフレームワーク上で動作し、あなたは Product Owner のまま。",
- "hero.app_aria": "MaulTeam Mac アプリの、3 ペインのアニメーション再現。左: test_demo プロジェクトのファイル Explorer と requirements.md エディタ。中央: あなたが Scrum Master の入力バーに 'Build a retro 8-bit Snake game in a single index.html' と入力すると、'Understood — starting Sprint 1' と返し、backlog を計画し、2 名の Developer エージェントを spawn し、ステータスをストリーミングします — design review PASS、black-box unit test がカバレッジ 100%、PBI_READY_TO_MERGE、そして no-fast-forward マージ — その様子が、Agent イベントのライブ Work Log の上に流れます。右: Dashboard では、Sprint フェーズが Planning → PBI Development → Sprint Review と進み、進捗バーが 0 から 2 of 2 PBI 完了へと満たされ、pbi-001/pbi-002 のバッジが、ターミナルが各ステップを報告するのに合わせて refined → design → impl → pbi-review → merge → done と進みます。",
+ "hero.app_aria": "MaulTeam Mac アプリのアニメーション再現。上部のフォルダ型タブ帯に実行中のプロジェクトが並び — test_demo がアクティブ、todo_app はバックグラウンドで実行中 — タブのクリックで切り替わります。その下に 3 ペイン。左: test_demo プロジェクトのファイル Explorer（ファイルは別ウィンドウのエディタで開きます）。中央: あなたが Scrum Master の入力バーに 'Build a retro 8-bit Snake game in a single index.html' と入力すると、'Understood — starting Sprint 1' と返し、backlog を計画し、2 名の Developer エージェントを spawn し、ステータスをストリーミングします — design review PASS、black-box unit test がカバレッジ 100%、PBI_READY_TO_MERGE、そして no-fast-forward マージ — その様子が、Agent イベントのライブ Work Log の上に流れます。右: Dashboard では、Sprint フェーズが Planning → PBI Development → Sprint Review と進み、進捗バーが 0 から 2 of 2 PBI 完了へと満たされ、pbi-001/pbi-002 のバッジが、ターミナルが各ステップを報告するのに合わせて refined → design → impl → pbi-review → merge → done と進みます。",
  "demo.video_aria": "Sprint を実行している MaulTeam.app の画面録画",
  "demo.cover_aria": "MaulTeam.app のデモ動画を再生",
  "how.g1_aria": "ステップ 01 — 要件定義",

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Human-attention flag",
+  "description": "Schema for .scrum/attention.json. Records whether Claude is currently blocked on the human, so an external UI (the Mac app) can raise a banner without reading transcripts. Written by the hook process hooks/notification-attention.sh: a Notification event sets pending:true, a UserPromptSubmit event clears it to pending:false. Consumers treat a missing file, an unparseable file, and pending != true as identical: nothing is waiting. Writers: hooks/notification-attention.sh only (no .scrum/scripts/*.sh wrapper — hook hot-path).",
+  "type": "object",
+  "required": ["pending", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "pending": {
+      "description": "True while Claude is waiting on the human. Cleared to false on the next UserPromptSubmit.",
+      "type": "boolean"
+    },
+    "type": {
+      "description": "Which kind of wait this is, mirroring the Notification payload's notification_type. 'permission_prompt' = an unanswered tool-permission dialog; 'idle_prompt' = the turn ended and no prompt followed within the harness idle window. An unknown/absent notification_type is normalized to 'idle_prompt' by the writer. Required while pending is true.",
+      "type": "string",
+      "enum": ["permission_prompt", "idle_prompt"]
+    },
+    "message": {
+      "description": "Banner text. For idle_prompt this is the turn's last_assistant_message recovered from attention-context.json when the prompt_id matches, otherwise the Notification payload's own (generic) message. Truncated by the writer to 200 codepoints plus an ellipsis. Required while pending is true.",
+      "type": "string",
+      "maxLength": 256
+    },
+    "agent": {
+      "description": "Teammate display name resolved from .scrum/session-map.json by session id (e.g. 'dev-001-s1'). Omitted entirely when the session is unmapped — the common case for the Scrum Master's own session.",
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "description": "ISO-8601 UTC timestamp of this write (both the set and the clear path refresh it).",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "if": {
+    "properties": { "pending": { "const": true } },
+    "required": ["pending"]
+  },
+  "then": {
+    "required": ["pending", "type", "message", "updated_at"]
+  }
+}
