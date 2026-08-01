@@ -114,7 +114,11 @@ struct MaulTeamApp: App {
         WindowGroup {
             Group {
                 if let project = state.currentProject {
-                    WorkspaceView(project: project)
+                    // Identity must follow the project: switching tabs A→B keeps
+                    // the view alive otherwise, and its @StateObject dashboard
+                    // (bound to the path at init) plus the file tree's @State
+                    // would stay on the old project.
+                    WorkspaceView(project: project).id(project.id)
                 } else {
                     ProjectPickerView()
                 }

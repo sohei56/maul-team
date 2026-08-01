@@ -23,6 +23,10 @@ final class SessionStore: ObservableObject {
     /// process exits are surfaced by forwarding each session's objectWillChange.
     @Published private(set) var sessionIds: Set<String> = []
 
+    /// The same projects as `sessionIds`, in the order they were opened —
+    /// the workspace tab strip renders from this, so order must be stable.
+    @Published private(set) var openProjects: [Project] = []
+
     private var sessions: [String: ProjectSession] = [:]
     private var cancellables: [String: AnyCancellable] = [:]
 
@@ -30,14 +34,23 @@ final class SessionStore: ObservableObject {
     /// requested mode. `mode` only applies to a freshly created session — an
     /// already-running background session is returned untouched (re-attach).
     func session(for project: Project, frameworkPath: String, mode: LaunchMode = .normal) -> ProjectSession {
-        if let existing = sessions[project.id] { return existing }
+        if let existing = sessions[project.id] {
+            addToOpenProjects(project)
+            return existing
+        }
         let session = ProjectSession(project: project, frameworkPath: frameworkPath, mode: mode)
         sessions[project.id] = session
         cancellables[project.id] = session.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
         sessionIds.insert(project.id)
+        addToOpenProjects(project)
         return session
+    }
+
+    private func addToOpenProjects(_ project: Project) {
+        guard !openProjects.contains(where: { $0.id == project.id }) else { return }
+        openProjects.append(project)
     }
 
     func existingSession(for projectId: String) -> ProjectSession? {
@@ -60,6 +73,7 @@ final class SessionStore: ObservableObject {
         cancellables[projectId] = nil
         sessions[projectId] = nil
         sessionIds.remove(projectId)
+        openProjects.removeAll { $0.id == projectId }
     }
 
     /// SIGTERM every session — used when quitting the app.
