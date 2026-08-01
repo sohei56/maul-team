@@ -324,17 +324,32 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
 @keyframes hin{to{opacity:1; transform:none}}
 
 /* ---------- hero app (animated reproduction of the Mac app screen) ---------- */
-.hero-app{display:flex; flex-direction:column; min-height:512px; background:#0a1326;
+/* fixed height: the terminal transcript grows during the animation loop, and a
+   content-driven height would make the whole mockup pump up and down with it.
+   668px fits the full final transcript at the 1000px design width; earlier
+   frames pin to the bottom (flex-end) and older lines clip at the top. */
+.hero-app{display:flex; flex-direction:column; height:668px; background:#0a1326;
   border-radius:0 0 13px 13px; overflow:hidden; text-align:left}
-/* window toolbar (Projects · project · path · info) */
-.ha-toolbar{display:flex; align-items:center; gap:13px; height:36px; padding:0 14px; flex:none;
+/* window toolbar (Projects ‹ | folder-style tabs of running projects | info) */
+.ha-toolbar{display:flex; align-items:flex-end; gap:10px; height:40px; padding:0 14px; flex:none;
   background:#0f1c36; border-bottom:1px solid var(--line); font-family:var(--font-mono);
-  font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden}
-.ha-tb-back{color:var(--text-2)}
-.ha-tb-proj{color:var(--text); font-weight:600; display:inline-flex; align-items:center; gap:6px}
-.ha-tb-proj i{color:var(--blue)}
-.ha-tb-path{color:var(--text-3); overflow:hidden; text-overflow:ellipsis; min-width:0}
-.ha-tb-info{margin-left:auto; color:var(--text-3)}
+  font-size:11px; color:var(--text-3); white-space:nowrap; overflow:visible}
+.ha-tb-back{color:var(--text-2); align-self:center}
+.ha-tb-sep{width:1px; height:16px; background:var(--line-strong); align-self:center}
+.ha-tabs{display:flex; align-items:flex-end; gap:4px; min-width:0; overflow:hidden}
+/* classic folder tab: rounded top, open bottom, sitting on the bar's hairline */
+.ha-tab{display:inline-flex; align-items:center; gap:6px; padding:4px 10px 5px;
+  border:1px solid var(--line-strong); border-bottom:0; border-radius:7px 7px 0 0;
+  background:rgba(255,255,255,.03); color:var(--text-3)}
+/* the active tab stands taller; its opaque fill covers the hairline so it
+   reads as connected to the column-head row below */
+.ha-tab.on{position:relative; margin-bottom:-1px; padding-top:7px; background:#0e1a32;
+  border-color:rgba(74,144,217,.5); color:var(--text); font-weight:600}
+.ha-tab .ha-fico{margin-top:0}
+.ha-tab .ha-run{width:6px; height:6px; border-radius:50%; background:var(--green);
+  box-shadow:0 0 8px rgba(52,211,153,.85)}
+.ha-tab .ha-x{font-weight:400; font-size:10px; color:var(--text-3)}
+.ha-tb-info{margin-left:auto; color:var(--text-3); align-self:center}
 /* three-pane body */
 .ha-body{flex:1 1 auto; display:grid; grid-template-columns:186px 1fr 274px; min-height:0}
 /* narrow screens never stack the panes: the whole three-pane app is scaled
@@ -346,10 +361,10 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
   font-family:var(--font-mono); font-size:11px; color:var(--text-2)}
 .ha-colhead .ha-ico{color:var(--amber-hi)}
 
-/* --- left: Explorer + editor --- */
+/* --- left: Explorer (files open in detached editor windows) --- */
 .ha-explorer{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#0c1730}
 .ha-ex-head{letter-spacing:.12em; text-transform:uppercase; font-size:10px; color:var(--text-3)}
-.ha-tree{padding:7px 5px; flex:none; display:flex; flex-direction:column; gap:1px;
+.ha-tree{padding:7px 5px; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1px;
   font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
 .ha-row{display:flex; align-items:center; gap:5px; padding:1.5px 6px; border-radius:5px;
   white-space:nowrap; overflow:hidden}
@@ -372,14 +387,6 @@ h2{font-family:var(--font-display); font-size:clamp(28px, 4.4vw, 44px); font-wei
   background:var(--amber-hi); opacity:.85; position:relative}
 .ha-lock::before{content:""; position:absolute; top:-3px; left:1px; width:5px; height:4px;
   border:1px solid var(--amber-hi); border-bottom:0; border-radius:3px 3px 0 0}
-.ha-editor{flex:1 1 auto; min-height:0; border-top:1px solid var(--line); display:flex; flex-direction:column}
-.ha-ed-tab{display:flex; align-items:center; justify-content:space-between; padding:7px 11px; flex:none;
-  border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:10.5px; color:var(--text-2)}
-.ha-save{font-size:9px; color:var(--text-3); border:1px solid var(--line-strong); background:var(--panel-2);
-  border-radius:5px; padding:2px 9px}
-.ha-ed-body{padding:9px 11px; overflow:hidden; font-family:var(--font-mono); font-size:9.5px;
-  line-height:1.62; color:var(--text-3); white-space:pre-wrap}
-.ha-ed-body b{color:var(--text-2); font-weight:600}
 
 /* --- center: Scrum Master terminal + Work Log --- */
 .ha-center{display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); background:#091224}
@@ -976,11 +983,14 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
           <span class="mac-title">MaulTeam — test_demo</span>
         </div>
         <div class="hero-app" role="img" data-i18n-attr="aria-label:hero.app_aria"
-             aria-label="Animated reproduction of the MaulTeam Mac app, three panes. Left: a file Explorer for the test_demo project and a requirements.md editor. Center: you type 'Build a retro 8-bit Snake game in a single index.html' into the Scrum Master's input bar; it answers 'Understood — starting Sprint 1', plans the backlog, spawns two Developer agents, and streams status — design review PASS, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and no-fast-forward merges — above a live Work Log of agent events. Right: the Dashboard, where the Sprint phase advances Planning → PBI Development → Sprint Review, the progress bar fills from 0 to 2 of 2 PBIs done, and the pbi-001/pbi-002 badges advance refined → design → impl → pbi-review → merge → done as the terminal reports each step.">
+             aria-label="Animated reproduction of the MaulTeam Mac app. A folder-style tab strip across the top lists every running project — test_demo is the active tab, todo_app keeps running in the background — and clicking a tab switches between them. Below it, three panes. Left: a file Explorer for the test_demo project; files open in separate editor windows. Center: you type 'Build a retro 8-bit Snake game in a single index.html' into the Scrum Master's input bar; it answers 'Understood — starting Sprint 1', plans the backlog, spawns two Developer agents, and streams status — design review PASS, black-box unit tests at 100% coverage, PBI_READY_TO_MERGE, and no-fast-forward merges — above a live Work Log of agent events. Right: the Dashboard, where the Sprint phase advances Planning → PBI Development → Sprint Review, the progress bar fills from 0 to 2 of 2 PBIs done, and the pbi-001/pbi-002 badges advance refined → design → impl → pbi-review → merge → done as the terminal reports each step.">
           <div class="ha-toolbar" aria-hidden="true">
             <span class="ha-tb-back">‹ Projects</span>
-            <span class="ha-tb-proj"><i>▦</i> test_demo</span>
-            <span class="ha-tb-path">/Users/inouesouhei/work/test_demo</span>
+            <span class="ha-tb-sep"></span>
+            <span class="ha-tabs">
+              <span class="ha-tab on"><span class="ha-fico"></span>test_demo<i class="ha-run"></i><span class="ha-x">✕</span></span>
+              <span class="ha-tab"><span class="ha-fico"></span>todo_app<i class="ha-run"></i><span class="ha-x">✕</span></span>
+            </span>
             <span class="ha-tb-info">ⓘ</span>
           </div>
           <div class="ha-body">
@@ -1003,15 +1013,6 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
                 <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-json">{}</span><span class="ha-nm">.scrum-config.example.json</span></div>
                 <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi">▤</span><span class="ha-nm">CLAUDE.md</span></div>
                 <div class="ha-row ha-i1"><span class="ha-tw"></span><span class="ha-fi fi-html">&lt;&gt;</span><span class="ha-nm">index.html</span></div>
-              </div>
-              <div class="ha-editor">
-                <div class="ha-ed-tab"><span>▤ requirements.md</span><span class="ha-save">Save</span></div>
-                <div class="ha-ed-body"><b># Snake — Requirements</b>
-
-<b>## Goals</b>
-- G1: A complete, playable Snake
-  game in a single index.html.
-- G2: Faithful 8-bit arcade feel.</div>
               </div>
             </div>
 
