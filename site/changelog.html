@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020610">
+<link rel="icon" type="image/png" href="./assets/app-icon.png">
+<title data-i18n="cl.meta.title">Changelog — MaulTeam.app</title>
+<meta name="description" data-i18n-attr="content:cl.meta.description" content="What's new in MaulTeam.app — plain-language release notes, written so you can follow along even if you have never used it.">
+<link rel="canonical" href="https://sohei56.github.io/maul-team/changelog.html">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="Changelog — MaulTeam.app">
+<meta property="og:description" content="What's new in MaulTeam.app — plain-language release notes, written so you can follow along even if you have never used it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sohei56.github.io/maul-team/changelog.html">
+<meta property="og:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="9005e05d-1557-4ac1-bb9e-bc05201b77db" data-domains="sohei56.github.io"></script>
+<script defer src="./i18n.js"></script>
+<style>
+:root{
+  --bg:#020610; --panel:#081226; --line:rgba(154,190,255,.13); --line-strong:rgba(154,190,255,.24);
+  --text:#f4f8ff; --text-2:#c7d2ea; --text-3:#8d9ac0;
+  --cyan:#1cb5da; --cyan-hi:#3edcf5;
+  --font-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,Menlo,Monaco,monospace;
+  --maxw:760px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased}
+::selection{background:rgba(40,200,230,.30); color:#fff}
+a{color:var(--cyan-hi); text-decoration:none; border-bottom:1px dashed rgba(62,220,245,.4)}
+a:hover{border-bottom-style:solid}
+:focus-visible{outline:2px solid var(--cyan-hi); outline-offset:3px; border-radius:4px}
+code{font-family:var(--font-mono); font-size:.88em; color:var(--text);
+  background:rgba(154,190,255,.09); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
+
+/* ---------- nav ---------- */
+.nav{position:sticky; top:0; z-index:60;
+  backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  background:rgba(2,6,16,.78); border-bottom:1px solid var(--line)}
+.nav-inner{max-width:var(--maxw); margin:0 auto; padding:0 24px; height:56px;
+  display:flex; align-items:center; gap:10px}
+.wordmark{display:flex; align-items:center; gap:10px; text-decoration:none; border-bottom:0;
+  font-family:var(--font-mono); font-size:14px; font-weight:600; letter-spacing:-.01em; color:var(--text)}
+.wordmark .tld{color:var(--text-3)}
+.wm-icon{width:22px;height:22px;border-radius:6px;flex:none;object-fit:cover;
+  box-shadow:0 0 10px rgba(40,200,230,.30), inset 0 1px 0 rgba(255,255,255,.15)}
+.nav-right{display:flex; align-items:center; gap:10px; margin-left:auto}
+.nav-back{font-size:13px; font-family:var(--font-mono); color:var(--text-2); border-bottom:0;
+  border:1px solid var(--line-strong); background:#121c34; padding:7px 14px; border-radius:999px;
+  transition:border-color .18s, color .18s; white-space:nowrap}
+.nav-back:hover{border-color:rgba(62,220,245,.55); color:var(--text)}
+@media (max-width:560px){ .nav-back{display:none} }
+
+/* ---------- language switcher ---------- */
+.lang-switch{position:relative}
+.lang-switch summary{list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+  font-family:var(--font-mono); font-size:13px; color:var(--text-2); padding:6px 11px;
+  border:1px solid var(--line-strong); border-radius:999px; transition:color .18s, border-color .18s}
+.lang-switch summary::-webkit-details-marker{display:none}
+.lang-switch summary:hover{color:var(--text); border-color:rgba(62,220,245,.55)}
+.lang-switch[open] summary{color:var(--text); border-color:rgba(62,220,245,.55)}
+.lang-switch .ls-caret{font-size:9px; color:var(--text-3); transform:translateY(1px)}
+.lang-switch ul{position:absolute; right:0; top:calc(100% + 8px); margin:0; padding:6px; list-style:none;
+  background:#0b1730; border:1px solid var(--line-strong); border-radius:12px; min-width:150px;
+  box-shadow:0 18px 40px rgba(0,0,0,.5); z-index:70}
+.lang-switch li{margin:0}
+.lang-switch ul button{display:block; width:100%; text-align:left; font:inherit; font-size:13.5px;
+  color:var(--text-2); background:none; border:0; padding:7px 10px; border-radius:8px; cursor:pointer}
+.lang-switch ul button:hover{color:var(--text); background:rgba(255,255,255,.06)}
+.lang-switch ul button.on{color:var(--cyan-hi)}
+
+/* ---------- page head ---------- */
+main{max-width:var(--maxw); margin:0 auto; padding:68px 24px 40px}
+.kicker{font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--cyan-hi); display:inline-flex; align-items:center; gap:10px}
+.kicker::before{content:""; width:26px; height:1px; background:linear-gradient(90deg,var(--cyan),transparent)}
+h1{font-family:var(--font-display); font-size:clamp(32px,5.4vw,44px); font-weight:700;
+  letter-spacing:-.026em; line-height:1.1; margin:16px 0 12px}
+.lede{color:var(--text-2); font-size:16.5px; max-width:56ch}
+
+/* ---------- newcomer orientation ---------- */
+.intro{margin-top:36px; border:1px solid var(--line); border-radius:16px; background:var(--panel);
+  padding:26px 26px 24px}
+.intro h2{font-family:var(--font-display); font-size:20px; font-weight:650; letter-spacing:-.015em;
+  display:flex; align-items:center; gap:9px}
+.intro h2::before{content:"👋"; font-size:17px}
+.intro p{color:var(--text-2); font-size:15px; margin-top:10px}
+.shot{margin:20px 0 22px; border:1px solid var(--line-strong); border-radius:12px; overflow:hidden;
+  background:#040b1a; line-height:0}
+.shot img{width:100%; height:auto; display:block}
+.gloss{display:grid; gap:11px; border-top:1px solid var(--line); padding-top:18px}
+.gloss dt{font-family:var(--font-mono); font-size:12.5px; color:var(--cyan-hi); letter-spacing:.01em}
+.gloss dd{color:var(--text-2); font-size:14.5px; margin-top:1px}
+.intro-cta{display:inline-flex; align-items:center; gap:8px; margin-top:22px; border-bottom:0;
+  font-family:var(--font-mono); font-size:13px; font-weight:600; color:#02131f;
+  background:linear-gradient(180deg,var(--cyan-hi),var(--cyan)); padding:10px 18px; border-radius:999px;
+  transition:transform .18s, box-shadow .18s}
+.intro-cta:hover{transform:translateY(-1px); box-shadow:0 10px 26px rgba(28,181,218,.28)}
+
+/* ---------- release entries ---------- */
+.rel{padding:44px 0 6px; border-top:1px solid var(--line)}
+.rel:first-of-type{margin-top:52px}
+.rel-meta{display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-bottom:13px}
+.rel-date{font-family:var(--font-mono); font-size:12.5px; color:var(--text-3); letter-spacing:.01em}
+.rel-sep{color:var(--line-strong)}
+.rel-ver{font-family:var(--font-mono); font-size:12.5px; color:var(--text-2)}
+.badge{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.07em; text-transform:uppercase;
+  padding:3px 8px; border-radius:6px; border:1px solid var(--line-strong); color:var(--text-3)}
+.badge.latest{color:#02131f; background:var(--cyan-hi); border-color:transparent; font-weight:600}
+.badge.k-new{color:#63d69f; border-color:rgba(99,214,159,.30); background:rgba(99,214,159,.09)}
+.badge.k-imp{color:#7fb0ff; border-color:rgba(127,176,255,.28); background:rgba(127,176,255,.09)}
+.badge.k-fix{color:#e6b45c; border-color:rgba(230,180,92,.28); background:rgba(230,180,92,.09)}
+.rel h2{font-family:var(--font-display); font-size:clamp(23px,3.4vw,28px); font-weight:680;
+  letter-spacing:-.022em; line-height:1.22}
+.rel-sum{color:var(--text-2); font-size:16px; margin-top:11px; max-width:58ch}
+.rel-list{list-style:none; margin-top:20px; display:flex; flex-direction:column; gap:14px}
+.rel-list li{position:relative; padding-left:20px; color:var(--text-2); font-size:15px; line-height:1.62}
+.rel-list li::before{content:""; position:absolute; left:2px; top:10px; width:5px; height:5px;
+  border-radius:50%; background:rgba(62,220,245,.55)}
+.rel-list strong{color:var(--text); font-weight:600}
+.rel-notes{display:inline-block; margin-top:22px; font-family:var(--font-mono); font-size:12.5px;
+  color:var(--text-3); border-bottom:1px dashed rgba(154,190,255,.25)}
+.rel-notes:hover{color:var(--cyan-hi); border-bottom-color:rgba(62,220,245,.5)}
+
+.older{margin-top:46px; padding-top:26px; border-top:1px solid var(--line);
+  color:var(--text-3); font-size:14.5px}
+
+footer{border-top:1px solid var(--line); margin-top:56px}
+.footer-inner{max-width:var(--maxw); margin:0 auto; padding:28px 24px;
+  display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between;
+  font-family:var(--font-mono); font-size:12px; color:var(--text-3)}
+.footer-inner a{color:inherit; border-bottom:0}
+.footer-inner a:hover{color:var(--text-2)}
+
+@media (max-width:600px){
+  main{padding-top:48px}
+  .intro{padding:22px 20px}
+  .rel{padding-top:36px}
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="wordmark" href="./index.html" aria-label="MaulTeam.app home">
+      <img class="wm-icon" src="./assets/app-icon.png" alt="" aria-hidden="true" width="22" height="22">
+      MaulTeam<span class="tld">.app</span>
+    </a>
+    <div class="nav-right">
+      <details class="lang-switch" id="langSwitch">
+        <summary aria-label="Language">🌐&nbsp;<span id="langCur">EN</span><span class="ls-caret" aria-hidden="true">▾</span></summary>
+        <ul aria-label="Language">
+          <li><button type="button" data-lang="en" lang="en">English</button></li>
+          <li><button type="button" data-lang="ja" lang="ja">日本語</button></li>
+          <li><button type="button" data-lang="fr" lang="fr">Français</button></li>
+          <li><button type="button" data-lang="es" lang="es">Español</button></li>
+          <li><button type="button" data-lang="de" lang="de">Deutsch</button></li>
+          <li><button type="button" data-lang="pt" lang="pt-BR">Português</button></li>
+          <li><button type="button" data-lang="zh-Hans" lang="zh-Hans">简体中文</button></li>
+          <li><button type="button" data-lang="ko" lang="ko">한국어</button></li>
+        </ul>
+      </details>
+      <a class="nav-back" href="./index.html" data-i18n="cl.nav.back">← Back to home</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <p class="kicker" data-i18n="cl.kicker">Releases</p>
+  <h1 data-i18n="cl.title">What's new</h1>
+  <p class="lede" data-i18n="cl.lede">
+    Every release of MaulTeam.app, written so you can follow along even if
+    you have never used it.
+  </p>
+
+  <!-- ============ ORIENTATION ============ -->
+  <section class="intro">
+    <h2 data-i18n="cl.intro.h">First time here?</h2>
+    <p data-i18n="cl.intro.p">
+      Maul Team hands your coding project to a small team of AI agents that work the way a
+      software team does: they plan a round of work, build it, review each other's code, and
+      show you the result. You stay the <strong>Product Owner</strong> — you decide what gets
+      built and whether it is good enough. It runs as a Mac app, or as a single command in
+      your terminal.
+    </p>
+    <div class="shot">
+      <img src="./assets/macapp-hero.png" width="3024" height="1758" loading="lazy"
+           data-i18n-attr="alt:cl.intro.alt"
+           alt="The MaulTeam.app window: a terminal conversation with the Scrum Master on one side, a live Sprint dashboard on the other.">
+    </div>
+    <dl class="gloss">
+      <div>
+        <dt data-i18n="cl.g1.t">Sprint</dt>
+        <dd data-i18n="cl.g1.d">One round of work with a fixed goal. The team plans it, builds it, then shows you what it made.</dd>
+      </div>
+      <div>
+        <dt data-i18n="cl.g2.t">PBI</dt>
+        <dd data-i18n="cl.g2.d">A single item on the to-do list — “add a login screen”, “fix the CSV export”.</dd>
+      </div>
+      <div>
+        <dt data-i18n="cl.g3.t">Scrum Master · Developer</dt>
+        <dd data-i18n="cl.g3.d">The AI roles. One coordinates and keeps the plan on track; the others write the code and review each other's work.</dd>
+      </div>
+      <div>
+        <dt data-i18n="cl.g4.t">The framework</dt>
+        <dd data-i18n="cl.g4.d">The free, open-source engine that runs the team. The Mac app ships with it built in — so app updates also change how the team behaves.</dd>
+      </div>
+    </dl>
+    <a class="intro-cta" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg"
+       data-umami-event="download-dmg" data-umami-event-position="changelog"
+       data-i18n="cl.cta">Download for macOS</a>
+  </section>
+
+  <!-- ============ v2.0.6 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v206.date">July 20, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.6</span>
+      <span class="badge latest" data-i18n="cl.latest">Latest</span>
+      <span class="badge k-new" data-i18n="cl.kind.new">New</span>
+    </div>
+    <h2 data-i18n="cl.v206.h">Reviews that finish the job</h2>
+    <p class="rel-sum" data-i18n="cl.v206.sum">When the team reviews its own code at the end of a Sprint, it now clears out a whole class of problem at once — instead of turning up the same kind of mistake again the following week.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v206.b1"><strong>One report, every occurrence.</strong> If the review finds a mistake in one file, it now searches the rest of the project for the same mistake and lists every place it appears. The task is not finished until all of them are — so the same issue stops coming back Sprint after Sprint.</li>
+      <li data-i18n="cl.v206.b2"><strong>Documentation fixes, bundled.</strong> Small “this comment is out of date” findings used to become dozens of separate to-do items that crowded out real work. They now arrive as one item.</li>
+      <li data-i18n="cl.v206.b3"><strong>This site speaks Portuguese</strong> — eight languages now.</li>
+      <li data-i18n="cl.v206.b4"><strong>License wording</strong> now leaves room for a paid Enterprise plan later on. Nothing changes today: the framework stays free and open source, and the app stays free to use.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.6"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.5 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v205.date">July 19, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.5</span>
+      <span class="badge k-imp" data-i18n="cl.kind.improved">Improved</span>
+    </div>
+    <h2 data-i18n="cl.v205.h">Small fixes to the team's bookkeeping</h2>
+    <p class="rel-sum" data-i18n="cl.v205.sum">Nothing you need to act on — a handful of corrections to how the team tracks its own work, plus documentation that finally matches the new editor.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v205.b1"><strong>Sprint progress adds up.</strong> If you drop an item from a Sprint, the progress counter no longer waits for it forever. The Sprint can reach 100%.</li>
+      <li data-i18n="cl.v205.b2"><strong>Nothing stalls without an explanation.</strong> When the team hits something it cannot decide on its own, it hands the question back to you. One kind of question had no answer options; now it does, and every hand-off records why it happened.</li>
+      <li data-i18n="cl.v205.b3"><strong>Docs and site.</strong> The app's README was rewritten for the new editor, with a fresh screenshot and updated wording in all seven languages.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.5"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.4 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v204.date">July 18, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.4</span>
+      <span class="badge k-new" data-i18n="cl.kind.new">New</span>
+    </div>
+    <h2 data-i18n="cl.v204.h">The app updates itself</h2>
+    <p class="rel-sum" data-i18n="cl.v204.sum">From this release on, MaulTeam.app finds new versions and installs them for you. No more downloading a disk image by hand.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v204.b1"><strong>Automatic updates.</strong> With your permission on first launch, the app checks for updates and installs them on its own, and every download is signature-checked. It delivers <em>future</em> releases, so this one still has to be installed the old way — one last time.</li>
+      <li data-i18n="cl.v204.b2"><strong>A real editor, built in.</strong> The file editor inside the app was rebuilt from scratch, with proper syntax colouring. It now opens in its own window, so you can keep it next to the terminal.</li>
+      <li data-i18n="cl.v204.b3"><strong>View options</strong> for that editor, including indent guides.</li>
+      <li data-i18n="cl.v204.b4"><strong>macOS 14 (Sonoma) or later.</strong> The app has needed this since the previous version — now the site and the README say so.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.4"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.3 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v203.date">July 17, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.3</span>
+      <span class="badge k-fix" data-i18n="cl.kind.fixed">Fixed</span>
+    </div>
+    <h2 data-i18n="cl.v203.h">The update that wasn't arriving</h2>
+    <p class="rel-sum" data-i18n="cl.v203.sum">Some projects kept running an old copy of the team's engine even after you updated the app — silently, with no error message. This release fixes that, and adds checks so it cannot happen quietly again.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v203.b1"><strong>The bug.</strong> If the app was installed in a folder whose name contains a space — which is exactly where macOS puts it by default — part of the update did nothing at all. Everything now installs correctly no matter where the app lives.</li>
+      <li data-i18n="cl.v203.b2"><strong>A safety net.</strong> Every launch now reinstalls the engine files from scratch, brings your project's saved data up to the current format, and records which version it installed — so a mismatch shows up instead of hiding.</li>
+      <li data-i18n="cl.v203.b3"><strong>What to do.</strong> Install this version and reopen your project. The next launch syncs everything.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.3"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.2 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v202.date">July 16, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.2</span>
+      <span class="badge k-imp" data-i18n="cl.kind.improved">Improved</span>
+    </div>
+    <h2 data-i18n="cl.v202.h">Housekeeping</h2>
+    <p class="rel-sum" data-i18n="cl.v202.sum">The same signed and notarized app, with a newer terminal engine underneath and dependency updates now on autopilot.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v202.b1">The terminal you type into inside the app runs on SwiftTerm, now updated to 1.14.0.</li>
+      <li data-i18n="cl.v202.b2">Dependency and security updates now arrive automatically as pull requests.</li>
+      <li data-i18n="cl.v202.b3">Fixed the download counter writing to a branch it was not allowed to touch.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.2"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.1 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v201.date">July 16, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.1</span>
+      <span class="badge k-imp" data-i18n="cl.kind.improved">Improved</span>
+    </div>
+    <h2 data-i18n="cl.v201.h">A friendlier first five minutes</h2>
+    <p class="rel-sum" data-i18n="cl.v201.sum">Update checks, an installer window that shows you what to do, and run modes named after what they actually do.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v201.b1"><strong>Check for Updates…</strong> in the app menu. It compares your version against the latest one and takes you to the download when there is a newer one.</li>
+      <li data-i18n="cl.v201.b2"><strong>A proper installer.</strong> The disk image now opens as the familiar drag-the-app-into-Applications window, instead of a bare list of files.</li>
+      <li data-i18n="cl.v201.b3"><strong>The two run modes got clearer names.</strong> <em>Human-in-the-loop</em> — you review and steer at every step. <em>Loop engineering</em> — you describe the finished product once, and an AI Product Owner keeps the team going without you.</li>
+      <li data-i18n="cl.v201.b4"><strong>Site and docs.</strong> The landing page now renders properly on phones, and the READMEs explain how several agents work in parallel and what code has to pass before it is merged.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.1"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <!-- ============ v2.0.0 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v200.date">July 15, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.0</span>
+      <span class="badge" data-i18n="cl.kind.first">First release</span>
+    </div>
+    <h2 data-i18n="cl.v200.h">Maul Team, now a Mac app</h2>
+    <p class="rel-sum" data-i18n="cl.v200.sum">The first public release of MaulTeam.app — the AI Scrum team in a native Mac window, instead of a terminal you have to set up yourself.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v200.b1"><strong>One window, the whole team.</strong> Talk to the Scrum Master in a built-in terminal on one side. On the other, a dashboard shows how the Sprint is going, what is on the to-do list, and what each agent is doing right now.</li>
+      <li data-i18n="cl.v200.b2"><strong>Opens without warnings.</strong> The download is signed and notarized by Apple, so macOS lets it run straight away.</li>
+      <li data-i18n="cl.v200.b3"><strong>Install it</strong> by downloading the disk image, or with <code>brew install --cask maul-team</code>.</li>
+      <li data-i18n="cl.v200.b4"><strong>You will need</strong> macOS 14 (Sonoma) or later, plus Claude Code, Python 3.9+, <code>tmux</code> and <code>git</code>.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.0"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
+  <p class="older" data-i18n="cl.older">
+    Versions before v2.0.0 came out before the Mac app existed, and covered the framework on
+    its own. They are still on the
+    <a href="https://github.com/sohei56/maul-team/releases" target="_blank" rel="noopener">GitHub releases page</a>.
+  </p>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <span>© 2026 sohei56 · MIT (framework) + Commercial (app)</span>
+    <span><a href="./index.html">MaulTeam.app</a> · <a href="./terms.html" data-i18n="cl.footer.terms">Terms of Use</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
