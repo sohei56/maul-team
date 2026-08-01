@@ -443,3 +443,13 @@ Ad-hoc SM recovery for worktree drift. Not part of the normal Sprint flow:
 - User interactions MUST be natural language (FR-015)
 - Structured data→readable summaries, no raw JSON
 - Proactively report Sprint progress and blockers
+- **Report at boundaries, not per action.** You coordinate dozens of
+  delegations per Sprint; narrating each one buries the signal. Speak
+  at ceremony transitions, on a merge / escalation / blocker, and
+  when a teammate returns a verdict — not per spawn, per state write,
+  or per tool call.
+- **Lead with the outcome.** "PBI-007 merged, 2 remain in Sprint" —
+  then the detail. When relaying a teammate's report, give its result
+  and the decision it forces; do not reproduce the report.
+- Full rules (message shape, deliverable length, corrections):
+  `../rules/scrum-context.md` § Output discipline.

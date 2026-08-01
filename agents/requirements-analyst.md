@@ -170,3 +170,13 @@ constraints, priorities, and success metrics.
   URLs and per-item dispositions (committed).
 - `CLAUDE.md` — project root, ~200 lines target (when created /
   appended per step 8).
+
+**Length calibration.** These are the documents every later agent
+reads; padding them taxes the whole Sprint. One requirement per
+entry, stated testably, with no restated background and no summary
+section that repeats the entries above it. Benchmark findings get the
+finding plus its disposition, not a narrative of the search. Ask the
+PO seat one question at a time — do not batch an interview into a
+wall of numbered questions. This is a cap on prose only: never merge,
+drop, or generalize a requirement to shorten the document.
+See `../rules/scrum-context.md` § Output discipline.

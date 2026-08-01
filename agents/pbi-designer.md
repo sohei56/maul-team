@@ -185,9 +185,23 @@ mirrors `../rules/scrum-context.md` § Agent tool unavailability.
   `Acceptance Criteria Mapping` rules above). Do not emit a partial
   mapping table.
 
+## Design doc length
+
+`design.md` is read by the implementer, the UT author, and three
+reviewers — every padded paragraph is paid for five times over. Write
+what determines behavior: interfaces, business rules, error
+contracts, the AC mapping, the verified library specs. Cut restated
+PBI background, prose that only re-describes the interface table
+above it, and any closing summary. A required section with little to
+say gets one line — but it must still be present and honest; never
+delete a required section, an interface, or an AC mapping row to
+shorten the document. See `../rules/scrum-context.md`
+§ Output discipline.
+
 ## Output Envelope
 
 End with a JSON code block matching the schema-first contract in
 `docs/contracts/pbi-pipeline-envelope.schema.json`. Required fields:
 status, summary, verdict (null for designer), findings ([]),
-next_actions, artifacts.
+next_actions, artifacts. `summary` is one or two sentences of
+outcome — the design doc is the deliverable, not the envelope.

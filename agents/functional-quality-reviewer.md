@@ -143,6 +143,14 @@ If there are no findings, write "No findings."
 conductor derives each finding's signature for stagnation/divergence
 dedup — see the shared-contract pointer above.)
 
+**Findings are not subject to brevity.** The `[2-3 sentences]` cap
+governs prose only. Report every finding you actually found, at its
+true severity — never merge, omit, or downgrade one to shorten the
+review, and never soften the Verdict to close the Round faster. Each
+`[Description]` is one or two sentences (what is wrong, why it
+matters), not a re-narration of the code. See
+`../rules/scrum-context.md` § Output discipline.
+
 ## Strict Rules
 
 - Read-only. DO NOT modify project files. The single exception is the

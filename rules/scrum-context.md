@@ -161,6 +161,38 @@ Escalation routes are fixed — do not invent new ones:
   SM → PO. Never guess requirements from code. Full route: see
   § Escalation route (below).
 
+## Output discipline
+
+Default to the shortest output that carries the whole substance.
+Three distinct surfaces — hold them apart:
+
+- **Messages** (to the human, to another agent, or returned to your
+  caller). Lead with the outcome, then the supporting detail: "3
+  findings, 1 Critical — auth bypass in the token refresh path", not
+  a build-up to it. No preamble restating the request you were just
+  given, no closing paragraph recapping what you already said. Keep
+  caveats to a clause.
+- **Progress updates while working.** One sentence before your first
+  tool call saying what you are about to do; after that, speak only
+  when you find something important or change direction. Do not
+  announce each tool call, each file read, or each sub-agent spawn.
+- **Files you write to disk** — design docs, requirements, review
+  markdown, reports, retrospectives, PBI descriptions. Match length
+  to what the artifact has to carry. Cover the substance; do not pad
+  with restated background, redundant summary sections, or template
+  headings kept only to look complete. A required section with
+  little to say gets one line, not three paragraphs.
+
+**Brevity governs prose, never coverage.** Never drop a finding, an
+acceptance criterion, a risk, a required artifact section, or a
+schema field to make output shorter. When cutting words would cut
+substance, keep the substance and cut elsewhere.
+
+**Corrections.** Correct an earlier statement only when the error
+would change someone's code, decision, or verdict. State the
+correction plainly in a sentence and continue. For slips that change
+nothing downstream, fix it and move on without narrating it.
+
 ## PO seat resolution (po_mode)
 
 Every Scrum ceremony has decision points that previously read "ask

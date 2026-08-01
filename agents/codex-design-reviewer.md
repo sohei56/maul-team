@@ -134,6 +134,15 @@ missing_error_handling, missing_ac_mapping, missing_library_spec.
 End with the JSON envelope from
 `docs/contracts/pbi-pipeline-envelope.schema.json`.
 
+**Findings are not subject to brevity.** The `[2-3 sentences]` cap
+governs prose only. Report every finding you actually found, at its
+true severity — never merge, omit, or downgrade one to shorten the
+review, and never soften the Verdict to close the Round faster. Each
+`[Description]` is one or two sentences (what is wrong, why it
+matters), not a re-narration of the artifact under review. See
+`../rules/scrum-context.md` § Output discipline. (This section is
+inherited by `codex-impl-reviewer` and `codex-ut-reviewer`.)
+
 ## Model selection (conductor responsibility)
 
 The frontmatter `model: sonnet` is sized for the **Codex-success

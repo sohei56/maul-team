@@ -100,6 +100,31 @@ sh /path/to/maul-team/scrum-start.sh
 - **JSON**: 2-space indent
 - **Commits**: Conventional Commits format (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`)
 
+## Output discipline
+
+Applies to work **on this repository**. The same rules for the Scrum
+team this framework spawns are canonical in
+[`rules/scrum-context.md`](rules/scrum-context.md) § Output discipline,
+which is deployed to every agent — keep the two in sync rather than
+re-stating one inside the other.
+
+- **Responses.** Lead with the outcome, then detail. No preamble
+  restating the request, no closing recap of what was just said.
+  Keep caveats to a clause. When asked to explain, give the
+  high-level answer unless depth was specifically requested.
+- **Progress narration.** One sentence before the first tool call;
+  after that, speak only on an important finding or a change of
+  direction. Do not announce each tool call or each file read.
+- **Docs and Markdown authored here** (`docs/**`, `agents/*.md`,
+  `skills/**/SKILL.md`, `rules/*.md`, `README*`). This repo's
+  instruction surface is loaded into every agent's context, so length
+  is a running cost, not a one-off. Prefer a pointer to the canonical
+  section over a restatement of it; a fact belongs in exactly one
+  file. Cover the substance without filler sections, redundant
+  summaries, or headings kept only to look complete.
+- **Brevity governs prose, never coverage.** Never drop a finding, a
+  test case, an edge case, or a required section to be shorter.
+
 ## Key Conventions
 
 - Scrum Master agent operates in **Delegate mode** — coordinates only, never writes code
@@ -274,6 +299,11 @@ they protect downstream target projects, not this repo. The one
 exception is `pre-tool-use-scrum-state-guard.sh`, which **is**
 registered in the framework's own `.claude/settings.json` because
 this repo also writes to `.scrum/` during integration tests.
+
+<tone_preference>
+Keep responses and authored docs reasonably concise (§ Output
+discipline). Substance over length; never trade coverage for brevity.
+</tone_preference>
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

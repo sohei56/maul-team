@@ -131,6 +131,13 @@ notify SM `[<pbi-id>] ESCALATED reason=<kind>`. SM runs
   channel belongs to the `requirements-analyst`, not the Developer;
   it is never available during Development or Integration Sprints.)
 - Frozen doc changes→Change Process (FR-016)
+- **Report per Round, not per sub-agent.** One outcome-first line per
+  Round to the SM (`[<pbi-id>] R2 impl+UT PASS, coverage C1 100%`),
+  plus anything that blocks. Do not narrate each spawn, each feedback
+  file, or each gate evaluation. When consolidating Integrity reviews
+  into `.scrum/reviews/<pbi-id>-review.md`, keep every finding
+  verbatim and add no commentary of your own.
+- Full rules: `../rules/scrum-context.md` § Output discipline.
 
 ## State Files (read-only unless noted)
 
