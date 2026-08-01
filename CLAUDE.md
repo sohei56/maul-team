@@ -34,8 +34,9 @@ skills/                  # 19 Skills (Scrum ceremonies + pipeline/merge/orchestr
   sprint-review/         # Sprint review ceremony
 .claude/skills/          # Dev-only skills for THIS repo (not deployed to target projects)
   cleanup-audit/         # 8-axis multi-agent repo hygiene audit (read-only)
-hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, stop-dispatch single-entry → dashboard + completion-gate, quality + stop-failure gates, session context, autonomy lib)
-  stop-dispatch.sh       # Single Stop entry: forwards payload to dashboard-event then completion-gate (replaces the 2-hook Stop registration)
+hooks/                   # Claude Code hooks (status/path/scrum-state/branch-ops guards, stop-dispatch single-entry → dashboard + attention + completion-gate, quality + stop-failure gates, session context, autonomy lib)
+  stop-dispatch.sh       # Single Stop entry: forwards payload to dashboard-event + notification-attention (best-effort) then completion-gate
+  notification-attention.sh # Notification/Stop/UserPromptSubmit → .scrum/attention.json ("waiting for the human" flag polled by an external UI)
   completion-gate.sh     # Stop gate; mode-dependent block policy (see docs/contracts/agent-interfaces.md § Stop Hook)
   lib/                   # Shared hook helpers (validate, dashboard, autonomy, stop-gate-state)
 rules/                   # Cross-cutting context auto-loaded by every Scrum agent (deployed by setup-user.sh to .claude/rules/)
@@ -59,7 +60,7 @@ docs/                    # Project documentation (requirements, architecture, da
 docs/design/             # Design document governance
   catalog.md             # Immutable document type reference (read-only)
   catalog-config.json    # Editable list of enabled spec IDs
-.scrum/                  # Runtime state (JSON, gitignored). Core: state.json, sprint.json, backlog.json, dashboard.json, communications.json, pbi/, plus runtime.json (tmux session + sm_pane_id + stall_watchdog_pid) and stop-gate.json (Stop-block dedup ledger, human mode). Autonomous mode also adds autonomy.json + po/{decisions.json,acceptance/,attention.md} + reports/.
+.scrum/                  # Runtime state (JSON, gitignored). Core: state.json, sprint.json, backlog.json, dashboard.json, communications.json, pbi/, plus runtime.json (tmux session + sm_pane_id + stall_watchdog_pid), stop-gate.json (Stop-block dedup ledger, human mode), and attention.json + attention-context.json (human-attention flag for an external UI). Autonomous mode also adds autonomy.json + po/{decisions.json,acceptance/,attention.md} + reports/.
 ```
 
 ## Technologies
@@ -225,7 +226,11 @@ are written **without** a `.scrum/scripts/*.sh` wrapper because
 they are hot-path bookkeeping rather than agent state — for
 example, `.scrum/stop-gate.json`, the Stop-hook dedup ledger
 written by `hooks/lib/stop-gate-state.sh` (human mode only; schema
-`stop-gate.schema.json`), `.scrum/runtime.json`, which records
+`stop-gate.schema.json`), `.scrum/attention.json` (+ its
+`attention-context.json` sidecar), the "Claude is waiting for the
+human" flag written by `hooks/notification-attention.sh` on
+Notification / Stop / UserPromptSubmit for an external UI to poll,
+`.scrum/runtime.json`, which records
 the tmux session, the SM pane id, and the stall-watchdog PID
 written by `scrum-start.sh` (consumed by
 `scripts/stall-watchdog.sh`), and `.scrum/deploy-stamp.json`,

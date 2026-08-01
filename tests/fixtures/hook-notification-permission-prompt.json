@@ -1,0 +1,9 @@
+{
+  "session_id": "6cc62b08-53ff-498c-a915-46405ed2b53f",
+  "transcript_path": "/tmp/example-project/.claude/transcript.jsonl",
+  "cwd": "/tmp/example-project",
+  "prompt_id": "22c2b7cd-eb83-4093-a6d1-12acbaf843e4",
+  "hook_event_name": "Notification",
+  "message": "Claude needs your permission",
+  "notification_type": "permission_prompt"
+}

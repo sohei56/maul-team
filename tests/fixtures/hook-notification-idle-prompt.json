@@ -1,0 +1,9 @@
+{
+  "session_id": "6cc62b08-53ff-498c-a915-46405ed2b53f",
+  "transcript_path": "/tmp/example-project/.claude/transcript.jsonl",
+  "cwd": "/tmp/example-project",
+  "prompt_id": "4daa18b7-128c-4d44-84ff-c910f21803f8",
+  "hook_event_name": "Notification",
+  "message": "Claude is waiting for your input",
+  "notification_type": "idle_prompt"
+}

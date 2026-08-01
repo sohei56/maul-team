@@ -9,14 +9,22 @@
 import SwiftUI
 import AppKit
 import Sparkle
+import UserNotifications
 
 /// Ensures the app behaves as a normal foreground app (Dock icon, menu bar,
 /// front window) even when launched as a bare SPM binary rather than a signed
 /// .app bundle.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
+                         UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+
+        // Start watching every open project's .scrum/attention.json. The
+        // delegate must be set before the first banner is posted; both calls
+        // no-op in an unbundled process, where there is no notification center.
+        AttentionMonitor.notificationCenter()?.delegate = self
+        AttentionMonitor.shared.start()
 
         // Become the main window's delegate so the red close button is confirmed
         // BEFORE the window closes — otherwise the window vanishes first and a
@@ -91,6 +99,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         return false
     }
+
+    // MARK: - Attention banners
+
+    /// Banner even when the app is frontmost: AttentionMonitor already skips
+    /// posting for the tab the user is looking at, so anything arriving here is
+    /// about a project they are not watching.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter, willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+
+    /// Clicking a banner brings the app forward and switches to that project.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    ) async {
+        let info = response.notification.request.content.userInfo
+        guard let path = info[AttentionMonitor.projectPathKey] as? String else { return }
+        await AttentionMonitor.shared.reveal(projectPath: path)
+    }
 }
 
 @main
@@ -98,6 +126,7 @@ struct MaulTeamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var state = AppState()
     @StateObject private var sessions = SessionStore.shared
+    @StateObject private var attention = AttentionMonitor.shared
 
     // Sparkle's updater controller. The documented SwiftUI pattern is a plain
     // `let` on the App struct: `startingUpdater: true` kicks off scheduled
@@ -125,8 +154,13 @@ struct MaulTeamApp: App {
             }
             .environmentObject(state)
             .environmentObject(sessions)
+            .environmentObject(attention)
             .textSelection(.enabled)   // make labels selectable/copyable app-wide
             .frame(minWidth: 1100, minHeight: 700)
+            // The monitor needs the workspace state to know which tab is on
+            // screen (banner suppression) and to switch tabs from a banner
+            // click; AppState is a @StateObject here, not a singleton.
+            .onAppear { attention.appState = state }
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)

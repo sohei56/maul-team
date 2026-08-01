@@ -149,8 +149,8 @@ For deeper detail, follow these pointers:
   `pre-tool-use-*`): enforce Sprint workflow at the Claude Code
   tool layer — see [docs/architecture.md](architecture.md) R7. The
   Stop event is registered once via `stop-dispatch.sh`, which
-  forwards to `dashboard-event.sh` (best-effort) and then
-  `completion-gate.sh` (gate verdict).
+  forwards to `dashboard-event.sh` and `notification-attention.sh`
+  (both best-effort) and then `completion-gate.sh` (gate verdict).
 - **State files** in `.scrum/` (one JSON file per concern): schemas in
   [docs/data-model.md](data-model.md); writes go through
   `.scrum/scripts/*.sh` wrappers.

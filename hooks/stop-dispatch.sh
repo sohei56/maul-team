@@ -4,8 +4,11 @@
 # Replaces the previous two-entry Stop registration (completion-gate.sh +
 # dashboard-event.sh) with one dispatcher that:
 #   1. forwards the Stop payload to dashboard-event.sh (best-effort —
-#      dashboard logging must never block session exit), and
-#   2. forwards the same payload to completion-gate.sh and propagates its
+#      dashboard logging must never block session exit),
+#   2. forwards it to notification-attention.sh (best-effort — it records the
+#      turn's last_assistant_message so a following idle_prompt Notification
+#      can name what Claude is waiting on), and
+#   3. forwards the same payload to completion-gate.sh and propagates its
 #      exit code (0 allow, 2 block).
 #
 # Why a dispatcher: Claude Code prints each registered Stop hook in the
@@ -20,6 +23,7 @@ set -uo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 DASHBOARD_HOOK="$HOOK_DIR/dashboard-event.sh"
+ATTENTION_HOOK="$HOOK_DIR/notification-attention.sh"
 COMPLETION_HOOK="$HOOK_DIR/completion-gate.sh"
 
 # Read stdin once — only if something is actually piped in. Without the
@@ -54,7 +58,13 @@ if [ -f "$DASHBOARD_HOOK" ]; then
   run_child "$DASHBOARD_HOOK" >/dev/null 2>&1 || true
 fi
 
-# 2) Completion gate — propagate its exit code verbatim. `set -e` is
+# 2) Attention context (best-effort, same reasoning as the dashboard append:
+# status discarded, and it must run before the gate's possible `exit 2`).
+if [ -f "$ATTENTION_HOOK" ]; then
+  run_child "$ATTENTION_HOOK" >/dev/null 2>&1 || true
+fi
+
+# 3) Completion gate — propagate its exit code verbatim. `set -e` is
 # intentionally OFF (we use `set -uo pipefail` above) because we want to
 # capture the gate's non-zero exit without aborting the dispatcher first.
 if [ -f "$COMPLETION_HOOK" ]; then

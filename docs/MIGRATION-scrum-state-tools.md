@@ -172,7 +172,8 @@ Four mechanisms, no version bookkeeping:
    and **hard-fails the launch** (exit 65 for validation, listing
    every offender) instead of letting the team run on drifted state.
    Wrapper-written SSOT files block; hook-owned hot-path files
-   (`communications` / `dashboard` / `autonomy` / `stop-gate`) only
+   (`communications` / `dashboard` / `autonomy` / `stop-gate` /
+   `attention` + `attention-context`) only
    WARN, because their writers deliberately skip per-append
    re-validation (see `docs/contracts/scrum-state/README.md`) and a
    telemetry glitch must not brick a launch. `--check` runs the

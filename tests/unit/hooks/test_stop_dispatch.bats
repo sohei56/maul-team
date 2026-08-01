@@ -4,9 +4,9 @@
 # Verifies the unified Stop dispatcher at hooks/stop-dispatch.sh.
 #
 # Contract under test:
-#   * dashboard-event.sh receives the Stop payload (best-effort) BEFORE
-#     completion-gate.sh is consulted, so the Stop is recorded even when
-#     the gate decides to block (exit 2).
+#   * dashboard-event.sh and notification-attention.sh receive the Stop
+#     payload (best-effort) BEFORE completion-gate.sh is consulted, so both
+#     record the Stop even when the gate decides to block (exit 2).
 #   * completion-gate.sh's exit code is propagated verbatim.
 #   * Empty stdin must not crash the dispatcher.
 #   * The dispatcher must NOT modify the payload between the two children.
@@ -30,7 +30,7 @@ teardown() {
 # observe it landed in the dashboard's event log.
 stop_payload() {
   local sid="${1:-sess-x}"
-  printf '{"hook_event_name":"Stop","session_id":"%s","reason":"completed"}' "$sid"
+  printf '{"hook_event_name":"Stop","session_id":"%s","reason":"completed","prompt_id":"p-1","last_assistant_message":"done"}' "$sid"
 }
 
 # -----------------------------------------------------------------
@@ -84,6 +84,30 @@ stop_payload() {
 # (d) Payload propagation: agent_id from Stop payload must land in the
 #     dashboard event entry (proves the dispatcher forwarded stdin).
 # -----------------------------------------------------------------
+
+# -----------------------------------------------------------------
+# (e) The attention hook is fed too — and, like the dashboard append,
+#     before the gate's possible exit 2.
+# -----------------------------------------------------------------
+
+@test "stop-dispatch: Stop payload reaches notification-attention.sh" {
+  run bash -c "printf '%s' '$(stop_payload sess-d)' | bash $DISPATCHER"
+  [ "$status" -eq 0 ]
+
+  [ -f .scrum/attention-context.json ]
+  run jq -r '.last_assistant_message' .scrum/attention-context.json
+  [ "$output" = "done" ]
+}
+
+@test "stop-dispatch: gate-blocked Stop still records attention context" {
+  jq '.phase = "review"' "$FIXTURES/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_design"' "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+
+  run bash -c "printf '%s' '$(stop_payload sess-e)' | bash $DISPATCHER"
+  [ "$status" -eq 2 ]
+  [ -f .scrum/attention-context.json ]
+}
 
 @test "stop-dispatch: payload session_id is forwarded to dashboard-event.sh" {
   run bash -c "printf '%s' '$(stop_payload sess-c-1234)' | bash $DISPATCHER"

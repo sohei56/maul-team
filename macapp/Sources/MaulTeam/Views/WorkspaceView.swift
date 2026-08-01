@@ -20,6 +20,7 @@ import SwiftUI
 struct WorkspaceView: View {
     @EnvironmentObject var state: AppState
     @EnvironmentObject var sessions: SessionStore
+    @EnvironmentObject var attention: AttentionMonitor
     let project: Project
 
     @State private var stopCandidate: Project?
@@ -153,6 +154,9 @@ struct WorkspaceView: View {
                                 project: tab,
                                 isActive: tab.id == project.id,
                                 isRunning: sessions.isRunning(tab.id),
+                                // Shown on the active tab too — the prompt is
+                                // still unanswered even while it is in view.
+                                hasAttention: attention.pending[tab.id] != nil,
                                 select: { if tab.id != project.id { state.open(tab) } },
                                 close: { stopCandidate = tab })
                         }
@@ -208,6 +212,7 @@ private struct ProjectTab: View {
     let project: Project
     let isActive: Bool
     let isRunning: Bool
+    let hasAttention: Bool
     let select: () -> Void
     let close: () -> Void
 
@@ -226,10 +231,20 @@ private struct ProjectTab: View {
                 .font(.subheadline.weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 .lineLimit(1)
-            Circle()
-                .fill(isRunning ? Color.green : Color.secondary)
-                .frame(width: 6, height: 6)
-                .help(isRunning ? "Running" : "Session stopped")
+            // A waiting prompt takes the run lamp's slot — it is the more
+            // urgent fact about the session, and the lamp returns once the
+            // prompt clears.
+            if hasAttention {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+                    .help("Waiting for your input")
+            } else {
+                Circle()
+                    .fill(isRunning ? Color.green : Color.secondary)
+                    .frame(width: 6, height: 6)
+                    .help(isRunning ? "Running" : "Session stopped")
+            }
             Button(action: close) {
                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
             }

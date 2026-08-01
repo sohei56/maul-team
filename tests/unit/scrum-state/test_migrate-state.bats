@@ -157,6 +157,40 @@ _seed_kindless_backlog() {
   [[ "$output" == *"ok:"* ]]
 }
 
+# The attention files are written by a hook only when the harness notifies —
+# an existing target that never notified has neither. Absence must stay a
+# clean pass (missing files are skipped), and a malformed one must WARN
+# rather than brick the launch, exactly like the other hook-owned files.
+@test "migrate-state: absent attention files are not a launch failure" {
+  _seed_valid_state
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"attention"* ]]
+}
+
+@test "migrate-state: valid attention files pass validation" {
+  _seed_valid_state
+  printf '{"pending":true,"type":"idle_prompt","message":"waiting","updated_at":"2026-08-01T00:00:00Z"}' \
+    > .scrum/attention.json
+  printf '{"prompt_id":"p-1","last_assistant_message":"done","recorded_at":"2026-08-01T00:00:00Z"}' \
+    > .scrum/attention-context.json
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 0 ]
+  # Migration 001 prints its own "WARNING:" banner, so match the validation
+  # WARN line specifically.
+  [[ "$output" != *"migrate-state] WARN"* ]]
+  [[ "$output" != *"attention"* ]]
+}
+
+@test "migrate-state: malformed attention.json only WARNs" {
+  _seed_valid_state
+  echo '{"pending": "yes"}' > .scrum/attention.json
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"WARN"*".scrum/attention.json"* ]]
+  [[ "$output" == *"ok:"* ]]
+}
+
 @test "migrate-state: --check validates without running migrations" {
   _seed_valid_state
   _seed_kindless_backlog

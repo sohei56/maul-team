@@ -406,6 +406,26 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       }
     ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/notification-attention.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/notification-attention.sh"
+          }
+        ]
+      }
+    ],
     "TaskCompleted": [
       {
         "hooks": [

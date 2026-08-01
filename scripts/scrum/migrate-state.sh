@@ -27,9 +27,10 @@
 #
 # Validation policy: wrapper-written SSOT files must match their schema
 # (blocking). Hook-owned hot-path files (communications/dashboard/autonomy/
-# stop-gate) are validated but only WARN — their writers deliberately skip
-# per-append re-validation (docs/contracts/scrum-state/README.md), and a
-# telemetry glitch must not brick a launch.
+# stop-gate/attention) are validated but only WARN — their writers
+# deliberately skip per-append re-validation
+# (docs/contracts/scrum-state/README.md), and a telemetry glitch must not
+# brick a launch.
 #
 # Exit codes: 0 ok/nothing-to-do; 64 usage; 65 validation failure;
 # a failing migration's own exit code otherwise. Requires bash (the sourced
@@ -97,7 +98,9 @@ STRICT_MAP=".scrum/state.json state.schema.json
 WARN_MAP=".scrum/communications.json communications.schema.json
 .scrum/dashboard.json dashboard.schema.json
 .scrum/autonomy.json autonomy.schema.json
-.scrum/stop-gate.json stop-gate.schema.json"
+.scrum/stop-gate.json stop-gate.schema.json
+.scrum/attention.json attention.schema.json
+.scrum/attention-context.json attention-context.schema.json"
 
 # _check_one <json_path> <schema_basename>
 # Prints "<file>: <validator error>" and returns 1 on violation; silent 0 on
