@@ -124,15 +124,32 @@ while read -r f s; do
   fi
 done <<< "$STRICT_MAP"
 
+# Per-PBI state files share one schema, so they are validated in a single
+# validator invocation. A per-file loop here costs one npx/python process per
+# PBI — a project carrying hundreds of PBIs across dozens of Sprints would pay
+# minutes of launch time on every start, and the cost grows with total PBIs
+# ever created (nothing prunes .scrum/pbi/). The batch only answers "all valid
+# or not", so a failing batch falls back to the per-file loop to name the
+# offenders — the slow path runs only when the launch is going to be blocked
+# anyway.
+PBI_FILES=()
 for p in .scrum/pbi/*/state.json; do
   [ -e "$p" ] || continue
-  line=""
-  if ! line="$(_check_one "$p" "pbi-state.schema.json")"; then
-    FAILED="${FAILED}${line}
-"
-    N_BAD=$((N_BAD + 1))
-  fi
+  PBI_FILES+=("$p")
 done
+
+if [ "${#PBI_FILES[@]}" -gt 0 ] && \
+   ! _validate_batch_against_schema \
+       "$SCHEMA_DIR/pbi-state.schema.json" "${PBI_FILES[@]}" 2>/dev/null; then
+  for p in "${PBI_FILES[@]}"; do
+    line=""
+    if ! line="$(_check_one "$p" "pbi-state.schema.json")"; then
+      FAILED="${FAILED}${line}
+"
+      N_BAD=$((N_BAD + 1))
+    fi
+  done
+fi
 
 while read -r f s; do
   [ -n "$f" ] || continue

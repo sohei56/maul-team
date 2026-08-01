@@ -177,6 +177,16 @@ Four mechanisms, no version bookkeeping:
    re-validation (see `docs/contracts/scrum-state/README.md`) and a
    telemetry glitch must not brick a launch. `--check` runs the
    validation phase alone.
+   Per-PBI files (`.scrum/pbi/*/state.json`) share one schema and are
+   checked in a **single** validator invocation
+   (`lib/atomic.sh::_validate_batch_against_schema`). Every runner
+   costs hundreds of milliseconds of process startup, and nothing
+   prunes `.scrum/pbi/`, so a per-file loop made launch time grow
+   linearly with every PBI the project has *ever* created — minutes of
+   waiting on a long-running backlog. The batch reports only
+   all-valid-or-not; on failure the gate falls back to the per-file
+   loop so each offender is still named, and that slow path only runs
+   when the launch is going to be blocked anyway.
 4. **Clean-slate wrapper deploy + stamp.** `setup-user.sh` deletes
    deployed `.scrum/scripts/**/*.sh` before copying (the directory is
    framework-owned), so renamed/removed wrappers cannot linger, and

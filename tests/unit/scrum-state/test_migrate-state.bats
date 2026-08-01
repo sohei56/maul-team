@@ -31,6 +31,19 @@ _seed_valid_state() {
   cp "$PROJECT_ROOT/tests/fixtures/valid-sprint.json" .scrum/sprint.json
 }
 
+# _seed_pbi_states <n> — n valid .scrum/pbi/pbi-00X/state.json files, each
+# carrying its own id so a failure message is traceable to one directory.
+_seed_pbi_states() {
+  local n="$1" i id
+  for i in $(seq 1 "$n"); do
+    id="$(printf 'pbi-%03d' "$i")"
+    mkdir -p ".scrum/pbi/$id"
+    jq --arg id "$id" '.pbi_id = $id | .branch = "pbi/" + $id' \
+      "$PROJECT_ROOT/tests/fixtures/valid-pbi-state-docs-skipped.json" \
+      > ".scrum/pbi/$id/state.json"
+  done
+}
+
 # Backlog whose items lack `kind` — schema-valid (kind is optional) but
 # pre-002 shape, so the 002 migration has real work to do.
 _seed_kindless_backlog() {
@@ -112,6 +125,27 @@ _seed_kindless_backlog() {
   run bash .scrum/scripts/migrate-state.sh
   [ "$status" -eq 65 ]
   [[ "$output" == *".scrum/pbi/pbi-001/state.json"* ]]
+}
+
+# Per-PBI files are validated as one batch; these two pin the batch's PASS
+# path and its per-file attribution fallback.
+@test "migrate-state: a whole set of valid pbi state files passes" {
+  _seed_valid_state
+  _seed_pbi_states 5
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok:"* ]]
+}
+
+@test "migrate-state: batch failure still names only the offending pbi file" {
+  _seed_valid_state
+  _seed_pbi_states 5
+  echo '{"bogus": 1}' > .scrum/pbi/pbi-003/state.json
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 65 ]
+  [[ "$output" == *".scrum/pbi/pbi-003/state.json"* ]]
+  [[ "$output" != *".scrum/pbi/pbi-001/state.json"* ]]
+  [[ "$output" == *"1 state file(s)"* ]]
 }
 
 @test "migrate-state: hook-owned hot-path file only WARNs, launch not blocked" {

@@ -157,6 +157,19 @@ _acquire_lock() {
   done
 }
 
+# _scrum_validator_runner
+# Echo the resolved validator key, probing check-validator.sh at most once per
+# shell. Memoized because the probe is a subprocess and validation runs in
+# loops (migrate-state.sh checks every .scrum/pbi/*/state.json at launch); the
+# answer cannot change mid-run. A failed probe is not cached, so its stderr
+# reaches every caller that captures it.
+_scrum_validator_runner() {
+  if [ -z "${_SCRUM_VALIDATOR_RUNNER:-}" ]; then
+    _SCRUM_VALIDATOR_RUNNER="$("$_SCRUM_ATOMIC_DIR/check-validator.sh")" || return 1
+  fi
+  printf '%s\n' "$_SCRUM_VALIDATOR_RUNNER"
+}
+
 # _validate_against_schema <json_path> <schema_path>
 # Returns 0 on valid, non-zero on invalid. Validator stderr is left intact so
 # callers can capture it via `err="$(_validate_against_schema ... 2>&1)"`;
@@ -164,7 +177,7 @@ _acquire_lock() {
 _validate_against_schema() {
   local json="$1" schema="$2"
   local runner
-  runner="$("$_SCRUM_ATOMIC_DIR/check-validator.sh")" || return 1
+  runner="$(_scrum_validator_runner)" || return 1
   case "$runner" in
     ajv)
       # --strict=false: tolerate unknown formats (e.g. "date-time") and unconstrained
@@ -189,6 +202,62 @@ except jsonschema.ValidationError as exc:
     print(f'validation error: {exc.message}', file=sys.stderr)
     sys.exit(1)
 "
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# _validate_batch_against_schema <schema_path> <json_path>...
+# Validate MANY files against ONE schema in a SINGLE validator invocation.
+# Returns 0 only when every file is valid, non-zero if any file is invalid (or
+# if no validator is available). No files is a clean 0.
+#
+# Why: every runner pays hundreds of milliseconds of process startup (npx
+# resolution, python import), so a per-file loop costs O(files) × that —
+# minutes of launch time on a project with hundreds of PBIs.
+#
+# Deliberately does NOT attribute a failure to a file: runners disagree on
+# whether their error output names the instance (jsonschema-cli prints the
+# document, not the path). Callers that need per-file messages re-run
+# _validate_against_schema over the group on failure — the slow path is only
+# taken when something is actually broken.
+_validate_batch_against_schema() {
+  local schema="$1"; shift
+  [ "$#" -gt 0 ] || return 0
+  local runner
+  runner="$(_scrum_validator_runner)" || return 1
+  local args=() f
+  case "$runner" in
+    ajv)
+      # See _validate_against_schema for --strict=false. ajv-cli validates
+      # every -d and exits non-zero if any one of them is invalid.
+      for f in "$@"; do args+=(-d "$f"); done
+      npx --yes ajv-cli validate --strict=false -s "$schema" "${args[@]}" >/dev/null
+      ;;
+    check-jsonschema)
+      check-jsonschema --schemafile "$schema" "$@" >/dev/null
+      ;;
+    jsonschema-cli)
+      for f in "$@"; do args+=(--instance "$f"); done
+      jsonschema "${args[@]}" "$schema" >/dev/null
+      ;;
+    python)
+      # Compile the schema once, then reuse the validator for every instance.
+      SCRUM_BATCH_SCHEMA="$schema" python3 -c '
+import json, os, sys, jsonschema
+schema = json.load(open(os.environ["SCRUM_BATCH_SCHEMA"]))
+validator = jsonschema.validators.validator_for(schema)(schema)
+rc = 0
+for path in sys.argv[1:]:
+    try:
+        validator.validate(json.load(open(path)))
+    except jsonschema.ValidationError as exc:
+        print(f"{path}: validation error: {exc.message}", file=sys.stderr)
+        rc = 1
+sys.exit(rc)
+' "$@"
       ;;
     *)
       return 1
