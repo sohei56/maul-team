@@ -16,10 +16,18 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Main
 # ---------------------------------------------------------------------------
 
-hook_event="$(cat)"
+hook_event="$(read_hook_payload)"
+[ -n "$hook_event" ] || exit 0
 
-reason="$(echo "$hook_event" | jq -r '.reason // "unknown"')"
-agent_id="$(echo "$hook_event" | jq -r '.agent_id // .session_id // "unknown"')"
+reason="$(payload_get "$hook_event" '.reason')"
+[ -n "$reason" ] || reason="unknown"
+raw_agent_id="$(payload_get "$hook_event" '.agent_id // .session_id')"
+[ -n "$raw_agent_id" ] || raw_agent_id="unknown"
+# Normalize exactly as dashboard-event.sh does (shorten, then session-map
+# lookup). Emitting the raw session UUID here would colour this row by a
+# different crc32 than the same teammate's other rows (dashboard/app.py
+# ::_agent_color), leaving the failure unattributable.
+agent_id="$(resolve_agent_name "$(shorten_id "$raw_agent_id")")"
 timestamp="$(get_timestamp)"
 
 log_hook "stop-failure" "ERROR" "Session failed: $reason (agent: $agent_id)"

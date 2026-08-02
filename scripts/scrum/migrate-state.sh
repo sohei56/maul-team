@@ -27,7 +27,7 @@
 #
 # Validation policy: wrapper-written SSOT files must match their schema
 # (blocking). Hook-owned hot-path files (communications/dashboard/autonomy/
-# stop-gate/attention) are validated but only WARN — their writers
+# stop-gate/attention/attention-context) are validated but only WARN — their writers
 # deliberately skip per-append re-validation
 # (docs/contracts/scrum-state/README.md), and a telemetry glitch must not
 # brick a launch.

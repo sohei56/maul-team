@@ -14,7 +14,6 @@
 # for the initial file.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -26,7 +25,7 @@ assert_pbi_id "$PBI"
 
 PBI_DIR=".scrum/pbi/$PBI"
 PATHF="$PBI_DIR/state.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
+SCHEMA="$(resolve_schema_dir)/pbi-state.schema.json"
 
 mkdir -p "$PBI_DIR"/{design,impl,ut,metrics,feedback}
 

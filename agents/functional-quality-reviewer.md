@@ -102,7 +102,7 @@ state_invariant, base_interface, data_integrity.
 own Findings list and provisional Verdict (the ordering is the
 independence guarantee), obtain an independent cross-model second
 opinion from the Codex CLI: from the PBI worktree,
-`source scripts/lib/codex-invoke.sh` then
+`source .scrum/scripts/lib/codex-invoke.sh` then
 `codex_review_or_fallback "$instr" "$out"` (write `$instr` only under
 `"${TMPDIR:-/tmp}"` — the sole file you may create). On unavailability
 / timeout, degrade to Claude-only and end Summary with `Codex second
@@ -119,7 +119,11 @@ Codex neither overrides your severities nor vetoes your findings.
 ## Output Format
 
 Return your review as **markdown** (no JSON envelope) in the shape
-below. Full output + persistence contract:
+below, as your **final assistant message** — you have no `Write` tool by
+design, and the conductor consolidates that message into
+`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
+because the file is not yours to write. Full output + persistence
+contract:
 [integrity-stage.md § Aspect reviewer shared contract](../skills/pbi-pipeline/references/integrity-stage.md).
 
 ```
@@ -164,11 +168,3 @@ matters), not a re-narration of the code. See
   conformance — out of aspect.
 - Cannot evaluate a branch from given context → state so explicitly,
   do not guess.
-
-## File output (conductor responsibility)
-
-You have **no `Write` tool** by design — return the review as your
-final assistant message; the conductor consolidates it into
-`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
-because the file is not yours to write. Full contract: the shared
-§ Persistence pointer above.

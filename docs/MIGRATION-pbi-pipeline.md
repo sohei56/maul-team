@@ -19,6 +19,7 @@
 | Test coverage tracked manually | Coverage measured by real tooling per Round; gated by C0/C1 thresholds |
 
 For the source-of-record spec, see
-`docs/superpowers/specs/2026-05-02-pbi-pipeline-design.md`. For the
+[`skills/pbi-pipeline/SKILL.md`](../skills/pbi-pipeline/SKILL.md) and its
+`references/`. For the
 related JSON wrapper / status-unification migration, see
 [MIGRATION-scrum-state-tools.md](MIGRATION-scrum-state-tools.md).

@@ -98,7 +98,9 @@ leave `merge_failure` / `merge_failure_count` untouched.
      attempt and `merge_failure_count` did NOT advance). Do **not**
      re-read `merge_failure.kind` and do **not** run the matrix below.
      Report the wrapper's stderr verbatim, fix the named precondition
-     (wrong checked-out branch, status ≠ `in_progress_merge`, merge
+     (wrong checked-out branch — recover with
+     `bash .scrum/scripts/safe-switch-to-main.sh`, never raw
+     `git checkout`; status ≠ `in_progress_merge`, merge
      lock contention, `.scrum/` tracked, missing state/backlog, dirty
      tree colliding with the merge set), and re-run `merge-pbi.sh`.
      This does **not** count toward the 3-strike threshold.
@@ -116,13 +118,21 @@ leave `merge_failure` / `merge_failure_count` untouched.
      below.
      - `conflict` → SM runs
        `bash .scrum/scripts/merge-main-into-pbi.sh <pbi-id>` to merge
-       main HEAD into the PBI worktree. If that wrapper also exits
-       non-zero, the worktree is left in mid-merge state and SM
-       SendMessages the Developer:
-       `[<pbi-id>] MERGE_CONFLICT paths=[<state.merge_failure.paths>]. Resolve conflicts in .scrum/worktrees/<pbi-id>, then run commit-pbi.sh and mark-pbi-ready-to-merge.sh. Do NOT use raw git rebase — it is blocked by pre-tool-use-no-branch-ops.`
-       (If `merge-main-into-pbi.sh` succeeded cleanly, SM instructs the
-       Developer to re-run `mark-pbi-ready-to-merge.sh` to re-stamp
-       `head_sha` / `paths_touched` and re-notify.)
+       main HEAD into the PBI worktree, then branches on **that
+       wrapper's own exit code** (it does not use the 0/1/2/3
+       contract above):
+       - `0` → merged cleanly (or main was already an ancestor).
+         Instruct the Developer to re-run `mark-pbi-ready-to-merge.sh`
+         to re-stamp `head_sha` / `paths_touched` and re-notify.
+       - `1` → genuine conflict; the worktree is left mid-merge.
+         SendMessage the Developer:
+         `[<pbi-id>] MERGE_CONFLICT paths=[<state.merge_failure.paths>]. Resolve conflicts in .scrum/worktrees/<pbi-id>, then run commit-pbi.sh and mark-pbi-ready-to-merge.sh. Do NOT use raw git rebase — it is blocked by pre-tool-use-no-branch-ops.`
+       - `64` / `67` (a `fail E_*` from its pre-flight guards) →
+         **no `git merge` ever ran** and nothing is mid-merge. Do
+         **not** send `MERGE_CONFLICT`. Relay the wrapper's stderr
+         verbatim and fix the named precondition — e.g. uncommitted
+         tracked changes in the PBI worktree, which the Developer
+         clears via `commit-pbi.sh` — then re-run the wrapper.
      - `artifact_missing` → SendMessage:
        `[<pbi-id>] ARTIFACT_MISSING paths=[<state.merge_failure.paths>]. Re-add files on pbi/<pbi-id> via commit-pbi.sh (files likely lost during conflict resolution or .gitignore drift), re-notify PBI_READY_TO_MERGE.`
      - `regression` → main has been rolled back to pre-merge HEAD, so
@@ -183,8 +193,12 @@ One of the following outcomes holds for the PBI:
 
 ## Strict Rules
 
-- Never invoke `git merge`, `git checkout`, `git branch`, `git rebase`,
-  or `git push` directly. The wrapper handles all git operations.
+- Never invoke `git merge`, `git checkout`, `git branch`,
+  `git rebase`, `git push`, or `git worktree add -b` directly. The
+  wrapper handles all git operations. This list is **team policy** and
+  is deliberately wider than the machine-enforced subset — see
+  `hooks/pre-tool-use-no-branch-ops.sh` for what the hook actually
+  blocks.
 - Never edit `.scrum/pbi/<id>/state.json` or write
   `backlog.json.items[].status` manually; the wrapper writes through
   `mark-pbi-*` helpers.

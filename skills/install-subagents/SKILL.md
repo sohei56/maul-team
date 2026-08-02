@@ -9,7 +9,7 @@ disable-model-invocation: false
 ## Inputs
 
 - PBI assignment (backlog.json → assigned PBI details)
-- Sub-agent definitions in `agents/` directory
+- Sub-agent definitions in `.claude/agents/` directory
 
 ## Outputs
 

@@ -1,0 +1,18 @@
+{
+  "status": "fail",
+  "summary": "criterion_key is not a member of the enum.",
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "signature": "src/auth.py:10-20:totally_made_up",
+      "severity": "high",
+      "criterion_key": "totally_made_up",
+      "file_path": "src/auth.py",
+      "line_start": 10,
+      "line_end": 20,
+      "description": "A reviewer invented a criterion_key outside the contract."
+    }
+  ],
+  "next_actions": [],
+  "artifacts": []
+}

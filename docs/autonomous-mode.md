@@ -202,7 +202,7 @@ in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
 | `autonomous.max_wall_clock_hours` | `8` | Hard wall-clock budget for the whole run. Exceeded → exit 2. |
 | `autonomous.max_sprints` | `8` | Number of Sprints to run **this launch**, counted from the `sprint-history.json.sprints` length captured at watchdog startup (the *baseline*, persisted as `autonomy.json.sprint_baseline`) — **not** a cumulative cap. The watchdog stops once history reaches `baseline + max_sprints`. Example: a project with 10 Sprints in history launched with `max_sprints=8` runs through Sprint 18. Exit 2. |
 | `autonomous.max_consecutive_failures` | `3` | Number of consecutive zero-progress iterations (or non-zero Claude exit codes, or tripped circuit breakers) before the watchdog gives up. Exit 1. |
-| `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes. Used by `completion-gate.sh`. Human mode ignores this key — see [`contracts/agent-interfaces.md`](contracts/agent-interfaces.md) § Stop Hook. |
+| `autonomous.stop_block_budget_per_phase` | `8` | **Autonomous mode only.** Per workflow phase, how many times the Stop hook may block exit before tripping the circuit breaker. Resets when the phase changes **and at the start of every watchdog iteration** — so a phase that blocks no more than `budget` times per iteration never trips the breaker. Used by `completion-gate.sh`. Human mode ignores this key — see [`contracts/agent-interfaces.md`](contracts/agent-interfaces.md) § Stop Hook. |
 | `autonomous.permission_mode` | `"dontAsk"` | One of `dontAsk` \| `bypassPermissions`. `bypassPermissions` skips every confirmation prompt, including destructive writes outside the allowlist — only use it when running in a throwaway worktree. |
 | `autonomous.notify_command` | `null` | Shell command run at the end of the run with `WATCHDOG_EXIT=<exit-code>` in env. Useful for desktop notification / Slack ping. Failures are swallowed. |
 | `autonomous.fallback_model` | `null` | Passed to `claude -p --fallback-model` when set. The CLI falls back to this model when the primary model is unavailable. |
@@ -306,7 +306,11 @@ One more guard for the inner loop:
   `pipeline_in_flight` inner loop blocks without consuming the
   budget). On the N+1-th counted block in the same phase it
   records `.circuit_breaker_tripped = {phase, at}` in
-  `autonomy.json` and allows exit. The watchdog reads the breaker
+  `autonomy.json` and allows exit. The counter resets on a phase
+  change **and at the top of every watchdog iteration**, making the
+  budget effectively per-iteration: a phase that blocks no more than
+  `budget` times within one iteration never trips the breaker at all.
+  The watchdog reads the breaker
   and treats the iteration as a no-progress failure. Human mode does
   not maintain this counter — see
   [`contracts/agent-interfaces.md`](contracts/agent-interfaces.md)

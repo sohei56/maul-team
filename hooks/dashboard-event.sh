@@ -16,7 +16,6 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$HOOK_DIR/lib/dashboard.sh"
 
 COMMS_FILE=".scrum/communications.json"
-SESSION_MAP=".scrum/session-map.json"
 MAX_MESSAGES=200
 
 # ---------------------------------------------------------------------------
@@ -36,50 +35,8 @@ append_comms_message() {
   append_to_json_array "$COMMS_FILE" messages "$message_json" max_messages "$MAX_MESSAGES"
 }
 
-# Shorten UUID-style or long-hex agent IDs to first 8 chars for readability.
-shorten_id() {
-  local id="$1"
-  if echo "$id" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-'; then
-    echo "${id%%-*}"
-  elif echo "$id" | grep -qE '^[0-9a-f]{16,}$'; then
-    echo "${id:0:8}"
-  else
-    echo "$id"
-  fi
-}
-
-# Map a session ID to a friendly developer name via session-map.json
-# Returns the friendly name if found, or the original ID otherwise
-resolve_agent_name() {
-  local sid="$1"
-  ensure_scrum_dir
-  if [ -f "$SESSION_MAP" ] && command -v jq >/dev/null 2>&1; then
-    local name
-    name="$(jq -r --arg sid "$sid" '.[$sid] // empty' "$SESSION_MAP" 2>/dev/null)"
-    if [ -n "$name" ]; then
-      echo "$name"
-      return
-    fi
-  fi
-  echo "$sid"
-}
-
-# Save a session-id → teammate-name mapping
-save_session_name() {
-  local sid="$1"
-  local name="$2"
-  ensure_scrum_dir
-  if [ -z "$sid" ] || [ -z "$name" ] || [ "$sid" = "unknown" ] || [ "$name" = "unknown" ]; then
-    return
-  fi
-  if [ ! -f "$SESSION_MAP" ]; then
-    jq -n --arg sid "$sid" --arg name "$name" '{($sid): $name}' > "$SESSION_MAP"
-  else
-    # shellcheck disable=SC2016  # $sid/$name are jq variables, not shell expansion.
-    json_update_atomic "$SESSION_MAP" '. + {($sid): $name}' \
-      --arg sid "$sid" --arg name "$name"
-  fi
-}
+# shorten_id / resolve_agent_name / save_session_name live in
+# lib/dashboard.sh — every hook that names an agent shares that one lookup.
 
 # emit_dashboard_status_event <type> <detail> [pbi_id]
 # Thin wrapper over lib/dashboard.sh::append_dashboard_status_event that
@@ -118,15 +75,17 @@ is_duplicate_comms() {
 # ---------------------------------------------------------------------------
 
 # Read hook event JSON from stdin
-hook_event="$(cat)"
+hook_event="$(read_hook_payload)"
 
 # Extract common fields
 # Claude Code uses "hook_event_name" as the event type field
-hook_type="$(echo "$hook_event" | jq -r '.hook_event_name // .hook_type // .type // "unknown"')"
-raw_agent_id="$(echo "$hook_event" | jq -r '.agent_id // .session_id // "unknown"')"
+hook_type="$(payload_get "$hook_event" '.hook_event_name // .hook_type // .type')"
+[ -n "$hook_type" ] || hook_type="unknown"
+raw_agent_id="$(payload_get "$hook_event" '.agent_id // .session_id')"
+[ -n "$raw_agent_id" ] || raw_agent_id="unknown"
 # Friendly name carried in the payload itself: teammate_name (TeammateIdle),
 # agent_type (SubagentStart/Stop and subagent-context PostToolUse).
-payload_name="$(echo "$hook_event" | jq -r '.teammate_name // .teammate_id // .agent_type // .subagent_type // .agent_name // empty')"
+payload_name="$(payload_get "$hook_event" '.teammate_name // .teammate_id // .agent_type // .subagent_type // .agent_name')"
 timestamp="$(get_timestamp)"
 
 short_id="$(shorten_id "$raw_agent_id")"
@@ -142,12 +101,12 @@ fi
 case "$hook_type" in
   PostToolUse|post_tool_use)
     # Extract tool information
-    tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
-    tool_input="$(echo "$hook_event" | jq -c '.tool_input // {}')"
+    tool_name="$(payload_get "$hook_event" '.tool_name')"
+    tool_input="$(printf '%s' "$hook_event" | jq -c '.tool_input // {}')"
 
     case "$tool_name" in
       Write|Edit)
-        file_path="$(echo "$tool_input" | jq -r '.file_path // empty')"
+        file_path="$(payload_get "$tool_input" '.file_path')"
         if [ -n "$file_path" ]; then
           # Always "modified": this is a PostToolUse hook, so by the time it
           # runs the tool has already completed and the file always exists —
@@ -198,7 +157,7 @@ case "$hook_type" in
         ;;
       SendMessage)
         # Inter-agent message (e.g. developer → scrum-master / PO).
-        recipient="$(echo "$tool_input" | jq -r '.to // empty')"
+        recipient="$(payload_get "$tool_input" '.to')"
         content="$(echo "$tool_input" | jq -r '
           (.summary // "") as $s
           | (.message // "") as $m
@@ -261,14 +220,15 @@ case "$hook_type" in
   Stop|stop)
     # Session or teammate stopping. agent_id resolves to a friendly name
     # only if an earlier event saved a session-map entry for this session.
-    reason="$(echo "$hook_event" | jq -r '.reason // "completed"')"
+    reason="$(payload_get "$hook_event" '.reason')"
+    [ -n "$reason" ] || reason="completed"
     emit_dashboard_status_event "status_transition" "session stopped (${reason})"
     ;;
 
   SubagentStart|subagent_start)
     # Teammate/subagent starting work. The agent name (payload agent_type)
     # is already in agent_id — detail carries only the action.
-    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
+    pbi_id="${SCRUM_PBI_ID:-$(payload_get "$hook_event" '.scrum_pbi_id')}"
     emit_dashboard_status_event "subagent_start" \
       "started work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
@@ -278,14 +238,14 @@ case "$hook_type" in
     # The comms "finished work" mirror was removed when the dashboard
     # merged its log panes; completion-gate.sh counts in-flight subagents
     # from these dashboard subagent_start/stop events, so they must stay.
-    pbi_id="${SCRUM_PBI_ID:-$(echo "$hook_event" | jq -r '.scrum_pbi_id // empty')}"
+    pbi_id="${SCRUM_PBI_ID:-$(payload_get "$hook_event" '.scrum_pbi_id')}"
     emit_dashboard_status_event "subagent_stop" \
       "finished work${pbi_id:+ on ${pbi_id}}" "$pbi_id"
     ;;
 
   TaskCompleted|task_completed)
     # A task has been completed
-    tool_name="$(echo "$hook_event" | jq -r '.tool_name // empty')"
+    tool_name="$(payload_get "$hook_event" '.tool_name')"
     emit_dashboard_status_event "task_completed" \
       "completed task${tool_name:+: ${tool_name}}"
     ;;

@@ -16,9 +16,21 @@
       "additionalProperties": true
     },
     "pragma_pattern": {
-      "description": "Pragma marker for the coverage pragma-audit step. A plain string (single global marker, as in .scrum-config.example.json) or an object keyed per language.",
+      "description": "Pragma marker for the coverage pragma-audit step. A plain string (single global marker, as in .scrum-config.example.json) or an object keyed per language. Consumers MUST branch on the shape: a bare `jq -r` yields the JSON text for the object form and the literal `null` when absent, either of which makes the pragma audit match nothing and pass vacuously. See skills/pbi-pipeline/references/coverage-gate.md step (e).",
       "type": ["string", "object"],
       "additionalProperties": true
+    },
+    "c0_threshold": {
+      "description": "Minimum C0 (statement) coverage percent required by the coverage gate. Percent scale, compared against coverage-rN.json .totals.c0.percent. Defaults to 100 when absent.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "c1_threshold": {
+      "description": "Minimum C1 (branch) coverage percent required by the coverage gate. Percent scale, compared against coverage-rN.json .totals.c1.percent, and only when .totals.c1.supported is true. Partial-C1 languages (Go, Rust, Bash) MUST declare a relaxed value here rather than relaxing ad hoc. Defaults to 100 when absent — note that a misspelled key therefore silently reinstates the 100% requirement.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
     },
     "path_guard": {
       "description": "impl_globs[] and test_globs[] consumed by pre-tool-use-path-guard.sh for pbi-implementer / pbi-ut-author.",

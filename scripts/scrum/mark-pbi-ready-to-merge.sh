@@ -4,7 +4,6 @@
 # paths_touched on pbi-state.json, then sets backlog status to in_progress_merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -93,7 +92,7 @@ EXPR=".head_sha = \"$HEAD\""
 EXPR="$EXPR | .ready_at = \"$NOW\""
 EXPR="$EXPR | .paths_touched = $PATHS_JSON"
 
-atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
+atomic_write "$STATE" "$EXPR" "$(resolve_schema_dir)/pbi-state.schema.json"
 
 # Update backlog status to in_progress_merge (silently skip if PBI not in backlog).
 # (BACKLOG was already resolved above for the kind boundary check.)

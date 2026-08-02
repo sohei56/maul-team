@@ -219,7 +219,7 @@ sub-agents (`requirement-conformance-reviewer`,
 **Integrity stage** (the final quality gate before ready-to-merge)
 to evaluate that one PBI's increment along requirement coverage,
 functional quality, security, maintainability, and docs
-consistency. Sprint-end cross-review is instead an **audit-only**
+consistency. Sprint-end cross-review is an **audit-only**
 ceremony in which the Scrum Master spawns the whole-repo
 `codebase-audit` along four axes (spec-conformance, logic-defect,
 redundancy, product-security) — defects that only emerge in the
@@ -271,9 +271,7 @@ use support sub-agents.
    (`pbi-designer`, `pbi-implementer`, `pbi-ut-author`,
    `codex-design-reviewer`, `codex-impl-reviewer`,
    `codex-ut-reviewer`) AND the 5 Integrity-stage aspect reviewers
-   (`requirement-conformance-reviewer`,
-   `functional-quality-reviewer`, `security-reviewer`,
-   `maintainability-reviewer`, `docs-consistency-reviewer`) are
+   (see `docs/contracts/sub-agents.md` § PBI Integrity stage) are
    installed under `.claude/agents/`.
 
 ---
@@ -388,8 +386,11 @@ use support sub-agents.
   The PBI design doc MUST cover: Scope, Components, Business Logic,
   Interfaces, Catalog Updates, Test Strategy Hints. catalog spec
   updates happen as a side-effect of `pbi-designer` and MUST acquire
-  `flock(2)` on `.scrum/locks/catalog-<spec_id>.lock` to prevent
-  parallel write contention. Developers MUST read all existing design
+  a mkdir directory lock at `.scrum/locks/catalog-<spec_id>.lock.d` to
+  prevent parallel write contention (`flock(2)` is unavailable on stock
+  macOS; protocol:
+  `skills/pbi-pipeline/references/catalog-contention.md`).
+  Developers MUST read all existing design
   documents (catalog specs in `docs/design/specs/`) for consistency.
 
 - **FR-005**: The Scrum Master MUST propose Sprint Goals scoped at
@@ -429,11 +430,10 @@ use support sub-agents.
   structured findings) feed the pipeline's deterministic termination
   gates (success / stagnation / divergence / hard cap N=5). At the
   Round tail, before ready-to-merge, the conductor runs the
-  **Integrity stage**: the 5 aspect-specialized reviewers
-  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
-  `security-reviewer`, `maintainability-reviewer`,
-  `docs-consistency-reviewer` — kind=code spawns all 5; kind=docs
-  spawns aspects 1 + 5 only) review this one PBI's diff
+  **Integrity stage**: the 5 aspect-specialized reviewers (see
+  `docs/contracts/sub-agents.md` § PBI Integrity stage — kind=code
+  spawns all 5; kind=docs spawns aspects 1 + 5 only) review this one
+  PBI's diff
   (`{base_sha}..{review_sha}` scoped to `paths_touched`) and return
   markdown `**Verdict: PASS | FAIL**` + Findings (not the codex JSON
   envelope). Any Critical|High finding reverts the PBI to
@@ -679,10 +679,9 @@ use support sub-agents.
 
 - **SC-003**: Every Development Sprint produces at least one
   Increment that meets the Definition of Done, including a per-PBI
-  Integrity-stage review by 5 aspect-specialized reviewer sub-agents
-  (`requirement-conformance-reviewer`, `functional-quality-reviewer`,
-  `security-reviewer`, `maintainability-reviewer`,
-  `docs-consistency-reviewer`) spawned by the Developer conductor
+  Integrity-stage review by the 5 aspect-specialized reviewer
+  sub-agents (see `docs/contracts/sub-agents.md` § PBI Integrity
+  stage) spawned by the Developer conductor
   before ready-to-merge, plus a non-blocking Sprint-end whole-repo
   `codebase-audit` (4 axes) spawned by the Scrum Master.
 

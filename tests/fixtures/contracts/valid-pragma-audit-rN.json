@@ -1,0 +1,21 @@
+{
+  "round": 1,
+  "pbi_id": "pbi-001",
+  "audited_at": "2026-03-01T10:06:00Z",
+  "exclusions": [
+    {
+      "file_path": "src/auth.py",
+      "line": 12,
+      "code_excerpt": "    raise RuntimeError(\"unreachable\")  # pragma: no cover",
+      "reason_text": "Defensive branch: the caller already validates this.",
+      "reason_source": "comment_above"
+    },
+    {
+      "file_path": "src/net.py",
+      "line": 77,
+      "code_excerpt": "    except socket.timeout:  # pragma: no cover  (needs a live socket)",
+      "reason_text": "needs a live socket",
+      "reason_source": "comment_inline"
+    }
+  ]
+}

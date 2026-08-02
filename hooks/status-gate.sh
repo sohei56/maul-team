@@ -5,7 +5,21 @@
 # docs/design/catalog.md for document type validation,
 # docs/design/catalog-config.json for enablement state, and the hook event
 # JSON (Claude Code PreToolUse payload) from stdin.
-# Outputs a permissionDecision JSON object.
+#
+# Blocking contract: this hook denies via `hook_block` (stderr + exit 2) —
+# the same convention every other guard hook here uses (lib/validate.sh).
+# It does NOT emit a stdout decision object. Historically it printed
+# `{"decision":"allow"|"deny"}`, but Claude Code's top-level `decision`
+# enum is ["approve","block"] ("allow"/"deny" belong to the *nested*
+# hookSpecificOutput.permissionDecision), so every deny failed schema
+# validation and, with exit 0, the write proceeded — the whole gate was
+# inert in deployed target projects.
+#
+# The allow path stays a bare `exit 0` (no decision) rather than
+# `{"decision":"approve"}` on purpose: an explicit approve would BYPASS
+# the user's normal permission prompt for every Write/Edit. Exit 0 leaves
+# the normal permission flow untouched, which is what the broken
+# `{"decision":"allow"}` effectively did anyway.
 #
 # Note: this hook reads the project-level Scrum phase from .scrum/state.json
 # (which retains its `phase` field for the Sprint state machine:
@@ -27,15 +41,14 @@ CONFIG_FILE="docs/design/catalog-config.json"
 # ---------------------------------------------------------------------------
 
 allow() {
-  jq -n '{"decision": "allow"}'
   exit 0
 }
 
 deny() {
   local reason="$1"
   log_hook "status-gate" "WARN" "Denied: $reason"
-  jq -n --arg r "${HOOK_NOTIFICATION_PREFIX} ${reason}" '{"decision": "deny", "reason": $r}'
-  exit 0
+  # hook_block prefixes HOOK_NOTIFICATION_PREFIX, writes to stderr, exits 2.
+  hook_block "status-gate" "$reason"
 }
 
 # Check whether a file path targets source code (not metadata / config).

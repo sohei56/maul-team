@@ -21,7 +21,6 @@
 # (Per-Developer phase tracking removed — PBI lifecycle status lives in backlog.json.)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -86,4 +85,4 @@ EXPR='.developers |= (
   end
 )'
 
-atomic_write ".scrum/sprint.json" "$EXPR" "$ROOT/docs/contracts/scrum-state/sprint.schema.json"
+atomic_write ".scrum/sprint.json" "$EXPR" "$(resolve_schema_dir)/sprint.schema.json"

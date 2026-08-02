@@ -8,7 +8,6 @@
 # untouched (typically already in_progress_merge from mark-pbi-ready-to-merge).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -46,7 +45,7 @@ else
   EXPR=".merge_failure = $MF | .merge_failure_count = $NEW_COUNT"
 fi
 
-atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
+atomic_write "$STATE" "$EXPR" "$(resolve_schema_dir)/pbi-state.schema.json"
 
 # Backlog status: only flip on escalation (count >= 3). Below that, the PBI
 # stays at its current status (typically in_progress_merge) so the Developer

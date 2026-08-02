@@ -21,7 +21,7 @@ maxTurns: 80
 Critical design reviewer delegating to OpenAI Codex CLI. Receives
 design doc + catalog references locally → builds review instructions
 → invokes `codex exec` via shared lib
-(`scripts/lib/codex-invoke.sh`) → returns result. The exact codex
+(`.scrum/scripts/lib/codex-invoke.sh`) → returns result. The exact codex
 flags live in that helper, not here. Timeout contract: see § Model
 selection (conductor responsibility) below.
 
@@ -106,7 +106,7 @@ missing_error_handling, missing_ac_mapping, missing_library_spec.
    resolution honors the same checkout the impl/UT reviewers will
    read; the design doc itself sits at the SSOT path under that
    worktree's `.scrum` symlink.
-4. Source `scripts/lib/codex-invoke.sh` then call
+4. Source `.scrum/scripts/lib/codex-invoke.sh` then call
    `codex_review_or_fallback "$instr" "$out" "$log"` with `$out` a
    second temp path under `"${TMPDIR:-/tmp}"` and `$log` the
    diagnostic log at
@@ -202,7 +202,7 @@ which is heavier work.
 
 The conductor (Developer running the `pbi-pipeline` skill) MUST
 preflight Codex availability via `codex_is_available` from
-`scripts/lib/codex-invoke.sh` immediately before each spawn:
+`.scrum/scripts/lib/codex-invoke.sh` immediately before each spawn:
 
 - Codex available → spawn with default model (sonnet).
 - Codex unavailable → spawn with `Agent(model: "opus", ...)` override.

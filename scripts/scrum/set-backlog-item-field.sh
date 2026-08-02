@@ -33,7 +33,6 @@
 # `.scrum/backlog.json`.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -124,7 +123,7 @@ case "$FIELD" in
 esac
 
 PATHF=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF"
 
 # Pre-check the pbi exists (atomic_write cannot return "not found" by itself).

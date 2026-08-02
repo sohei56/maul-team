@@ -23,7 +23,6 @@
 # Echoes the archived Sprint id on stdout.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -32,7 +31,7 @@ source "$HERE/lib/atomic.sh"
 SPRINT=".scrum/sprint.json"
 BACKLOG=".scrum/backlog.json"
 STATE=".scrum/state.json"
-STATE_SCHEMA="$ROOT/docs/contracts/scrum-state/state.schema.json"
+STATE_SCHEMA="$(resolve_schema_dir)/state.schema.json"
 
 # Idempotent no-op: nothing to roll over (e.g. retried iteration).
 if [ ! -f "$SPRINT" ]; then

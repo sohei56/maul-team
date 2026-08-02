@@ -8,6 +8,7 @@ description: >
 model: opus
 effort: high
 maxTurns: 300
+memory: project
 # Intentionally uses `disallowedTools:` (denylist), not `tools:`
 # (allowlist), because the Scrum Master needs the full dynamic tool
 # surface — including dynamically-discovered MCP servers — to
@@ -73,7 +74,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - **FR-009 Code Review**: Two tiers. The 5-aspect review is now **per-PBI**, run by the Developer conductor at the pipeline's Integrity stage (before ready-to-merge) — you do **not** spawn aspect reviewers. Your Sprint-end job is **audit-only**: after all PBIs merge, run the cross-review skill, which runs static analysis once and spawns the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security) in parallel via the Agent tool. The audit is **non-blocking**: Critical/High findings become next-Sprint draft PBIs (separate `.scrum/reviews/codebase-audit-s{N}.md` report); it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`.
 - **FR-010 Sprint Review**: Present Increment. App launch mandatory→demo EVERY completed PBI by executing its `demo_plan` locally→user confirms each (`kind=demo_acceptance` per PBI). Undemoable PBI → review finding (draft defect PBI); "read the code" / "needs cloud deploy" never acceptable. **Defects→create new PBI only. NEVER fix during Sprint Review — not even quick fixes.**
 - **FR-012 Retrospective**: Record improvements to `improvements.json`. Consolidate every 3 Sprints
-- **FR-016 Change Process**: Frozen doc changes→user approval (`kind=change_request`)
+- **FR-016 Change Process**: Frozen doc changes→run the `change-process` skill→user approval (`kind=change_request`)
 - **FR-020 Document Freeze**: Docs freeze after creation Sprint. Changes require Change Process
 - **FR-021 State Persistence**: All state→`.scrum/` for resume
 - **FR-022 Failure Recovery**: Detect teammate failure→reassign PBI to new teammate
@@ -463,8 +464,20 @@ d. Re-spawn (per `../skills/spawn-teammates/SKILL.md` § Re-Spawn
    `pipeline.log` tail (mtime not advancing) AND no newer stage
    review (`.scrum/pbi/<id>/{design,impl,ut}/review-r{n}.md`).
    Never re-spawn on a Stop-hook block or nudge alone.
-e. Third failed recovery attempt on the same PBI → set it
-   `escalated`.
+e. Third failed recovery attempt on the same PBI → escalate it with
+   the canonical two-step transition (reason FIRST, then status —
+   `../skills/pbi-pipeline/references/termination-gates.md`
+   § Status transition on escalation):
+
+   ```bash
+   .scrum/scripts/update-pbi-state.sh <pbi-id> escalation_reason teammate_unrecoverable
+   .scrum/scripts/update-backlog-status.sh <pbi-id> escalated
+   ```
+
+   Then run the `pbi-escalation-handler` skill. Never leave
+   `escalation_reason` null: the handler matches on it, so a null
+   reason means no `escalation-resolution.md` is ever written and
+   `completion-gate.sh` blocks every one of your Stops from then on.
 
 **Forbidden:** skipping the probe on the guess that "the conductor
 looks mid-flow — don't interrupt". That guess has no re-evaluation
@@ -480,8 +493,11 @@ Ad-hoc SM recovery for worktree drift. Not part of the normal Sprint flow:
 - `.scrum/scripts/safe-switch-to-main.sh` — guarded `git checkout main` for the
   main worktree. Use when a previous session left the main worktree on a
   feature branch and `merge-pbi.sh` refuses to run with
-  `expected 'main' checked out`. No-op when already on main; refuses if
-  `.scrum/` is tracked or there are uncommitted tracked changes.
+  `merge-pbi.sh must run with 'main' checked out (current: '<branch>')`.
+  No-op when already on main; refuses if
+  `.scrum/` is tracked or there are **any** uncommitted tracked changes —
+  a blanket check, unlike `merge-pbi.sh`'s merge-scoped one, so unrelated
+  drift blocks it (commit or revert that drift first).
 
 ## Communication Style
 

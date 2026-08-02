@@ -73,7 +73,7 @@ reads those directly.
    - **Codex preflight** (see `sub-agent-prompts.md` § Conductor
      codex preflight). Choose the spawn model for this single call:
      ```bash
-     source scripts/lib/codex-invoke.sh
+     source .scrum/scripts/lib/codex-invoke.sh
      codex_is_available && SPAWN_MODEL="" || SPAWN_MODEL="opus"
      ```
      Codex present → `Agent(subagent_type="codex-design-reviewer", prompt=<...>)`.

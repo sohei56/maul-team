@@ -52,7 +52,7 @@ implementation code.
    functional / non-functional requirements from your own knowledge,
    research similar products / prior art via live `WebSearch`.
 5. Author `docs/requirements.md`, `docs/requirements-benchmark.md`,
-   and (per step 8) `CLAUDE.md`. **Reconcile against the brief** — where
+   and (per step 9) `CLAUDE.md`. **Reconcile against the brief** — where
    a requirement conflicts with `docs/product/brief.md`, surface it and
    amend exactly one side (see § Brief ↔ requirements reconciliation).
 6. Hand back to SM; SM creates the initial backlog and transitions
@@ -76,7 +76,7 @@ implementation code.
   `docs/requirements-benchmark.md` and present it to the PO seat for
   a per-item `adopt` / `adapt` / `reject` disposition. See § Mandatory
   benchmark research.
-- **CLAUDE.md authoring** (requirement-definition step 8): project
+- **CLAUDE.md authoring** (requirement-definition step 9): project
   overview + cautions level only, ~200 lines target.
 
 ## Mandatory benchmark research
@@ -169,7 +169,7 @@ constraints, priorities, and success metrics.
 - `docs/requirements-benchmark.md` — benchmark findings with source
   URLs and per-item dispositions (committed).
 - `CLAUDE.md` — project root, ~200 lines target (when created /
-  appended per step 8).
+  appended per step 9).
 
 **Length calibration.** These are the documents every later agent
 reads; padding them taxes the whole Sprint. One requirement per

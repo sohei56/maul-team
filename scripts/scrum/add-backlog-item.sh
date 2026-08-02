@@ -16,7 +16,6 @@
 # allocated pbi-id (e.g. "pbi-007") to stdout on success.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -53,7 +52,7 @@ if [ -n "$PARENT" ]; then
 fi
 
 PATHF=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF"
 
 # Allocate id. Prefer .next_pbi_id; fall back to max(items[].id)+1.

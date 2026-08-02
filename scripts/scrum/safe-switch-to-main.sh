@@ -9,6 +9,16 @@
 #   - Working tree must have no tracked-file changes (untracked OK; .scrum/
 #     is untracked by design).
 #
+# Asymmetry with merge-pbi.sh, on purpose: merge-pbi.sh uses the merge-SCOPED
+# check (`merge_colliding_dirt`, lib/git-guards.sh) because a blanket check
+# stranded whole Sprints behind drift the merge never touched. A branch switch
+# has no "merge set" to scope against — git may clobber ANY dirty tracked path
+# — so this script keeps the BLANKET check. Consequence: unrelated tracked
+# working-tree drift blocks it even though it would not block merge-pbi.sh.
+# The operator's recovery is to commit or revert that drift (in a PBI worktree,
+# via commit-pbi.sh) before re-running; this script deliberately does not stash
+# on the operator's behalf.
+#
 # No-op when already on main. Never touches branches besides switching to
 # `main` — does not create, delete, or fast-forward.
 set -euo pipefail

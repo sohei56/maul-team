@@ -9,14 +9,13 @@
 # `developer_count` fields were removed (OD-4 single-source). Atomicity within a single Sprint init is the whole point —
 # leaving these in sync prevents the recurring class of bug where
 # `state.current_sprint_id` lags behind `sprint.id` (caught by completion-gate
-# on Stop, see IMP-003/IMP-009/imp-s28-02 in target-project retrospectives).
+# on Stop; recurred across several target-project retrospectives).
 #
 # Refuses if .scrum/sprint.json already exists. Use this script exactly once
 # per Sprint, then drive lifecycle via update-sprint-status.sh /
 # freeze-sprint-base.sh / set-sprint-developer.sh.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -47,8 +46,8 @@ case "$TYPE" in development|integration) ;; *) fail E_INVALID_ARG "bad type: $TY
 
 SPRINT=".scrum/sprint.json"
 STATE=".scrum/state.json"
-SPRINT_SCHEMA="$ROOT/docs/contracts/scrum-state/sprint.schema.json"
-STATE_SCHEMA="$ROOT/docs/contracts/scrum-state/state.schema.json"
+SPRINT_SCHEMA="$(resolve_schema_dir)/sprint.schema.json"
+STATE_SCHEMA="$(resolve_schema_dir)/state.schema.json"
 
 [ ! -f "$SPRINT" ] || fail E_INVALID_ARG "$SPRINT already exists — refusing to overwrite"
 [ -f "$STATE" ]    || fail E_FILE_MISSING "$STATE"

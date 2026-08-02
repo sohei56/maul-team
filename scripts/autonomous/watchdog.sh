@@ -395,7 +395,7 @@ finalize() {
   local report_path
   report_path="$(generate_morning_report "$reason" || true)"
   if [ -n "$report_path" ]; then
-    printf 'watchdog: morning report → %s\n' "$report_path" >&2
+    wlog INFO "morning report → $report_path"
   fi
   run_notify "$code" || true
   exit "$code"
@@ -406,12 +406,11 @@ finalize() {
 # ---------------------------------------------------------------------------
 
 if [ ! -f "$AUTONOMY_FILE" ]; then
-  printf 'watchdog: %s missing — run scrum-start.sh --autonomous first.\n' \
-    "$AUTONOMY_FILE" >&2
+  wlog ERROR "$AUTONOMY_FILE missing — run scrum-start.sh --autonomous first."
   exit 3
 fi
 if ! jq empty "$AUTONOMY_FILE" >/dev/null 2>&1; then
-  printf 'watchdog: %s is not valid JSON.\n' "$AUTONOMY_FILE" >&2
+  wlog ERROR "$AUTONOMY_FILE is not valid JSON."
   exit 3
 fi
 mkdir -p "$ITER_OUT_DIR"
@@ -433,8 +432,7 @@ START_EPOCH="$(now_epoch)"
 
 print_startup_banner
 
-printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failures=%s)\n' \
-  "$MAX_ITERATIONS" "$MAX_WALL_HOURS" "$MAX_SPRINTS" "$MAX_CONSECUTIVE_FAILURES" >&2
+wlog INFO "starting (max_iter=$MAX_ITERATIONS, max_hours=$MAX_WALL_HOURS, max_sprints=$MAX_SPRINTS, max_failures=$MAX_CONSECUTIVE_FAILURES)"
 
 # Record our PID so the Stop gate can verify a live outer loop is driving this
 # run (hooks/lib/autonomy.sh::autonomy_watchdog_alive). Without it the gate
@@ -442,7 +440,7 @@ printf 'watchdog: starting (max_iter=%s, max_hours=%s, max_sprints=%s, max_failu
 # "Stop storm" failure mode. Cleared to null in finalize() on clean exit.
 WATCHDOG_PID="$$"
 if ! autonomy_atomic_write '(.watchdog_pid = $pid)' --argjson pid "$WATCHDOG_PID"; then
-  printf 'watchdog: WARN failed to record watchdog_pid in autonomy.json.\n' >&2
+  wlog WARN "failed to record watchdog_pid in autonomy.json."
 fi
 
 # Sprint budget baseline. `max_sprints` is the number of Sprints to run
@@ -461,12 +459,11 @@ if [ -z "$SPRINT_BASELINE" ]; then
   fi
   if ! autonomy_atomic_write \
        '(.sprint_baseline = $baseline)' --argjson baseline "$SPRINT_BASELINE"; then
-    printf 'watchdog: WARN failed to record sprint_baseline in autonomy.json.\n' >&2
+    wlog WARN "failed to record sprint_baseline in autonomy.json."
   fi
 fi
 SPRINT_LIMIT=$((SPRINT_BASELINE + MAX_SPRINTS))
-printf 'watchdog: sprint budget: baseline=%s + max_sprints=%s → stop at history=%s\n' \
-  "$SPRINT_BASELINE" "$MAX_SPRINTS" "$SPRINT_LIMIT" >&2
+wlog INFO "sprint budget: baseline=$SPRINT_BASELINE + max_sprints=$MAX_SPRINTS → stop at history=$SPRINT_LIMIT"
 
 # Loop-local accumulators
 ITER=0
@@ -482,15 +479,14 @@ while :; do
 
   # ----- 1. Safety valves -----
   if [ "$ITER" -gt "$MAX_ITERATIONS" ]; then
-    printf 'watchdog: max_iterations (%s) exceeded.\n' "$MAX_ITERATIONS" >&2
+    wlog WARN "max_iterations ($MAX_ITERATIONS) exceeded."
     finalize 2 "max_iterations_exceeded"
   fi
 
   NOW_EPOCH="$(now_epoch)"
   ELAPSED=$((NOW_EPOCH - START_EPOCH))
   if [ "$ELAPSED" -gt "$MAX_WALL_SECS" ]; then
-    printf 'watchdog: max_wall_clock_hours (%s) exceeded (elapsed=%ss).\n' \
-      "$MAX_WALL_HOURS" "$ELAPSED" >&2
+    wlog WARN "max_wall_clock_hours ($MAX_WALL_HOURS) exceeded (elapsed=${ELAPSED}s)."
     finalize 2 "max_wall_clock_exceeded"
   fi
 
@@ -499,15 +495,14 @@ while :; do
     SPRINT_COUNT="$(jq -r '(.sprints // []) | length' "$SPRINT_HISTORY_FILE" 2>/dev/null || echo 0)"
   fi
   if [ "${SPRINT_COUNT:-0}" -ge "$SPRINT_LIMIT" ]; then
-    printf 'watchdog: max_sprints (%s) reached (baseline=%s, history=%s, limit=%s).\n' \
-      "$MAX_SPRINTS" "$SPRINT_BASELINE" "$SPRINT_COUNT" "$SPRINT_LIMIT" >&2
+    wlog WARN "max_sprints ($MAX_SPRINTS) reached (baseline=$SPRINT_BASELINE, history=$SPRINT_COUNT, limit=$SPRINT_LIMIT)."
     finalize 2 "max_sprints_reached"
   fi
 
   # ----- 2. Phase check -----
   PHASE="$(_jq_safe "$STATE_FILE" '.phase // ""' '')"
   if [ "$PHASE" = "complete" ]; then
-    printf 'watchdog: phase=complete — finishing.\n' >&2
+    wlog INFO "phase=complete — finishing."
     finalize 0 "complete"
   fi
 
@@ -516,7 +511,7 @@ while :; do
   if ! autonomy_atomic_write \
        '(.iteration = $iter) | (.lead_session_id = $sid) | (.stop_blocks = {phase: (.stop_blocks.phase // ""), count: 0})' \
        --argjson iter "$ITER" --arg sid "$SID"; then
-    printf 'watchdog: failed to update autonomy.json — aborting.\n' >&2
+    wlog ERROR "failed to update autonomy.json — aborting."
     finalize 3 "autonomy_write_failed"
   fi
 
@@ -526,7 +521,7 @@ while :; do
   ITER_STDERR="${ITER_OUT_DIR}/iter-${ITER}.err"
   ITER_START_EPOCH="$NOW_EPOCH"
 
-  printf 'watchdog: iteration %s (phase=%s, sid=%s)\n' "$ITER" "${PHASE:-<empty>}" "$SID" >&2
+  wlog INFO "iteration $ITER (phase=${PHASE:-<empty>}, sid=$SID)"
 
   CLAUDE_ARGS=(
     -p "$PROMPT"
@@ -589,11 +584,9 @@ while :; do
       if [ "$WAIT_SECS" -gt "$MAX_RATE_LIMIT_WAIT_SECS" ]; then
         WAIT_SECS="$MAX_RATE_LIMIT_WAIT_SECS"
       fi
-      printf 'watchdog: rate-limit detected; sleeping %ss until reset (epoch=%s)\n' \
-        "$WAIT_SECS" "$RESET_EPOCH" >&2
+      wlog WARN "rate-limit detected; sleeping ${WAIT_SECS}s until reset (epoch=$RESET_EPOCH)"
     else
-      printf 'watchdog: rate-limit detected; no reset time parsed — sleeping %ss\n' \
-        "$WAIT_SECS" >&2
+      wlog WARN "rate-limit detected; no reset time parsed — sleeping ${WAIT_SECS}s"
     fi
     record_failure "rate_limit_wait"
     do_sleep "$WAIT_SECS"
@@ -627,13 +620,13 @@ while :; do
     [ "$rc" -ne 0 ]      && REASON="claude_exit_${rc}"
     [ -n "$CB_TRIPPED" ] && REASON="circuit_breaker"
     record_failure "$REASON"
-    printf 'watchdog: failure (%s); fail_streak=%s\n' "$REASON" "$FAIL_STREAK" >&2
+    wlog WARN "failure ($REASON); fail_streak=$FAIL_STREAK"
   fi
 
   LAST_HASH="$NEW_HASH"
 
   if [ "$FAIL_STREAK" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
-    printf 'watchdog: %s consecutive failures — giving up.\n' "$FAIL_STREAK" >&2
+    wlog ERROR "$FAIL_STREAK consecutive failures — giving up."
     finalize 1 "max_consecutive_failures"
   fi
 done

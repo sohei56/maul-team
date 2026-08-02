@@ -4,8 +4,10 @@
 # codex-impl-reviewer, codex-ut-reviewer) AND by the PBI pipeline
 # conductor as a spawn-time preflight (codex_is_available).
 #
-# Usage:
-#   source scripts/lib/codex-invoke.sh
+# Usage — sourced as `scripts/lib/codex-invoke.sh` in this repo, as
+# `.scrum/scripts/lib/codex-invoke.sh` in deployed projects (only
+# `.scrum` is symlinked into a PBI worktree, where agents source it):
+#   source .scrum/scripts/lib/codex-invoke.sh
 #   codex_review_or_fallback <instructions_file> <output_file> [log_file]
 #   codex_is_available && echo "codex present"
 #

@@ -512,7 +512,7 @@ EOF
           "tests_failed" \
           "$failed_cats"
         ;;
-      pending|running)
+      running)
         block_stop \
           "Integration Sprint: automated tests are still ${overall_status}. Wait for smoke-test to complete before stopping." \
           "tests_${overall_status}" \

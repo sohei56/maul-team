@@ -30,7 +30,8 @@
         "merge_conflict",
         "merge_artifact_missing",
         "merge_regression",
-        "kind_mismatch"
+        "kind_mismatch",
+        "teammate_unrecoverable"
       ]
     },
     "branch": {"type": "string", "pattern": "^pbi/pbi-[0-9]+$"},

@@ -174,7 +174,8 @@ re-stating one inside the other.
   threshold in `.scrum/config.json`).
 - `backlog.json items[].kind ∈ {code, docs}` (default `code`) splits
   the pipeline. **kind=code** runs the full pipeline above.
-  **kind=docs** (paths_touched ⊆ `**/*.md`) skips Design and the
+  **kind=docs** (every added/modified/renamed **or deleted** path in
+  `base..HEAD` must be `*.md`) skips Design and the
   entire UT pipeline — only `pbi-implementer` + `codex-impl-reviewer`
   run — and its per-PBI Integrity stage runs aspects 1 (req-conformance)
   and 5 (docs-consistency) only (after impl-review PASS). `kind` is set
@@ -294,7 +295,9 @@ hook `pre-tool-use-no-branch-ops.sh` scans each shell statement segment
 (splitting on `&&`, `||`, `;`, `|`, newlines) and blocks raw `git
 checkout -b`, `switch -c`, `branch <new>`, `merge`, `push`, `rebase`,
 and `worktree add -b` from the Bash tool unless the command is a lone
-`.scrum/scripts/*.sh` wrapper invocation (this is a guardrail against
+`.scrum/scripts/*.sh` wrapper invocation — "lone" is decided
+quoting-blind, so a wrapper argument containing `&&`/`||`/`;`/`|`
+(e.g. a commit message) forfeits the allowlist (this is a guardrail against
 honest mistakes, not a sandbox against obfuscated commands). The framework repo
 itself does **not** register this hook (see `.claude/settings.json`)
 so that framework dev work — branching, merging, pushing — proceeds

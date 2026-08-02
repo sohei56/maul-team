@@ -80,7 +80,7 @@ Schemas under `docs/contracts/scrum-state/` are authoritative.
 | Your PBI's internal pipeline state, round counters, merge fields, paths_touched | `.scrum/pbi/<pbi-id>/state.json` |
 | PBI lifecycle graph, status semantics | `../docs/data-model.md` |
 | Inter-agent message contracts, envelope schema | `../docs/contracts/agent-interfaces.md`, `../docs/contracts/sub-agents.md` |
-| Project-wide conventions, git workflow, state-write rules | `CLAUDE.md` |
+| Project-wide conventions, git workflow, state-write rules | `../docs/contracts/agent-interfaces.md` + § State writes below |
 
 **State writes go through `.scrum/scripts/*.sh` wrappers only.**
 Direct edits to `.scrum/*.json` are blocked by a PreToolUse hook.
@@ -91,7 +91,7 @@ you are about to violate the SSOT contract.
 
 Before doing any work, in this order:
 
-1. **Read your own `agents/<your-name>.md`** — re-read your `Receives`,
+1. **Read your own `.claude/agents/<your-name>.md`** — re-read your `Receives`,
    strict rules, and Output Envelope. Don't operate from memory.
 2. **Read `.scrum/state.json`** — confirm the project phase matches
    what your caller said. If it doesn't, the team is mid-transition —

@@ -83,16 +83,16 @@ EOF
 }
 
 # Read payload defensively
-payload="$(cat)"
+payload="$(read_hook_payload)"
 [ -n "$payload" ] || exit 0
 
 # Extract tool_name; bail to allow if missing
-tool="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)"
+tool="$(payload_get "$payload" '.tool_name')"
 [ -n "$tool" ] || exit 0
 
 case "$tool" in
   Write|Edit)
-    file="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
+    file="$(payload_get "$payload" '.tool_input.file_path')"
     [ -n "$file" ] || exit 0
     abs_file="$(abs_strip_worktree "$(normalize_path "$file")")"
     # Bash glob `*` matches '/', so the pattern covers nested paths like
@@ -106,7 +106,7 @@ case "$tool" in
     esac
     ;;
   Bash)
-    cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
+    cmd="$(payload_get "$payload" '.tool_input.command')"
     [ -n "$cmd" ] || exit 0
 
     # Block raw redirects/in-place edits targeting .scrum/*.json, UNLESS every

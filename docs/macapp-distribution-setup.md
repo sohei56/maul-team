@@ -5,7 +5,6 @@ left is the part only the repo owner can do: Apple enrollment, injecting the
 signing secrets, and one-time GitHub setup. Once those are in place, publishing
 a GitHub Release lights up all three distribution channels automatically.
 
-- **Plan / phase status**: `docs/superpowers/plans/2026-06-29-macapp-distribution-and-onboarding.md`
 - **Pipeline**: `.github/workflows/release.yml` (channels ① DMG, ② Release, ③ Homebrew)
 - **Local Phase 2 entry point**: `macapp/scripts/sign-and-notarize.sh`
 

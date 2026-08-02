@@ -1,0 +1,18 @@
+{
+  "status": "fail",
+  "summary": "signature does not match the file:start-end:criterion_key pattern.",
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "signature": "src/auth.py line 10 missing_validation",
+      "severity": "high",
+      "criterion_key": "missing_validation",
+      "file_path": "src/auth.py",
+      "line_start": 10,
+      "line_end": 20,
+      "description": "Signature is prose, so stagnation/divergence dedup cannot match it."
+    }
+  ],
+  "next_actions": [],
+  "artifacts": []
+}

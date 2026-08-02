@@ -117,7 +117,7 @@ tree. Top-level layout: `scrum-start.sh` (entry point), `agents/`,
 ## Key Files
 
 - `agents/scrum-master.md`, `agents/developer.md`, `agents/product-owner.md` — top-level agents
-- Sub-agents (cross-review + PBI pipeline) — see [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
+- Sub-agents (PBI pipeline + Integrity stage) — see [docs/contracts/sub-agents.md](docs/contracts/sub-agents.md)
 - `docs/design/catalog.md` — Design document type reference (read-only in working dirs)
 - `docs/design/catalog-config.json` — Editable list of enabled spec IDs
 - `docs/` — Project documentation (requirements, architecture, data model, contracts, quickstart)

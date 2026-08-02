@@ -37,6 +37,11 @@ _AUTON_REPORT_SH_LOADED=1
 # (double-source guarded).
 # shellcheck source=../../lib/jq-read.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../lib/jq-read.sh"
+# iso_utc_now for wlog's file log. Sourced here (rather than relying on
+# watchdog.sh's own source line) so this lib stays self-contained;
+# double-source guarded.
+# shellcheck source=../../lib/time.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../lib/time.sh"
 
 # Files (overridable by the watchdog if it ever needs to redirect).
 : "${AUTON_REPORT_AUTONOMY_FILE:=.scrum/autonomy.json}"
@@ -47,6 +52,33 @@ _AUTON_REPORT_SH_LOADED=1
 : "${AUTON_REPORT_ATTENTION_FILE:=.scrum/po/attention.md}"
 : "${AUTON_REPORT_DIR:=.scrum/reports}"
 : "${AUTON_REPORT_ITER_DIR:=.scrum/autonomous}"
+: "${AUTON_LOG_DIR:=.scrum/logs}"
+: "${AUTON_LOG_FILE:=${AUTON_LOG_DIR}/autonomous-watchdog.log}"
+
+# wlog <level> <message>
+# Single emitter for every watchdog operator message. Two sinks:
+#   stderr — `watchdog: <message>`, prefixed with the level for anything
+#            other than INFO. INFO therefore reproduces the historical
+#            untagged line verbatim; WARN / ERROR lines now carry the tag
+#            the hand-written printfs applied only sporadically.
+#   file   — `<iso8601> [<level>] <message>` appended to
+#            .scrum/logs/autonomous-watchdog.log, so a detached autonomous
+#            run leaves a readable trail after the pane scrolls away. The
+#            sibling daemon scripts/stall-watchdog.sh::log_msg has had
+#            exactly this file log all along; the autonomous watchdog had
+#            none.
+# Best-effort on the file sink: a failed mkdir/append never affects the
+# caller (the watchdog must not die because a log write failed).
+wlog() {
+  local level="$1" msg="$2"
+  if [ "$level" = "INFO" ]; then
+    printf 'watchdog: %s\n' "$msg" >&2
+  else
+    printf 'watchdog: %s %s\n' "$level" "$msg" >&2
+  fi
+  mkdir -p "$AUTON_LOG_DIR" 2>/dev/null || true
+  printf '%s [%s] %s\n' "$(iso_utc_now)" "$level" "$msg" >> "$AUTON_LOG_FILE" 2>/dev/null || true
+}
 
 # _jq_safe <file> <expr> <fallback>
 # Run jq on <file>; if the file is missing or unparseable, or the value is
@@ -184,7 +216,7 @@ run_notify() {
   # Run the notify command under bash -c so users can use pipes / vars.
   # Pass exit code as $WATCHDOG_EXIT for the command.
   WATCHDOG_EXIT="$exit_code" bash -c "$cmd" >/dev/null 2>&1 || \
-    printf 'watchdog: notify_command exited non-zero (ignored)\n' >&2
+    wlog WARN "notify_command exited non-zero (ignored)"
 
   return 0
 }

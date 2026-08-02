@@ -255,10 +255,10 @@ check_review_doc() {
 # Main
 # ---------------------------------------------------------------------------
 
-hook_event="$(cat)"
+hook_event="$(read_hook_payload)"
 
-task_name="$(printf '%s' "$hook_event" | jq -r '.task_name // empty' 2>/dev/null || echo "")"
-task_id="$(printf '%s' "$hook_event" | jq -r '.task_id // empty' 2>/dev/null || echo "")"
+task_name="$(payload_get "$hook_event" '.task_name')"
+task_id="$(payload_get "$hook_event" '.task_id')"
 
 raw_pbi_id="$(extract_pbi_id "$task_name")"
 [ -n "$raw_pbi_id" ] || raw_pbi_id="$(extract_pbi_id "$task_id")"

@@ -139,8 +139,8 @@ All project state persists as JSON files (one file per concern) in a
 - `.scrum/` is gitignored (runtime state, not committed).
 
 ### Key Technical Details
-- State files: `state.json`, `backlog.json`, `sprint.json`,
-  `improvements.json`, `communications.json`, `dashboard.json`
+- State files: enumerated with their schemas and permitted writers in
+  `docs/contracts/scrum-state/README.md` (canonical writer table)
 - Subdirectories: `.scrum/reviews/` (cross-review results)
 - Requirements doc: `docs/requirements.md` (committed to repo, not
   runtime state — frozen during Development Sprints per FR-020,
@@ -455,15 +455,18 @@ by default).
 
 ### Key Technical Details
 
-- Spec: `docs/superpowers/specs/2026-05-02-pbi-pipeline-design.md`
-- Skill: `skills/pbi-pipeline/` (orchestrator SKILL.md + 8 references)
+- Skill: `skills/pbi-pipeline/` (orchestrator SKILL.md + `references/`)
 - SM-side escalation: `skills/pbi-escalation-handler/SKILL.md`
 - Path enforcement hook: `hooks/pre-tool-use-path-guard.sh`
-- Codex invocation: `scripts/lib/codex-invoke.sh`
+- Codex invocation: source `scripts/lib/codex-invoke.sh`, deployed by
+  `setup-user.sh` to `.scrum/scripts/lib/codex-invoke.sh` (the path
+  agents source — `.scrum` is symlinked into every PBI worktree)
 - Per-PBI state: `.scrum/pbi/<pbi-id>/state.json` and
   `pipeline.log`
 - Catalog write contention: 3-layer defense (sprint-planning
-  pre-separation, runtime flock, mtime conflict detection).
+  pre-separation, a runtime `mkdir` directory lock at
+  `.scrum/locks/catalog-<spec_id>.lock.d`, mtime conflict detection).
+  Protocol: `skills/pbi-pipeline/references/catalog-contention.md`.
 - TUI: dashboard PBI Board reads `backlog.json.items[].status`
   (13-value SSOT) and per-PBI round counters from
   `.scrum/pbi/<pbi-id>/state.json`.

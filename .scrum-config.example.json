@@ -13,6 +13,8 @@
     "supports_branch": true
   },
   "pragma_pattern": "pragma: no cover",
+  "c0_threshold": 100,
+  "c1_threshold": 100,
   "path_guard": {
     "impl_globs": ["src/**", "lib/**"],
     "test_globs": ["tests/**", "**/*_test.py"]

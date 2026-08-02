@@ -1,0 +1,23 @@
+{
+  "round": 1,
+  "pbi_id": "pbi-001",
+  "tool": "coverage.py",
+  "tool_version": "7.6.1",
+  "measured_at": "2026-03-01T10:00:00Z",
+  "totals": {
+    "c0": {"covered": 100, "total": 100, "percent": 100.0},
+    "c1": {"covered": 40, "total": 42, "percent": 95.2, "supported": true}
+  },
+  "files": [
+    {
+      "path": "src/auth.py",
+      "c0": {"covered": 60, "total": 60, "percent": 100.0},
+      "c1": {"covered": 20, "total": 22, "percent": 90.9, "supported": true},
+      "uncovered_lines": [],
+      "uncovered_branches": [
+        {"line": 44, "from": 44, "to": 47, "condition": "token is None"}
+      ],
+      "pragma_excluded_lines": [12]
+    }
+  ]
+}

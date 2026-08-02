@@ -3,7 +3,6 @@
 # Usage: update-state-phase.sh <phase>
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -20,4 +19,4 @@ esac
 
 atomic_write ".scrum/state.json" \
   ".phase = \"$PHASE\"" \
-  "$ROOT/docs/contracts/scrum-state/state.schema.json"
+  "$(resolve_schema_dir)/state.schema.json"

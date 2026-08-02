@@ -13,10 +13,16 @@
 #                           legacy phase values (design / implementation ->
 #                           pbi_pipeline_active), normalize dates
 #
-# Per-PBI files (.scrum/pbi/*/state.json) are NOT rewritten: their schema is
-# strict and projects in flight legitimately carry richer fields. The legacy
-# pbi-state.json `phase` field was removed in v2 — readers consult
-# backlog.json.items[].status (13-value SSOT) instead.
+# Per-PBI files (.scrum/pbi/*/state.json) are NOT rewritten here — that is
+# 004-drop-pbi-state-phase.sh's job. This file used to justify the omission
+# with "their schema is strict and projects in flight legitimately carry
+# richer fields", which was self-contradictory: pbi-state.schema.json is
+# `additionalProperties: false`, so a richer field is exactly what it
+# rejects, and migrate-state.sh validates every per-PBI file in its BLOCKING
+# batch pass. A v1 file still carrying the legacy `phase` key therefore
+# hard-failed the launch gate with no repair path. The legacy `phase` field
+# was removed in v2 — readers consult backlog.json.items[].status (13-value
+# SSOT) instead; 004 strips it.
 #
 # WARNING: status migration here is best-effort phase-blind remap. v1
 # `in_progress` collapses to `in_progress_design`; v1 `review` collapses to

@@ -29,6 +29,7 @@ new -> requirements_sprint -> backlog_created -> sprint_planning
   -> pbi_pipeline_active -> review -> sprint_review -> retrospective
 retrospective      -> backlog_created (next Sprint) -> sprint_planning
 retrospective      -> integration_sprint -> uat_release -> complete
+retrospective      -> complete (Product Goal met, no Integration Sprint)
 integration_sprint -> backlog_created (defect-fix loop)
 uat_release        -> backlog_created (UAT defect loop)
 ```
@@ -531,8 +532,8 @@ and the status line for real-time agent activity.
 | `pbi_id` | string \| null | Related PBI ID, if applicable |
 | `file_path` | string \| null | Absolute or relative file path (populated when `type` is `"file_changed"`) |
 | `change_type` | enum \| null | `"created"`, `"modified"`, or `"deleted"` (populated when `type` is `"file_changed"`) |
-| `status_from` | string \| null | Previous PBI status (populated when `type` is `"status_transition"`) |
-| `status_to` | string \| null | New PBI status (populated when `type` is `"status_transition"`) |
+| `status_from` | string \| null | Previous PBI status. Schema-permitted; no current producer (the only `"status_transition"` emitter, `hooks/dashboard-event.sh`, uses the type for session-stop and writes neither field) |
+| `status_to` | string \| null | New PBI status. Same: schema-permitted, no current producer |
 | `detail` | string | Human-readable event description |
 
 ### Rules
@@ -662,7 +663,7 @@ context.
 | `design_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
 | `impl_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"` |
 | `ut_status` | enum | `"pending"`, `"in_review"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` is schema-allowed but never written — a kind=docs PBI keeps `"pending"`) |
-| `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI) |
+| `coverage_status` | enum | `"pending"`, `"fail"`, `"pass"`, `"skipped"` (`"skipped"` on a kind=docs PBI, or under a project-wide coverage skip) |
 | `escalation_reason` | enum \| null | Set when `backlog.json.items[].status == escalated`. See enum below. |
 | `branch` | string \| absent | Worktree branch name (`pbi/<id>`). Absent until set; schema rejects null |
 | `worktree` | string \| absent | Worktree path (`.scrum/worktrees/<pbi-id>`, no trailing slash — the schema pattern rejects one). Absent until set; schema rejects null |
@@ -680,7 +681,10 @@ context.
 
 > **Note**: The legacy `phase` field was removed in v2. Lifecycle is
 > driven by `backlog.json.items[].status` (13-value enum, see PBI
-> entity above).
+> entity above). A pre-v2 per-PBI file still carrying `phase` is
+> repaired at launch by
+> `scripts/scrum/migrations/004-drop-pbi-state-phase.sh` — without it
+> the strict schema rejects the file and the launch gate blocks.
 
 `escalation_reason` enum:
 
@@ -690,8 +694,16 @@ requirements_unclear | coverage_tool_error | coverage_tool_unavailable |
 catalog_lock_timeout |
 reviewer_unavailable | stale_review_snapshot |
 merge_conflict | merge_artifact_missing | merge_regression |
-kind_mismatch
+kind_mismatch | teammate_unrecoverable
 ```
+
+`escalated` requires a non-null `escalation_reason`: the
+`pbi-escalation-handler` Response Matrix matches on it, and a null
+reason means no `escalation-resolution.md` is ever written, which
+makes `completion-gate.sh` block every subsequent SM Stop.
+`update-backlog-status.sh` does not machine-enforce this (it gates
+only `demo_plan`), so the two-step "reason first, then status"
+sequence is the writer's responsibility.
 
 ### Companion artifacts (under `.scrum/pbi/<pbi-id>/`)
 
@@ -730,7 +742,7 @@ kind_mismatch
   `design_status` and `coverage_status` = `"skipped"` and `ut_status` =
   `"pending"` instead.
 - Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing`, `regression` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`, `merge_regression`).
-- `coverage_status: pending` is permanent when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate.
+- `coverage_status: skipped` is the resting value when `.scrum/config.json.coverage_tool` is `null` (project-wide coverage skip declared); evaluation logic skips this gate and the Success branch records `skipped` instead of `pass` (`skills/pbi-pipeline/references/impl-ut-stage.md` § Success branch).
 
 ---
 
@@ -958,6 +970,60 @@ allow exit. Phase change or fingerprint change resets
 
 ---
 
+## Entity: AttentionFlag
+
+**File**: `.scrum/attention.json` (created on the first `Notification`;
+  absent until then)
+**Owner**: `hooks/notification-attention.sh` — atomic tmp + mv writes,
+  never validated per write (WARN-validated at launch by
+  `migrate-state.sh`)
+**Readers**: the Mac app (polls); missing / unparseable /
+  `pending != true` all mean "nothing is waiting"
+
+"Claude is blocked on the human" flag for an external UI, so it need
+not read transcripts. `Notification` raises `pending: true`;
+`UserPromptSubmit` clears it.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pending` | boolean | True while Claude is waiting on the human. |
+| `type` | enum | `"permission_prompt"` (unanswered tool-permission dialog) or `"idle_prompt"` (turn ended, no prompt followed within the harness idle window). Mirrors the payload's `notification_type`; unknown/absent normalizes to `idle_prompt`. Required while `pending` is true. |
+| `message` | string (≤256) | Banner text, writer-truncated to 200 codepoints + ellipsis. Required while `pending` is true. |
+| `agent` | string | Teammate display name resolved from `.scrum/session-map.json`; omitted when the session is unmapped (the usual case for the SM's own session). |
+| `updated_at` | ISO 8601 string | Timestamp of this write (both set and clear paths refresh it). |
+
+### Embedded companion: AttentionContext
+
+**File**: `.scrum/attention-context.json`, same owner and write
+discipline. Single-record message-recovery cache written on `Stop`
+(reached via `hooks/stop-dispatch.sh`, best-effort) and overwritten by
+every `Stop` from any session.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prompt_id` | string | The Stop payload's `prompt_id`. A following `idle_prompt` Notification with an identical (non-empty) `prompt_id` uses this record's message instead of the harness's generic text. |
+| `last_assistant_message` | string (≤256) | The turn's final assistant message, truncated to 200 codepoints + ellipsis. |
+| `recorded_at` | ISO 8601 string | Timestamp of the Stop that produced this record. |
+
+### Rules
+
+- **No wrapper script.** Like `stop-gate.json`, the writer is a hook
+  process outside the agent tool surface, so
+  `pre-tool-use-scrum-state-guard.sh` never intercepts it; agent
+  Write/Edit/Bash edits to these files are still rejected by that guard.
+- **Both modes.** Unlike `stop-gate.json`, the attention flag is
+  written in autonomous mode too — the hooks are registered
+  unconditionally.
+- **Fail-open to silence.** Any read/parse failure is treated by
+  consumers as "nothing is waiting"; a stale flag is preferable to a
+  crashed poller, so the writer never blocks the hook.
+- Schemas: `docs/contracts/scrum-state/attention.schema.json`,
+  `attention-context.schema.json`. Hook behaviour:
+  [agent-interfaces.md](contracts/agent-interfaces.md) § Notification /
+  UserPromptSubmit Hook.
+
+---
+
 ## Entity: Runtime
 
 **File**: `.scrum/runtime.json` (created by `scrum-start.sh` when
@@ -1059,4 +1125,10 @@ stop-gate.json
 runtime.json
   └── tmux_session, sm_pane_id, stall_watchdog_pid
         -> consumed by scripts/stall-watchdog.sh (non-autonomous mode)
+
+attention.json
+  └── agent -> .scrum/session-map.json session-id -> teammate display name
+  └── message <- attention-context.json.last_assistant_message
+                 (when attention-context.json.prompt_id matches the
+                  Notification's prompt_id; else the payload's own message)
 ```

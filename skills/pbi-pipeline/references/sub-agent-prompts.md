@@ -22,7 +22,7 @@ opus.
 runs a one-shot preflight and chooses the spawn model accordingly:
 
 ```bash
-source scripts/lib/codex-invoke.sh
+source .scrum/scripts/lib/codex-invoke.sh
 if codex_is_available; then
   CODEX_REVIEWER_MODEL=""     # default → frontmatter (sonnet)
 else

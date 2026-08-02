@@ -3,7 +3,6 @@
 # Usage: update-sprint-status.sh <status>
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -30,4 +29,4 @@ esac
 
 atomic_write ".scrum/sprint.json" \
   "$EXPR" \
-  "$ROOT/docs/contracts/scrum-state/sprint.schema.json"
+  "$(resolve_schema_dir)/sprint.schema.json"

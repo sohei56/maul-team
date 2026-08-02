@@ -4,7 +4,6 @@
 # mirrors them to backlog item, and flips backlog status to awaiting_cross_review.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -32,13 +31,13 @@ NOW="$(_iso_utc_now)"
 # retry does not survive into the post-merge state. (Schema declares
 # `merge_failure` as a non-nullable object — `del()` is the only safe clear.)
 EXPR=".merged_sha = \"$SHA\" | .merged_at = \"$NOW\" | .merge_failure_count = 0 | del(.merge_failure)"
-atomic_write "$STATE" "$EXPR" "$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
+atomic_write "$STATE" "$EXPR" "$(resolve_schema_dir)/pbi-state.schema.json"
 
 # Mirror merged_sha + merged_at to backlog item and stamp updated_at on the
 # mutated item (status flip happens via wrapper below, which also restamps
 # updated_at; stamping here keeps this direct mutation self-consistent).
 # $NOW is reused so updated_at == merged_at exactly.
-BACKLOG_SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+BACKLOG_SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 EXPR_B="(.items[] | select(.id == \"$PBI\")).merged_sha = \"$SHA\""
 EXPR_B="$EXPR_B | (.items[] | select(.id == \"$PBI\")).merged_at = \"$NOW\""
 EXPR_B="$EXPR_B | (.items[] | select(.id == \"$PBI\")).updated_at = \"$NOW\""

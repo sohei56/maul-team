@@ -56,11 +56,26 @@ teardown() {
   [[ "$ctx" == *"pbi_pipeline_active"* ]]
 }
 
-@test "session-context.sh: PostCompact event name is passed through" {
+# `PostCompact` is a real hook EVENT but is NOT a member of the
+# hookSpecificOutput.hookEventName union (verified against the shipped binary:
+# it never appears adjacent to `hookEventName`, while SessionStart/Stop/
+# PreToolUse do). Echoing it back produced hookEventName:"PostCompact", which
+# fails the whole-object schema parse and silently discards the context — so
+# the hook must normalize to a valid literal, NOT pass the event name through.
+@test "session-context.sh: PostCompact is normalized to a schema-valid hookEventName" {
   run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"PostCompact"}'
   assert_success
-  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "PostCompact" ]
+  [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
   [ -n "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" ]
+}
+
+@test "session-context.sh: never emits a hookEventName outside the accepted union" {
+  local ev
+  for ev in PostCompact PreCompact Stop SubagentStop Resume ""; do
+    run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< "{\"hook_event_name\":\"$ev\"}"
+    assert_success
+    [ "$(echo "$output" | jq -r '.hookSpecificOutput.hookEventName')" = "SessionStart" ]
+  done
 }
 
 @test "session-context.sh: defaults hookEventName to SessionStart when payload absent" {
@@ -333,6 +348,24 @@ EOF
 # status-gate.sh
 # ---------------------------------------------------------------------------
 
+# status-gate.sh denies via hook_block: stderr + exit 2, and emits NO stdout
+# decision object. Asserting exit status (not a stdout `.decision` field) is
+# the point — the previous `{"decision":"deny"}` + exit 0 form failed Claude
+# Code's top-level `decision` enum (["approve","block"]) and let the write
+# through, and a test reading the script's own stdout could never catch it.
+# The allow path is a bare exit 0: an explicit "approve" would bypass the
+# user's normal permission prompt.
+
+assert_gate_allowed() {
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+assert_gate_denied() {
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"BLOCKED"* ]]
+}
+
 @test "status-gate.sh allows Edit during pbi_pipeline_active" {
   mkdir -p .scrum
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=pbi_pipeline_active
@@ -342,12 +375,7 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"src/main.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  # Decision should be allow
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "allow" ]
+    assert_gate_allowed
 }
 
 @test "status-gate.sh denies source Edit during requirements_sprint" {
@@ -359,12 +387,7 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"src/main.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  # Decision should be deny
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies source Edit during sprint_planning" {
@@ -375,11 +398,7 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"src/main.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies source Write during sprint_planning" {
@@ -390,11 +409,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"src/new_file.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 
@@ -406,11 +421,7 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"src/main.py"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies Write to docs/design/catalog.md" {
@@ -421,11 +432,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/catalog.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies Edit to docs/design/catalog.md in any phase" {
@@ -436,11 +443,7 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":"docs/design/catalog.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies design spec write when ID not in catalog-config.json" {
@@ -453,11 +456,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/specs/ui/S-030-screen-design.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh denies design spec write when ID not in catalog.md" {
@@ -470,11 +469,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/specs/ui/S-030-screen-design.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "deny" ]
+    assert_gate_denied
 }
 
 @test "status-gate.sh allows design spec write when ID in both catalog.md and config" {
@@ -487,11 +482,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/specs/ui/S-030-screen-design.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "allow" ]
+    assert_gate_allowed
 }
 
 @test "status-gate.sh enforces catalog in pbi_pipeline_active phase via Write" {
@@ -504,11 +495,7 @@ EOF
   event_json='{"tool_name":"Write","tool_input":{"file_path":"docs/design/specs/ui/S-030-screen-design.md"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "allow" ]
+    assert_gate_allowed
 }
 
 @test "status-gate.sh allows metadata file Edit during sprint_planning" {
@@ -520,17 +507,32 @@ EOF
   event_json='{"tool_name":"Edit","tool_input":{"file_path":".scrum/backlog.json"}}'
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
-  assert_success
-
-  local decision
-  decision="$(echo "$output" | jq -r '.decision')"
-  [ "$decision" = "allow" ]
+    assert_gate_allowed
 }
 
-@test "setup-user.sh settings.json template uses Write|Edit status-gate matcher (no retired MultiEdit)" {
-  run grep -q '"matcher": "Write|Edit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+@test "setup-user.sh settings.json template uses Write|Edit|NotebookEdit status-gate matcher (no retired MultiEdit)" {
+  run grep -q '"matcher": "Write|Edit|NotebookEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
   run grep -q 'MultiEdit' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
+}
+
+# Claude Code matchers built only from [A-Za-z0-9_|, -] take the EXACT-name
+# membership branch, not a regex branch — "Write|Edit" is the literal set
+# {Write, Edit} and does not substring-match NotebookEdit. Every write-side
+# guard must therefore name the notebook tools explicitly or they bypass it.
+@test "setup-user.sh: every write-side PreToolUse guard covers NotebookEdit" {
+  # scrum-state guard, status gate, and path guard all gate writes.
+  run grep -q '"matcher": "Write|Edit|NotebookEdit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_success
+  run grep -q '"matcher": "Write|Edit|NotebookEdit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_success
+  run grep -q '"matcher": "Read|Write|Edit|NotebookRead|NotebookEdit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_success
+  # No write-side guard may be left on a notebook-blind matcher.
+  run grep -q '"matcher": "Write|Edit"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  assert_failure
+  run grep -q '"matcher": "Read|Write|Edit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_failure
 }
 
@@ -920,12 +922,12 @@ EOF
   assert_output "Write|Edit"
 }
 
-@test "setup-user.sh settings.json template includes Write|Edit|Bash matcher for PreToolUse" {
+@test "setup-user.sh settings.json template includes the scrum-state guard matcher for PreToolUse" {
   # Validate the heredoc template source directly — no prereqs required
   run grep -A1 '"PreToolUse"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
   # The matcher line must appear somewhere after PreToolUse in the file
-  run grep '"matcher": "Write|Edit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
+  run grep '"matcher": "Write|Edit|NotebookEdit|Bash"' "$PROJECT_ROOT/scripts/setup-user.sh"
   assert_success
 }
 
