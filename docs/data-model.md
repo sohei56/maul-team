@@ -699,6 +699,7 @@ kind_mismatch
 |------|---------|
 | `design/design.md` | Primary design artifact authored by `pbi-designer` (includes the `Library Selection` section) |
 | `design/review-r{n}.md` | `codex-design-reviewer` output per Round |
+| `{design\|impl\|ut}/codex-r{n}.log` | Codex invocation diagnostics per Round (full transcript + token usage + failure reason), written by the `codex-invoke.sh` helper process — see `agents/codex-design-reviewer.md` § Processing Flow |
 | `impl/review-r{n}.md` | `codex-impl-reviewer` output per Round |
 | `impl/summary.md` | Final-Round impl summary (file list, change summary) |
 | `ut/review-r{n}.md` | `codex-ut-reviewer` output per Round |

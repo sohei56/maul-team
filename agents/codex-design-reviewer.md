@@ -99,20 +99,69 @@ missing_error_handling, missing_ac_mapping, missing_library_spec.
    `stale_snapshot: design.md expected=<hash> actual=<hash>` and
    STOP — do NOT write a review file.
 2. Read all provided files in full.
-3. Build review instructions to a temp file. The Codex invocation
-   below MUST be cd-ed into (or `-C`-targeted at) the PBI worktree
-   directory `.scrum/worktrees/<pbi-id>` so file resolution honors
-   the same checkout the impl/UT reviewers will read; the design doc
-   itself sits at the SSOT path under that worktree's `.scrum`
-   symlink.
+3. Build the review instruction payload per § Codex instruction
+   payload below, to a temp file under `"${TMPDIR:-/tmp}"`. The
+   Codex invocation below MUST be cd-ed into (or `-C`-targeted at)
+   the PBI worktree directory `.scrum/worktrees/<pbi-id>` so file
+   resolution honors the same checkout the impl/UT reviewers will
+   read; the design doc itself sits at the SSOT path under that
+   worktree's `.scrum` symlink.
 4. Source `scripts/lib/codex-invoke.sh` then call
-   `codex_review_or_fallback "$instr" "$out"`.
+   `codex_review_or_fallback "$instr" "$out" "$log"` with `$out` a
+   second temp path under `"${TMPDIR:-/tmp}"` and `$log` the
+   diagnostic log at
+   `.scrum/pbi/<pbi-id>/design/codex-r{n}.log` (impl/ut reviewers:
+   same name under their own `impl/` / `ut/` artifact dir). The log
+   is written by the helper process (full codex transcript +
+   token-usage line + any failure reason) — it is diagnostics, not a
+   review, and like the temp files it is exempt from the
+   one-mandatory-write rule.
 5. If exit 0: read $out and write to the review-r{n}.md path,
    prepending the header line
    `Reviewed-Design-Hash: <design_hash>` as line 1.
 6. If exit 1 (Codex unavailable): perform same-criteria Claude review
-   yourself; prepend `[Fallback: Claude review]` to Summary and the
-   same `Reviewed-Design-Hash:` header to the file.
+   yourself; prepend `[Fallback: Claude review — codex: <reason>]`
+   to Summary, where `<reason>` is the `reason=` token from the
+   helper's `codex-invoke: FAIL` stderr line (e.g. `timeout`,
+   `nonzero rc=3`), and the same `Reviewed-Design-Hash:` header to
+   the file.
+
+## Codex instruction payload (canonical home)
+
+The instruction file passed to `codex_review_or_fallback` IS the
+review — its content decides what Codex actually checks. Build it
+from these six blocks, in order. The contract applies identically to
+all three codex-\* reviewers (impl/ut substitute their own criteria,
+enum, and input list); other documents point here instead of
+restating it.
+
+1. **Adversarial role.** Open with: your job is to BREAK the
+   artifact under review — hunt for the ways it fails, not reasons
+   it passes. A PASS verdict must be earned by surviving the hunt,
+   never assumed.
+2. **Scope.** The exact input file list (paths relative to the
+   worktree root) and the boundary: read only the listed files plus
+   files they directly reference; modify nothing.
+3. **Criteria.** This agent's § Review Criteria verbatim, the
+   `criterion_key` enum, and § Severity Levels including the
+   PASS/FAIL rule.
+4. **Evidence mandate.** Every finding MUST cite
+   `file:line_start-line_end` plus a concrete failure scenario —
+   for code, the input/state that triggers the defect; for
+   design/tests, the specific requirement or AC text violated. A
+   suspicion without evidence is not a finding; Codex must drop it,
+   not report it.
+5. **Output format.** The exact § Output Format block below
+   (Verdict / numbered `#k` Findings / Summary). No prose outside
+   it.
+6. **Prohibitions.** Describe problems only — no fixes, no patches,
+   no file writes.
+
+Write the payload file (and the codex output temp file) under
+`"${TMPDIR:-/tmp}"` only — never inside the repo, the worktree, or
+`.scrum/`. This mirrors the Integrity aspects' second-opinion rule
+(`skills/pbi-pipeline/references/integrity-stage.md` § Codex second
+opinion).
 
 ## Output Format
 

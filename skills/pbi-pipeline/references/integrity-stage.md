@@ -193,7 +193,10 @@ analysis. The other three aspects never run this step.
    inline call.
 3. **Exit 1 (codex unavailable / timeout / empty output)** — non-fatal.
    Return your own review alone; end Summary with
-   `Codex second opinion: unavailable`. Do not retry, do not escalate.
+   `Codex second opinion: unavailable (<reason>)`, where `<reason>` is
+   the `reason=` token from the helper's `codex-invoke: FAIL` stderr
+   line (e.g. `timeout`, `nonzero rc=3`; the full transcript is in
+   `$out.log`). Do not retry, do not escalate.
 4. **Exit 0 — adjudicate, never rubber-stamp.** Merge codex findings
    into your Findings list:
    - A codex finding whose signature

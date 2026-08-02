@@ -157,6 +157,9 @@ You are codex-design-reviewer for {pbi_id} Round {n}. Independent
 critical review of the PBI design doc.
 
 Inputs:
+- Worktree root: {worktree_path}
+  (cd here — or `-C` it — before the Codex invocation; see your
+  agent definition § Processing Flow)
 - Design doc: .scrum/pbi/{pbi_id}/design/design.md
 - Design doc SHA-256: {design_hash}
 - Related catalog specs (consistency check):

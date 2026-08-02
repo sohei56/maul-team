@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # fake-codex.sh — test stub mimicking `codex exec` for integration tests.
 # Usage (matches scripts/lib/codex-invoke.sh):
-#   fake-codex.sh exec --sandbox read-only --skip-git-repo-check - \
-#     < <instructions_file> > <output_file>
-# Behavior: ignores flags, reads instructions from stdin (discarded),
-# and writes a deterministic PASS verdict to STDOUT. The caller
-# (codex_review_or_fallback) redirects STDOUT into the review file.
+#   fake-codex.sh exec --sandbox read-only --skip-git-repo-check \
+#     --output-last-message <verdict_file> - < <instructions_file>
+# Behavior: reads instructions from stdin (discarded), writes a
+# deterministic verdict to the --output-last-message file (falling
+# back to STDOUT when the flag is absent), and emits transcript
+# chatter + a token-usage line on stdout/stderr — the caller
+# (codex_review_or_fallback) captures both into its log file.
 # Override behavior via FAKE_CODEX_VERDICT (PASS or FAIL) and
 # FAKE_CODEX_FINDINGS (newline-separated "signature|severity|criterion|description").
 set -euo pipefail
@@ -18,12 +20,21 @@ set -euo pipefail
 # broken invocation).
 [ "${1:-}" = "exec" ] || { echo "fake-codex: expected 'exec' subcommand, got '${1:-}'" >&2; exit 1; }
 
+# Extract the --output-last-message target (the real codex writes its
+# final agent message there; empty when the flag is absent).
+last_message_file=""
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "--output-last-message" ] && last_message_file="$arg"
+  prev="$arg"
+done
+
 # Drain stdin (the instructions) so codex's stdin contract is honored.
 cat >/dev/null || true
 
 verdict="${FAKE_CODEX_VERDICT:-PASS}"
 
-{
+emit_verdict() {
   echo "## Review: fake-codex stub"
   echo ""
   echo "**Verdict: $verdict**"
@@ -65,5 +76,17 @@ verdict="${FAKE_CODEX_VERDICT:-PASS}"
   }'
   echo '```'
 }
+
+if [ -n "$last_message_file" ]; then
+  emit_verdict > "$last_message_file"
+else
+  emit_verdict
+fi
+
+# Transcript chatter, mimicking the real codex exec session output that
+# codex_review_or_fallback routes into its diagnostic log.
+echo "fake-codex: transcript chatter (stdout)"
+echo "fake-codex: progress chatter (stderr)" >&2
+echo "tokens used: 1234"
 
 exit 0
