@@ -25,7 +25,6 @@
 #                              backlog before invoking this)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -39,7 +38,7 @@ assert_pbi_id "$PBI"
 
 STATE_FILE=".scrum/pbi/$PBI/state.json"
 BACKLOG_FILE=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/pbi-state.schema.json"
+SCHEMA="$(resolve_schema_dir)/pbi-state.schema.json"
 
 [ -f "$STATE_FILE" ] || fail E_FILE_MISSING "$STATE_FILE (initialise via init-pbi-state.sh)"
 [ -f "$BACKLOG_FILE" ] || fail E_FILE_MISSING "$BACKLOG_FILE"

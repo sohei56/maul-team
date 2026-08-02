@@ -198,8 +198,9 @@ frontmatter-drift, description-drift, hook-path-drift, other.
 - Workflow scripts: scripts/scrum/commit-pbi.sh,
   mark-pbi-ready-to-merge.sh, merge-pbi.sh, and related wrappers
 - Branch-ops guard hook: hooks/pre-tool-use-no-branch-ops.sh
-- Quality / completion gates: hooks/post-tool-use-quality-gate.sh,
-  hooks/stop-failure-gate.sh, related gates
+- Quality / completion gates: hooks/quality-gate.sh,
+  hooks/stop-failure.sh, hooks/stop-dispatch.sh,
+  hooks/completion-gate.sh, related gates
 - Pipeline skills: skills/pbi-pipeline/, skills/pbi-merge/,
   skills/pbi-escalation-handler/
 - Migration docs scoped to PBI workflow
@@ -240,7 +241,8 @@ README.md, docs/**/*.md, agents/*.md, skills/**/*.md,
 1. Cross-file dup: same regulation/rule/example in 3+ files (2 is
    borderline; flag only when extracting + linking is clearly better)
 2. Within-file dup: same point made multiple times in one file
-3. Verbose-but-empty: filler matching .claude/rules/token-efficiency.md
+3. Verbose-but-empty: filler violating CLAUDE.md § Output discipline
+   (canonical for this repo) / rules/scrum-context.md § Output discipline
 
 ## Method
 - Pick HIGH-VALUE duplication: regulations, lifecycle diagrams, setup

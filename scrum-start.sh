@@ -609,21 +609,20 @@ if [ "${SCRUM_NO_TMUX:-0}" != "1" ] && command -v tmux >/dev/null 2>&1; then
   tmux set-option -g default-terminal "screen-256color" 2>/dev/null || true
   tmux set-option -ga terminal-overrides ",*:RGB" 2>/dev/null || true
 
+  # Both branches announce the same main pane; only the dashboard lines differ.
   if [ "$term_cols" -ge "$min_split_cols" ]; then
     echo "Launching Scrum team with tmux dashboard..."
-    if [ "$AUTONOMOUS" = "1" ]; then
-      echo "  Main pane: Autonomous-PO watchdog (Ralph Loop)"
-    else
-      echo "  Main pane: Claude Code (Scrum Master)"
-    fi
-    echo "  Side pane: TUI Dashboard"
   else
     echo "Launching Scrum team in tmux..."
-    if [ "$AUTONOMOUS" = "1" ]; then
-      echo "  Main pane: Autonomous-PO watchdog (Ralph Loop)"
-    else
-      echo "  Main pane: Claude Code (Scrum Master)"
-    fi
+  fi
+  if [ "$AUTONOMOUS" = "1" ]; then
+    echo "  Main pane: Autonomous-PO watchdog (Ralph Loop)"
+  else
+    echo "  Main pane: Claude Code (Scrum Master)"
+  fi
+  if [ "$term_cols" -ge "$min_split_cols" ]; then
+    echo "  Side pane: TUI Dashboard"
+  else
     echo "  Dashboard: skipped (terminal width ${term_cols} < ${min_split_cols})"
     echo "  Resize to at least ${min_split_cols} columns to enable the split dashboard."
   fi

@@ -30,7 +30,6 @@
 # created automatically.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -112,7 +111,7 @@ fi
 
 # Ensure parent dir + store file exist (idempotent init: empty array).
 PATHF=".scrum/po/decisions.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/po-decisions.schema.json"
+SCHEMA="$(resolve_schema_dir)/po-decisions.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
   # Seed through atomic_create so the first write is schema-validated and lands

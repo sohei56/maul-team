@@ -3,7 +3,7 @@ name: cross-review
 description: >
   Sprint-end product-wide integrity gate. The five per-aspect reviews
   (requirement conformance, functional quality, security,
-  maintainability, docs consistency) now run PER-PBI inside the pipeline
+  maintainability, docs consistency) run PER-PBI inside the pipeline
   before a PBI reaches awaiting_cross_review. Sprint-end cross-review is
   the whole-repo codebase-audit ONLY: static analysis + 4 audit axes
   (spec-conformance, logic-defect, redundancy, product-security) over the
@@ -14,24 +14,19 @@ disable-model-invocation: false
 
 ## Role
 
-Sprint-end cross-cutting quality gate — now scoped to **product-wide
-integrity**. Two things changed the shape of this ceremony:
+Sprint-end cross-cutting quality gate, scoped to **product-wide
+integrity**: the whole-repo `codebase-audit` over the **accumulated
+codebase at HEAD** — the scope no per-PBI diff review can reach — along
+the four audit axes (`spec-conformance`, `logic-defect`, `redundancy`,
+`product-security`) defined in `../codebase-audit/SKILL.md` § Role
+(axis table lives there).
 
-1. **The five aspect reviews moved into the per-PBI pipeline.**
-   Requirement conformance, cross-PBI functional quality, security,
-   maintainability, and docs consistency are reviewed **per PBI**,
-   inside the pipeline, before the PBI reaches `awaiting_cross_review`.
-   Their per-PBI review docs and `review_doc_path` are authored there,
-   not here. This skill no longer spawns aspect reviewers, writes
-   `aspect-*.md`, builds per-PBI digests, or runs any aspect FAIL
-   routing / re-loop.
-
-2. **Sprint-end cross-review is the whole-repo `codebase-audit`.** It
-   scans the **accumulated codebase at HEAD** — the scope no per-PBI
-   diff review can reach — along the four audit axes
-   (`spec-conformance`, `logic-defect`, `redundancy`,
-   `product-security`) defined in `../codebase-audit/SKILL.md`
-   § Role (axis table lives there).
+**This skill does not spawn aspect reviewers.** Requirement conformance,
+functional quality, security, maintainability, and docs consistency are
+reviewed **per PBI** inside the pipeline before the PBI reaches
+`awaiting_cross_review`; their review docs and `review_doc_path` are
+authored there, not here. Do not write `aspect-*.md`, build per-PBI
+digests, or run any aspect FAIL routing / re-loop in this ceremony.
 
 The audit is **non-blocking**: PBIs already passed their per-PBI aspect
 reviews before reaching this ceremony, so the audit never reverts them.

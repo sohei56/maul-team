@@ -379,7 +379,16 @@ make_spaced_framework() {
   [ -x ".claude/hooks/stop-dispatch.sh" ]
   [ -f ".claude/hooks/lib/validate.sh" ]
   [ -f ".claude/rules/scrum-context.md" ]
-  [ -f "scripts/lib/codex-invoke.sh" ]
+  # codex-invoke.sh deploys under .scrum/scripts/lib/, NOT the user's
+  # scripts/ tree: reviewers source it after cd-ing into a PBI worktree, and
+  # a worktree (checked out at sprint.base_sha) cannot see untracked files
+  # from the main working tree. `.scrum` is symlinked into every worktree, so
+  # only this location is reachable from there.
+  [ -f ".scrum/scripts/lib/codex-invoke.sh" ]
+  # ...and the framework must NOT scatter its repo-only helpers into the
+  # target's scripts/ tree, where a plain cp could clobber a same-named file.
+  [ ! -f "scripts/lib/time.sh" ]
+  [ ! -f "scripts/lib/jq-read.sh" ]
 
   # The deployed wrapper must carry the current contract, not a stale one.
   run grep -q "demo_plan" ".scrum/scripts/set-backlog-item-field.sh"

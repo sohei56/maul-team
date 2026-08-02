@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # hooks/pre-tool-use-no-branch-ops.sh — block free-form git branch / merge / push
 # / rebase / worktree-add-b from the Bash tool. Allows .scrum/scripts/* wrappers
-# (which encapsulate the workflow).
+# (which encapsulate the workflow) — but the compound-command test below is
+# quoting-blind, so a wrapper call whose *argument* contains `&&`/`||`/`;`/`|`
+# (e.g. a commit message) loses the allowlist and can be blocked by a segment
+# scan; rephrase the argument.
 #
 # Scope / threat model: this is a guardrail against *honest mistakes*, not a
 # sandbox against a hostile agent. The command string is split on shell

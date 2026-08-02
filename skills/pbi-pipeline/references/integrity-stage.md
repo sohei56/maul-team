@@ -4,11 +4,9 @@ The per-PBI **Integrity stage** is the final quality gate a PBI clears
 before ready-to-merge. It runs the 5 cross-cutting review aspects
 (requirement-conformance, functional-quality, security,
 maintainability, docs-consistency) against **this one PBI's increment**
-— "PBI integrity". These aspects used to run Sprint-end across all
-merged PBIs; they now run per-PBI, here, so a defect is caught while
-its author's context is still live. Whole-repo / cross-PBI review
-("product integrity") is the Sprint-end **codebase audit's** job, not
-this stage's.
+— "PBI integrity". Whole-repo / cross-PBI review ("product integrity")
+is the Sprint-end **codebase audit's** job, not this stage's.
+Rationale: § Why this stage exists.
 
 ## Placement in the pipeline
 
@@ -74,7 +72,7 @@ run a **codex second opinion** from inside the reviewer itself
 (canonical protocol: § Aspect reviewer shared contract → Codex second
 opinion, below): after finalizing its own
 findings, the reviewer invokes `codex_review_or_fallback`
-(`scripts/lib/codex-invoke.sh`) against the same diff and adjudicates
+(`.scrum/scripts/lib/codex-invoke.sh`) against the same diff and adjudicates
 codex-only findings — a codex Critical/High enters the verdict only
 after the reviewer verifies it against the code; an unverified codex
 claim is downgraded to Medium and never blocks the gate. This is
@@ -186,14 +184,17 @@ analysis. The other three aspects never run this step.
    the diff bounds (`git diff {base_sha}..{review_sha} -- <paths_touched>`),
    and the exact Findings line format from § Output contract above.
 2. **Invoke** — cd into the PBI worktree (`.scrum/worktrees/<pbi-id>`),
-   `source scripts/lib/codex-invoke.sh`, then
+   `source .scrum/scripts/lib/codex-invoke.sh`, then
    `codex_review_or_fallback "$instr" "$out"`. Bounded by
    `CODEX_TIMEOUT_SECS` (default 300). The conductor-side codex
    preflight and `reviewer-stall-fallback.md` do **NOT** apply to this
    inline call.
 3. **Exit 1 (codex unavailable / timeout / empty output)** — non-fatal.
    Return your own review alone; end Summary with
-   `Codex second opinion: unavailable`. Do not retry, do not escalate.
+   `Codex second opinion: unavailable (<reason>)`, where `<reason>` is
+   the `reason=` token from the helper's `codex-invoke: FAIL` stderr
+   line (e.g. `timeout`, `nonzero rc=3`; the full transcript is in
+   `$out.log`). Do not retry, do not escalate.
 4. **Exit 0 — adjudicate, never rubber-stamp.** Merge codex findings
    into your Findings list:
    - A codex finding whose signature
@@ -275,7 +276,7 @@ SH_FILES="$(echo "$CHANGED" | grep -E '\.sh$' || true)"
 # the reviewer degrades gracefully (static_analysis_status=unavailable).
 ```
 
-This mirrors the old Sprint-end Pass A, re-scoped to the PBI diff. The
+Pass A is scoped to the PBI diff. The
 whole-repo Pass-B / `vulture` reachability scan is **not** run here —
 that `unused_export` class is the Sprint-end audit's redundancy axis.
 

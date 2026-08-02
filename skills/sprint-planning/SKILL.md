@@ -122,8 +122,11 @@ decision is `choice:start_sprint`. No additional PO request is needed.
        this sprint, ensure they are NOT assigned to different
        developers in parallel. Either sequence them on one developer,
        or split the PBI to remove overlap.
-    4. If overlap unavoidable → note in sprint.json that runtime flock
-       will arbitrate (Layer 2 of catalog-contention defense).
+    4. If overlap unavoidable → note in sprint.json that the runtime
+       mkdir directory lock (`.scrum/locks/catalog-<spec_id>.lock.d`)
+       will arbitrate (Layer 2 of catalog-contention defense; the lock
+       does **not** auto-release on process death — see
+       `../pbi-pipeline/references/catalog-contention.md`).
 
 > **Note (worktree governance).** Per-PBI worktrees give physical
 > isolation, so two PBIs touching the same source file no longer

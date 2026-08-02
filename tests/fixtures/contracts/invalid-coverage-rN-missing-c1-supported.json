@@ -1,0 +1,12 @@
+{
+  "round": 1,
+  "pbi_id": "pbi-001",
+  "tool": "go test",
+  "tool_version": "1.23",
+  "measured_at": "2026-03-01T10:00:00Z",
+  "totals": {
+    "c0": {"covered": 100, "total": 100, "percent": 100.0},
+    "c1": {"covered": 0, "total": 0, "percent": 0.0}
+  },
+  "files": []
+}

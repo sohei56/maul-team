@@ -3,14 +3,13 @@
 # Idempotency: refuses to overwrite a non-null base_sha (call exactly once per Sprint).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
 source "$HERE/lib/atomic.sh"
 
 SPRINT=".scrum/sprint.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/sprint.schema.json"
+SCHEMA="$(resolve_schema_dir)/sprint.schema.json"
 [ -f "$SPRINT" ] || fail E_FILE_MISSING "$SPRINT"
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 \

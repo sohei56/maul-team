@@ -20,10 +20,10 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG=".scrum/config.json"
 
 # Read entire payload from stdin into a variable
-payload="$(cat)"
-agent="$(printf '%s' "$payload" | jq -r '.agent_name // ""')"
-tool="$(printf '%s' "$payload" | jq -r '.tool_name // ""')"
-path="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // ""')"
+payload="$(read_hook_payload)"
+agent="$(payload_get "$payload" '.agent_name')"
+tool="$(payload_get "$payload" '.tool_name')"
+path="$(payload_get "$payload" '.tool_input.file_path')"
 
 # Fail-open if no agent or non-target agent
 if [ -z "$agent" ]; then

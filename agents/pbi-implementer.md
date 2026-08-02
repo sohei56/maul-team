@@ -13,9 +13,6 @@ tools:
 model: opus
 effort: high
 maxTurns: 150
-disallowedTools:
-  - WebFetch
-  - WebSearch
 ---
 
 # PBI Implementer Agent
@@ -106,3 +103,7 @@ End with the JSON envelope from
 List all modified file paths in `artifacts`. `summary` is one or two
 sentences; do not restage the diff in prose — the conductor reads the
 files.
+
+**Brevity governs prose, never coverage.** Never drop an edge case, a
+guard, or an error path to keep the diff short — the implementation is
+the deliverable. See `../rules/scrum-context.md` § Output discipline.

@@ -183,7 +183,7 @@ preflight). The same result applies to both reviewer spawns in this
 parallel pair — preflight once, then spawn both:
 
 ```bash
-source scripts/lib/codex-invoke.sh
+source .scrum/scripts/lib/codex-invoke.sh
 codex_is_available && SPAWN_MODEL="" || SPAWN_MODEL="opus"
 ```
 
@@ -426,7 +426,13 @@ Only on Integrity PASS does control reach the Success branch.
 **kind=code** (reached only after Integrity PASS):
 
 ```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status pass
+# Project-wide coverage skip (.scrum/config.json.coverage_tool == null):
+# the gate never ran, so record `skipped`, not `pass`.
+if [ "$(jq -r '.coverage_tool // "null"' .scrum/config.json)" = "null" ]; then
+  .scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status skipped
+else
+  .scrum/scripts/update-pbi-state.sh "$PBI_ID" coverage_status pass
+fi
 write_summary "$PBI_DIR/impl/summary.md"
 write_summary "$PBI_DIR/ut/summary.md"
 .scrum/scripts/mark-pbi-ready-to-merge.sh "$PBI_ID"

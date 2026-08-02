@@ -1,0 +1,32 @@
+{
+  "status": "fail",
+  "summary": "Two issues found in the auth module.",
+  "verdict": "FAIL",
+  "findings": [
+    {
+      "signature": "src/auth.py:10-20:missing_validation",
+      "severity": "high",
+      "criterion_key": "missing_validation",
+      "file_path": "src/auth.py",
+      "line_start": 10,
+      "line_end": 20,
+      "description": "Token expiry is never checked before use."
+    },
+    {
+      "signature": "docs/design/specs/api/auth.md:3-3:missing_library_spec",
+      "severity": "medium",
+      "criterion_key": "missing_library_spec",
+      "file_path": "docs/design/specs/api/auth.md",
+      "line_start": 3,
+      "line_end": 3,
+      "description": "No S-070 library-selection entry for the JWT dependency."
+    }
+  ],
+  "next_actions": [
+    "Add an expiry check before token use.",
+    "Record the JWT library selection as an S-070 spec."
+  ],
+  "artifacts": [
+    ".scrum/pbi/pbi-001/impl/review-r1.md"
+  ]
+}

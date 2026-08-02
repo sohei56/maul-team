@@ -1,0 +1,14 @@
+{
+  "round": 1,
+  "pbi_id": "pbi-001",
+  "audited_at": "2026-03-01T10:06:00Z",
+  "exclusions": [
+    {
+      "file_path": "src/auth.py",
+      "line": 12,
+      "code_excerpt": "    raise RuntimeError(\"unreachable\")  # pragma: no cover",
+      "reason_text": null,
+      "reason_source": "none_given"
+    }
+  ]
+}

@@ -22,7 +22,7 @@ opus.
 runs a one-shot preflight and chooses the spawn model accordingly:
 
 ```bash
-source scripts/lib/codex-invoke.sh
+source .scrum/scripts/lib/codex-invoke.sh
 if codex_is_available; then
   CODEX_REVIEWER_MODEL=""     # default → frontmatter (sonnet)
 else
@@ -157,6 +157,9 @@ You are codex-design-reviewer for {pbi_id} Round {n}. Independent
 critical review of the PBI design doc.
 
 Inputs:
+- Worktree root: {worktree_path}
+  (cd here — or `-C` it — before the Codex invocation; see your
+  agent definition § Processing Flow)
 - Design doc: .scrum/pbi/{pbi_id}/design/design.md
 - Design doc SHA-256: {design_hash}
 - Related catalog specs (consistency check):

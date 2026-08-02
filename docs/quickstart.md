@@ -93,45 +93,12 @@ Without tmux, the compact status line dashboard (3 lines) is used instead.
 
 ## For Contributors / Developers
 
-Guide for developers contributing to the maul-team project itself.
-
-### Prerequisites
-
-- Everything from the End User section above, plus:
-- **Bash 3.2+** (default on macOS/Linux)
-- **jq** for JSON processing (`brew install jq`)
-
-### Development-only Dependencies
-
-- **bats-core** for running tests (`brew install bats-core`)
-- **yq** for YAML validation in tests (`brew install yq`)
-- **ShellCheck** for linting Bash scripts (`brew install shellcheck`)
-
-### Setup
-
-```bash
-# Clone the repository
-git clone git@github.com:sohei56/maul-team.git
-cd maul-team
-
-# Run the contributor setup script (installs dev deps + user setup)
-sh scripts/setup-dev.sh
-
-# Or install dependencies manually:
-brew install bats-core jq yq shellcheck
-git submodule update --init --recursive
-
-# Verify development dependencies
-command -v bats && echo "bats-core: OK"
-command -v jq && echo "jq: OK"
-command -v yq && echo "yq: OK"
-command -v shellcheck && echo "shellcheck: OK"
-```
-
-## Repository Layout
-
-See [CLAUDE.md § Project Structure](../CLAUDE.md) for the canonical
-annotated tree.
+Prerequisites, clone + `setup-dev.sh` setup, test and lint commands,
+code style, and commit conventions are canonical in
+[CONTRIBUTING.md](../CONTRIBUTING.md); the repository tree is in
+[CLAUDE.md § Project Structure](../CLAUDE.md). The rest of this
+section covers only what is specific to finding your way around the
+codebase.
 
 ## Key Concepts
 
@@ -140,7 +107,7 @@ For deeper detail, follow these pointers:
 - **Agents and sub-agents**: top-level Scrum Master + Developer +
   Product Owner + Requirements Analyst (Requirement Definition
   ceremony) plus 11 specialist sub-agents (6 PBI pipeline + 5
-  cross-review) — see [docs/contracts/sub-agents.md](contracts/sub-agents.md).
+  Integrity stage) — see [docs/contracts/sub-agents.md](contracts/sub-agents.md).
 - **Skills**: Markdown + YAML frontmatter under `.claude/skills/<name>/SKILL.md`,
   each with `## Inputs` / `## Outputs`. Invocation, side effects, and
   state writes are documented per skill.
@@ -161,13 +128,10 @@ For deeper detail, follow these pointers:
 
 ## Development Workflow
 
-1. Read the requirements: `docs/requirements.md`
-2. Read the data model: `docs/data-model.md`
-3. Read the contracts: `docs/contracts/`
-4. Make changes
-5. Run `shellcheck` on modified shell scripts
-6. Run `bats tests/unit/ tests/lint/` to verify
-7. Commit per the conventions in [CONTRIBUTING.md § Commit Conventions](../CONTRIBUTING.md#commit-conventions)
+Orient yourself in this order — requirements (`docs/requirements.md`)
+→ data model (`docs/data-model.md`) → contracts (`docs/contracts/`) —
+then make changes and follow [CONTRIBUTING.md](../CONTRIBUTING.md) for
+linting, tests, and commit conventions.
 
 ## Testing an End-to-End Flow
 

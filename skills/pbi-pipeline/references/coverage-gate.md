@@ -69,12 +69,34 @@ Read junit XML or json → transform into the schema in
 
 (e) **Pragma audit**
 
+`pragma_pattern` is EITHER a plain string (one global marker) or an object
+keyed per language — both are schema-legal. Resolve the shape explicitly:
+a bare `jq -r` on the object form emits the JSON text, which matches
+nothing, and on an absent key emits the literal `null`. Either way the
+audit finds zero exclusions and the Pass criterion below (`all` over an
+empty array) is vacuously true — the pragma leg of Definition of Done
+silently always passes. Never let that happen quietly.
+
 ```bash
-PATTERN="$(jq -r '.pragma_pattern' "$CFG")"
-# Grep all test files for $PATTERN; for each match, capture file:line +
-# look at the line above and the inline part of the line for the reason
-# text. Build pragma-audit-r{n}.json per spec 6.6.
+case "$(jq -r '.pragma_pattern | type' "$CFG")" in
+  string) PATTERN="$(jq -r '.pragma_pattern' "$CFG")" ;;
+  object)
+    # $PBI_LANG: the PBI's language, from the design doc's
+    # `yaml runtime-override` block, else the project default.
+    PATTERN="$(jq -r --arg l "$PBI_LANG" '.pragma_pattern[$l] // empty' "$CFG")"
+    [ -n "$PATTERN" ] || { echo "pragma_pattern has no key for '$PBI_LANG'" >&2; exit 1; }
+    ;;
+  null)   PATTERN="" ;;   # not configured → pragma leg N/A, empty audit is correct
+  *)      echo "pragma_pattern must be string or object" >&2; exit 1 ;;
+esac
+# With a non-empty $PATTERN: grep all test files for it; for each match
+# capture file:line + the line above and the inline remainder for the reason
+# text. Build pragma-audit-r{n}.json per
+# `docs/contracts/pragma-audit-rN.schema.json`.
 ```
+
+An `exit 1` here is a conductor-side config error, not a Round failure:
+escalate rather than proceeding with an empty pattern.
 
 (f) **AC coverage map (written by pbi-ut-author, not the conductor)**
 

@@ -14,16 +14,26 @@ STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
 BACKLOG_FILE=".scrum/backlog.json"
 
-# Read the hook payload from stdin to learn which event fired. Claude Code only
-# honours SessionStart/PostCompact context returned under
-# hookSpecificOutput.additionalContext with a matching hookEventName; a bare
+# Read the hook payload from stdin to learn which event fired. Claude Code
+# honours context returned under hookSpecificOutput.additionalContext only when
+# hookEventName is one of the literals its output schema accepts; a bare
 # top-level additionalContext key is ignored. Default to SessionStart when the
 # payload is absent or unparseable.
 HOOK_PAYLOAD="$(cat 2>/dev/null || true)"
 HOOK_EVENT="$(printf '%s' "$HOOK_PAYLOAD" | jq -r '.hook_event_name // empty' 2>/dev/null || true)"
-if [ -z "$HOOK_EVENT" ]; then
-  HOOK_EVENT="SessionStart"
-fi
+
+# `PostCompact` is a real hook EVENT (this script is registered on it by
+# setup-user.sh) but is NOT a member of the hookSpecificOutput.hookEventName
+# union — verified against the shipped binary: `PostCompact` appears 33 times
+# overall yet never adjacent to `hookEventName`, while SessionStart/Stop/
+# PreToolUse do. Echoing the received event name back therefore produced
+# `hookEventName:"PostCompact"`, which fails the whole-object schema parse and
+# silently discards the context. Normalize to the nearest valid literal —
+# re-injecting session context is exactly what SessionStart means.
+case "$HOOK_EVENT" in
+  SessionStart) ;;
+  *)            HOOK_EVENT="SessionStart" ;;
+esac
 
 # Build an autonomous-mode prologue to splice into additionalContext.
 # Returns empty string when not in autonomy mode (human-mode contract: zero
@@ -85,8 +95,14 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   # flight. Any status starting with `in_progress_` counts as active. Full
   # env propagation (SCRUM_PBI_ID) is not possible via this hook — sub-agent
   # prompts must include the PBI id explicitly.
+  # KEEP IN SYNC with hooks/completion-gate.sh and scripts/stall-watchdog.sh —
+  # all three filter "in-flight PBI" the same way. `in_progress_merge` is
+  # EXCLUDED: it means handoff awaiting SM action, not a running pipeline.
+  # Reporting a merge-queued PBI here as an active pipeline is the exact
+  # signal that triggers Developer re-spawn (see § Teammate Liveness
+  # Protocol), i.e. duplicate work on an already-complete PBI.
   if [ "$phase" = "pbi_pipeline_active" ] && [ -f "$BACKLOG_FILE" ]; then
-    active_pipelines="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | .id] | join(", ")' "$BACKLOG_FILE" 2>/dev/null)"
+    active_pipelines="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | select(.status != "in_progress_merge") | .id] | join(", ")' "$BACKLOG_FILE" 2>/dev/null)"
     if [ -n "$active_pipelines" ]; then
       context="${context} Active PBI pipelines: ${active_pipelines}."
     fi

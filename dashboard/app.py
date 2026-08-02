@@ -839,10 +839,9 @@ class ScrumFileHandler(FileSystemEventHandler):
             return
         self._schedule_update()
 
-    def on_created(self, event) -> None:
-        if event.is_directory:
-            return
-        self._schedule_update()
+    # A created file is as much a reason to redraw as a modified one, and the
+    # directory guard is the same, so the two handlers are one function.
+    on_created = on_modified
 
     def on_moved(self, event) -> None:
         self._schedule_update()
@@ -877,7 +876,9 @@ class ScrumDashboard(App):
         grid-size: 1 3;
         grid-rows: auto 1fr 1fr;
     }
-    #log-title {
+    /* Both panel headings — the PBI Board's and the Work Log's — are
+       single-line titles and must render identically. */
+    #log-title, #pbi-title {
         height: 1;
         text-style: bold;
         color: $text;

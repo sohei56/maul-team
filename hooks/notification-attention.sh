@@ -38,10 +38,11 @@ set -euo pipefail
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/validate.sh
 . "$HOOK_DIR/lib/validate.sh"
+# shellcheck source=lib/dashboard.sh
+. "$HOOK_DIR/lib/dashboard.sh"   # resolve_agent_display_name (session-map lookup)
 
 ATTENTION_FILE=".scrum/attention.json"
 CONTEXT_FILE=".scrum/attention-context.json"
-SESSION_MAP=".scrum/session-map.json"
 # Banner text cap, in codepoints (jq slices by codepoint, so a multi-byte
 # message is never cut mid-character the way `head -c` would).
 MESSAGE_MAX_CHARS=200
@@ -52,14 +53,13 @@ PAYLOAD=""
 # Helpers
 # ---------------------------------------------------------------------------
 
-# Read a scalar field out of the hook payload. Empty on any failure.
-payload_get() {
-  printf '%s' "$PAYLOAD" | jq -r "$1 // empty" 2>/dev/null || true
-}
-
-# atomic_write <file> <json_text>
+# attention_atomic_write <file> <json_text>
 # tmp sibling + mv, so a reader polling the file never sees a partial write.
-atomic_write() {
+# Named apart from scripts/scrum/lib/atomic.sh::atomic_write, which shares
+# nothing with it beyond the idea (that one takes a jq expression, a lock and
+# a schema). The two are never sourced together, but the bare name invited
+# the reader to assume they were the same helper.
+attention_atomic_write() {
   local file="$1" content="$2" tmp
   ensure_scrum_dir
   tmp="$(mktemp "${file}.XXXXXX" 2>/dev/null)" || return 1
@@ -68,19 +68,6 @@ atomic_write() {
   fi
   rm -f "$tmp" 2>/dev/null || true
   return 1
-}
-
-# Map a session id to a teammate display name via .scrum/session-map.json
-# (maintained by dashboard-event.sh). That map is keyed by the SHORTENED id,
-# so try the raw id, the first UUID segment, and the first 8 chars — the three
-# forms dashboard-event.sh::shorten_id can produce. Empty when unknown, which
-# is a normal outcome: only sessions that emitted a named event are mapped.
-resolve_agent() {
-  local sid="$1"
-  [ -n "$sid" ] || return 0
-  [ -f "$SESSION_MAP" ] || return 0
-  jq -r --arg sid "$sid" --arg seg "${sid%%-*}" --arg eight "${sid:0:8}" \
-    '.[$sid] // .[$seg] // .[$eight] // empty' "$SESSION_MAP" 2>/dev/null || true
 }
 
 # ---------------------------------------------------------------------------
@@ -102,14 +89,14 @@ record_context() {
       recorded_at: $ts
     }' 2>/dev/null)" || return 0
   [ -n "$json" ] || return 0
-  atomic_write "$CONTEXT_FILE" "$json"
+  attention_atomic_write "$CONTEXT_FILE" "$json"
 }
 
 # Notification → raise the banner.
 record_attention() {
   local ntype msg prompt_id sid agent ctx_prompt_id ctx_msg json
 
-  ntype="$(payload_get '.notification_type')"
+  ntype="$(payload_get "$PAYLOAD" '.notification_type')"
   case "$ntype" in
     permission_prompt|idle_prompt) ;;
     # Unknown / absent type: every Notification means the human is needed, and
@@ -118,13 +105,13 @@ record_attention() {
     *) ntype="idle_prompt" ;;
   esac
 
-  msg="$(payload_get '.message')"
+  msg="$(payload_get "$PAYLOAD" '.message')"
 
   # An idle_prompt's own message is generic ("Claude is waiting for your
   # input"). When the preceding Stop was for the same prompt_id, its closing
   # message is what the user actually needs to see.
   if [ "$ntype" = "idle_prompt" ]; then
-    prompt_id="$(payload_get '.prompt_id')"
+    prompt_id="$(payload_get "$PAYLOAD" '.prompt_id')"
     if [ -n "$prompt_id" ] && [ -f "$CONTEXT_FILE" ]; then
       ctx_prompt_id="$(jq -r '.prompt_id // empty' "$CONTEXT_FILE" 2>/dev/null || true)"
       if [ "$ctx_prompt_id" = "$prompt_id" ]; then
@@ -136,8 +123,9 @@ record_attention() {
 
   [ -n "$msg" ] || msg="Claude is waiting for your input"
 
-  sid="$(payload_get '.session_id')"
-  agent="$(resolve_agent "$sid")"
+  sid="$(payload_get "$PAYLOAD" '.session_id')"
+  # Empty when the session was never named — the banner then omits `agent`.
+  agent="$(resolve_agent_display_name "$sid")"
 
   json="$(jq -nc \
     --arg type "$ntype" \
@@ -153,7 +141,7 @@ record_attention() {
     + (if $agent == "" then {} else {agent: $agent} end)
     + {updated_at: $ts}' 2>/dev/null)" || return 0
   [ -n "$json" ] || return 0
-  atomic_write "$ATTENTION_FILE" "$json"
+  attention_atomic_write "$ATTENTION_FILE" "$json"
 }
 
 # UserPromptSubmit → the human replied; lower the banner. No file means no
@@ -169,7 +157,7 @@ clear_attention() {
     # record rather than leave a possibly-stale pending:true behind.
     json="$(jq -nc --arg ts "$ts" '{pending: false, updated_at: $ts}' 2>/dev/null)" || return 0
   fi
-  atomic_write "$ATTENTION_FILE" "$json"
+  attention_atomic_write "$ATTENTION_FILE" "$json"
 }
 
 # ---------------------------------------------------------------------------
@@ -179,15 +167,11 @@ clear_attention() {
 main() {
   command -v jq >/dev/null 2>&1 || return 0
 
-  # `-t 0` guards a manual TTY invocation from blocking on cat, the same
-  # defensive pattern stop-dispatch.sh / completion-gate.sh use.
-  if [ ! -t 0 ]; then
-    PAYLOAD="$(cat 2>/dev/null || true)"
-  fi
+  PAYLOAD="$(read_hook_payload)"
   [ -n "$PAYLOAD" ] || return 0
   printf '%s' "$PAYLOAD" | jq empty >/dev/null 2>&1 || return 0
 
-  case "$(payload_get '.hook_event_name')" in
+  case "$(payload_get "$PAYLOAD" '.hook_event_name')" in
     Stop)             record_context ;;
     Notification)     record_attention ;;
     UserPromptSubmit) clear_attention ;;

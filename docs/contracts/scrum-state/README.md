@@ -33,6 +33,7 @@ Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh
 
 - PBI sub-agent envelopes — see `docs/contracts/pbi-pipeline-envelope.schema.json` and friends (PR #22).
 - Append-only logs (`.scrum/hooks.log`, `.scrum/pbi/<id>/pipeline.log`) — line-formatted, no JSON schema.
+- `.scrum/autonomous/iter-<N>.json` / `.err` — raw stdout/stderr capture of each `claude -p` iteration, written by `scripts/autonomous/watchdog.sh`. Debug artifacts of the CLI's own output shape, not SSOT: nothing reads them programmatically. See `docs/autonomous-mode.md`.
 - **No-schema SSOT siblings.** Several runtime files live under
   `.scrum/` without their own JSON Schema and are intentionally
   absent from the table above: `.scrum/runtime.json` (tmux session

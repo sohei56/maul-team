@@ -1,0 +1,24 @@
+{
+  "round": 2,
+  "pbi_id": "pbi-001",
+  "tool": "pytest",
+  "tool_version": "8.3.2",
+  "executed_at": "2026-03-01T10:05:00Z",
+  "totals": {
+    "tests": 1,
+    "passed": 0,
+    "failed": 1,
+    "exec_errors": 0,
+    "uncaught_exceptions": 0,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "test_id": "tests/test_auth.py::test_x",
+      "type": "flaky",
+      "file_path": "tests/test_auth.py",
+      "line": 88,
+      "message": "type is outside the assertion|exec_error|uncaught_exception|timeout enum"
+    }
+  ]
+}

@@ -255,7 +255,8 @@ position; state.json holds internal mechanics only. See
 ## Parallel PBI coordination
 
 Catalog write contention: see `references/catalog-contention.md`
-(3-layer defense: sprint planning pre-separation + flock + mtime check).
+(3-layer defense: sprint planning pre-separation + a mkdir directory
+lock `.scrum/locks/catalog-<spec_id>.lock.d` + mtime check).
 
 ## Escalation
 

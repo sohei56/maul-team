@@ -51,8 +51,8 @@ auditor via the `Agent` tool:
 | `redundancy` | Dead code, cross-PBI duplication, stale docs | Unused exports, duplicate implementations of the same logic across PBIs, docstrings that no longer match the code |
 | `product-security` | Product-wide security integrity | Authorization boundaries spanning components/PBIs, data flows crossing trust boundaries, secrets/credential handling across the codebase, injection surfaces at integration points, security controls no single PBI owned |
 
-The per-PBI pipeline now runs a diff-local security aspect review on
-each PBI before it reaches `awaiting_cross_review`. The audit's
+The per-PBI pipeline runs a diff-local security aspect review on each
+PBI before it reaches `awaiting_cross_review`. The audit's
 `product-security` axis is deliberately the **complement** of that: it
 owns only what a single-PBI diff cannot see (cross-component authz,
 whole-repo secret handling, integration-point injection surfaces), and
@@ -274,10 +274,9 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
 - **Redundancy axis is static-analysis-grounded.** In context (a) the
   `redundancy` axis consumes the same two-pass static-analysis file
   cross-review produced (Pass A Sprint-diff lint + Pass B whole-repo
-  reachability). Sprint-end review no longer has a separate
-  maintainability aspect — the `redundancy` axis is the sole Sprint-level
-  owner of whole-repo dead-code findings, so it must cite that file as
-  ground truth (absent → reachability reasoning at lower confidence).
+  reachability). The `redundancy` axis is the sole Sprint-level owner of
+  whole-repo dead-code findings, so it must cite that file as ground
+  truth (absent → reachability reasoning at lower confidence).
 - **Severity** (table below) per distinct finding.
 - Number findings `F1..Fn`; each carries axis(es), severity,
   `file:line`, `identity` key, fact, interpretation (labeled

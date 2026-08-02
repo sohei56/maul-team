@@ -51,6 +51,34 @@ hook_block() {
 }
 
 # ---------------------------------------------------------------------------
+# Hook payload access (shared by every hook that reads the stdin JSON)
+# ---------------------------------------------------------------------------
+
+# Read a scalar field out of a hook payload JSON string.
+# Usage: payload_get <payload_json> <jq_filter>
+# Prints the value, or NOTHING when the field is absent/null, the payload is
+# unparseable, or jq is missing. Deliberately lenient: hooks are telemetry or
+# fail-open guards, so a malformed payload must degrade to "no value" rather
+# than abort the hook under `set -euo pipefail`. Callers needing a default
+# write `[ -n "$v" ] || v=<default>` on the next line.
+payload_get() {
+  printf '%s' "$1" | jq -r "$2 // empty" 2>/dev/null || true
+}
+
+# Read the whole hook payload from stdin.
+# Usage: payload="$(read_hook_payload)"
+# The `-t 0` test guards a manual TTY invocation (running the hook by hand
+# with no pipe) from blocking forever on `cat`; under the harness stdin is
+# always a pipe. Empty output means "nothing on stdin" — every caller must
+# treat that as a no-op.
+read_hook_payload() {
+  if [ -t 0 ]; then
+    return 0
+  fi
+  cat 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
 # Path normalization (shared by the PreToolUse guards)
 # ---------------------------------------------------------------------------
 # These are the single source of truth for how the guard hooks reduce a
@@ -146,25 +174,77 @@ get_pbi_status_from_backlog() {
 }
 
 # Atomically update a JSON file in place: run `jq [jq_args...] <jq_expr>`
-# against <file>, write to a temp sibling (<file>.tmp.$$), and mv on success.
-# On jq failure the temp is removed and the original is left untouched. Returns
-# non-zero on failure WITHOUT exiting — callers (fail-open hooks) decide how to
-# react. jq stderr is suppressed to keep hot-path hooks quiet.
+# against <file>, write to a temp sibling, and mv on success. On jq failure the
+# temp is removed and the original is left untouched. Returns non-zero on
+# failure WITHOUT exiting — callers (fail-open hooks) decide how to react. jq
+# stderr is suppressed to keep hot-path hooks quiet.
+#
+# LOCKING: the jq read and the mv are a read-modify-write pair and MUST be
+# serialized. dashboard-event.sh fires on every PostToolUse from every
+# concurrently-running teammate and sub-agent, and both append_comms_message
+# and append_dashboard_event route through here. Without a lock, two hooks that
+# both read before either mv silently drop one event — and
+# completion-gate.sh::count_in_flight_subagents derives its count from exactly
+# these subagent_start/subagent_stop events, so a dropped stop inflates the
+# count and produces a spurious "N subagent(s) still running — do NOT
+# re-spawn". Uses the same mkdir directory-lock idiom as
+# scripts/scrum/lib/atomic.sh::_acquire_lock (flock is unavailable on stock
+# macOS); KEEP THE TWO IN SYNC.
+#
+# On lock-acquisition timeout this returns non-zero rather than blocking a
+# hot-path hook: losing one dashboard event under extreme contention is
+# strictly better than corrupting the file, and every caller already tolerates
+# a non-zero return. A lock older than JSON_LOCK_STALE_SEC is broken so a hook
+# killed mid-write cannot wedge the path permanently.
 # NOTE: helpers in hooks/lib/autonomy.sh and hooks/lib/stop-gate-state.sh do NOT
 # use this — those libs are sourced standalone (without validate.sh) by their
 # unit tests, so they keep their own inline tmp+mv idiom.
 # Usage: json_update_atomic <file> <jq_expr> [jq_args...]
+JSON_LOCK_TIMEOUT_SEC="${JSON_LOCK_TIMEOUT_SEC:-2}"
+JSON_LOCK_POLL_SEC="${JSON_LOCK_POLL_SEC:-0.05}"
+JSON_LOCK_STALE_SEC="${JSON_LOCK_STALE_SEC:-30}"
+
+_json_lock_is_stale() {
+  local lock_dir="$1" now mtime
+  now="$(date +%s 2>/dev/null)" || return 1
+  # stat is BSD on macOS, GNU on Linux — try both, give up quietly otherwise.
+  mtime="$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null)" || return 1
+  [ -n "$mtime" ] || return 1
+  [ "$((now - mtime))" -ge "$JSON_LOCK_STALE_SEC" ]
+}
+
+_json_acquire_lock() {
+  local lock_dir="$1" max_iters i=0
+  max_iters="$(awk -v t="$JSON_LOCK_TIMEOUT_SEC" -v p="$JSON_LOCK_POLL_SEC" 'BEGIN{print int(t/p)+1}')"
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    if _json_lock_is_stale "$lock_dir"; then
+      rmdir "$lock_dir" 2>/dev/null || true
+      continue
+    fi
+    i=$((i + 1))
+    [ "$i" -ge "$max_iters" ] && return 1
+    sleep "$JSON_LOCK_POLL_SEC"
+  done
+}
+
 json_update_atomic() {
   local file="$1"
   local expr="$2"
   shift 2
-  local tmp="${file}.tmp.$$"
+  local lock_dir="${file}.lock.d"
+  _json_acquire_lock "$lock_dir" || return 1
+  # ${RANDOM} as well as $$: matches the hardening already applied to the
+  # sibling writers (autonomy.sh, stop-gate-state.sh, watchdog.sh, atomic.sh).
+  local tmp="${file}.tmp.$$.${RANDOM}"
+  local rc=0
   if jq "$@" "$expr" "$file" > "$tmp" 2>/dev/null; then
     mv "$tmp" "$file"
   else
     rm -f "$tmp"
-    return 1
+    rc=1
   fi
+  rmdir "$lock_dir" 2>/dev/null || true
+  return "$rc"
 }
 
 # Append item_json to .<array_field>, trim to .<max_field> (defaulted via
@@ -215,7 +295,8 @@ log_hook() {
     local line_count
     line_count="$(wc -l < "$HOOK_LOG_FILE" | tr -d ' ')"
     if [ "$line_count" -gt "$HOOK_LOG_MAX_LINES" ]; then
-      local tmp_log="${HOOK_LOG_FILE}.tmp.$$"
+      # $$.${RANDOM}: same collision hardening as the sibling tmp writers.
+      local tmp_log="${HOOK_LOG_FILE}.tmp.$$.${RANDOM}"
       tail -n "$HOOK_LOG_MAX_LINES" "$HOOK_LOG_FILE" > "$tmp_log" && mv "$tmp_log" "$HOOK_LOG_FILE"
     fi
   fi

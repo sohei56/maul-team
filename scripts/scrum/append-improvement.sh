@@ -20,7 +20,6 @@
 # directory `.scrum/` is created automatically.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -53,7 +52,7 @@ if [ -n "$DEC_ID" ]; then
 fi
 
 PATHF=".scrum/improvements.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/improvements.schema.json"
+SCHEMA="$(resolve_schema_dir)/improvements.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
   # Seed through atomic_create so the first write is schema-validated and lands

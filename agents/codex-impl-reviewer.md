@@ -92,7 +92,7 @@ envelope).
 
 Same contract as `codex-design-reviewer` § Model selection: the
 conductor preflights Codex via `codex_is_available` from
-`scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
+`.scrum/scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
 subagent_type="codex-impl-reviewer", model="opus", ...)`.
 Timeout contract: see `codex-design-reviewer` § Model selection.
 

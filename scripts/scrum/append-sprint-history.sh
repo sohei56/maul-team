@@ -27,7 +27,6 @@
 # Echoes the Sprint id on stdout for callers that need to reference it.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -79,7 +78,7 @@ if [ -n "$PBIS_TOTAL" ]; then
 fi
 
 PATHF=".scrum/sprint-history.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/sprint-history.schema.json"
+SCHEMA="$(resolve_schema_dir)/sprint-history.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
   # Seed through atomic_create so the first write is schema-validated and lands

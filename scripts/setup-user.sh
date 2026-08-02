@@ -197,14 +197,6 @@ for doc in agent-interfaces.md sub-agents.md; do
   fi
 done
 
-# --- Copy non-hook shared agent helpers ---
-# `scripts/lib/codex-invoke.sh` is sourced by codex-* reviewer agents during
-# PBI-pipeline review steps. It is not a hook helper, so it lives outside
-# `.claude/hooks/lib/`. The codex-design-reviewer.md instruction sources it
-# at `scripts/lib/codex-invoke.sh` (relative to project root).
-echo "Copying agent helpers to $TARGET_DIR/scripts/lib/..."
-copy_tree "$PROJECT_ROOT/scripts/lib" "*.sh" "$TARGET_DIR/scripts/lib"
-
 # --- Ensure .scrum/ is gitignored (must run BEFORE any .scrum/ write) ---
 echo "Ensuring .scrum/ is gitignored in $TARGET_DIR..."
 ensure_gitignore_excludes_scrum
@@ -227,6 +219,29 @@ rm -f "$TARGET_DIR/.scrum/scripts/"*.sh \
 copy_tree "$PROJECT_ROOT/scripts/scrum" "*.sh" "$TARGET_DIR/.scrum/scripts" true
 copy_tree "$PROJECT_ROOT/scripts/scrum/lib" "*.sh" "$TARGET_DIR/.scrum/scripts/lib"
 copy_tree "$PROJECT_ROOT/scripts/scrum/migrations" "*.sh" "$TARGET_DIR/.scrum/scripts/migrations" true
+
+# --- Copy the shared codex invocation helper ---
+# codex-invoke.sh is sourced by the codex-* reviewer agents and by the PBI
+# pipeline conductor's spawn-time preflight. It deploys HERE, under
+# .scrum/scripts/lib/, rather than into the user's scripts/ tree, for two
+# reasons:
+#   1. Reachability. Those reviewers `cd` into the PBI worktree
+#      (.scrum/worktrees/<pbi-id>) before sourcing it. A worktree is checked
+#      out at sprint.base_sha and so does NOT contain untracked files from the
+#      main working tree — a helper deployed to <target>/scripts/lib/ is
+#      invisible from inside it, the source fails, and every codex second
+#      opinion silently degrades to "unavailable" for the whole Sprint.
+#      `.scrum` IS symlinked into each worktree (create-pbi-worktree.sh), so
+#      this path resolves from inside the worktree and from the main root.
+#   2. Ownership — same rationale as the wrappers above: framework artifacts
+#      stay out of the user's scripts/ tree.
+# Only codex-invoke.sh is deployed. check-python.sh / ids.sh / jq-read.sh /
+# time.sh each self-document as framework-repo-only (both daemons run in place
+# from the framework repo), and copying them by glob risked silently
+# clobbering a target's own scripts/lib/time.sh.
+# Must run AFTER the clean-slate rm above, which sweeps .scrum/scripts/lib/.
+echo "Copying codex helper to $TARGET_DIR/.scrum/scripts/lib/..."
+cp "$PROJECT_ROOT/scripts/lib/codex-invoke.sh" "$TARGET_DIR/.scrum/scripts/lib/"
 
 # --- Copy PBI Pipeline configuration template ---
 # Provide .scrum-config.example.json so users can copy it to .scrum/config.json
@@ -349,7 +364,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|Bash",
+        "matcher": "Write|Edit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
@@ -367,7 +382,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -376,7 +391,7 @@ cat > "$settings_file" << 'SETTINGS_EOF'
         ]
       },
       {
-        "matcher": "Read|Write|Edit|Bash",
+        "matcher": "Read|Write|Edit|NotebookRead|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",

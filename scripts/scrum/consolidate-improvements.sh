@@ -23,7 +23,6 @@
 # Schema: docs/contracts/scrum-state/improvements.schema.json.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -52,7 +51,7 @@ done
 assert_sprint_id "$SPRINT" --sprint
 
 PATHF=".scrum/improvements.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/improvements.schema.json"
+SCHEMA="$(resolve_schema_dir)/improvements.schema.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF (nothing to consolidate — run append-improvement.sh first)"
 
 # Pre-validate every id: unknown id is a hard error; already-archived is

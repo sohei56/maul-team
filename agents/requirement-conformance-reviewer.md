@@ -137,7 +137,11 @@ kind=code PBIs.
 ## Output Format
 
 Return your review as **markdown** (no JSON envelope) in the shape
-below. Full output + persistence contract:
+below, as your **final assistant message** — you have no `Write` tool by
+design, and the conductor consolidates that message into
+`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
+because the file is not yours to write. Full output + persistence
+contract:
 [integrity-stage.md § Aspect reviewer shared contract](../skills/pbi-pipeline/references/integrity-stage.md).
 
 ```
@@ -180,11 +184,3 @@ matters), not a re-narration of the code. See
   Sprint-end audit's job. Stay inside this PBI's diff.
 - Cannot determine coverage from given context → state explicitly,
   do not guess.
-
-## File output (conductor responsibility)
-
-You have **no `Write` tool** by design — return the review as your
-final assistant message; the conductor consolidates it into
-`.scrum/reviews/<pbi-id>-review.md`. Do not refuse to produce content
-because the file is not yours to write. Full contract: the shared
-§ Persistence pointer above.

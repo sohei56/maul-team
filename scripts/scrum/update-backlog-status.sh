@@ -25,7 +25,6 @@
 # skills/backlog-refinement/SKILL.md Step 3.c2.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -38,7 +37,7 @@ PBI="$1"; STATUS="$2"
 assert_pbi_id "$PBI"
 
 PATHF=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 
 # Validate the status against the deployed schema's enum (single source —
 # no hardcoded copy to drift). Fast-fail with the accepted list so a caller

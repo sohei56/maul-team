@@ -83,8 +83,15 @@ atomic_create() {
 }
 
 _iso_utc_now() {
-  # Mirrors hooks/lib/validate.sh::get_timestamp (authoritative). Kept inline to
-  # avoid a circular dep between scripts/scrum/lib and hooks/lib.
+  # Mirrors the FORMAT of hooks/lib/validate.sh::get_timestamp (authoritative);
+  # kept inline to avoid a circular dep between scripts/scrum/lib and hooks/lib.
+  # DELIBERATELY omits the `|| echo "1970-01-01T00:00:00Z"` fallback the other
+  # four mirrors carry. Those mirrors serve fail-open hooks and daemons, where
+  # a wrong timestamp beats losing the log line. This one stamps `.updated_at`
+  # on SSOT state under `set -euo pipefail`: if `date` fails, hard-failing the
+  # write is strictly better than silently persisting 1970 into backlog.json /
+  # sprint.json, where it would corrupt every downstream staleness comparison.
+  # Do not "restore" the fallback for symmetry.
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 

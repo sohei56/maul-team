@@ -13,9 +13,6 @@ tools:
 model: opus
 effort: high
 maxTurns: 150
-disallowedTools:
-  - WebFetch
-  - WebSearch
 ---
 
 # PBI UT Author Agent

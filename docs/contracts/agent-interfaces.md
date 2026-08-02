@@ -463,11 +463,17 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
   `progress_update` (TeammateIdle)
 
 **Configuration** (in `.claude/settings.json`):
+`matcher` is a plain string (a `|`-separated tool-name pattern), not an
+object. SSOT for the registration is the settings heredoc in
+`scripts/setup-user.sh`; paths there are `$CLAUDE_PROJECT_DIR`-prefixed
+and elided here.
+
 ```json
 {
   "hooks": {
-    "PostToolUse": [{"matcher": {"tool_name": "Write|Edit|Agent|SendMessage"}, "hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
-    "TaskCompleted": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
+    "PostToolUse": [{"matcher": "Write|Edit|Agent|SendMessage", "hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "hooks/stop-dispatch.sh"}]}],
+    "TaskCompleted": [{"hooks": [{"type": "command", "command": "hooks/quality-gate.sh"}, {"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "TeammateIdle": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "SubagentStart": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}],
     "SubagentStop": [{"hooks": [{"type": "command", "command": "hooks/dashboard-event.sh"}]}]
@@ -494,6 +500,11 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 - **Output**: `additionalContext` with current phase, Sprint info
 - **Purpose**: Inject phase context at session start
 - **Validation**: Uses `validate_json_file` to verify state files before parsing
+- **Also registered on `PostCompact`** by `setup-user.sh` — the same
+  script re-injects phase context after a compaction drops it. It reads
+  `hook_event_name` from the payload and echoes it back under
+  `hookSpecificOutput`, since Claude Code honours `additionalContext`
+  only for the event that actually fired.
 
 ### PreToolUse Hook
 - **Script**: `hooks/status-gate.sh` (renamed from `phase-gate.sh` in v2)
@@ -549,7 +560,7 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
 - **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
   blocks until `.scrum/test-results.json.overall_status` is `"passed"`
   or `"passed_with_skips"` (`"failed"` blocks naming the failed
-  categories; `"pending"`/`"running"` blocks to wait for `smoke-test` /
+  categories; `"running"` blocks to wait for `smoke-test` /
   `integration-tests` to finish). In `uat_release`, blocks if
   `overall_status` has regressed back to `"failed"` since entry
   (instructing a return to `integration_sprint`), then blocks until
@@ -583,6 +594,20 @@ indirectly on `Stop` via `hooks/stop-dispatch.sh`.
   `{in_progress_merge, awaiting_cross_review, cross_review, done}` —
   DoD is only claimable at merge-readiness.
 - **Purpose**: Enforce Definition of Done (FR-017) before marking tasks complete
+
+### StopFailure Hook
+- **Script**: `hooks/stop-failure.sh`
+- **Triggered by**: a session ending in failure (`reason` =
+  `rate_limit`, `authentication_failed`, …) rather than completing.
+- **Writes**: a `stop_failure` event on `.scrum/dashboard.json`
+  (always), and — **autonomous mode only** — `last_failure` on
+  `.scrum/autonomy.json` via `hooks/lib/autonomy.sh`. That field is
+  what the Ralph-Loop watchdog reads to decide wait-and-resume vs
+  abort (see [`../autonomous-mode.md`](../autonomous-mode.md)
+  § Rate-limit / usage-limit handling; field contract in
+  [`../data-model.md`](../data-model.md) § Entity: Autonomy).
+- **Output**: none; always exits 0. The `autonomy.json` write is
+  fail-open — the dashboard event is the authoritative log.
 
 ---
 

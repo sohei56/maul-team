@@ -12,7 +12,6 @@
 # double-bootstrap is benign, drift-clobber is not.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
 # shellcheck source=lib/errors.sh
 source "$HERE/lib/errors.sh"
 # shellcheck source=lib/atomic.sh
@@ -30,7 +29,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 PATHF=".scrum/backlog.json"
-SCHEMA="$ROOT/docs/contracts/scrum-state/backlog.schema.json"
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 
 if [ -f "$PATHF" ]; then
   printf '[init-backlog] %s already exists — no changes\n' "$PATHF"
