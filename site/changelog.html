@@ -216,13 +216,34 @@ footer{border-top:1px solid var(--line); margin-top:56px}
        data-i18n="cl.cta">Download for macOS</a>
   </section>
 
+  <!-- ============ v2.0.8 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v208.date">August 2, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.8</span>
+      <span class="badge latest" data-i18n="cl.latest">Latest</span>
+      <span class="badge k-fixed" data-i18n="cl.kind.fixed">Fixed</span>
+    </div>
+    <h2 data-i18n="cl.v208.h">Safeguards that actually hold</h2>
+    <p class="rel-sum" data-i18n="cl.v208.sum">A reliability release. A review of the whole codebase turned up several protections that were being announced but not actually applied — the team believed they were on, and they were not. They are now genuinely in force.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v208.b1"><strong>Design documents are protected again.</strong> Only the designer is supposed to edit a project's design specs, and the document catalog is meant to stay read-only. That rule was being stated but never enforced, so an edit that should have been refused quietly went through. It now genuinely stops.</li>
+      <li data-i18n="cl.v208.b2"><strong>Second-opinion reviews work again.</strong> When a second AI model is installed, it is supposed to review the team's work independently. In projects set up through the app it could not find the file it needed, so it reported itself unavailable and simply never ran — for an entire Sprint at a time.</li>
+      <li data-i18n="cl.v208.b3"><strong>Updating no longer strands an older project.</strong> A project that had been running since before a couple of earlier updates could refuse to start after upgrading, with no way to repair it by hand. Those projects are now repaired automatically the next time they open.</li>
+      <li data-i18n="cl.v208.b4"><strong>Quality checks stopped passing without looking.</strong> One check that confirms skipped-over code is properly justified could return “all clear” without examining anything. It now either checks for real or says plainly that it cannot.</li>
+      <li data-i18n="cl.v208.b5"><strong>Fewer stalls and less repeated work.</strong> A handful of narrow paths could leave the team waiting on itself, or hand the same finished task to someone a second time. Those are closed.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.8"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
   <!-- ============ v2.0.7 ============ -->
   <article class="rel">
     <div class="rel-meta">
       <span class="rel-date" data-i18n="cl.v207.date">August 2, 2026</span>
       <span class="rel-sep">·</span>
       <span class="rel-ver">v2.0.7</span>
-      <span class="badge latest" data-i18n="cl.latest">Latest</span>
       <span class="badge k-new" data-i18n="cl.kind.new">New</span>
     </div>
     <h2 data-i18n="cl.v207.h">Tabs for every project — and a tap on the shoulder</h2>
