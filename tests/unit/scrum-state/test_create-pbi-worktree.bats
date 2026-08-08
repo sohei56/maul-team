@@ -50,3 +50,38 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001
   [ "$status" -eq 0 ]
 }
+
+# The Sprint-end audit follow-up is filed against the merged HEAD, which is
+# ahead of the frozen sprint.base_sha. Forking it from the Sprint base would
+# hand it a tree that predates the drift the audit reported, and base_sha
+# cannot be re-frozen — hence the override.
+@test "create-pbi-worktree: --base forks from an explicit commit" {
+  git commit -q --allow-empty -m "sprint work merged after base was frozen"
+  HEAD_SHA="$(git rev-parse HEAD)"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001 --base "$HEAD_SHA"
+  [ "$status" -eq 0 ]
+  run git -C .scrum/worktrees/pbi-001 rev-parse HEAD
+  [ "$output" = "$HEAD_SHA" ]
+  run jq -r '.base_sha' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "$HEAD_SHA" ]
+}
+
+@test "create-pbi-worktree: --base works even when sprint.base_sha is absent" {
+  git commit -q --allow-empty -m "later"
+  HEAD_SHA="$(git rev-parse HEAD)"
+  jq 'del(.base_sha)' .scrum/sprint.json > .scrum/sprint.json.tmp && mv .scrum/sprint.json.tmp .scrum/sprint.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001 --base "$HEAD_SHA"
+  [ "$status" -eq 0 ]
+}
+
+@test "create-pbi-worktree: --base rejects a value that is not a commit" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001 --base deadbeef
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"does not resolve to a commit"* ]]
+}
+
+@test "create-pbi-worktree: rejects an unknown flag" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/create-pbi-worktree.sh" pbi-001 --bogus x
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"unknown flag"* ]]
+}

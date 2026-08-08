@@ -180,9 +180,15 @@ if [ -z "$target_path" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# pbi_pipeline_active phase: agent-specific path gating
+# Pipeline phases: agent-specific path gating
+#
+# Covers `review` as well as `pbi_pipeline_active`: the Sprint-end audit
+# follow-up runs a docs pipeline inside `review`, and the pipeline agents must
+# keep the same sandboxes there. Scoping this block to one phase used to mean a
+# pipeline running in `review` silently lost both guards.
 # ---------------------------------------------------------------------------
-if [ "$phase" = "pbi_pipeline_active" ]; then
+case "$phase" in
+  pbi_pipeline_active|review)
   agent_name="$(echo "$hook_event" | jq -r '.agent_name // empty')"
 
   case "$agent_name" in
@@ -197,9 +203,11 @@ if [ "$phase" = "pbi_pipeline_active" ]; then
       esac
       ;;
     pbi-implementer|pbi-ut-author)
-      # Deny writes to docs/design/specs/; allow everything else
+      # Deny writes to docs/design/specs/; allow everything else. Frozen specs
+      # are corrected through the change-process skill after a PO adjudication,
+      # never by a pipeline agent.
       if is_design_spec_path "$target_path"; then
-        deny "pbi_pipeline_active phase: $agent_name cannot write to docs/design/specs/. Only pbi-designer may write specs."
+        deny "$phase phase: $agent_name cannot write to docs/design/specs/. Only pbi-designer may write specs; a frozen spec is corrected via the change-process skill."
       fi
       allow
       ;;
@@ -207,14 +215,15 @@ if [ "$phase" = "pbi_pipeline_active" ]; then
       # Reviewers may only write to .scrum/pbi/*
       case "$target_path" in
         .scrum/pbi/*) allow ;;
-        *) deny "pbi_pipeline_active phase: $agent_name may only write to .scrum/pbi/." ;;
+        *) deny "$phase phase: $agent_name may only write to .scrum/pbi/." ;;
       esac
       ;;
     *)
       # Unknown agents fall through to existing gating rules below
       ;;
   esac
-fi
+  ;;
+esac
 
 # Source code gating: only review and pbi_pipeline_active phases allow source edits
 if is_source_file "$target_path"; then

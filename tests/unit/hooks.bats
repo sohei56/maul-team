@@ -703,6 +703,32 @@ EOF
   assert_success
 }
 
+# The Sprint-end audit follow-up runs a docs pipeline inside `review`. That is
+# the healthy inner loop, so its block must be UNBOUNDED — a bounded block
+# would consume the per-phase breaker budget and fail an autonomous run for
+# doing what the ceremony asked. A genuinely stalled PBI stays bounded.
+@test "completion-gate.sh blocks in-flight review pipeline as pipeline_in_flight (unbounded)" {
+  mkdir -p .scrum
+  jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "in_progress_impl"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"pipeline is still running"* ]]
+}
+
+@test "completion-gate.sh keeps a stalled review PBI on the bounded block" {
+  mkdir -p .scrum
+  jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  jq '.items[0].status = "escalated"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"are not done"* ]]
+}
+
 @test "completion-gate.sh appends in-flight subagent hint to block reason" {
   mkdir -p .scrum
   jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
