@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>MaulTeam</title>
+        <item>
+            <title>2.0.9</title>
+            <pubDate>Sat, 08 Aug 2026 06:32:08 +0000</pubDate>
+            <sparkle:version>2.0.9</sparkle:version>
+            <sparkle:shortVersionString>2.0.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/sohei56/maul-team/releases/download/v2.0.9/MaulTeam-2.0.9.dmg" length="29820285" type="application/octet-stream" sparkle:edSignature="d+J9KP5/eSO8IOTsyAboo7j792UYy12odC5eBwilC27Dhh+OOT/MYAivnqjzQNydPd/WOBFWPuJBXpG4h+D6Bg=="/>
+        </item>
+    </channel>
+</rss>
