@@ -211,6 +211,13 @@ Sprints). At ceremony end every reviewed PBI transitions
      `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage
      options=[next_sprint,defer,reject]` carrying the finding list; the
      SM never blocks on human input.
+   - When the spec-conformance axis returned a divergence, an
+     unadjudicated spec-vs-spec conflict, or a clause that sanctions a
+     defect, a **second** request asks which side is authoritative
+     (`kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]`).
+     A `fix_spec` verdict runs the `change-process` skill against the
+     clause — frozen included — instead of filing a PBI. Full rules:
+     `../codebase-audit/SKILL.md` Steps 4b and 5.
 8. **Mark every reviewed PBI done** (per § Role — the audit never
    reverts them):
    ```bash
@@ -230,7 +237,8 @@ Ref: FR-009
   populated).
 - `.scrum/reviews/codebase-audit-s{N}.md` synthesized with all 4 axes
   represented, findings deduped and severity-classified, fact separated
-  from interpretation.
+  from interpretation, and every `spec-exempted:` observation the axes
+  returned carried into the report.
 - Every Critical/High audit finding filed as a
   `[codebase-audit:*]` draft PBI for the next Sprint, or deduped against
   an existing open one (id noted); no duplicates. Audit findings did NOT

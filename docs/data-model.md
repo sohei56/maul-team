@@ -347,6 +347,20 @@ during the Requirement Definition (FR-002). Frozen during Development Sprints
 `.scrum/` because the document outlives any single Sprint and must
 survive across machine/clone boundaries.
 
+### Revision History
+
+A post-freeze edit MUST append a `revision_history` entry in the YAML
+frontmatter, using the same `RevisionEntry` shape as DesignDocument
+(below) — one shape for both document kinds rather than two. The Change
+Process is the only sanctioned way to reach this document after the
+freeze, so an entry here carries `change_process: true` and names the
+`dec_id` of the approving decision in its `summary`.
+
+The entry is what makes a clause's provenance checkable: the Sprint-end
+audit distinguishes a clause that was adjudicated from one retro-fitted
+to match the code it describes, and it can only do that if the edit left
+a record (`skills/codebase-audit/references/axes.md`, Axis A class 4).
+
 ---
 
 ## Entity: DesignCatalogConfig

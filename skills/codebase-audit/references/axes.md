@@ -42,7 +42,20 @@ Rules:
   `docs/design/catalog-config.json`. Behavior absent from an enabled
   spec and from `requirements.md` is out of scope for conformance
   judgments (but coded-but-unspecified behavior IS a redundancy /
-  spec-gap signal — see the relevant axes).
+  spec-gap signal — see the relevant axes). This bounds what you may
+  measure code **against**; it does not make a spec clause itself
+  unreviewable — judging a clause is Axis A class 4 and requires the
+  evidence that class demands.
+- **Record what a spec exemption silenced.** When an enabled spec
+  clause is your reason for NOT reporting something you would otherwise
+  have reported, list it in a `spec-exempted:` block after your
+  findings: `<path>::<symbol>` + the clause + one line on why it looks
+  like a defect. Do not simply drop it. The same exemption is applied
+  inconsistently between runs and between axes, so an unrecorded
+  judgement is re-made from scratch — and re-decided differently — every
+  Sprint, while the SM never learns the clause is load-bearing. If the
+  clause looks wrong rather than merely restrictive, it is a class 4
+  finding, not an exemption.
 
 **Return format.** Return your findings **as your final assistant
 message** — do NOT write any file. The Scrum Master synthesizes and
@@ -86,12 +99,17 @@ result is a valid, useful outcome.
 ## Axis A — `spec-conformance`
 
 Compare the **implementation** against the **enabled design specs** and
-`requirements.md`. Hunt three failure classes:
+`requirements.md`. Hunt four failure classes:
 
 1. **Divergence** — code whose observable behavior contradicts an
    enabled spec or a requirement (wrong default, wrong ordering, a
    state transition the spec forbids, a return shape the spec does not
-   allow). Anchor to both the spec line and the code line.
+   allow). Anchor to both the spec line and the code line. **Do not
+   assume the code is the wrong side.** State which side you believe is
+   correct and why; the SM puts the question to the PO, and a frozen
+   spec that turns out to be wrong is corrected through the
+   change-process skill. Where you cannot tell, say so — an
+   unadjudicated divergence is still a finding.
 2. **Coded-but-unspecified behavior** — production code paths that
    implement behavior no enabled spec or requirement asks for. This is
    often **dead code that is also a spec gap**: either the requirement
@@ -105,6 +123,29 @@ Compare the **implementation** against the **enabled design specs** and
    PO already decided, it is **not** a finding — the code should follow
    the decision, and you check that instead. Only unadjudicated
    contradictions are findings.
+4. **Spec-sanctions-a-defect** — the implementation **conforms** to an
+   enabled clause, but the clause itself sanctions the defect (it
+   mandates the notification write that can be lost, blesses the
+   duplicated formatter, declares the unsafe ordering to be the design).
+   The finding targets the **clause**, not the code.
+
+   **Do not treat the spec's authority as evidence that the behavior is
+   correct** — that is the trap this class exists to escape. A clause
+   written to describe what the code already did will always "pass"
+   conformance. Show all three:
+   (a) **a sibling implementation in this repo** that handles the same
+   situation correctly (the strongest signal available: it proves the
+   codebase itself disagrees with the clause);
+   (b) **the clause's provenance** — a `revision_history` entry with
+   `change_process: true` means it was adjudicated; one added in the
+   same Sprint as the code it describes was very likely retro-fitted;
+   (c) **whether the behavior the clause claims is what actually
+   happens**.
+
+   Not a finding when `.scrum/po/decisions.json` shows the PO accepted
+   this clause knowingly (same rule as class 3). Absent all three
+   pieces of evidence, record it as a `spec-exempted:` observation
+   instead of asserting the spec is wrong.
 
 Map each finding to the PBI(s) whose `paths_touched` / area it lands in
 (reverse-lookup from the PBI summary) so the SM can scope a fix PBI.
@@ -113,7 +154,11 @@ Severity guide: a divergence that breaks a core AC or an unadjudicated
 conflict that makes correct behavior undefined → Critical; a divergence
 that changes observable behavior on a primary path → High;
 coded-but-unspecified dead paths → Medium unless they execute in
-production.
+production. For class 4, rate the **defect the clause sanctions**, not
+the paperwork: a clause blessing silent data loss or a dropped
+notification on a production path → Critical; one blessing an
+observable-behavior defect on a primary path → High. A clause that is
+merely untidy or over-restrictive is not a finding.
 
 ---
 

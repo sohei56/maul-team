@@ -94,7 +94,8 @@ does **not** re-review single-PBI diff-local security.
   report (`N` = numeric sprint number from `sprint.json.id`, e.g.
   `codebase-audit-s3.md` for `sprint-003`). Deduped findings, each with
   axis, severity, `file:line`, identity key, evidence, and
-  fact-vs-interpretation separated.
+  fact-vs-interpretation separated, plus the **spec-exempted
+  observations** section (what an enabled spec clause suppressed).
 - Draft PBIs in `.scrum/backlog.json` via
   `.scrum/scripts/add-backlog-item.sh`, title prefix
   `[codebase-audit:<sprint-id>:F<n>:<Severity>]` (severity in the
@@ -131,7 +132,7 @@ block on human input). Skill-specific overrides:
 
 | Context | Override (po_mode=agent) |
 |------|--------------------------|
-| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject] recommendation=next_sprint` carrying the full Critical/High + Medium/Low finding list. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file (Critical/High default to `next_sprint`). No human-input wait, non-blocking either way. |
+| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject] recommendation=next_sprint` carrying the full Critical/High + Medium/Low finding list. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file (Critical/High default to `next_sprint`). No human-input wait, non-blocking either way. When Axis A returned a class 1/3/4 finding, a **second** request follows (Step 4b): `kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]` — which side is authoritative. |
 | (b) integration entry | On an unresolved Critical/High, replace "inform the user of the block" with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[fix_now,defer] recommendation=fix_now` carrying the blocking PBI list. The route to `backlog_created` is taken regardless (Critical/High blocks integration); the PO reply sets fix priority, it does not waive the block. |
 
 ## Steps
@@ -295,9 +296,18 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
 - Number findings `F1..Fn`; each carries axis(es), severity,
   `file:line`, `identity` key, fact, interpretation (labeled
   separately), and a one-line proposed fix / AC.
+- **Spec-exempted observations.** Collect every `spec-exempted:` block
+  the axes returned into one section, verbatim (`path::symbol` + clause
+  + why it looks like a defect). Do not silently drop them and do not
+  promote them to findings. They are the audit's record of what an
+  enabled clause suppressed this Sprint: without it the same judgement
+  is re-made from scratch — and re-decided differently — every Sprint,
+  and a clause that is quietly load-bearing never becomes visible. A
+  repeat across Sprints is the signal to re-examine the clause as an
+  Axis A class 4 finding.
 - Report structure: headline (total findings, Critical/High count) →
-  severity-sorted finding table → per-finding detail → the derived /
-  skipped / regression PBI list.
+  severity-sorted finding table → per-finding detail → spec-exempted
+  observations → the derived / skipped / regression PBI list.
 
 **Severity definitions:**
 | Severity | Definition |
@@ -309,19 +319,55 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
 
 ### Step 4 — Route findings (PO)
 
+Two separate requests. The first asks **whether to file**; the second
+asks **which side is authoritative** — the code or the spec. Only the
+PO can answer the second, and the audit must not answer it by default.
+
+**4a — Defect triage (all axes).**
+
 - **Critical/High** → mandatory: route to the next Sprint as draft
   PBIs (Step 5). In `po_mode=agent`, this is one `defect_triage`
   request (PO Mode table); Critical/High default to `next_sprint`.
 - **Medium/Low** → at PO discretion. Offer them in the same request;
   file only those the PO routes to `next_sprint`.
 
-Context (a) is **non-blocking regardless of severity** (per § Role) —
-do not transition the phase, do not fail the Sprint, never revert a
-PBI; the audit only files next-Sprint PBIs.
+**4b — Spec adjudication (Axis A classes 1, 3, 4).** A divergence, an
+unadjudicated spec-vs-spec conflict, and a spec-sanctions-a-defect
+finding all pose the same question, and filing a code-fix PBI answers
+it silently in the code's favour. Put it to the PO instead:
 
-### Step 5 — File PBIs with cross-Sprint content dedup
+```
+[sprint-<N>] PO_DECISION_REQUEST kind=spec_clarification
+  options=[fix_spec,fix_code,accept_as_is] recommendation=<your read>
+  <the clause + the code location + the sibling-implementation contrast
+   + the clause's provenance (revision_history / change_process flag)>
+```
 
-For each **class finding** the PO routed to `next_sprint`, file ONE
+`spec_clarification` is the existing decision kind for "which reading
+governs" — no new kind is needed, and `decision` is free text, so the
+verdict rides in it. Skip 4b when no Axis A class 1/3/4 finding
+survived; do not raise it for classes 2 (coded-but-unspecified) or for
+the other three axes.
+
+Routing of the verdict is Step 5. Context (a) is **non-blocking
+regardless of severity** (per § Role) — do not transition the phase, do
+not fail the Sprint, never revert a PBI.
+
+### Step 5 — Route the spec verdict, then file PBIs
+
+**Step 4b verdicts first** — each Axis A class 1/3/4 finding takes one
+of three exits, and only the middle one produces a PBI here:
+
+| Verdict | Route |
+|---|---|
+| `fix_spec` | Run the **`change-process`** skill against the clause (it takes the `kind=change_request` approval, edits the doc, and appends the `revision_history` entry with `change_process: true` + the `dec_id`). Frozen is not exempt — that is what the Change Process is for. **Do not** file a pipeline PBI for the spec edit: `pbi-implementer` is denied writes to `docs/design/specs/` (`hooks/status-gate.sh`), and routing it as `kind=code` would put the UT and coverage gates on a documentation change. File a separate code PBI only if the implementation must move too. |
+| `fix_code` | File a normal class PBI below (`--kind code`). The spec stands. |
+| `accept_as_is` | File nothing. The `spec_clarification` decision is now in `.scrum/po/decisions.json`, and Axis A classes 3 and 4 both skip an adjudicated clause — so the next audit will not re-raise it. Note the `dec_id` in the report. |
+
+Record the verdict and `dec_id` per finding in the report, so a reader
+can tell an unraised question from an answered one.
+
+For each remaining **class finding** the PO routed to `next_sprint`, file ONE
 draft PBI covering all of its occurrences (the `DOCS` batch files the
 same way, as a single PBI) — but the audit runs **every** Sprint, so an
 unfixed finding re-detected next Sprint must NOT spawn a duplicate.
@@ -441,6 +487,13 @@ swept to zero.
   finding.
 - **Fact vs interpretation stay separated** in every finding.
 - **Spec-vs-spec conflicts check the PO decision log first.**
+- **The audit never decides which side is authoritative.** A spec
+  divergence, an unadjudicated conflict, and a clause that sanctions a
+  defect all go to the PO as `spec_clarification` (Step 4b). Filing a
+  code-fix PBI without asking silently rules for the code — the one
+  outcome the audit is not entitled to choose. A `fix_spec` verdict is
+  executed by the `change-process` skill, including on frozen docs;
+  never by a pipeline PBI.
 - **Redundancy claims are grounded** — cite the static-analysis file
   when it exists; otherwise state the reachability reasoning and mark
   the finding lower-confidence.
@@ -454,8 +507,10 @@ swept to zero.
   audit), **merged to class level with complete occurrence lists (sweep
   recorded per class)**, severity-classified, fact separated from
   interpretation; documentation drift collapsed into the single `DOCS`
-  batch. Every Critical/High class is either a new/regression draft PBI
-  or deduped against an existing open PBI (id noted). Phase untouched.
+  batch; every `spec-exempted:` block returned by an axis carried into
+  the report's spec-exempted section. Every Critical/High class is
+  either a new/regression draft PBI or deduped against an existing open
+  PBI (id noted). Phase untouched.
 - **Context (b):** either **proceed** (fresh report + no open
   Critical/High audit PBI → handed back, phase untouched) or **block**
   (open/newly-found Critical/High → `backlog_created`, blocking PBIs
