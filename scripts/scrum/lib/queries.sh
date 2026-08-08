@@ -123,7 +123,9 @@ read_pbi_worktree_state() {
   PBI_BRANCH="$(jq -r '.branch // ""' "$state")"
   # shellcheck disable=SC2034
   PBI_BASE_SHA="$(jq -r '.base_sha // ""' "$state")"
-  [ -n "$PBI_WT" ] && [ -d "$PBI_WT" ] || fail E_FILE_MISSING "PBI worktree missing: $PBI_WT"
+  if [ -z "$PBI_WT" ] || [ ! -d "$PBI_WT" ]; then
+    fail E_FILE_MISSING "PBI worktree missing: $PBI_WT"
+  fi
   [ -n "$PBI_BRANCH" ] || fail E_INVALID_ARG "state.branch unset for $pbi_id"
 }
 

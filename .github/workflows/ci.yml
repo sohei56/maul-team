@@ -64,7 +64,7 @@ jobs:
             exit 0
           fi
           echo "Changed schemas:"; echo "$SCHEMAS"
-          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh')"
+          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh' 'scripts/scrum/migrations/*.sh')"
           if [ -n "$MIGRATIONS" ]; then
             echo "Paired migration/consolidation wrapper changes found:"; echo "$MIGRATIONS"
             exit 0
