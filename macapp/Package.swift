@@ -38,7 +38,7 @@ let package = Package(
         // the embedded framework is re-signed inside-out by make-app.sh and the
         // appcast is EdDSA-signed per release, so an upstream bump must be a
         // deliberate re-verification of both, not a silent range upgrade.
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.4")
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.5")
     ],
     targets: [
         .executableTarget(
