@@ -31,7 +31,7 @@ they never edit.
 
 | Context | When | Gate semantics |
 |---|---|---|
-| **(a) cross-review** (primary) | Every Sprint, embedded in the `cross-review` ceremony | **Non-blocking.** Never fails the Sprint, never transitions the phase. Critical/High → mandatory draft PBIs for the **next** Sprint; Medium/Low at PO discretion. |
+| **(a) cross-review** (primary) | Every Sprint, embedded in the `cross-review` ceremony | **Non-blocking.** Never fails the Sprint, never transitions the phase. Critical/High → mandatory draft PBIs for the **next** Sprint; Medium/Low at PO discretion. The one exception is the `DOCS` batch, which the ceremony closes inside the current Sprint (`../cross-review/SKILL.md` Step 7b) — documentation drift compounds while it waits. |
 | **(b) integration entry** (thin re-check) | Once, at the top of `integration-tests` Step 1 | Verifies the latest audit is **fresh** and no open Critical/High audit PBI remains. Both hold → proceed. Stale/missing → run a fresh audit; unresolved Critical/High → **block** and route to `backlog_created`. |
 
 Context (a) is the audit's real home — findings are caught every Sprint
@@ -108,6 +108,8 @@ does **not** re-review single-PBI diff-local security.
   Critical/High classes are mandatory, Medium/Low at PO discretion.
   Created as `draft` → picked up by next Sprint's
   Backlog Refinement / Sprint Planning. **Non-blocking in context (a).**
+  The `DOCS` batch is the exception: `cross-review` Step 7b refines it
+  into the **current** Sprint and runs it to merge there.
 - **Context (b) only, on an unresolved Critical/High:** `state.json`
   phase → `backlog_created` via `.scrum/scripts/update-state-phase.sh`.
 - A report to the user / PO (severity counts + PBIs created / skipped

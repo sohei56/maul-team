@@ -61,7 +61,7 @@ decision is `choice:start_sprint`. No additional PO request is needed.
    (copy or split the parent's) set via `set-backlog-item-field.sh`
    **before** flipping it to `refined` — `update-backlog-status.sh`
    refuses otherwise
-6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
+6. Compute target developer count: `min(selected PBI count, 6)`. **1 Developer = 1 PBI (hard constraint).** The constraint is on *concurrency* — a Developer whose PBI has merged may be handed another later in the same Sprint (`cross-review` Step 7b does exactly this for the audit's documentation batch). >6 PBIs→select 6, defer rest. This number is **not persisted** in `sprint.json`; it is enforced by spawn-teammates writing exactly that many entries to `developers[]`.
 7. Assign implementers: format `dev-001-s{N}`, `dev-002-s{N}` (zero-pad mandatory, -s{N} suffix mandatory, no short forms). No reviewer assignment — the per-PBI 5-aspect review runs inside pbi-pipeline (Integrity stage); Sprint-end cross-review is an audit-only SM ceremony (FR-009 Layer 2)
 8. **Roll over the previous Sprint, then create sprint.json + update
    state.current_sprint_id (atomic pair).**

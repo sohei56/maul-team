@@ -44,7 +44,11 @@ Valid phases:
 - `backlog_created` — initial Product Backlog created, ready for first Development Sprint
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).
-- `review` — Sprint-end cross-review phase (`cross-review` skill)
+- `review` — Sprint-end cross-review phase (`cross-review` skill).
+  A PBI pipeline may legitimately run here: the ceremony files the
+  audit's documentation batch into the current Sprint and drives it to
+  merge (`skills/cross-review/SKILL.md` Step 7b), so `in_progress_*`
+  reappears after the ceremony's entry check.
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
 - `integration_sprint` — Integration Tests in progress. Opens with a

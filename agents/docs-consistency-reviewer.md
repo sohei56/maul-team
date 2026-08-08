@@ -77,7 +77,10 @@ doc update inside the same PBI.
    finding on the parent that spawned this PBI must be semantically
    resolved by the .md change. A docs PBI that ships with the parent
    finding still unresolved is itself a docs-consistency finding
-   (criterion_key `parent_finding_unresolved`).
+   (criterion_key `parent_finding_unresolved`). When `parent_pbi_id` is
+   null — as it is for the batch the Sprint-end audit files — the same
+   check runs against the audit report the PBI description names
+   (`.scrum/reviews/codebase-audit-s{N}.md`).
 6. **Cross-reference integrity** — any `S-NNN` / `pbi-NNN` / file path
    introduced or modified in this PBI's diff resolves to an existing
    target. A broken reference shipping in a docs PBI is a Critical
