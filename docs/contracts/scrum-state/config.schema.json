@@ -87,6 +87,18 @@
         "poll_interval_seconds": {"type": "integer", "minimum": 1}
       }
     },
+    "framework_issue": {
+      "description": "Settings for .scrum/scripts/draft-framework-issue.sh (the Retrospective's upstream leg). Optional; absent means only the built-in sanitizer checks apply.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "forbidden_tokens": {
+          "description": "Operator-maintained denylist of domain terms that must never leave this project. The wrapper rejects a draft containing any of them (case-insensitive substring). This is the only mechanical defense against the leak class no pattern can catch — a business noun that is meaningless outside this project. Nothing forces the list to be populated; an empty or absent list leaves the human review gate as the sole guard.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
     "po_mode": {
       "description": "Who plays the Product Owner role. 'human' = wait for user input at PO decision points (default when key absent). 'agent' = a Claude teammate (product-owner) decides automatically.",
       "enum": ["human", "agent"]

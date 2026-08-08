@@ -39,9 +39,13 @@ Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh
   absent from the table above: `.scrum/runtime.json` (tmux session
   + SM pane id + stall-watchdog PID, written by `scrum-start.sh`),
   `.scrum/deploy-stamp.json` (framework sha + dirty flag +
-  `deployed_at` + `framework_root`, written by `setup-user.sh` on
+  `deployed_at` + `framework_root` + `framework_origin`, written by
+  `setup-user.sh` on
   every deploy so a stale deployment is diagnosable from inside the
-  target), and `.scrum/session-map.json` (session-id → teammate
+  target — `framework_origin` is the `owner/repo` of the framework
+  repo, recorded at deploy time because a target cannot derive it
+  later: a bundled deploy has no `.git` and the target's own remote
+  points at the target), and `.scrum/session-map.json` (session-id → teammate
   display-name map, written solely by `hooks/dashboard-event.sh` —
   a hook process, in all modes). They match the guard's
   `.scrum/**/*.json` pattern but their writers run outside the agent
@@ -57,3 +61,8 @@ Orchestrators (`merge-pbi.sh`, `merge-main-into-pbi.sh`, `safe-switch-to-main.sh
   write them via the agent tool surface and *are* intercepted by the
   guard — an unblocked Integration Sprint could not persist test
   results. Each now has a schema + a wrapper per the table above.)
+  `.scrum/framework-issues/` sits outside the table for a different
+  reason: its `<sprint-id>-NN.md` bodies and `<sprint-id>-NN.meta`
+  key=value sidecars are not JSON at all, so no schema could apply.
+  Sole writer: `draft-framework-issue.sh` (see the wrapper map in
+  `MIGRATION-scrum-state-tools.md`).

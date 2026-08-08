@@ -16,6 +16,9 @@ disable-model-invocation: false
   consolidation pass archives stale entries (see Step 4)
 - state.json → phase: retrospective
 - sprint.json → status: "complete"
+- `.scrum/framework-issues/<sprint-id>-NN.md` (+ `.meta` sidecar) —
+  only when Step 4b fires; the `.md` is the postable body and nothing
+  is published without a human's explicit permission
 
 ## Preconditions
 
@@ -92,8 +95,51 @@ Overrides in agent mode:
       `.scrum/improvements.json` remain blocked by
       `pre-tool-use-scrum-state-guard.sh` — the wrapper is the only
       sanctioned path.
-5. Present retrospective report: went well, to improve, and (when
-   Step 4 ran) the archived-items summary
+4b. **Framework-attributable upstream drafts.** For each improvement
+   recorded in Step 3, ask where its fix would land. Deployed framework
+   files qualify — `.claude/agents|skills|rules|hooks/**`,
+   `.scrum/scripts/**`, deployed `docs/contracts/scrum-state/*.schema.json`,
+   `scrum-start.sh` behavior. This project's own source, tests, and docs do
+   not; nor does a value the team chose in `.scrum/config.json` (**unless**
+   the framework's default or its missing validation is what misled you —
+   then the issue is about the default); nor "we should have communicated
+   more". Zero drafts is a normal outcome; this step is not a quota.
+
+   **Write it clean** — the draft is destined for a public repo: keep counts,
+   drop identifiers ("recurred across 3 Sprints", never the Sprint ID);
+   describe the *framework's* behavior, never this project's use of it; if a
+   domain term is unavoidable, it is not framework-attributable — drop it.
+
+   ```bash
+   .scrum/scripts/draft-framework-issue.sh \
+     --sprint <sprint-id> --identity <area>::<failure-mode> \
+     --title "<what is wrong, framework-level>" \
+     --summary "<one generic paragraph>" \
+     --where "<deployed path → its framework-source path>" \
+     --why "<observed failure and its consequence>" \
+     --improvement "<what should change>"
+   ```
+
+   It prints the draft path on stdout and a ready-to-run `gh` line on
+   stderr, rejects leaks naming **every** violation at once (fix them all,
+   re-run), and bumps a repeat `--identity` instead of drafting twice.
+
+   **Human mode.** Render the **full draft body inline in chat** — a path is
+   not reviewable. Then ask exactly one question and **stop**: "May I post
+   this to the public framework repo `<origin>`? (yes / edit first / no)".
+   **Never post without an explicit `yes` in the same session.** On `yes`,
+   run the printed command yourself only if `command -v gh` succeeds, then
+   `--record-posted <draft-path> --url <issue-url>`; otherwise hand the
+   command over and record the URL the user reports. The approval covers
+   that one draft only. On `no` or no answer the draft stays on disk; a
+   later recurrence only bumps its count.
+
+   **Agent mode.** The wrapper has already queued the draft in
+   `.scrum/po/attention.md` for a human. Do not ask the PO, do not post,
+   continue.
+5. Present retrospective report: went well, to improve, (when
+   Step 4 ran) the archived-items summary, and (when Step 4b produced
+   drafts) their paths and titles
 6. sprint.json → status: "complete":
    ```bash
    .scrum/scripts/update-sprint-status.sh complete

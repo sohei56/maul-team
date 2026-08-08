@@ -918,7 +918,8 @@ human or autonomous). Schema:
 | `.scrum/po/acceptance/<sprint-id>/<pbi-id>-r<n>.md` | Re-entry transcript when `po-acceptance` is re-run for a defect-fix loop. |
 | `.scrum/po/uat-<sprint-id>.md` | Single UAT-mode transcript per Sprint; section anchors are referenced as `evidence` on `uat_item` decisions. |
 | `.scrum/po/uat-stories-<sprint-id>.md` | UAT user-story inventory derived from `docs/requirements.md` with FR⇄US traceability appendix; each story (`US-NNN`) carries a verdict (`pass \| fail \| waive` + feedback) recorded during the walkthrough. One file per Sprint. |
-| `.scrum/po/attention.md` | Human-only queue: numbered entries the PO appended for issues only a human can resolve (credentials, billing, legal, prod deploy). Entries tagged `release-blocking: yes` block `release_decision=go`. |
+| `.scrum/po/attention.md` | Human-only queue: numbered entries the PO appended for issues only a human can resolve (credentials, billing, legal, prod deploy). Entries tagged `release-blocking: yes` block `release_decision=go`. In `po_mode=agent`, `draft-framework-issue.sh` also queues each framework-issue draft here, untagged. |
+| `.scrum/framework-issues/<sprint-id>-NN.md` | Sanitized, postable GitHub issue body drafted by the Retrospective (Step 4b); the `.meta` sidecar beside it holds the local bookkeeping (identity, Sprint, framework rev, occurrences, posted URL) that must never reach the public issue. Gitignored; sole writer `draft-framework-issue.sh`. Publication requires a human's explicit in-session permission in both PO modes. |
 
 ### Rules
 

@@ -293,13 +293,35 @@ elif [ "$(git -C "$PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null)" = "$(cd
     FRAMEWORK_DIRTY=true
   fi
 fi
+# WHICH framework repo these files came from. A target cannot work this out on
+# its own — a bundled macapp deploy has no `.git`, and the target's own `origin`
+# points at the target — so the only chance to record it is here, at deploy
+# time. `.scrum/scripts/draft-framework-issue.sh` addresses upstream issues with
+# it. Sources mirror the sha block above, including its toplevel guard: without
+# that, `git -C` on a non-repo extraction walks UP and stamps whatever unrelated
+# ancestor repo it finds. Falls back to the canonical constant rather than to
+# nothing, because an unaddressable framework makes the upstream leg dead code.
+normalize_git_origin() {
+  printf '%s' "$1" \
+    | sed -e 's/\.git$//' -e 's#^[A-Za-z+]*://##' -e 's/^[^@/]*@//' \
+    | awk -F'[:/]' 'NF >= 2 { printf "%s/%s", $(NF - 1), $NF }' \
+    | tr '[:upper:]' '[:lower:]'
+}
+FRAMEWORK_ORIGIN=""
+if [ -f "$PROJECT_ROOT/.framework-origin" ]; then
+  FRAMEWORK_ORIGIN="$(normalize_git_origin "$(head -n1 "$PROJECT_ROOT/.framework-origin")")"
+elif [ "$(git -C "$PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null)" = "$(cd "$PROJECT_ROOT" && pwd -P)" ]; then
+  FRAMEWORK_ORIGIN="$(normalize_git_origin "$(git -C "$PROJECT_ROOT" remote get-url origin 2>/dev/null || true)")"
+fi
+[ -n "$FRAMEWORK_ORIGIN" ] || FRAMEWORK_ORIGIN="sohei56/maul-team"
 STAMP_TMP="$TARGET_DIR/.scrum/deploy-stamp.json.tmp.$$"
 jq -n \
   --arg sha "$FRAMEWORK_SHA" \
   --argjson dirty "$FRAMEWORK_DIRTY" \
   --arg at "$(iso_utc_now)" \
   --arg root "$PROJECT_ROOT" \
-  '{framework_sha: $sha, framework_dirty: $dirty, deployed_at: $at, framework_root: $root}' \
+  --arg origin "$FRAMEWORK_ORIGIN" \
+  '{framework_sha: $sha, framework_dirty: $dirty, deployed_at: $at, framework_root: $root, framework_origin: $origin}' \
   > "$STAMP_TMP"
 mv "$STAMP_TMP" "$TARGET_DIR/.scrum/deploy-stamp.json"
 echo "  Deploy stamp: framework $FRAMEWORK_SHA (dirty=$FRAMEWORK_DIRTY) -> .scrum/deploy-stamp.json"

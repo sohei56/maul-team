@@ -26,6 +26,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the recurring `current_sprint_id` lag bug surfaced by target-project retrospectives) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
 | Append one SprintSummary to `.scrum/sprint-history.json` (was: raw `jq` append the scrum-state guard blocks) | `.scrum/scripts/append-sprint-history.sh --id <sprint-id> --goal <text> [--type ...] [--pbis-completed N] [--pbis-total N] [--started-at <iso>] [--completed-at <iso>]` (append-only, idempotent on `--id`) |
 | Record one TestCategory into `.scrum/test-results.json` (was: raw JSON init + `jq` append the scrum-state guard blocks, deadlocking an Integration Sprint's Stop gate + `release_decision=go`) | `.scrum/scripts/record-test-result.sh --name <cat> --status <passed\|failed\|skipped> [--total N] [--passed N] [--failed N] [--skipped N] [--runner-command <text>] [--executed-at <iso>] [--error 'NAME::msg']…` (upsert by `--name`; creates the file on first call; recomputes `overall_status` every call) |
+| Draft a framework-improvement issue from a Retrospective finding (was: **no path at all** — the SM has no `Write` tool, and hand-written prose has no mechanical guard against publishing the target's Sprint/PBI ids, home paths, or domain terms, which is why the upstream leg stayed deferred) | `.scrum/scripts/draft-framework-issue.sh --sprint <sprint-id> --identity <area>::<failure-mode> --title <text> --where <text> --why <text> --improvement <text> [--summary <text>] [--frequency <text>]` (writes `.scrum/framework-issues/<sprint-id>-NN.md` + `.meta`; prints the path on stdout and a ready-to-run `gh issue create` line on stderr; sanitizer violations fail `E_INVALID_ARG` naming every offending field at once, and there is no `--force`; a repeat `--identity` bumps the existing draft instead of writing a second one). Recording a post: `--record-posted <draft-path> --url <issue-url>` |
 | Advance from a completed Sprint to the next (was: **no wrapper** — `init-sprint.sh` refused while `sprint.json` existed and `freeze-sprint-base.sh` refused while `base_sha` was frozen, leaving the team unable to start any Sprint after Sprint 1) | `.scrum/scripts/rollover-sprint.sh` (archives the `status: complete` `sprint.json` to `sprint-history.json`, then removes `sprint.json` so `init-sprint.sh` + `freeze-sprint-base.sh` can start the next Sprint on a fresh base; refuses a non-complete Sprint; idempotent no-op when no `sprint.json`) |
 
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
@@ -194,9 +195,10 @@ Four mechanisms, no version bookkeeping:
    deployed `.scrum/scripts/**/*.sh` before copying (the directory is
    framework-owned), so renamed/removed wrappers cannot linger, and
    writes `.scrum/deploy-stamp.json` (framework sha, dirty flag,
-   `deployed_at`, `framework_root`) so "which framework rev are these
-   wrappers from?" is answerable from inside the target. Wrapper
-   error messages and the gate point at the stamp.
+   `deployed_at`, `framework_root`, `framework_origin`) so "which
+   framework rev are these wrappers from?" — and "which repo do I file
+   an upstream issue against?" — are both answerable from inside the
+   target. Wrapper error messages and the gate point at the stamp.
 
 ## Known gaps (follow-ups)
 
