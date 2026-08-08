@@ -75,19 +75,20 @@ start gate of its own.
    **Codebase-audit pre-flight re-check (mandatory, thin).** The
    whole-repo `codebase-audit` (4 axes) IS the Sprint-end `cross-review`
    ceremony (context (a)) and runs every Sprint, so by now the codebase
-   has already been audited and its Critical/High findings filed as
+   has already been audited and the findings the PO approved filed as
    PBIs. This step is a cheap **re-check**, not a fresh full audit: run
    the `codebase-audit` skill
    with `context=integration_entry`. It verifies (i) the latest audit
    report is fresh — `.scrum/reviews/codebase-audit-s{N}.md` exists for
    the final development Sprint (`N` = numeric sprint number from
-   `sprint.json.id`) — and (ii) no open (non-`done`) `[codebase-audit:*]`
-   Critical/High PBI remains in `backlog.json`. Both hold → proceed to
-   Step 2. Report stale/missing → it runs a fresh audit now; any
-   unresolved Critical/High → it sets the phase to `backlog_created`
-   and **stops here** (the Integration Sprint resumes after the
-   defect-fix loop). This closes the hole where an audit PBI was filed
-   but never fixed before integration.
+   `sprint.json.id`) — and (ii) no open `[codebase-audit:*]` PBI with a
+   blocking (non-`low`) `audit_severity` remains in `backlog.json`
+   (`done` = fixed and `cancelled` = PO-descoped; neither counts as
+   open). Both hold → proceed to Step 2. Report stale/missing → it runs
+   a fresh audit now; any unresolved blocking PBI → it sets the phase to
+   `backlog_created` and **stops here** (the Integration Sprint resumes
+   after the defect-fix loop). This closes the hole where an audit PBI
+   was filed but never fixed before integration.
 
 2. **Spawn the testing Developer teammate(s)** via the
    `spawn-teammates` skill (1–2 for testing). The Developer(s) run

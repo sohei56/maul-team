@@ -145,6 +145,11 @@ constraints, priorities, and success metrics.
 - **Requirements must not silently contradict the brief.** Any conflict
   is surfaced and resolved by amending one side per the PO seat's call —
   see § Brief ↔ requirements reconciliation.
+- **`requirements.md` states the present.** A requirement that changed
+  is rewritten, not annotated — no `(superseded …)` parenthetical, no
+  Clarifications changelog of what earlier versions said. The trail is
+  the frontmatter `revision_history` entry. See
+  `docs/design/catalog.md` Governance Rule 8.
 - **State inconsistency→stop and report.** Do not "fix" state by
   writing a missing file.
 

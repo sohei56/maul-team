@@ -215,6 +215,11 @@ rm -rf "$FW/macapp" "$FW/tests" "$FW/.github" "$FW/.claude" "$FW/images" \
 # stamps it into targets' .scrum/deploy-stamp.json — the app version alone
 # (last tag via `git describe`) cannot distinguish same-version rebuilds.
 git -C "$ROOT/.." rev-parse HEAD > "$FW/.framework-rev"
+# Companion marker: WHICH repo the bundle came from, so a fork's deploys file
+# upstream issues against the fork rather than the canonical repo. Best-effort
+# on purpose and deliberately absent from the assertion below — a missing
+# origin must degrade to setup-user.sh's constant, never fail the build.
+git -C "$ROOT/.." remote get-url origin > "$FW/.framework-origin" 2>/dev/null || true
 if [ -n "$(git -C "$ROOT/.." status --porcelain 2>/dev/null)" ]; then
   echo "WARNING: working tree is dirty — uncommitted changes are NOT in the" >&2
   echo "         bundled framework (git archive packs HEAD, not the worktree)." >&2

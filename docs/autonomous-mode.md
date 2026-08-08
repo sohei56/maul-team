@@ -276,8 +276,12 @@ jq '.decisions[] | select(.assumption==true)' .scrum/po/decisions.json
 
 `.scrum/po/attention.md` is the human-only queue. The PO appends
 numbered entries here for matters it must defer (credentials,
-billing, legal, production deploy). Entries tagged
-`release-blocking: yes` block `release_decision=go`. Drain this
+billing, legal, production deploy). The Retrospective's
+`draft-framework-issue.sh` also queues framework-issue drafts here —
+publishing to a public repo is the same human-only class, so agent
+mode never posts and never routes it to the PO. Entries tagged
+`release-blocking: yes` block `release_decision=go`; framework-issue
+entries are untagged and therefore never release-blocking. Drain this
 queue before the next run.
 
 ## Safety valves and circuit breakers

@@ -413,21 +413,46 @@ case "$phase" in
     fi
 
     incomplete_pbis=""
+    in_flight_pbis=""
     while IFS= read -r pbi_id; do
       [ -z "$pbi_id" ] && continue
       status="$(get_pbi_status "$pbi_id")"
-      if [ "$status" != "done" ] && [ "$status" != "cancelled" ]; then
-        incomplete_pbis="${incomplete_pbis}${incomplete_pbis:+, }${pbi_id} (status: ${status})"
-      fi
+      case "$status" in
+        done|cancelled) ;;
+        in_progress_*)
+          # A pipeline is running inside `review` — the Sprint-end audit
+          # follow-up closes documentation drift before the ceremony ends.
+          # This is the healthy inner loop, so it must keep firing every
+          # turn-end WITHOUT consuming the per-phase breaker budget; a bounded
+          # block here would trip the breaker and fail an autonomous run for
+          # doing exactly what it was asked to do.
+          in_flight_pbis="${in_flight_pbis}${in_flight_pbis:+, }${pbi_id} (status: ${status})"
+          ;;
+        *)
+          incomplete_pbis="${incomplete_pbis}${incomplete_pbis:+, }${pbi_id} (status: ${status})"
+          ;;
+      esac
     done <<EOF
 $(get_sprint_pbi_ids "$current_sprint_id")
 EOF
 
+    # A stalled PBI is an exit-criteria miss the SM must act on → BOUNDED, so a
+    # Sprint that cannot resolve it surfaces instead of pinning the session.
+    # Checked first: if anything is stuck, that is the actionable signal even
+    # when another PBI is still running.
     if [ -n "$incomplete_pbis" ]; then
       block_stop \
         "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' (or 'cancelled') before stopping." \
         "review_incomplete" \
         "$incomplete_pbis"
+    fi
+
+    if [ -n "$in_flight_pbis" ]; then
+      block_stop \
+        "Review phase: a PBI pipeline is still running: ${in_flight_pbis}. Drive it to merge (or escalate it) before stopping." \
+        "pipeline_in_flight" \
+        "$in_flight_pbis" \
+        "unbounded"
     fi
 
     allow_stop

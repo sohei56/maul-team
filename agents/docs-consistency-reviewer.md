@@ -77,12 +77,25 @@ doc update inside the same PBI.
    finding on the parent that spawned this PBI must be semantically
    resolved by the .md change. A docs PBI that ships with the parent
    finding still unresolved is itself a docs-consistency finding
-   (criterion_key `parent_finding_unresolved`).
+   (criterion_key `parent_finding_unresolved`). When `parent_pbi_id` is
+   null — as it is for the batch the Sprint-end audit files — the same
+   check runs against the audit report the PBI description names
+   (`.scrum/reviews/codebase-audit-s{N}.md`).
 6. **Cross-reference integrity** — any `S-NNN` / `pbi-NNN` / file path
    introduced or modified in this PBI's diff resolves to an existing
    target. A broken reference shipping in a docs PBI is a Critical
    finding because the PBI's whole purpose was to keep docs internally
    consistent.
+7. **Spec history in the body (within the PBI)** — a doc change in this
+   diff adds *past* state to the body of `docs/design/specs/**` or
+   `docs/requirements.md`: a changelog section, a `(superseded …)` /
+   `(history: …)` parenthetical, a "formerly / used to" sentence. Body
+   only — the frontmatter `revision_history` append and `D-001` ADR
+   bodies are exempt, and so is live backward-compat / migration-range
+   text, which states current behavior (`docs/design/catalog.md`
+   Governance Rule 8). Low unless the addition leaves current behavior
+   ambiguous, then High. Pre-existing history elsewhere in the same
+   file is the Sprint-end audit's, not yours.
 
 ## Out of scope (delegated)
 
@@ -112,10 +125,11 @@ Use the PBI-pipeline signature format (single PBI in scope):
 ```
 
 `criterion_key` enum: doc_impl_drift, stale_wording, redundant,
-missing_doc_update, parent_finding_unresolved, broken_cross_reference.
+missing_doc_update, parent_finding_unresolved, broken_cross_reference,
+spec_history_in_body.
 
-The last two apply to docs PBIs (Review Criteria 5 / 6) and the
-first four apply to all PBIs.
+`parent_finding_unresolved` / `broken_cross_reference` (Review Criteria
+5 / 6) apply to docs PBIs; every other key applies to all PBIs.
 
 ## Output Format
 

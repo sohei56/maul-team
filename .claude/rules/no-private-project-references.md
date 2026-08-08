@@ -112,3 +112,9 @@ saving.
 See also: [[scrum-context]] for the framework-level team map and
 SSOT locations (which are framework-internal and therefore fine to
 document here).
+
+See also: `scripts/scrum/draft-framework-issue.sh` — the deployed
+counterpart. This file governs what *this* repo publishes and is not
+copied to targets; that wrapper mechanically enforces the recipe above
+(counts, not identifiers) on issue drafts a target project sends
+upstream, where this file is absent. Change one and check the other.

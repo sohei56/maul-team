@@ -42,7 +42,20 @@ Rules:
   `docs/design/catalog-config.json`. Behavior absent from an enabled
   spec and from `requirements.md` is out of scope for conformance
   judgments (but coded-but-unspecified behavior IS a redundancy /
-  spec-gap signal — see the relevant axes).
+  spec-gap signal — see the relevant axes). This bounds what you may
+  measure code **against**; it does not make a spec clause itself
+  unreviewable — judging a clause is Axis A class 4 and requires the
+  evidence that class demands.
+- **Record what a spec exemption silenced.** When an enabled spec
+  clause is your reason for NOT reporting something you would otherwise
+  have reported, list it in a `spec-exempted:` block after your
+  findings: `<path>::<symbol>` + the clause + one line on why it looks
+  like a defect. Do not simply drop it. The same exemption is applied
+  inconsistently between runs and between axes, so an unrecorded
+  judgement is re-made from scratch — and re-decided differently — every
+  Sprint, while the SM never learns the clause is load-bearing. If the
+  clause looks wrong rather than merely restrictive, it is a class 4
+  finding, not an exemption.
 
 **Return format.** Return your findings **as your final assistant
 message** — do NOT write any file. The Scrum Master synthesizes and
@@ -51,38 +64,56 @@ persists the report. Use this schema per finding:
 ```
 ### <F-local-id> <one-line title>
 - axis: spec-conformance | logic-defect | redundancy | product-security
-- severity_hint: Critical | High | Medium | Low   (SM may re-rank on dedup)
+- severity_hint: Critical | High | Low   (SM may re-rank on dedup;
+  Critical = a bug that prevents the spec from being met, High = the
+  spec is met but leaving it unfixed causes future harm, Low = an
+  improvement that need not be fixed — canonical table in SKILL.md
+  Step 3)
 - location: <path>:<line> (primary occurrence)
 - occurrences: <path>:<line> — <symbol>   (one line per instance the
   sweep found — ALL of them; a genuinely single-site defect lists one)
 - sweep: <the searches + reasoning establishing the occurrence list is
   complete — patterns tried, variants considered; "single-site by
   construction" only when the defect cannot recur elsewhere>
-- identity: <stable defect-CLASS key — a single-site defect uses
-  <path>::<symbol-or-anchor>; a multi-site class uses a stable class
-  slug like <rule-or-guard>::<pattern>. Never line numbers, which
-  drift between Sprints; the SM uses this for cross-Sprint dedup>
+- identity: <stable defect-CLASS key, in EXACTLY the normalized form
+  <defect-class>::<pattern> — two parts joined by "::", each part
+  lower-case kebab, singular nouns (e.g.
+  notify-order::send-before-write, dynamo-query::missing-pagination).
+  NEVER a file path, a symbol name, or a line number: all three change
+  under refactoring, so an identity built from them mints a NEW class
+  and the same defect is filed again next Sprint. Name the RULE the
+  code broke, not the place it broke.
+  REUSE, never re-mint: the PBI summary you were given carries an
+  `audit_identity` on every audit PBI already filed. If this class is
+  among them, emit that exact string byte-for-byte. Mint a new
+  identity only for a class with no entry there. The SM matches on
+  this field exactly, so one character of drift files a duplicate.>
 - fact: <what is literally observed in the code/spec — no inference>
 - interpretation: <why it is a defect; the failure it causes>
 - confidence: High | Medium | Low
 - proposed_fix: <one line; becomes the PBI AC seed>
 ```
 
-End with a one-line summary: `<n> findings (<c> Critical, <h> High, <m>
-Medium, <l> Low)`. If you found nothing, say so explicitly — an empty
-result is a valid, useful outcome.
+End with a one-line summary: `<n> findings (<c> Critical, <h> High,
+<l> Low)`. If you found nothing, say so explicitly — an empty result is
+a valid, useful outcome.
 
 ---
 
 ## Axis A — `spec-conformance`
 
 Compare the **implementation** against the **enabled design specs** and
-`requirements.md`. Hunt three failure classes:
+`requirements.md`. Hunt five failure classes:
 
 1. **Divergence** — code whose observable behavior contradicts an
    enabled spec or a requirement (wrong default, wrong ordering, a
    state transition the spec forbids, a return shape the spec does not
-   allow). Anchor to both the spec line and the code line.
+   allow). Anchor to both the spec line and the code line. **Do not
+   assume the code is the wrong side.** State which side you believe is
+   correct and why; the SM puts the question to the PO, and a frozen
+   spec that turns out to be wrong is corrected through the
+   change-process skill. Where you cannot tell, say so — an
+   unadjudicated divergence is still a finding.
 2. **Coded-but-unspecified behavior** — production code paths that
    implement behavior no enabled spec or requirement asks for. This is
    often **dead code that is also a spec gap**: either the requirement
@@ -97,14 +128,92 @@ Compare the **implementation** against the **enabled design specs** and
    the decision, and you check that instead. Only unadjudicated
    contradictions are findings.
 
+   **A `defect_triage` record is not grounds to skip anything.** It
+   decided whether to schedule work, not whether the defect exists;
+   only `spec_clarification` / `change_request` / `scope_change`
+   adjudications bear on classes 3 and 4. Keep detecting and re-rating
+   a class the PO previously deferred or rejected — the SM applies
+   suppression at filing time, and it lapses precisely when your fresh
+   rating comes out higher.
+4. **Spec-sanctions-a-defect** — the implementation **conforms** to an
+   enabled clause, but the clause itself sanctions the defect (it
+   mandates the notification write that can be lost, blesses the
+   duplicated formatter, declares the unsafe ordering to be the design).
+   The finding targets the **clause**, not the code.
+
+   **Do not treat the spec's authority as evidence that the behavior is
+   correct** — that is the trap this class exists to escape. A clause
+   written to describe what the code already did will always "pass"
+   conformance. Show all three:
+   (a) **a sibling implementation in this repo** that handles the same
+   situation correctly (the strongest signal available: it proves the
+   codebase itself disagrees with the clause);
+   (b) **the clause's provenance** — a `revision_history` entry with
+   `change_process: true` means it was adjudicated; one added in the
+   same Sprint as the code it describes was very likely retro-fitted;
+   (c) **whether the behavior the clause claims is what actually
+   happens**.
+
+   Not a finding when `.scrum/po/decisions.json` shows the PO accepted
+   this clause knowingly (same rule as class 3). Absent all three
+   pieces of evidence, record it as a `spec-exempted:` observation
+   instead of asserting the spec is wrong.
+5. **Spec carries its own history** — an enabled design doc or
+   `requirements.md` states *past* states of the system in its body: a
+   changelog / revision section, a `(superseded <date>: …)` or
+   `(history: …)` parenthetical inside a clause, a "formerly / used to
+   / we changed this in Sprint N" sentence. Catalog Governance Rule 8
+   puts that in frontmatter `revision_history`, in a `D-001` ADR, or in
+   the runtime stores; the body states the present.
+
+   The finding targets the **passage**. No code evidence is required or
+   expected, and this class needs none of class 4's
+   sibling-implementation apparatus — the defect is visible in the
+   document alone.
+
+   Evidence per finding:
+   (a) the `path:line` of every contaminated passage — sweep all
+   enabled specs plus `requirements.md`, not one doc;
+   (b) the current-state claim the passage muddies: quote the sentence
+   a reader would have to disambiguate, or state that none is muddied;
+   (c) whether the content already exists in `revision_history` / a
+   `D-001` ADR / `.scrum/po/decisions.json`. If it does, the body copy
+   is pure duplication and the fix deletes it; if it does not, the fix
+   **relocates** it — never propose deleting the only record of a
+   decision.
+
+   **Not a finding:** live backward-compat behavior, an `S-060`
+   migration spec's from/to versions, a dated deprecation notice — all
+   describe what the system does today (Rule 8 § "Not history").
+   Frontmatter and `D-001` ADR bodies are out of scope by construction.
+
+   Identity: emit `spec-history::body-changelog` for the repo-wide
+   duplication sweep — ONE finding covering every passage. Split a
+   passage out under its own `spec-history::<clause-topic>` identity
+   only when it makes current behavior ambiguous (severity High),
+   because that one needs its own PO adjudication.
+
 Map each finding to the PBI(s) whose `paths_touched` / area it lands in
 (reverse-lookup from the PBI summary) so the SM can scope a fix PBI.
 
 Severity guide: a divergence that breaks a core AC or an unadjudicated
-conflict that makes correct behavior undefined → Critical; a divergence
-that changes observable behavior on a primary path → High;
-coded-but-unspecified dead paths → Medium unless they execute in
-production.
+conflict that makes correct behavior undefined → Critical (the spec
+cannot be met); a divergence that changes observable behavior on a
+primary path → Critical when it defeats the specified behavior, else
+High. Coded-but-unspecified paths → High when the path can execute or
+the gap accrues debt, Low when it is inert. For class 4, rate the
+**defect the clause sanctions**, not the paperwork: a clause blessing
+silent data loss or a dropped notification on a production path →
+Critical; one blessing an observable-behavior defect on a primary path
+→ High. A clause that is merely untidy or over-restrictive is not a
+finding.
+
+For class 5, rate the ambiguity, not the tidiness: a passage whose
+presence means a reader cannot tell which statement is the current
+behavior → High; a passage that merely duplicates `revision_history` or
+an ADR while the current behavior stays unambiguous → Low. Never
+Critical — if the ambiguity has already produced divergent code, that is
+a class 1 divergence at its own severity, filed there, not here.
 
 ---
 
@@ -141,7 +250,8 @@ For each: name the exact production path and the input/condition that
 triggers the defect. Distinguish **fact** (the code as written) from
 **interpretation** (the failure it produces). A silent data-loss or
 feature-off-in-prod defect on a core path is Critical/High; a
-secondary-path edge case is Medium.
+secondary-path edge case is High when leaving it unfixed causes future
+harm, Low when it need not be fixed.
 
 ---
 
@@ -171,7 +281,7 @@ grounded evidence — not a single grep.
 - **Stale comments / docstrings.** Comments or docstrings that no
   longer match the code they describe — a docstring claiming a
   parameter the signature dropped, a comment describing removed
-  behavior. Medium when actively misleading, Low when merely noise.
+  behavior. High when actively misleading, Low when merely noise.
   Enumerate these **exhaustively in one class finding** (the SM batches
   all documentation drift into a single per-audit PBI): a partial list
   guarantees the leftovers resurface at the next audit.
@@ -226,7 +336,8 @@ Severity: an exploitable cross-component authz bypass, an unsanitized
 untrusted-input-to-dangerous-sink flow, or a live exposed secret →
 Critical; a missing product-wide control on a sensitive surface or a
 plausible-but-unconfirmed injection seam → High; defense-in-depth gaps
-on secondary paths → Medium. Keep **fact** (the code/flow as written)
+on secondary paths → High when the exposure accrues, Low when it need
+not be closed. Keep **fact** (the code/flow as written)
 separate from **interpretation** (the exploit it enables), and mark
 confidence honestly when you cannot trace a full flow end-to-end.
 

@@ -44,12 +44,19 @@ acceptance decisions, and the release call.
   PO bookkeeping under `.scrum/po/**` (enforced by the path-guard
   hook).
 - The PO **must not** weaken the engineering quality gates. The PO
-  cannot lower coverage thresholds, cannot reroute cross-review
-  findings, cannot disable the merge regression gate, and cannot edit
-  the quality-related keys in `.scrum/config.json` (`coverage`,
-  `merge_regression`, `path_guard`, cross-review routing). Quality is
-  owned by SM and the engineering sub-agents; the PO speaks only to
-  product value.
+  cannot lower coverage thresholds, cannot disable the merge regression
+  gate, and cannot edit the quality-related keys in
+  `.scrum/config.json` (`coverage`, `merge_regression`, `path_guard`).
+  Quality is owned by SM and the engineering sub-agents.
+- The PO **does** rule on audit-finding triage
+  (`kind=defect_triage` from `codebase-audit` Step 4a) — every finding,
+  including rejecting a `critical` one. What gets built next is a
+  product-value call, not a gate weakening. The PO still cannot change
+  the audit's **gate semantics**: it cannot make the audit blocking or
+  non-blocking, and it cannot waive the Integration-entry block on a
+  finding that was already filed as a PBI. The sanctioned route for an
+  already-open audit PBI is `cancelled` (`skills/codebase-audit/SKILL.md`
+  § Step 5).
 
 ## Context restoration (on spawn / respawn)
 
@@ -239,8 +246,16 @@ quality_gate_config
       --rationale "<rationale>" \
       [--sprint "<sprint-id>"] [--pbi "<pbi-id>"] \
       [--request "<summary of the SM request>"] \
-      [--evidence "<path>"]... [--assumption]
+      [--evidence "<path>"]... [--assumption] \
+      [--audit-identity "<defect-class>::<pattern>"] \
+      [--audit-severity "<critical|high|low>"]
   ```
+
+  The two audit flags are **mandatory** on a `kind=defect_triage`
+  record whose `--decision` is `reject`: the rejection is a persisted
+  suppression that `codebase-audit` Step 5 must match back to the
+  finding it silenced. Supply them on a `defer` too, so the record
+  self-identifies.
 
   The message `[<scope>]` prefix maps to `--sprint` / `--pbi`
   (sprint-N → `--sprint`, pbi-NNN → `--pbi`, product scope → omit

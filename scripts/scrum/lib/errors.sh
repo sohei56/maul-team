@@ -71,6 +71,23 @@ assert_sprint_id() {
   esac
 }
 
+# assert_audit_identity <value> [label]
+# Validates a codebase-audit cross-Sprint dedup key: exactly two lower-kebab
+# parts joined by "::" (e.g. `notify-order::send-before-write`). Rejects file
+# paths and line numbers on purpose — both drift under refactoring, so an
+# identity built from them silently mints a new defect class every Sprint and
+# the same defect is filed again. The schema's pattern is the final gate; this
+# is the fast-fail with an actionable message. Used by add-backlog-item.sh and
+# set-backlog-item-field.sh.
+assert_audit_identity() {
+  local value="$1" label="${2:-audit-identity}"
+  if ! printf '%s' "$value" \
+    | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*::[a-z0-9]+(-[a-z0-9]+)*$'; then
+    fail E_INVALID_ARG \
+      "bad $label: $value (expected <defect-class>::<pattern>, lower kebab both sides, e.g. notify-order::send-before-write — no file paths, no line numbers)"
+  fi
+}
+
 # parse_json_string_array <label> <value>
 # Parse <value> as JSON, require an array of strings, and echo the compact form
 # (jq -ce) on success. On malformed JSON the wrapper fails E_INVALID_ARG

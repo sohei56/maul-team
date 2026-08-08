@@ -51,6 +51,40 @@ The following rules are mandatory and enforceable:
    project working directories. Only `docs/design/catalog-config.json` may be
    edited to control which entries are active.
 
+8. **Current state only.** A spec's body states what the system does
+   **now**. It carries no changelog or revision section, no "previously /
+   formerly / used to", no `(superseded <date>: …)` or `(history: …
+   renamed in <sha>)` parenthetical, and no narrative of rejected
+   alternatives written as past events. A reader must be able to take any
+   sentence in the body as a present-tense claim about the system without
+   first checking whether something further down retracts it.
+
+   History goes to stores that already exist — do not create a new
+   committed one:
+   - **Frontmatter `revision_history`** (Rule 6) — the committed
+     provenance trail, and the `dec_id` back-link that ties an edit to
+     the decision approving it. **Exempt from this rule by
+     construction.**
+   - **`D-001` Architecture Decision Records** — the one document type
+     whose subject *is* a decision, including the alternatives it
+     rejected and the context at the time. **Exempt from this rule.** An
+     ADR still records one decision; it is not an append-log of edits to
+     itself.
+   - **Runtime stores** — Sprint history, the per-PBI records under
+     `.scrum/pbi/`, and `.scrum/po/decisions.json`.
+
+   **Not history — keep it in the body.** Behavior the system still
+   exhibits is current spec whatever tense describes it: a live
+   backward-compat path ("v1 payloads are still accepted"), an `S-060`
+   migration spec's from/to versions, a deprecation with a named removal
+   date. The test is not the tense — it is whether a reader needs the
+   sentence to predict what the system does today.
+
+   Applies to every file under `docs/design/specs/` and to
+   `docs/requirements.md`. Writers: `agents/pbi-designer.md`,
+   `agents/requirements-analyst.md`, and the `change-process` Skill.
+   Detected at Sprint end by `codebase-audit` Axis A class 5.
+
 ## How to read this catalog
 
 This catalog lists every recognized design document type. To determine

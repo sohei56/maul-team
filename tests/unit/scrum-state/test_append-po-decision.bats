@@ -223,6 +223,74 @@ teardown() {
   [ "$output" = "dec-10000" ]
 }
 
+@test "append-po-decision: --audit-identity and --audit-severity persist" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision defer --rationale "not this Sprint" \
+    --audit-identity "notify-order::send-before-write" --audit-severity high
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1].audit_identity' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "notify-order::send-before-write" ]
+  run jq -r '.decisions[-1].audit_severity' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "high" ]
+}
+
+@test "append-po-decision: rejects a path-shaped --audit-identity" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision defer --rationale r \
+    --audit-identity "laneB/participation_job.py::is_open_for" --audit-severity high
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-identity"* ]]
+}
+
+@test "append-po-decision: rejects --audit-severity medium (retired level)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision defer --rationale r \
+    --audit-identity "notify-order::send-before-write" --audit-severity medium
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-severity"* ]]
+}
+
+@test "append-po-decision: guard (d) — defect_triage reject without identity is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision reject --rationale "won't fix" \
+    --audit-severity low
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"--audit-identity"* ]]
+}
+
+@test "append-po-decision: guard (d) — defect_triage reject without severity is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision reject --rationale "won't fix" \
+    --audit-identity "notify-order::send-before-write"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"--audit-severity"* ]]
+}
+
+@test "append-po-decision: guard (d) — defect_triage reject with both keys succeeds" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision reject --rationale "cosmetic only" \
+    --audit-identity "notify-order::send-before-write" --audit-severity low
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1].decision' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "reject" ]
+}
+
+@test "append-po-decision: guard (d) does not touch defect_triage defer" {
+  # Integration-entry triage uses the same kind with options=[fix_now,defer]
+  # and has no per-finding identity — gating it would break that call site.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind defect_triage --decision defer --rationale "fix after integration"
+  [ "$status" -eq 0 ]
+}
+
+@test "append-po-decision: a record without the audit fields still validates" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
+    --kind scope_change --decision keep --rationale ok
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1] | has("audit_identity")' "$TEST_TMP/.scrum/po/decisions.json"
+  [ "$output" = "false" ]
+}
+
 @test "append-po-decision: accepts quality_gate_config kind" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
     --kind quality_gate_config --decision "choice:configure" \

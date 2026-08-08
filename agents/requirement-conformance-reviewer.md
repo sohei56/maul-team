@@ -97,11 +97,16 @@ under review.
    verify?) and judge the passage against that intent. Flag the AC
    shape itself as a refinement-quality Medium finding so
    `backlog-refinement` Check 5 catches it on future PBIs.
-2. **Parent PBI fix verification** — every docs PBI has
-   `parent_pbi_id`. Read the parent's per-PBI digest at
+2. **Parent fix verification** — when `parent_pbi_id` is non-null, read
+   the parent's per-PBI digest at
    `.scrum/reviews/<parent-pbi-id>-review.md`; verify that the parent
    findings under requirement-conformance and docs-consistency that
-   spawned this follow-up are semantically resolved.
+   spawned this follow-up are semantically resolved. A docs PBI filed
+   by the Sprint-end audit has **no** parent PBI (it descends from a
+   whole-repo finding, not from one PBI's review) — for those, read the
+   audit report named in the PBI description,
+   `.scrum/reviews/codebase-audit-s{N}.md`, and verify the same way
+   against the finding that spawned it.
 3. **Cross-reference integrity** — any `S-NNN` / `pbi-NNN` / file
    path mentioned in the diff resolves to an existing target.
 4. **Frontmatter / revision_history** — if the file has YAML

@@ -7,8 +7,11 @@ description: >
   before a PBI reaches awaiting_cross_review. Sprint-end cross-review is
   the whole-repo codebase-audit ONLY: static analysis + 4 audit axes
   (spec-conformance, logic-defect, redundancy, product-security) over the
-  accumulated codebase at HEAD. The audit is non-blocking — Critical/High
-  findings become draft PBIs for the next Sprint; it never reverts a PBI.
+  accumulated codebase at HEAD. The audit is non-blocking — every
+  finding is PO-adjudicated and the ones routed to next_sprint become
+  draft PBIs — except the documentation batch, which is closed inside
+  this Sprint (Step 7b) so the drift does not compound while it waits;
+  it never reverts a PBI.
 disable-model-invocation: false
 ---
 
@@ -30,8 +33,9 @@ digests, or run any aspect FAIL routing / re-loop in this ceremony.
 
 The audit is **non-blocking**: PBIs already passed their per-PBI aspect
 reviews before reaching this ceremony, so the audit never reverts them.
-Its Critical/High findings become draft PBIs for the **next** Sprint
-(separate `codebase-audit-s{N}.md` report, identity-deduped across
+Every finding is PO-adjudicated, and the ones routed to `next_sprint`
+become draft PBIs for the **next** Sprint (separate
+`codebase-audit-s{N}.md` report, identity-deduped across
 Sprints). At ceremony end every reviewed PBI transitions
 `cross_review → done`. Full audit protocol:
 `../codebase-audit/SKILL.md` (context (a)) +
@@ -62,9 +66,15 @@ Sprints). At ceremony end every reviewed PBI transitions
 - `.scrum/reviews/codebase-audit-s{N}.md` — the whole-repo audit report
   (`N` = numeric sprint number).
 - Draft `[codebase-audit:<sprint-id>:F<n>:<Severity>]` PBIs for the
-  **next** Sprint (per § Role; Critical/High mandatory,
-  identity-deduped across Sprints; `[REGRESSION]`-tagged when a closed
-  finding recurs).
+  **next** Sprint (per § Role; those the PO routed to `next_sprint`,
+  each carrying the canonical `audit_severity` field, identity-deduped
+  across Sprints; `[REGRESSION]`-tagged when a closed finding recurs).
+- `.scrum/po/decisions.json` — one `defect_triage` record per
+  `defer`/`reject` verdict, carrying the finding's `audit_identity` +
+  `audit_severity`.
+- The `DOCS` batch PBI for **this** Sprint — filed, driven through the
+  `kind=docs` pipeline, and merged inside the ceremony (Step 7b), or
+  left `escalated` for Sprint Review's carry-over if it could not land.
 - `backlog.json` `items[].status` transitions:
   - At start: `awaiting_cross_review → cross_review`.
   - At end: `cross_review → done` (every reviewed PBI, per § Role).
@@ -97,7 +107,9 @@ Sprints). At ceremony end every reviewed PBI transitions
    ```
 2. **Sanity check.** Every Sprint PBI now at
    `status ∈ {cross_review, escalated}`. No `awaiting_cross_review` /
-   `in_progress_*` left.
+   `in_progress_*` left. This is an **entry** condition: Step 7b files
+   the audit's own documentation PBI into this Sprint and drives it
+   through the pipeline, so `in_progress_*` reappears later by design.
 3. **Pre-review build verification.** Start app → all tests pass.
    Fail → `TaskGet` Developer status → terminated? re-spawn (Teammate
    Liveness Protocol) → relay fix request. Do NOT audit non-building
@@ -197,19 +209,91 @@ Sprints). At ceremony end every reviewed PBI transitions
      number). The `redundancy` axis is grounded in the Step-5
      static-analysis file (it is the sole Sprint-level owner of
      whole-repo dead-code findings).
-   - Route Critical/High findings to the **next** Sprint as draft PBIs
-     (`[codebase-audit:<sprint-id>:F<n>:<Severity>]`) at **class
-     granularity** — one PBI per defect class covering every occurrence
-     of its repo-wide sweep, documentation drift collapsed into the
-     single `DOCS` batch PBI — with the cross-Sprint **content dedup**
-     (skip if an open PBI already tracks the finding's `identity`;
-     `[REGRESSION]` if a closed one recurred); Medium/Low at PO
-     discretion. No PBI revert, no phase transition (per § Role). Full
-     rules + the dedup `jq` live in `../codebase-audit/SKILL.md`.
-   - PO routing is mode-agnostic — in `po_mode=agent` it resolves to one
-     `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage
-     options=[next_sprint,defer,reject]` carrying the finding list; the
-     SM never blocks on human input.
+   - Route the findings the PO approved to the **next** Sprint as draft
+     PBIs (`[codebase-audit:<sprint-id>:F<n>:<Severity>]` plus the
+     canonical `--audit-severity`) at **class granularity** — one PBI
+     per defect class covering every occurrence of its repo-wide sweep,
+     documentation drift collapsed into the single `DOCS` batch PBI —
+     with the cross-Sprint dedup keyed on the `audit_identity` field
+     (skip if an open PBI already carries the finding's identity;
+     `[REGRESSION]` if a closed one recurred; `cancelled` is not open).
+     No PBI revert, no phase transition (per § Role). Full rules + the
+     dedup `jq` live in `../codebase-audit/SKILL.md`.
+   - PO routing is mode-agnostic — one `[sprint-<N>]
+     PO_DECISION_REQUEST kind=defect_triage
+     options=[next_sprint,defer,reject]` carrying **every** finding
+     (in `po_mode=human` the SM writes the same batch question into the
+     main session and ends its turn); the SM never blocks on human
+     input in agent mode. Each `defer`/`reject` verdict is persisted
+     through `append-po-decision.sh` with the finding's
+     `--audit-identity` / `--audit-severity` **before** filing runs —
+     in `po_mode=human` the SM records the human's verdict on their
+     behalf. Canonical procedure: `../codebase-audit/SKILL.md` Step 4a.
+   - When the spec-conformance axis returned a divergence, an
+     unadjudicated spec-vs-spec conflict, or a clause that sanctions a
+     defect, a **second** request asks which side is authoritative
+     (`kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]`).
+     A `fix_spec` verdict runs the `change-process` skill against the
+     clause — frozen included — instead of filing a PBI. Full rules:
+     `../codebase-audit/SKILL.md` Steps 4b and 5.
+7b. **Close this audit's documentation drift before the ceremony ends.**
+   Documentation debt is the one audit output that compounds while it
+   waits: every Sprint's edits push the stale anchors further out of
+   date, so a `DOCS` batch deferred to the next Sprint is bigger and
+   less accurate than the one written here. Run it now, in this Sprint.
+
+   **Scope — only drift that a docs PBI may legally touch:**
+
+   | Drift lands in | Route |
+   |---|---|
+   | `docs/design/specs/**`, `docs/requirements.md` (frozen) | **Not here.** A frozen document is corrected by `change-process` after a PO verdict (Step 7's `spec_clarification` branch). `pbi-implementer` is denied writes to `docs/design/specs/` in this phase. |
+   | `docs/design/catalog-config.json` | Not here — `.json` fails the `kind=docs` boundary check at `mark-pbi-ready-to-merge.sh`. File as `kind=code` for the next Sprint. |
+   | in-source docstrings / comments | Not here — same boundary check. Split them out as a `kind=code` PBI for the next Sprint. |
+   | every other `*.md` | **This step.** |
+
+   If the split leaves nothing, skip to Step 8.
+
+   ```bash
+   PBI="$(.scrum/scripts/add-backlog-item.sh \
+     --title "[codebase-audit:${SPRINT_ID}:DOCS:<Severity>] <summary>" \
+     --audit-identity "docs-drift::stale-references" \
+     --audit-severity "<critical|high|low, matching the title suffix>" \
+     --description "<occurrences, one per line>. See ${REPORT}." \
+     --ac "<semantic claim per passage — never a grep hit count>" \
+     --kind docs)"
+   .scrum/scripts/update-backlog-status.sh "$PBI" refined   # kind=docs is demo_plan-exempt
+   .scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id "$SPRINT_ID"
+   .scrum/scripts/set-backlog-item-field.sh "$PBI" implementer_id "<dev-id>"
+   .scrum/scripts/init-pbi-state.sh "$PBI"
+   .scrum/scripts/create-pbi-worktree.sh "$PBI" --base "$(git rev-parse HEAD)"
+   ```
+
+   `--base` is not optional here. `sprint.base_sha` was frozen before
+   this Sprint's PBIs merged and cannot be re-frozen, so the default
+   would fork a tree that predates the very drift the audit just
+   reported.
+
+   Assign the PBI to a Developer whose own PBI has already merged and
+   send them the `pbi-pipeline` task. This is a **sequential** reuse of
+   that Developer, not a second concurrent assignment, so the
+   1-Developer-1-PBI rule holds. If the team is empty (the session was
+   restarted), bring one back via `spawn-teammates` § Re-Spawn Recovery
+   — the normal spawn path's preconditions do not apply mid-ceremony.
+
+   The `kind=docs` pipeline runs `pbi-implementer` → `codex-impl-reviewer`
+   → Integrity aspects 1 + 5 → `mark-pbi-ready-to-merge.sh`; then merge
+   it via `pbi-merge` as usual and carry it into this ceremony's own
+   completion:
+   ```bash
+   .scrum/scripts/update-backlog-status.sh "$PBI" cross_review   # so Step 8 closes it
+   ```
+
+   **Never let this step hold the Sprint.** If the PBI escalates or
+   exhausts its Round budget, leave it `escalated` and go to Step 8:
+   Sprint Review's carry-over picks it up for the next Sprint. The
+   ceremony's entry invariant (no `in_progress_*` PBIs, Step 1) is an
+   **entry** condition — this step is allowed to create one.
+
 8. **Mark every reviewed PBI done** (per § Role — the audit never
    reverts them):
    ```bash
@@ -229,12 +313,18 @@ Ref: FR-009
   populated).
 - `.scrum/reviews/codebase-audit-s{N}.md` synthesized with all 4 axes
   represented, findings deduped and severity-classified, fact separated
-  from interpretation.
-- Every Critical/High audit finding filed as a
-  `[codebase-audit:*]` draft PBI for the next Sprint, or deduped against
-  an existing open one (id noted); no duplicates. Audit findings did NOT
+  from interpretation, and every `spec-exempted:` observation the axes
+  returned carried into the report.
+- Every audit finding has a recorded disposition — filed as a
+  `[codebase-audit:*]` draft PBI for the next Sprint, deduped against an
+  existing open one (id noted), suppressed by a named `dec_id`, or
+  recorded as awaiting triage; no duplicates. Audit findings did NOT
   revert any PBI or affect the phase.
 - Every reviewed Sprint PBI (those at `awaiting_cross_review` at entry)
   ended at `status: done`.
+- The audit's documentation batch (Step 7b), if any `*.md` drift outside
+  the frozen documents was found, ended at `done` in this Sprint — or at
+  `escalated`, deliberately left for Sprint Review's carry-over. It is
+  never left `in_progress_*`, which would block the ceremony's Stop.
 - `state.json` overall phase: `review`; `sprint.json.status:
   cross_review`.

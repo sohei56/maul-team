@@ -44,14 +44,19 @@ Valid phases:
 - `backlog_created` — initial Product Backlog created, ready for first Development Sprint
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).
-- `review` — Sprint-end cross-review phase (`cross-review` skill)
+- `review` — Sprint-end cross-review phase (`cross-review` skill).
+  A PBI pipeline may legitimately run here: the ceremony files the
+  audit's documentation batch into the current Sprint and drives it to
+  merge (`skills/cross-review/SKILL.md` Step 7b), so `in_progress_*`
+  reappears after the ceremony's entry check.
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
 - `integration_sprint` — Integration Tests in progress. Opens with a
   thin `codebase-audit` re-check (the whole-repo audit itself runs
   every Sprint inside `cross-review`, non-blocking; this re-check just
-  verifies the latest audit report is fresh and no open Critical/High
-  `[codebase-audit:*]` PBI remains — unresolved → route back to
+  verifies the latest audit report is fresh and no open
+  `[codebase-audit:*]` PBI carries a blocking (non-`low`)
+  `audit_severity` — unresolved → route back to
   `backlog_created`), then design-driven systematic testing (boundary
   values, flow-branch and pattern-branch coverage, external-interface
   stubs) via the `integration-tests` skill. On passing tests the Scrum
@@ -100,6 +105,8 @@ Valid phases:
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
 | `ux_change` | boolean | Whether this PBI involves UX changes (determines the demo form in FR-010: UI walkthrough vs observable local check) |
 | `demo_plan` | string \| null | How the PBI is demonstrated locally at Sprint Review (start command, steps, local substitutes for cloud-only parts). Set during `backlog-refinement` (canonical: `skills/backlog-refinement/SKILL.md` Step 3.c2); `update-backlog-status.sh` refuses the transition into `refined` while empty for `kind=code` (`kind=docs` exempt). Consumed by `sprint-review` / `po-acceptance`. |
+| `audit_identity` | string \| null | Cross-Sprint dedup key for `[codebase-audit:*]` PBIs: the stable defect-CLASS identity, `<defect-class>::<pattern>` (two lower-kebab parts, never a path or line number). Required by `add-backlog-item.sh` for an audit title; the audit's Step 5 dedup matches on it exactly. |
+| `audit_severity` | enum (`critical` \| `high` \| `low`) \| null | Audit finding severity — the **canonical** value; the title's `:<Severity>]` suffix is the snapshot taken at filing time. Ordering `low < high < critical`; everything not `low` blocks Integration-Sprint entry while open. Definitions are canonical in `skills/codebase-audit/SKILL.md` Step 3. Distinct from `pbi-pipeline-envelope.schema.json`'s 4-value per-finding `severity`, which the Integrity gates consume. |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). Set during `backlog-refinement` (the Opus 3-axis OR rule is canonical in `skills/backlog-refinement/SKILL.md`). For how `kind=docs` reshapes the pipeline, see the **kind=docs override** subsection below (and `skills/pbi-pipeline/SKILL.md` § Stages). |
 | `created_at` | ISO 8601 string | Creation timestamp |
@@ -142,7 +149,7 @@ ASCII transition graph:
 [SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
         ↓ Sprint-end SM invokes cross-review skill (whole-repo 4-axis codebase audit)
 [SM]  cross_review                 (audit-only; non-blocking, never reverts a PBI)
-        ↓ audit files Critical/High findings as next-Sprint draft PBIs
+        ↓ audit files PO-approved findings as next-Sprint draft PBIs
 [SM]  done
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
@@ -346,6 +353,20 @@ during the Requirement Definition (FR-002). Frozen during Development Sprints
 (FR-020). Changes follow the Change Process (FR-016). Lives outside
 `.scrum/` because the document outlives any single Sprint and must
 survive across machine/clone boundaries.
+
+### Revision History
+
+A post-freeze edit MUST append a `revision_history` entry in the YAML
+frontmatter, using the same `RevisionEntry` shape as DesignDocument
+(below) — one shape for both document kinds rather than two. The Change
+Process is the only sanctioned way to reach this document after the
+freeze, so an entry here carries `change_process: true` and names the
+`dec_id` of the approving decision in its `summary`.
+
+The entry is what makes a clause's provenance checkable: the Sprint-end
+audit distinguishes a clause that was adjudicated from one retro-fitted
+to match the code it describes, and it can only do that if the edit left
+a record (`skills/codebase-audit/references/axes.md`, Axis A class 4).
 
 ---
 
@@ -897,7 +918,8 @@ human or autonomous). Schema:
 | `.scrum/po/acceptance/<sprint-id>/<pbi-id>-r<n>.md` | Re-entry transcript when `po-acceptance` is re-run for a defect-fix loop. |
 | `.scrum/po/uat-<sprint-id>.md` | Single UAT-mode transcript per Sprint; section anchors are referenced as `evidence` on `uat_item` decisions. |
 | `.scrum/po/uat-stories-<sprint-id>.md` | UAT user-story inventory derived from `docs/requirements.md` with FR⇄US traceability appendix; each story (`US-NNN`) carries a verdict (`pass \| fail \| waive` + feedback) recorded during the walkthrough. One file per Sprint. |
-| `.scrum/po/attention.md` | Human-only queue: numbered entries the PO appended for issues only a human can resolve (credentials, billing, legal, prod deploy). Entries tagged `release-blocking: yes` block `release_decision=go`. |
+| `.scrum/po/attention.md` | Human-only queue: numbered entries the PO appended for issues only a human can resolve (credentials, billing, legal, prod deploy). Entries tagged `release-blocking: yes` block `release_decision=go`. In `po_mode=agent`, `draft-framework-issue.sh` also queues each framework-issue draft here, untagged. |
+| `.scrum/framework-issues/<sprint-id>-NN.md` | Sanitized, postable GitHub issue body drafted by the Retrospective (Step 4b); the `.meta` sidecar beside it holds the local bookkeeping (identity, Sprint, framework rev, occurrences, posted URL) that must never reach the public issue. Gitignored; sole writer `draft-framework-issue.sh`. Publication requires a human's explicit in-session permission in both PO modes. |
 
 ### Rules
 

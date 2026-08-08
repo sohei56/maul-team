@@ -76,6 +76,32 @@ assert_denied() {
   assert_allowed
 }
 
+# --- review phase carries the same agent sandboxes --------------------------
+# The Sprint-end audit follow-up runs a docs pipeline inside `review`. Scoping
+# the agent gating to `pbi_pipeline_active` alone used to drop both sandboxes
+# there: the implementer could rewrite frozen specs and the codex reviewers
+# could write anywhere.
+
+@test "review phase denies pbi-implementer Write to docs/design/specs/" {
+  echo '{"phase":"review"}' > .scrum/state.json
+  run bash -c "echo '$(payload pbi-implementer Write docs/design/specs/api/auth.md)' | $HOOK"
+  assert_denied "Only pbi-designer may write specs"
+}
+
+@test "review phase confines codex-impl-reviewer to .scrum/pbi/" {
+  echo '{"phase":"review"}' > .scrum/state.json
+  run bash -c "echo '$(payload codex-impl-reviewer Write src/main.py)' | $HOOK"
+  assert_denied "may only write to .scrum/pbi/"
+  run bash -c "echo '$(payload codex-impl-reviewer Write .scrum/pbi/pbi-001/impl-r1.md)' | $HOOK"
+  assert_allowed
+}
+
+@test "review phase still allows pbi-implementer to write ordinary docs" {
+  echo '{"phase":"review"}' > .scrum/state.json
+  run bash -c "echo '$(payload pbi-implementer Write docs/architecture.md)' | $HOOK"
+  assert_allowed
+}
+
 # --- Regression guard for the inert-gate bug --------------------------------
 
 @test "status-gate emits no top-level stdout decision object (regression: inert gate)" {

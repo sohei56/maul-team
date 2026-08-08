@@ -118,12 +118,18 @@ provided: one for end users, one for contributors.
   ```
   tests/
   ├── unit/                    # Shell script function tests
-  ├── lint/                    # Agent definition YAML validation
+  │   ├── scrum-state/         # .scrum/scripts wrapper + migration tests
+  │   ├── hooks/               # Hook behavior tests
+  │   └── autonomous/          # Watchdog / report tests
+  ├── lint/                    # Agent & skill definition validation
   ├── integration/             # Script-to-script composition
-  │   └── agent-smoke.bats    # claude -p end-to-end (manual)
+  ├── dashboard/               # Python TUI tests (pytest)
+  ├── manual/                  # Manual test walkthroughs (Markdown)
   ├── fixtures/                # Test data
   └── test_helper/             # bats-support, bats-assert
   ```
+  Run bats with `-r`: `tests/unit/` has subdirectories, and a
+  non-recursive run silently skips them.
 
 ---
 

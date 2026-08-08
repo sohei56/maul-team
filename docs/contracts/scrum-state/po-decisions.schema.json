@@ -66,6 +66,16 @@
           "assumption": {
             "description": "True iff the decision was made under best-effort with unverified assumptions (clarification budget exhausted etc.). Used to flag risky decisions for human review.",
             "type": "boolean"
+          },
+          "audit_identity": {
+            "description": "Set on kind=defect_triage records that adjudicate a codebase-audit finding. Makes the record self-identifying so codebase-audit Step 5 can match a `reject` to the finding it suppressed. Free-text matching on decision/rationale is exactly the substring-match failure audit_identity was created to end.",
+            "type": ["string", "null"],
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*::[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "audit_severity": {
+            "description": "The severity the finding carried when this decision was made. Step 5 compares it against the current audit's rating: a strictly higher rating (low < high < critical) lapses a `reject` suppression and re-raises the finding.",
+            "type": ["string", "null"],
+            "enum": ["critical", "high", "low", null]
           }
         }
       }

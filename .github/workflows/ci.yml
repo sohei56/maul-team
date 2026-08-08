@@ -15,7 +15,10 @@ jobs:
       - name: Install ShellCheck
         run: sudo apt-get install -y shellcheck
       - name: Run ShellCheck
-        run: shellcheck scrum-start.sh scripts/*.sh hooks/*.sh
+        # Keep this list in sync with CLAUDE.md § Commands — a bare
+        # scripts/*.sh glob silently skips the lib/, scrum/, migrations/,
+        # and autonomous/ subdirectories.
+        run: shellcheck scrum-start.sh scripts/*.sh scripts/lib/*.sh scripts/scrum/*.sh scripts/scrum/lib/*.sh scripts/scrum/migrations/*.sh scripts/autonomous/*.sh scripts/autonomous/lib/*.sh hooks/*.sh hooks/lib/*.sh
 
   ruff:
     name: Ruff (Python)
@@ -61,7 +64,7 @@ jobs:
             exit 0
           fi
           echo "Changed schemas:"; echo "$SCHEMAS"
-          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh')"
+          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh' 'scripts/scrum/migrations/*.sh')"
           if [ -n "$MIGRATIONS" ]; then
             echo "Paired migration/consolidation wrapper changes found:"; echo "$MIGRATIONS"
             exit 0

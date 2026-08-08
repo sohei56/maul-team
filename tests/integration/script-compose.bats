@@ -385,6 +385,9 @@ make_spaced_framework() {
   # from the main working tree. `.scrum` is symlinked into every worktree, so
   # only this location is reachable from there.
   [ -f ".scrum/scripts/lib/codex-invoke.sh" ]
+  # The deploy is clean-slate, so a wrapper the copy misses is silent — the
+  # ceremony that needs it just finds nothing there.
+  [ -x ".scrum/scripts/draft-framework-issue.sh" ]
   # ...and the framework must NOT scatter its repo-only helpers into the
   # target's scripts/ tree, where a plain cp could clobber a same-named file.
   [ ! -f "scripts/lib/time.sh" ]
@@ -406,15 +409,22 @@ make_spaced_framework() {
   run env PATH="$bin:$PATH" bash "$fw/scripts/setup-user.sh"
   [ "$status" -eq 0 ]
   assert_json_match ".scrum/deploy-stamp.json" ".framework_sha" "unknown"
+  # Same git-less extraction: the origin must still be addressable, or the
+  # upstream leg has no repo to file against.
+  assert_json_match ".scrum/deploy-stamp.json" ".framework_origin" "sohei56/maul-team"
 
-  # With the make-app.sh content marker present, the stamp carries it.
+  # With the make-app.sh content markers present, the stamp carries them —
+  # and the origin marker is normalized to owner/repo whatever URL form it
+  # was baked in as, so a fork's deploys target the fork.
   printf '%s\n' "0123456789abcdef0123456789abcdef01234567" > "$fw/.framework-rev"
+  printf '%s\n' "git@github.com:Someone/Maul-Team-Fork.git" > "$fw/.framework-origin"
   mkdir -p "$TEMP_DIR/target-b"
   cd "$TEMP_DIR/target-b"
   run env PATH="$bin:$PATH" bash "$fw/scripts/setup-user.sh"
   [ "$status" -eq 0 ]
   assert_json_match ".scrum/deploy-stamp.json" ".framework_sha" "0123456789ab"
   assert_json_match ".scrum/deploy-stamp.json" ".framework_dirty" "false"
+  assert_json_match ".scrum/deploy-stamp.json" ".framework_origin" "someone/maul-team-fork"
 }
 
 @test "setup-user.sh skips prune when previous manifest has an unsafe path" {

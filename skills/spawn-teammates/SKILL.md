@@ -129,7 +129,7 @@ When Teammate Liveness Protocol detects terminated Developer:
 
 ## Exit Criteria
 
-- `sprint.json.developers | length` equals the derived target count from Step 3 (one entry per Sprint PBI, max 6)
+- `sprint.json.developers | length` equals the derived target count from Step 3 (one entry per Sprint PBI, max 6). Counted at spawn time: a PBI filed later in the Sprint (`cross-review` Step 7b) reuses a Developer whose own PBI has merged rather than adding an entry.
 - All Developers: assigned_work.implement[] non-empty
 - All teammates spawned + active
 - sprint.json status: "active"

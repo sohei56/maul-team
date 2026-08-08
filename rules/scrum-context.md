@@ -232,6 +232,11 @@ Rules that apply uniformly to both modes:
   `.scrum/scripts/append-po-decision.sh` (which returns the
   `dec_id`); the SM uses `dec_id` to back-link the decision.
   Decision-log writes are part of the protocol, not optional.
+  **Audit-finding `defect_triage` verdicts are logged in both modes** —
+  in `po_mode=human` the SM records the human's verdict on their
+  behalf, because a suppression that is not in the log silently
+  re-surfaces every Sprint. Canonical procedure:
+  `skills/codebase-audit/SKILL.md` Step 4a.
 
 Canonical sources: the `po_mode` schema is in
 `docs/contracts/scrum-state/config.schema.json`; the PO message
@@ -309,6 +314,12 @@ turn with the question in `findings[]` and a `next_actions` entry
 naming the unresolved spec point, rather than emitting a guessed
 artifact. The Round is not "complete" until the question is
 answered or the PBI is reassigned.
+
+Answering the question does not close the spec gap. The clause itself
+is fixed at Sprint end: `codebase-audit` Step 4c backfills every
+answered `spec_clarification` into the doc via `change-process`. Do not
+edit a frozen clause mid-Sprint — worktrees forked from
+`sprint.base_sha` never see it.
 
 In reports, **separate fact from interpretation**: "tests fail with
 `AssertionError at line 42`" is a fact; "the impl is probably wrong"
