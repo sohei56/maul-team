@@ -53,11 +53,13 @@ git submodule update --init --recursive
 ## Running Tests
 
 ```bash
-# Run all fast tests (unit + lint)
-bats tests/unit/ tests/lint/
+# Run all fast tests (unit + lint). -r is required: tests/unit/ has
+# subdirectories (scrum-state/, hooks/, autonomous/), and a
+# non-recursive run silently skips them.
+bats -r tests/unit/ tests/lint/
 
 # Run unit tests only
-bats tests/unit/
+bats -r tests/unit/
 
 # Run agent/skill definition linting
 bats tests/lint/
@@ -126,7 +128,7 @@ tree. Top-level layout: `scrum-start.sh` (entry point), `agents/`,
 
 1. Create a feature branch from `main`
 2. Make changes following the code style guidelines
-3. Run tests: `bats tests/unit/ tests/lint/`
+3. Run tests: `bats -r tests/unit/ tests/lint/`
 4. Run linters: `shellcheck`, `ruff`
 5. Commit with clear messages
 6. Open a PR with a description of changes
