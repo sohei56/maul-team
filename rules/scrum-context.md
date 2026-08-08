@@ -315,6 +315,12 @@ naming the unresolved spec point, rather than emitting a guessed
 artifact. The Round is not "complete" until the question is
 answered or the PBI is reassigned.
 
+Answering the question does not close the spec gap. The clause itself
+is fixed at Sprint end: `codebase-audit` Step 4c backfills every
+answered `spec_clarification` into the doc via `change-process`. Do not
+edit a frozen clause mid-Sprint — worktrees forked from
+`sprint.base_sha` never see it.
+
 In reports, **separate fact from interpretation**: "tests fail with
 `AssertionError at line 42`" is a fact; "the impl is probably wrong"
 is interpretation. Both are useful — labeled differently.

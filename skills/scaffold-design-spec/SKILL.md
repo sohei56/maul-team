@@ -31,6 +31,10 @@ disable-model-invocation: false
    d. Category `docs/`→doc placeholders: Overview, Usage, API Reference, Examples
    e. Category `technology/`→library-spec placeholders: Library & Version,
       Verified API Surface, Gotchas, Sources (source URL per claim)
+   f. **No History / Changelog placeholder** in any template — the body
+      states the present state only (`docs/design/catalog.md` Governance
+      Rule 8); the trail lives in the frontmatter `revision_history`
+      seeded in step 2b.
 3. Skip existing stubs (idempotent)
 4. Report: count created, new file paths
 

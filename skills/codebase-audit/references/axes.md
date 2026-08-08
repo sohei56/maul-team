@@ -103,7 +103,7 @@ a valid, useful outcome.
 ## Axis A — `spec-conformance`
 
 Compare the **implementation** against the **enabled design specs** and
-`requirements.md`. Hunt four failure classes:
+`requirements.md`. Hunt five failure classes:
 
 1. **Divergence** — code whose observable behavior contradicts an
    enabled spec or a requirement (wrong default, wrong ordering, a
@@ -158,6 +158,40 @@ Compare the **implementation** against the **enabled design specs** and
    this clause knowingly (same rule as class 3). Absent all three
    pieces of evidence, record it as a `spec-exempted:` observation
    instead of asserting the spec is wrong.
+5. **Spec carries its own history** — an enabled design doc or
+   `requirements.md` states *past* states of the system in its body: a
+   changelog / revision section, a `(superseded <date>: …)` or
+   `(history: …)` parenthetical inside a clause, a "formerly / used to
+   / we changed this in Sprint N" sentence. Catalog Governance Rule 8
+   puts that in frontmatter `revision_history`, in a `D-001` ADR, or in
+   the runtime stores; the body states the present.
+
+   The finding targets the **passage**. No code evidence is required or
+   expected, and this class needs none of class 4's
+   sibling-implementation apparatus — the defect is visible in the
+   document alone.
+
+   Evidence per finding:
+   (a) the `path:line` of every contaminated passage — sweep all
+   enabled specs plus `requirements.md`, not one doc;
+   (b) the current-state claim the passage muddies: quote the sentence
+   a reader would have to disambiguate, or state that none is muddied;
+   (c) whether the content already exists in `revision_history` / a
+   `D-001` ADR / `.scrum/po/decisions.json`. If it does, the body copy
+   is pure duplication and the fix deletes it; if it does not, the fix
+   **relocates** it — never propose deleting the only record of a
+   decision.
+
+   **Not a finding:** live backward-compat behavior, an `S-060`
+   migration spec's from/to versions, a dated deprecation notice — all
+   describe what the system does today (Rule 8 § "Not history").
+   Frontmatter and `D-001` ADR bodies are out of scope by construction.
+
+   Identity: emit `spec-history::body-changelog` for the repo-wide
+   duplication sweep — ONE finding covering every passage. Split a
+   passage out under its own `spec-history::<clause-topic>` identity
+   only when it makes current behavior ambiguous (severity High),
+   because that one needs its own PO adjudication.
 
 Map each finding to the PBI(s) whose `paths_touched` / area it lands in
 (reverse-lookup from the PBI summary) so the SM can scope a fix PBI.
@@ -173,6 +207,13 @@ silent data loss or a dropped notification on a production path →
 Critical; one blessing an observable-behavior defect on a primary path
 → High. A clause that is merely untidy or over-restrictive is not a
 finding.
+
+For class 5, rate the ambiguity, not the tidiness: a passage whose
+presence means a reader cannot tell which statement is the current
+behavior → High; a passage that merely duplicates `revision_history` or
+an ADR while the current behavior stays unambiguous → Low. Never
+Critical — if the ambiguity has already produced divergent code, that is
+a class 1 divergence at its own severity, filed there, not here.
 
 ---
 

@@ -170,6 +170,12 @@ mirrors `../rules/scrum-context.md` § Agent tool unavailability.
 - **Library specs are web-verified only.** Never record an API fact in
   an S-070 spec that you cannot cite to a source URL read this session;
   never fabricate a signature. Do not select a library from memory.
+- **Catalog specs state the present, never their own history.** No
+  changelog section, no "(superseded …)" / "(formerly …)" in the body —
+  the record of the change is the frontmatter `revision_history` entry.
+  Canonical rule + the two carve-outs (`revision_history`, `D-001`
+  ADRs) and the "not history" escape for live compat / migration
+  ranges: `docs/design/catalog.md` Governance Rule 8.
 - **Escalate before guessing — escalation is cheap, a wrong guess is
   not.** Apply `../rules/scrum-context.md` § "What counts as 'must
   escalate' vs 'guess ok'": if the settled approach in the PBI

@@ -2,10 +2,12 @@
 # tests/lint/audit-spec-adjudication.bats — a frozen spec must never be able to
 # silence a real defect for free.
 #
-# Two mechanisms guard that, and both are prose:
+# Three mechanisms guard that, and all are prose:
 #   1. Axis A class 4 lets the audit report the CLAUSE, not just the code.
 #   2. `spec-exempted:` blocks leave a trace when a clause suppressed a
 #      finding, so the judgement is not re-made from scratch every Sprint.
+#   3. Step 4c backfills every answered `spec_clarification` into the clause,
+#      so an answered question actually fixes the doc that raised it.
 # Prose drifts silently; these tests pin the load-bearing parts.
 
 setup() {
@@ -15,15 +17,19 @@ setup() {
   CROSS_REVIEW="${PROJECT_ROOT}/skills/cross-review/SKILL.md"
 }
 
-@test "Axis A declares four failure classes" {
+@test "Axis A declares five failure classes" {
   local axis_a
   axis_a="$(awk '/^## Axis A —/{f=1} /^## Axis B —/{f=0} f' "$AXES")"
-  printf '%s' "$axis_a" | grep -q 'Hunt four failure classes' || {
-    echo "Axis A no longer announces four failure classes" >&2
+  printf '%s' "$axis_a" | grep -q 'Hunt five failure classes' || {
+    echo "Axis A no longer announces five failure classes" >&2
     return 1
   }
   printf '%s' "$axis_a" | grep -q 'Spec-sanctions-a-defect' || {
     echo "Axis A lost the spec-sanctions-a-defect class" >&2
+    return 1
+  }
+  printf '%s' "$axis_a" | grep -q 'Spec carries its own history' || {
+    echo "Axis A lost the spec-carries-its-own-history class" >&2
     return 1
   }
 }
@@ -111,6 +117,45 @@ setup() {
   printf '%s' "$step4a" | tr '\n' ' ' | tr -s ' ' \
     | grep -q "on the human's behalf" || {
     echo "Step 4a no longer states the human-PO proxy recording duty" >&2
+    return 1
+  }
+}
+
+@test "4b adjudicates class 5 alongside classes 1, 3 and 4" {
+  # Class 5 (spec carries its own history) is only ever fixed through a
+  # `fix_spec` verdict; dropping it from 4b's scope leaves the class detected
+  # and unroutable.
+  grep -q '4b — Spec adjudication (Axis A classes 1, 3, 4, 5)' "$AUDIT_SKILL" || {
+    echo "Step 4b no longer covers Axis A class 5" >&2
+    return 1
+  }
+  grep -qF '`[fix_spec,accept_as_is]`' "$AUDIT_SKILL" || {
+    echo "Step 4b no longer narrows class 5's options to fix_spec/accept_as_is" >&2
+    return 1
+  }
+}
+
+@test "Step 4c backfills answered clarifications, and only at Sprint end" {
+  # The pipeline's SPEC_QUESTION route ends with the sub-agent unblocked and
+  # the clause untouched. Step 4c is the only thing that closes that gap.
+  local step4c
+  step4c="$(awk '/^### Step 4c —/{f=1} /^### Step 5 —/{f=0} f' "$AUDIT_SKILL")"
+  [ -n "$step4c" ] || {
+    echo "codebase-audit lost Step 4c (clarification backfill)" >&2
+    return 1
+  }
+  printf '%s' "$step4c" | grep -q 'spec_clarification' || {
+    echo "Step 4c no longer enumerates the Sprint's spec_clarification decisions" >&2
+    return 1
+  }
+  printf '%s' "$step4c" | grep -q 'change-process' || {
+    echo "Step 4c no longer routes the backfill through change-process" >&2
+    return 1
+  }
+  # The "when" is the load-bearing half: worktrees fork from sprint.base_sha,
+  # so a Step 4c that drifts mid-Sprint edits clauses no in-flight PBI sees.
+  printf '%s' "$step4c" | grep -q 'Do not do this mid-Sprint' || {
+    echo "Step 4c lost the mid-Sprint prohibition" >&2
     return 1
   }
 }

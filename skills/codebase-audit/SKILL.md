@@ -145,7 +145,7 @@ block on human input). Skill-specific overrides:
 
 | Context | Override (po_mode=agent) |
 |------|--------------------------|
-| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject]` carrying **every** finding, each with its severity and the decision-ready explanation of Step 4a; `recommendation=next_sprint` for critical/high, `defer` for low. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file. Per-finding `defer`/`reject` verdicts are persisted via `append-po-decision.sh` **before** Step 5 runs. No human-input wait, non-blocking either way. When Axis A returned a class 1/3/4 finding, a **second** request follows (Step 4b): `kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]` — which side is authoritative. |
+| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject]` carrying **every** finding, each with its severity and the decision-ready explanation of Step 4a; `recommendation=next_sprint` for critical/high, `defer` for low. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file. Per-finding `defer`/`reject` verdicts are persisted via `append-po-decision.sh` **before** Step 5 runs. No human-input wait, non-blocking either way. When Axis A returned a class 1/3/4/5 finding, a **second** request follows (Step 4b): `kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]` — which side is authoritative (class 5 narrows the options to `[fix_spec,accept_as_is]`). |
 | (b) integration entry | On an unresolved blocking (non-`low`) PBI, replace "inform the user of the block" with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[fix_now,defer] recommendation=fix_now` carrying the blocking PBI list. The route to `backlog_created` is taken regardless (a non-`low` audit PBI blocks integration); the PO reply sets fix priority, it does not waive the block. |
 
 ## Steps
@@ -304,7 +304,11 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   a per-Sprint key would let a second open DOCS batch pile up beside the
   first while both describe the same thing. Step 5's open-match branch
   therefore *appends* to the existing batch instead of dropping the new
-  occurrences (see Step 5).
+  occurrences (see Step 5). **Axis A class 5 never joins the batch**
+  even though its fix is entirely documentation: it edits an enabled
+  spec or `requirements.md`, which the `kind=docs` pipeline is denied
+  and only `change-process` may touch (`../cross-review/SKILL.md`
+  Step 7b).
 - **Redundancy axis is static-analysis-grounded.** In context (a) the
   `redundancy` axis consumes the same two-pass static-analysis file
   cross-review produced (Pass A Sprint-diff lint + Pass B whole-repo
@@ -326,7 +330,8 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   Axis A class 4 finding.
 - Report structure: headline (total findings, count per severity) →
   severity-sorted finding table → per-finding detail → spec-exempted
-  observations → **suppressed by PO decision** → the derived / skipped /
+  observations → **suppressed by PO decision** → **the
+  clarification-backfill ledger** (Step 4c) → the derived / skipped /
   regression PBI list.
 - **Suppressed by PO decision.** One row per finding this audit did not
   file because a recorded `reject` still holds (Step 5): the
@@ -411,10 +416,11 @@ the separate axis).
   is correct by construction — do **not** add a "default to file"
   fallback, which would restore the mandatory tier this step removed.
 
-**4b — Spec adjudication (Axis A classes 1, 3, 4).** A divergence, an
-unadjudicated spec-vs-spec conflict, and a spec-sanctions-a-defect
-finding all pose the same question, and filing a code-fix PBI answers
-it silently in the code's favour. Put it to the PO instead:
+**4b — Spec adjudication (Axis A classes 1, 3, 4, 5).** A divergence, an
+unadjudicated spec-vs-spec conflict, a spec-sanctions-a-defect finding,
+and a spec carrying its own history all pose the same question, and
+filing a code-fix PBI answers it silently in the code's favour. Put it
+to the PO instead:
 
 ```
 [sprint-<N>] PO_DECISION_REQUEST kind=spec_clarification
@@ -425,22 +431,61 @@ it silently in the code's favour. Put it to the PO instead:
 
 `spec_clarification` is the existing decision kind for "which reading
 governs" — no new kind is needed, and `decision` is free text, so the
-verdict rides in it. Skip 4b when no Axis A class 1/3/4 finding
-survived; do not raise it for classes 2 (coded-but-unspecified) or for
-the other three axes.
+verdict rides in it. Skip 4b when no Axis A class 1/3/4/5 finding
+survived; do not raise it for class 2 (coded-but-unspecified) or for
+the other three axes. **Class 5 differs in two ways:** its options are
+`[fix_spec,accept_as_is]` (`fix_code` is meaningless — the finding makes
+no claim about code), and the repo-wide `spec-history::body-changelog`
+batch is **one** request covering every passage. A class-5 finding rated
+High carries its own identity and gets its own request.
 
 Routing of the verdict is Step 5. Context (a) is **non-blocking
 regardless of severity** (per § Role) — do not transition the phase, do
 not fail the Sprint, never revert a PBI.
 
+### Step 4c — Backfill answered clarifications into the spec
+
+Every `spec_clarification` the pipeline raised this Sprint is proof a
+clause did not answer a question the work actually needed. The answer
+reached the sub-agent and `.scrum/po/decisions.json`; the clause itself
+is unchanged, so the next PBI to touch it asks again. Close that loop
+here.
+
+```bash
+jq -r --arg s "$SPRINT_ID" '
+  .decisions[]
+  | select(.kind == "spec_clarification" and .sprint_id == $s)
+  | "\(.id)\t\(.request)\t\(.decision)"' .scrum/po/decisions.json
+```
+
+For each row whose question named an enabled spec or `requirements.md`
+clause:
+
+1. Read the clause at HEAD. If the answer is now derivable from the
+   clause as written, it was already backfilled — record `already
+   current`.
+2. Otherwise run `change-process` against that clause, with the
+   decision as the reason and its `dec_id` in the request. This is the
+   same `fix_spec` route as Step 5 and needs **no** second
+   `spec_clarification` — the substance was already ruled; only the
+   `change_request` approval gate applies.
+3. Record per row in the report: `dec_id → clause → backfilled |
+   already current | deferred (PO's reason)`.
+
+**Do not do this mid-Sprint.** The clause lives on `main` while PBI
+worktrees are forked from `sprint.base_sha`, so a mid-Sprint edit
+reaches no in-flight worktree and races the merge queue. Answering the
+question unblocks the Round; fixing the clause is Sprint-end work.
+
 ### Step 5 — Route the spec verdict, then file PBIs
 
-**Step 4b verdicts first** — each Axis A class 1/3/4 finding takes one
-of three exits, and only the middle one produces a PBI here:
+**Step 4b verdicts first** — each Axis A class 1/3/4/5 finding takes one
+of three exits, and only the middle one produces a PBI here (a class 5
+finding is offered only the first and third):
 
 | Verdict | Route |
 |---|---|
-| `fix_spec` | Run the **`change-process`** skill against the clause (it takes the `kind=change_request` approval, edits the doc, and appends the `revision_history` entry with `change_process: true` + the `dec_id`). Frozen is not exempt — that is what the Change Process is for. **Do not** file a pipeline PBI for the spec edit: `pbi-implementer` is denied writes to `docs/design/specs/` (`hooks/status-gate.sh`), and routing it as `kind=code` would put the UT and coverage gates on a documentation change. File a separate code PBI only if the implementation must move too. |
+| `fix_spec` | Run the **`change-process`** skill against the clause (it takes the `kind=change_request` approval, edits the doc, and appends the `revision_history` entry with `change_process: true` + the `dec_id`). Frozen is not exempt — that is what the Change Process is for. **Do not** file a pipeline PBI for the spec edit: `pbi-implementer` is denied writes to `docs/design/specs/` (`hooks/status-gate.sh`), and routing it as `kind=code` would put the UT and coverage gates on a documentation change. File a separate code PBI only if the implementation must move too. For a class 5 batch, one `change-process` run may cover every passage in the batch — one `change_request`, one `revision_history` entry per doc touched. |
 | `fix_code` | File a normal class PBI below (`--kind code`). The spec stands. |
 | `accept_as_is` | File nothing. The `spec_clarification` decision is now in `.scrum/po/decisions.json`, and Axis A classes 3 and 4 both skip an adjudicated clause — so the next audit will not re-raise it. Note the `dec_id` in the report. |
 
