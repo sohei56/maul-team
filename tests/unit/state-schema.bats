@@ -174,6 +174,36 @@ EOF
   assert_success
 }
 
+@test "backlog audit_identity is typed string|null" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  run jq -e '
+    .properties.items.items.properties.audit_identity.type
+    == ["string", "null"]
+  ' "$schema"
+  assert_success
+}
+
+# The pattern is the machine guard against the drift that made cross-Sprint
+# dedup fail: a path- or line-shaped identity mints a fresh defect class on
+# every refactor, so the same defect is filed again each Sprint.
+@test "backlog audit_identity pattern accepts a normalized class key" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  local pat
+  pat="$(jq -r '.properties.items.items.properties.audit_identity.pattern' "$schema")"
+  run bash -c "printf '%s' 'notify-order::send-before-write' | grep -Eq \"\$1\"" _ "$pat"
+  assert_success
+}
+
+@test "backlog audit_identity pattern rejects path- and line-shaped keys" {
+  local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
+  local pat
+  pat="$(jq -r '.properties.items.items.properties.audit_identity.pattern' "$schema")"
+  for bad in 'laneB/participation_job.py::is_open_for' 'a.py::sym' 'notify-order' 'Notify::Order' 'notify-order::send:12'; do
+    run bash -c "printf '%s' \"\$1\" | grep -Eq \"\$2\"" _ "$bad" "$pat"
+    assert_failure
+  done
+}
+
 @test "backlog demo_plan is typed string|null" {
   local schema="$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json"
   run jq -e '

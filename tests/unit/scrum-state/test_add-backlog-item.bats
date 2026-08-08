@@ -142,6 +142,54 @@ teardown() {
   [[ "$output" == *"bad --kind"* ]]
 }
 
+@test "add-backlog-item: --audit-identity persists on the item" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F1:High] notify order inverted" \
+    --audit-identity "notify-order::send-before-write"
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_identity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "notify-order::send-before-write" ]
+}
+
+@test "add-backlog-item: audit-titled PBI without --audit-identity is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F2:High] missing key"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"--audit-identity required"* ]]
+}
+
+@test "add-backlog-item: non-audit PBI may omit --audit-identity (field is null)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "ordinary feature"
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_identity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "null" ]
+}
+
+@test "add-backlog-item: --audit-identity rejects a path-shaped key" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F3:High] path key" \
+    --audit-identity "laneB/participation_job.py::is_open_for"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-identity"* ]]
+}
+
+@test "add-backlog-item: --audit-identity rejects a one-part key" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F4:High] one part" \
+    --audit-identity "notify-order"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-identity"* ]]
+}
+
+@test "add-backlog-item: --audit-identity rejects upper case (normalization)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F5:High] upper case" \
+    --audit-identity "Notify-Order::Send-Before-Write"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-identity"* ]]
+}
+
 @test "add-backlog-item: id grows past pbi-999 (pbi-1000, no truncation)" {
   jq '.next_pbi_id = 1000' .scrum/backlog.json > backlog.tmp && mv backlog.tmp .scrum/backlog.json
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \

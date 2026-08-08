@@ -12,7 +12,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 |---|---|
 | `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
 | Same pattern for any of the 13 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done\|cancelled}` |
-| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout) |
+| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}] [--audit-identity <class>::<pattern>]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout; `--audit-identity` is required for `[codebase-audit:*]` titles) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
@@ -22,7 +22,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | **Removed**: `.scrum/dashboard.json` is hook-only telemetry written by `hooks/dashboard-event.sh` via `hooks/lib/dashboard.sh::append_dashboard_event`. No agent-callable wrapper. Agents instead emit dashboard signals indirectly via the tools they use (PostToolUse / SendMessage / SubagentStop). |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
 | `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
-| `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `demo_plan`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`) |
+| `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `demo_plan`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`, `audit_identity`) |
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the recurring `current_sprint_id` lag bug surfaced by target-project retrospectives) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
 | Append one SprintSummary to `.scrum/sprint-history.json` (was: raw `jq` append the scrum-state guard blocks) | `.scrum/scripts/append-sprint-history.sh --id <sprint-id> --goal <text> [--type ...] [--pbis-completed N] [--pbis-total N] [--started-at <iso>] [--completed-at <iso>]` (append-only, idempotent on `--id`) |
 | Record one TestCategory into `.scrum/test-results.json` (was: raw JSON init + `jq` append the scrum-state guard blocks, deadlocking an Integration Sprint's Stop gate + `release_decision=go`) | `.scrum/scripts/record-test-result.sh --name <cat> --status <passed\|failed\|skipped> [--total N] [--passed N] [--failed N] [--skipped N] [--runner-command <text>] [--executed-at <iso>] [--error 'NAME::msg']…` (upsert by `--name`; creates the file on first call; recomputes `overall_status` every call) |
@@ -312,6 +312,50 @@ hand-tagged `kind: "docs"` survives untouched). The framework
 repository's own `.scrum/backlog.json` (used by integration tests)
 is also a valid target — running the migration there before
 shipping the changes keeps fixtures honest.
+
+## v3 → v4: `audit_identity` field on PBI items (2026-08-08)
+
+The cross-Sprint dedup key for `codebase-audit` PBIs moves out of the
+`description` free text (`audit-id: <X>`) into a first-class
+`audit_identity` field.
+
+The old arrangement could not work: the audit read set deliberately
+withholds `description` from the auditors, so the agent that mints the
+key can never see the keys it minted before — every Sprint produced a
+fresh string for the same defect class. Matching was a substring
+`contains`, so a one-character difference filed a duplicate PBI, and
+`backlog-refinement` may replace `description` wholesale, taking the
+key with it. Measured on a synthetic corpus: identity drift 95.7–100%
+across Sprints, and 0 of 39 duplicate classes matched.
+
+### Backward compatibility
+
+- `backlog.schema.json` declares `audit_identity` as optional
+  (`["string","null"]`) with a pattern; items that lack the field
+  validate unchanged, so the launch-time schema gate is unaffected.
+- The pattern `^[a-z0-9]+(-[a-z0-9]+)*::[a-z0-9]+(-[a-z0-9]+)*$`
+  rejects file paths and line numbers on purpose — an identity built
+  from either mints a new class on the next refactor, which is the
+  failure this field exists to stop.
+- `add-backlog-item.sh` **requires** `--audit-identity` when the title
+  starts with `[codebase-audit:`. Machine-enforced rather than left to
+  prompt discipline because whole audit axes were measured dropping the
+  identity line (1/20 and 1/16 findings carried it in two runs).
+- No legacy field is removed; the `audit-id:` prose in existing
+  descriptions is left in place.
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/005-add-audit-identity.sh [--dry-run]
+```
+
+Lifts only markers that already satisfy the normalized form. Legacy
+path-shaped keys are **not** rewritten — a machine cannot choose the
+semantic class name, and inventing a slug would mint a key no future
+audit reproduces. Those items stay unkeyed and are counted in the
+summary line; each costs at most one duplicate filing on the next
+audit, after which the class is keyed correctly for good. Idempotent.
 
 ### Operator checklist
 

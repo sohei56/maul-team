@@ -48,6 +48,11 @@
             "default": "code",
             "description": "PBI kind. 'docs' = paths_touched MUST be subset of *.md (machine-enforced at mark-pbi-ready-to-merge). 'docs' PBIs skip Design / UT / Coverage stages; impl + impl-reviewer only."
           },
+          "audit_identity": {
+            "type": ["string", "null"],
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*::[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Cross-Sprint dedup key for codebase-audit PBIs: the stable defect-CLASS identity. Two lower-kebab parts, <defect-class>::<pattern>. Never a file path or a line number — both drift under refactoring and silently mint a new class, which is what makes the same defect resurface Sprint after Sprint. Required by add-backlog-item.sh whenever the title starts with '[codebase-audit:'."
+          },
           "parent_pbi_id": {"type": ["string", "null"], "pattern": "^pbi-[0-9]+$"},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"},

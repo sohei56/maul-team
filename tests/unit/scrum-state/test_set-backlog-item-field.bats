@@ -171,6 +171,25 @@ field_value() {
   [[ "$output" == *"bad kind"* ]]
 }
 
+@test "set-backlog-item-field: sets audit_identity" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_identity "docs-drift::stale-references"
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 audit_identity)" = '"docs-drift::stale-references"' ]
+}
+
+@test "set-backlog-item-field: clears audit_identity with null" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_identity "docs-drift::stale-references"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_identity null
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 audit_identity)" = 'null' ]
+}
+
+@test "set-backlog-item-field: rejects a path-shaped audit_identity" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_identity "laneB/participation_job.py::is_open_for"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad audit_identity"* ]]
+}
+
 @test "set-backlog-item-field: sets demo_plan" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan 'make run; curl -sf http://localhost:8080/healthz; observe "ok"'
   [ "$status" -eq 0 ]

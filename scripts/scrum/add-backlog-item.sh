@@ -7,7 +7,13 @@
 #     [--ac <criterion>]... \
 #     [--parent <pbi-id>] \
 #     [--ux-change] \
-#     [--kind {code|docs}]
+#     [--kind {code|docs}] \
+#     [--audit-identity <defect-class>::<pattern>]
+#
+# `--audit-identity` is the cross-Sprint dedup key for codebase-audit PBIs and
+# is REQUIRED when the title starts with "[codebase-audit:". It must be two
+# lower-kebab parts joined by "::" — never a file path or line number, both of
+# which drift under refactoring and silently mint a new defect class.
 #
 # Allocates the new id from `.next_pbi_id` (incremented post-write) and falls
 # back to `max(items[].id) + 1` when the field is missing. Status is hardcoded
@@ -26,16 +32,18 @@ DESC=""
 PARENT=""
 UX_CHANGE="false"
 KIND="code"
+AUDIT_IDENTITY=""
 ACS=()
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --title)        TITLE="$2"; shift 2 ;;
-    --description)  DESC="$2"; shift 2 ;;
-    --parent)       PARENT="$2"; shift 2 ;;
-    --ac)           ACS+=("$2"); shift 2 ;;
-    --ux-change)    UX_CHANGE="true"; shift 1 ;;
-    --kind)         KIND="$2"; shift 2 ;;
+    --title)           TITLE="$2"; shift 2 ;;
+    --description)     DESC="$2"; shift 2 ;;
+    --parent)          PARENT="$2"; shift 2 ;;
+    --ac)              ACS+=("$2"); shift 2 ;;
+    --ux-change)       UX_CHANGE="true"; shift 1 ;;
+    --kind)            KIND="$2"; shift 2 ;;
+    --audit-identity)  AUDIT_IDENTITY="$2"; shift 2 ;;
     *) fail E_INVALID_ARG "unknown flag: $1" ;;
   esac
 done
@@ -45,6 +53,19 @@ done
 case "$KIND" in
   code|docs) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND (allowed: code, docs)" ;;
+esac
+
+# Audit PBIs carry the cross-Sprint dedup key as a first-class field. Enforced
+# here rather than by prompt discipline: the identity line is dropped by whole
+# audit axes often enough that the machine has to be the one that insists.
+if [ -n "$AUDIT_IDENTITY" ]; then
+  assert_audit_identity "$AUDIT_IDENTITY" --audit-identity
+fi
+case "$TITLE" in
+  '[codebase-audit:'*)
+    [ -n "$AUDIT_IDENTITY" ] || fail E_INVALID_ARG \
+      "--audit-identity required for a [codebase-audit:*] PBI (the cross-Sprint dedup key; form: <defect-class>::<pattern>, lower kebab, no paths or line numbers)"
+    ;;
 esac
 
 if [ -n "$PARENT" ]; then
@@ -86,6 +107,7 @@ NEW_ITEM_JSON="$(
     --arg parent "$PARENT" \
     --arg now "$NOW" \
     --arg kind "$KIND" \
+    --arg aid "$AUDIT_IDENTITY" \
     --argjson ac "$AC_JSON" \
     --argjson ux "$UX_CHANGE" \
     '{
@@ -103,6 +125,7 @@ NEW_ITEM_JSON="$(
       ux_change: $ux,
       demo_plan: null,
       kind: $kind,
+      audit_identity: (if $aid == "" then null else $aid end),
       parent_pbi_id: (if $parent == "" then null else $parent end),
       created_at: $now,
       updated_at: $now
