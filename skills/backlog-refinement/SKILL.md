@@ -378,6 +378,13 @@ resolution:
       **Integer only.** String labels (`"high"`/`"medium"`/`"low"`) violate the
       schema and break the dashboard PBI Board. The wrapper rejects non-integers.
 
+      For a `[codebase-audit:*]` PBI, its `audit_severity` **seeds** the
+      band — `critical` highest, `high` next, `low` below non-audit work
+      — and the PO may reorder freely afterwards. Priority is the
+      repo-wide ordering the PO owns; severity is evidence feeding it,
+      not a competing authority. Severity definitions are canonical in
+      `skills/codebase-audit/SKILL.md` Step 3.
+
    All field writes above MUST go through
    `.scrum/scripts/set-backlog-item-field.sh`. The PreToolUse guard
    blocks raw edits to `.scrum/backlog.json`; status is the only field

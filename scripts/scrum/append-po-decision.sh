@@ -10,6 +10,8 @@
 #     [--request <text>] \
 #     [--evidence <path>]...   # repeatable
 #     [--assumption]            # flag (sets assumption=true)
+#     [--audit-identity <defect-class>::<pattern>] \
+#     [--audit-severity {critical|high|low}]
 #
 # The PO decisions log is the audit trail for both human-PO and
 # autonomous-PO modes. It is append-only — IDs are auto-assigned
@@ -24,6 +26,13 @@
 #   (c) For kind=release_decision with decision=go, .scrum/test-results.json
 #       must exist AND .overall_status ∈ {passed, passed_with_skips}.
 #       A release_decision=no_go can be recorded freely.
+#   (d) For kind=defect_triage with decision=reject (exact token), BOTH
+#       --audit-identity and --audit-severity are required. A rejection is a
+#       persisted suppression that codebase-audit Step 5 must match back to
+#       the finding it silenced; without the two keys it is a decision that
+#       silently loses its own effect. Only `reject` is gated — the same kind
+#       carries the integration-entry fix_now/defer usage, which has no
+#       per-finding identity.
 #
 # The store file is created on first call (initial content
 # `{"decisions": []}`) and the parent directory `.scrum/po/` is
@@ -44,6 +53,8 @@ SPRINT=""
 PBI=""
 REQUEST=""
 ASSUMPTION="false"
+AUDIT_IDENTITY=""
+AUDIT_SEVERITY=""
 # Evidence is collected as repeated --evidence flags. We accumulate into a
 # jq-array literal piece by piece, then `--argjson` it later. Bash 3.2-safe
 # (no arrays-of-arrays / no associative arrays).
@@ -64,6 +75,8 @@ while [ "$#" -gt 0 ]; do
     --request)    REQUEST="$2"; shift 2 ;;
     --evidence)   _append_evidence "$2"; shift 2 ;;
     --assumption) ASSUMPTION="true"; shift 1 ;;
+    --audit-identity) AUDIT_IDENTITY="$2"; shift 2 ;;
+    --audit-severity) AUDIT_SEVERITY="$2"; shift 2 ;;
     *) fail E_INVALID_ARG "unknown flag: $1" ;;
   esac
 done
@@ -83,6 +96,22 @@ fi
 
 if [ -n "$PBI" ] && [ "$PBI" != "null" ]; then
   assert_pbi_id "$PBI" --pbi
+fi
+
+PATHF=".scrum/po/decisions.json"
+# Resolved before the guards below because the audit-severity check derives its
+# allow-list from the schema rather than hardcoding a parallel copy.
+SCHEMA="$(resolve_schema_dir)/po-decisions.schema.json"
+
+if [ -n "$AUDIT_IDENTITY" ]; then
+  assert_audit_identity "$AUDIT_IDENTITY" --audit-identity
+fi
+if [ -n "$AUDIT_SEVERITY" ]; then
+  SEV_ENUM="$(jq -r '.properties.decisions.items.properties.audit_severity.enum[]
+                     | select(. != null)' "$SCHEMA" 2>/dev/null || true)"
+  [ -n "$SEV_ENUM" ] || fail E_SCHEMA "cannot read audit_severity enum from $(basename "$SCHEMA")"
+  printf '%s\n' "$SEV_ENUM" | grep -Fxq "$AUDIT_SEVERITY" || fail E_INVALID_ARG \
+    "bad --audit-severity: $AUDIT_SEVERITY (allowed: $(printf '%s' "$SEV_ENUM" | tr '\n' ' '))"
 fi
 
 # Guard (b): evidence required for approval-kinds. Empty array literal "[]" is
@@ -109,9 +138,18 @@ if [ "$KIND" = "release_decision" ] && [ "$DECISION" = "go" ]; then
   esac
 fi
 
+# Guard (d): a defect_triage rejection is a persisted suppression — it must
+# name the finding it suppresses and the severity it was rejected at, or
+# codebase-audit Step 5 cannot match it back (and cannot lapse it on
+# escalation).
+if [ "$KIND" = "defect_triage" ] && [ "$DECISION" = "reject" ]; then
+  [ -n "$AUDIT_IDENTITY" ] || fail E_INVALID_ARG \
+    "defect_triage --decision reject requires --audit-identity (an unmatchable suppression silently loses its own effect)"
+  [ -n "$AUDIT_SEVERITY" ] || fail E_INVALID_ARG \
+    "defect_triage --decision reject requires --audit-severity (the level it was rejected at; a strictly higher later rating lapses the suppression)"
+fi
+
 # Ensure parent dir + store file exist (idempotent init: empty array).
-PATHF=".scrum/po/decisions.json"
-SCHEMA="$(resolve_schema_dir)/po-decisions.schema.json"
 mkdir -p "$(dirname "$PATHF")"
 if [ ! -f "$PATHF" ]; then
   # Seed through atomic_create so the first write is schema-validated and lands
@@ -136,6 +174,8 @@ REC_JSON="$(
     --arg rationale "$RATIONALE" \
     --argjson evidence "$EVIDENCE_JSON" \
     --argjson assumption "$ASSUMPTION" \
+    --arg aid "$AUDIT_IDENTITY" \
+    --arg asev "$AUDIT_SEVERITY" \
     '{
       id: $id,
       timestamp: $ts,
@@ -147,7 +187,9 @@ REC_JSON="$(
     + (if $pbi == "" or $pbi == "null" then {pbi_id: null} else {pbi_id: $pbi} end)
     + (if $request == "" then {} else {request: $request} end)
     + (if ($evidence | length) == 0 then {} else {evidence: $evidence} end)
-    + {assumption: $assumption}'
+    + {assumption: $assumption}
+    + (if $aid == "" then {} else {audit_identity: $aid} end)
+    + (if $asev == "" then {} else {audit_severity: $asev} end)'
 )"
 
 EXPR=".decisions += [$REC_JSON]"

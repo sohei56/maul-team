@@ -12,7 +12,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 |---|---|
 | `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
 | Same pattern for any of the 13 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done\|cancelled}` |
-| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}] [--audit-identity <class>::<pattern>]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout; `--audit-identity` is required for `[codebase-audit:*]` titles) |
+| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}] [--audit-identity <class>::<pattern>] [--audit-severity {critical\|high\|low}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout; `--audit-identity` and `--audit-severity` are both required for `[codebase-audit:*]` titles, and the severity must match the title's `:<Severity>]` suffix case-insensitively) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
@@ -384,3 +384,61 @@ classification on a PBI mid-pipeline is to manually call
 (the wrapper does not reset `*_status` skipped values). In
 practice this never matters: kind is determined per-PBI by
 refinement, and refinement happens once.
+
+## v4 → v5: `audit_severity` field on PBI items (2026-08-08)
+
+Audit severity used to live only inside the PBI title string, where its
+one machine consumer — the Integration-entry block predicate — had to
+parse it back out with a regex (`test(":(Critical|High)\\]")`). The same
+failure shape `audit_identity` closed: a title rewritten by refinement
+silently changed a gate verdict. `audit_severity` is now a first-class
+field on `backlog.json items[]`, and the title's `:<Severity>]` suffix
+is demoted to a human-scannable snapshot.
+
+The scale drops from four levels to **three**: `critical` (a bug that
+prevents the spec from being met), `high` (the spec is met, but leaving
+it unfixed causes future harm), `low` (an improvement that need not be
+fixed). Ordering `low < high < critical`. Definitions are canonical in
+`skills/codebase-audit/SKILL.md` Step 3.
+`docs/contracts/pbi-pipeline-envelope.schema.json`'s lowercase 4-value
+`severity` is a **different** enum (per-finding Integrity/termination
+gates) and is unchanged.
+
+### Backward compatibility
+
+- `backlog.schema.json` declares `audit_severity` as optional
+  (`["string","null"]`, enum `critical|high|low|null`); items without
+  the field validate unchanged, so the launch-time schema gate is
+  unaffected.
+- The block predicate is `(.audit_severity // "high") != "low"` — a
+  legacy `null` blocks rather than silently passing.
+- `add-backlog-item.sh` **requires** `--audit-severity` for a
+  `[codebase-audit:*]` title and requires it to agree
+  case-insensitively with the title's 4th colon segment. Same reasoning
+  as `--audit-identity`: prompt discipline has already been measured
+  insufficient on this exact template.
+- `po-decisions.schema.json` gains optional `audit_identity` +
+  `audit_severity`, and `append-po-decision.sh` gains guard (d) — a
+  `defect_triage` whose decision is exactly `reject` must carry both.
+  Existing records validate unchanged; no migration is needed for
+  `decisions.json`.
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/006-add-audit-severity.sh [--dry-run]
+```
+
+Maps the title suffix: `Critical→critical`, `High→high`,
+**`Medium→high`**, `Low→low`. Unparseable suffixes stay `null` and are
+counted in the summary. Non-audit PBIs are never touched. Idempotent.
+
+**Behavior change, not just a back-fill.** In a target that currently
+has open `Medium` audit PBIs, this migration turns a previously-passing
+Integration-Sprint entry into a **block**. That is correct under the
+three-level definitions — the retired Medium row ("dead code / unused
+export, an edge-case gap on a secondary path, or a stale docstring that
+actively misleads") is squarely the new High — and the error direction
+was chosen deliberately: `medium→low` would silently drop those PBIs out
+of the block set (an invisible failure), while `medium→high` adds them
+(a visible one the PO can clear with a single `reject` or `cancelled`).

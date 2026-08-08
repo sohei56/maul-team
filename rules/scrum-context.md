@@ -232,6 +232,11 @@ Rules that apply uniformly to both modes:
   `.scrum/scripts/append-po-decision.sh` (which returns the
   `dec_id`); the SM uses `dec_id` to back-link the decision.
   Decision-log writes are part of the protocol, not optional.
+  **Audit-finding `defect_triage` verdicts are logged in both modes** —
+  in `po_mode=human` the SM records the human's verdict on their
+  behalf, because a suppression that is not in the log silently
+  re-surfaces every Sprint. Canonical procedure:
+  `skills/codebase-audit/SKILL.md` Step 4a.
 
 Canonical sources: the `po_mode` schema is in
 `docs/contracts/scrum-state/config.schema.json`; the PO message

@@ -14,9 +14,12 @@ setup() {
   TEST_TMP="$(mktemp -d /tmp/claude/audit-dedup.XXXXXX 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/audit-dedup.XXXXXX")"
   cd "$TEST_TMP" || exit 1
   mkdir -p .scrum docs/contracts/scrum-state
-  cp "$PROJECT_ROOT/docs/contracts/scrum-state/backlog.schema.json" docs/contracts/scrum-state/
+  for s in backlog po-decisions; do
+    cp "$PROJECT_ROOT/docs/contracts/scrum-state/${s}.schema.json" docs/contracts/scrum-state/
+  done
   env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/init-backlog.sh" --product-goal "roundtrip" >/dev/null
   IDENTITY="notify-order::send-before-write"
+  DOCS_IDENTITY="docs-drift::stale-references"
 }
 
 teardown() {
@@ -42,12 +45,41 @@ done_match() {
 }
 
 _file_audit_pbi() {
+  local sev="${1:-high}" label="${2:-High}"
   env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
-    --title "[codebase-audit:sprint-001:F1:High] notify order inverted" \
+    --title "[codebase-audit:sprint-001:F1:${label}] notify order inverted" \
     --audit-identity "$IDENTITY" \
-    --description "Codebase-audit F1 (High). Occurrences: a.py:10 — run." \
+    --audit-severity "$sev" \
+    --description "Codebase-audit F1 (${label}). Occurrences: a.py:10 — run." \
     --ac "the sweep pattern finds no remaining instance" \
     --kind code
+}
+
+# The Step 5 suppression lookup, kept in the same shape as SKILL.md: the LAST
+# defect_triage verdict for the identity wins, and the fixed DOCS identity is
+# never consulted.
+suppressed() {
+  local identity="$1"
+  [ "$identity" = "$DOCS_IDENTITY" ] && return 0
+  [ -f .scrum/po/decisions.json ] || return 0
+  jq -r --arg aid "$identity" '
+    [.decisions[] | select(.kind == "defect_triage") | select(.audit_identity == $aid)]
+    | last // empty | select(.decision == "reject") | "\(.id) \(.audit_severity)"' \
+    .scrum/po/decisions.json
+}
+
+# The Step 1b block predicate: everything that is not `low` blocks.
+open_blocking() {
+  jq '[.items[]
+    | select(.title | startswith("[codebase-audit:"))
+    | select((.audit_severity // "high") != "low")
+    | select(.status != "done" and .status != "cancelled")] | length' .scrum/backlog.json
+}
+
+_triage() {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/append-po-decision.sh" \
+    --kind defect_triage --decision "$1" --rationale "roundtrip" \
+    --audit-identity "$2" --audit-severity "$3"
 }
 
 @test "roundtrip: an open audit PBI suppresses a re-filing of the same class" {
@@ -85,6 +117,70 @@ _file_audit_pbi() {
   done
   [ "$(open_match)" -eq 0 ]
   [ "$(done_match)" -eq 1 ]
+}
+
+@test "roundtrip: a PO reject suppresses the finding at the same severity" {
+  DEC="$(_triage reject "$IDENTITY" low)"
+  run suppressed "$IDENTITY"
+  [ "$output" = "$DEC low" ]
+  # Nothing was filed, so the class is not tracked by any PBI either.
+  [ "$(open_match)" -eq 0 ]
+}
+
+@test "roundtrip: a strictly higher rating lapses the suppression" {
+  _triage reject "$IDENTITY" low >/dev/null
+  # The record still exists — the lapse is the SM's severity comparison
+  # (low < high < critical), not a mutation of the log.
+  run suppressed "$IDENTITY"
+  [[ "$output" == *" low" ]]
+  RECORDED="${output##* }"
+  [ "$RECORDED" = "low" ]
+  # This audit rates the same class critical → strictly higher → re-raise.
+  [ "$RECORDED" != "critical" ]
+}
+
+@test "roundtrip: the latest verdict wins (supersession, no un-reject verb)" {
+  _triage reject "$IDENTITY" low >/dev/null
+  _triage next_sprint "$IDENTITY" high >/dev/null
+  run suppressed "$IDENTITY"
+  [ -z "$output" ]
+}
+
+@test "roundtrip: the DOCS identity is never suppressed" {
+  # One reject on the fixed batch identity would blind the documentation-drift
+  # channel permanently, so Step 5 skips the lookup for it entirely.
+  _triage reject "$DOCS_IDENTITY" low >/dev/null
+  run suppressed "$DOCS_IDENTITY"
+  [ -z "$output" ]
+}
+
+@test "roundtrip: an open PBI is re-ranked when a later audit rates it higher" {
+  PBI="$(_file_audit_pbi low Low)"
+  # A `low` PBI is outside the block set...
+  [ "$(open_blocking)" -eq 0 ]
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" \
+    "$PBI" audit_severity critical
+  # ...and the re-rank puts it in, which is the whole point: without it the
+  # block-check keeps consulting a stale rating.
+  [ "$(open_blocking)" -eq 1 ]
+  # The title deliberately still says Low — the field is canonical.
+  run jq -r --arg id "$PBI" '.items[] | select(.id == $id) | .title' .scrum/backlog.json
+  [[ "$output" == *":F1:Low]"* ]]
+}
+
+@test "roundtrip: a legacy audit PBI with no severity blocks (fail-safe)" {
+  PBI="$(_file_audit_pbi high High)"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" \
+    "$PBI" audit_severity null
+  [ "$(open_blocking)" -eq 1 ]
+}
+
+@test "roundtrip: a non-audit PBI carrying audit_severity is never counted" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "ordinary feature PBI" --kind code --audit-severity critical >/dev/null
+  # The title filter runs first in every block and dedup query, so a stray
+  # field on a non-audit item is inert.
+  [ "$(open_blocking)" -eq 0 ]
 }
 
 @test "roundtrip: a non-audit PBI carrying the same identity never matches" {

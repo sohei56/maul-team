@@ -18,6 +18,13 @@
 #   set-backlog-item-field.sh <pbi-id> depends_on_pbi_ids <json-array-of-pbi-ids>
 #   set-backlog-item-field.sh <pbi-id> kind <code|docs>
 #   set-backlog-item-field.sh <pbi-id> audit_identity <defect-class::pattern|null>
+#   set-backlog-item-field.sh <pbi-id> audit_severity <critical|high|low|null>
+#
+# `audit_severity` is writable because a later audit may rate an already-open
+# class strictly higher; without a re-rank the Integration-entry block-check
+# keeps consulting the stale value. The title's ':<Severity>]' suffix is NOT
+# rewritten — the field is canonical and the suffix is only the snapshot taken
+# at filing time.
 #
 # `catalog_targets`, `acceptance_criteria`, `design_doc_paths`, and
 # `depends_on_pbi_ids` all take JSON string literals (e.g.
@@ -45,6 +52,11 @@ source "$HERE/lib/queries.sh"
 PBI="$1"; FIELD="$2"; VALUE="$3"
 
 assert_pbi_id "$PBI"
+
+PATHF=".scrum/backlog.json"
+# Resolved before the case block because the audit_severity arm derives its
+# allow-list from the schema rather than hardcoding a parallel copy.
+SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 
 # Validate field + value, build JSON literal for the value.
 case "$FIELD" in
@@ -125,14 +137,21 @@ case "$FIELD" in
       VALUE_JSON="\"$VALUE\""
     fi
     ;;
+  audit_severity)
+    if [ "$VALUE" = "null" ]; then
+      VALUE_JSON="null"
+    else
+      backlog_audit_severity_enum "$SCHEMA" | grep -Fxq "$VALUE" || fail E_INVALID_ARG \
+        "bad audit_severity: $VALUE (allowed: $(backlog_audit_severity_enum "$SCHEMA" | tr '\n' ' ' | sed 's/ $//'), or null)"
+      VALUE_JSON="\"$VALUE\""
+    fi
+    ;;
   status)
     fail E_INVALID_ARG "use update-backlog-status.sh to write status (13-value enum has its own wrapper)"
     ;;
-  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|demo_plan|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind|audit_identity)" ;;
+  *) fail E_INVALID_ARG "unknown field: $FIELD (expected sprint_id|implementer_id|review_doc_path|catalog_targets|priority|description|ux_change|demo_plan|acceptance_criteria|design_doc_paths|depends_on_pbi_ids|kind|audit_identity|audit_severity)" ;;
 esac
 
-PATHF=".scrum/backlog.json"
-SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
 [ -f "$PATHF" ] || fail E_FILE_MISSING "$PATHF"
 
 # Pre-check the pbi exists (atomic_write cannot return "not found" by itself).

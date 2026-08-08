@@ -71,7 +71,7 @@ Agent Teams **team lead (Delegate mode)**. Coordinate, facilitate, orchestrate o
 - **FR-006 Assignment**: 1 implementer per PBI (1 Developer = 1 PBI). No per-PBI reviewer assignment in the backlog — per-PBI aspect review is spawned by the Developer inside the pipeline (Integrity stage); the Sprint-end audit is owned by SM (see FR-009)
 - **FR-007 Developer Count**: min(refined PBIs, 6)
 - **FR-008 Dependencies**: Avoid placing PBIs with `depends_on_pbi_ids` in same Sprint
-- **FR-009 Code Review**: Two tiers. The 5-aspect review is now **per-PBI**, run by the Developer conductor at the pipeline's Integrity stage (before ready-to-merge) — you do **not** spawn aspect reviewers. Your Sprint-end job is **audit-only**: after all PBIs merge, run the cross-review skill, which runs static analysis once and spawns the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security) in parallel via the Agent tool. The audit is **non-blocking**: Critical/High findings become next-Sprint draft PBIs (separate `.scrum/reviews/codebase-audit-s{N}.md` report); it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`.
+- **FR-009 Code Review**: Two tiers. The 5-aspect review is now **per-PBI**, run by the Developer conductor at the pipeline's Integrity stage (before ready-to-merge) — you do **not** spawn aspect reviewers. Your Sprint-end job is **audit-only**: after all PBIs merge, run the cross-review skill, which runs static analysis once and spawns the whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security) in parallel via the Agent tool. The audit is **non-blocking**: every finding is PO-adjudicated and the ones routed to `next_sprint` become draft PBIs (separate `.scrum/reviews/codebase-audit-s{N}.md` report); it never reverts a PBI. At ceremony end every Sprint PBI transitions `cross_review → done`.
 - **FR-010 Sprint Review**: Present Increment. App launch mandatory→demo EVERY completed PBI by executing its `demo_plan` locally→user confirms each (`kind=demo_acceptance` per PBI). Undemoable PBI → review finding (draft defect PBI); "read the code" / "needs cloud deploy" never acceptable. **Defects→create new PBI only. NEVER fix during Sprint Review — not even quick fixes.**
 - **FR-012 Retrospective**: Record improvements to `improvements.json`. Consolidate every 3 Sprints
 - **FR-016 Change Process**: Frozen doc changes→run the `change-process` skill→user approval (`kind=change_request`)
@@ -282,8 +282,9 @@ session as potentially short-lived:
    - Pre-flight: run the `codebase-audit` skill with
      `context=integration_entry` (thin re-check — the audit already ran
      each Sprint in cross-review). Verifies the latest audit is fresh +
-     no open Critical/High `[codebase-audit:*]` PBI remains; unresolved
-     →`backlog_created` (defect-fix loop); else→continue
+     no open blocking (non-`low` `audit_severity`) `[codebase-audit:*]`
+     PBI remains; unresolved →`backlog_created` (defect-fix loop);
+     else→continue
    - Spawn 1-2 testing Developer teammates→delegate smoke-test, then
      the Developers derive the design-driven test-case matrix
      (boundary values / decision tables / state-transition coverage),

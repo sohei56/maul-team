@@ -54,8 +54,9 @@ Valid phases:
 - `integration_sprint` — Integration Tests in progress. Opens with a
   thin `codebase-audit` re-check (the whole-repo audit itself runs
   every Sprint inside `cross-review`, non-blocking; this re-check just
-  verifies the latest audit report is fresh and no open Critical/High
-  `[codebase-audit:*]` PBI remains — unresolved → route back to
+  verifies the latest audit report is fresh and no open
+  `[codebase-audit:*]` PBI carries a blocking (non-`low`)
+  `audit_severity` — unresolved → route back to
   `backlog_created`), then design-driven systematic testing (boundary
   values, flow-branch and pattern-branch coverage, external-interface
   stubs) via the `integration-tests` skill. On passing tests the Scrum
@@ -104,6 +105,8 @@ Valid phases:
 | `depends_on_pbi_ids` | string[] | IDs of PBIs that must be completed before this one (used by FR-008) |
 | `ux_change` | boolean | Whether this PBI involves UX changes (determines the demo form in FR-010: UI walkthrough vs observable local check) |
 | `demo_plan` | string \| null | How the PBI is demonstrated locally at Sprint Review (start command, steps, local substitutes for cloud-only parts). Set during `backlog-refinement` (canonical: `skills/backlog-refinement/SKILL.md` Step 3.c2); `update-backlog-status.sh` refuses the transition into `refined` while empty for `kind=code` (`kind=docs` exempt). Consumed by `sprint-review` / `po-acceptance`. |
+| `audit_identity` | string \| null | Cross-Sprint dedup key for `[codebase-audit:*]` PBIs: the stable defect-CLASS identity, `<defect-class>::<pattern>` (two lower-kebab parts, never a path or line number). Required by `add-backlog-item.sh` for an audit title; the audit's Step 5 dedup matches on it exactly. |
+| `audit_severity` | enum (`critical` \| `high` \| `low`) \| null | Audit finding severity — the **canonical** value; the title's `:<Severity>]` suffix is the snapshot taken at filing time. Ordering `low < high < critical`; everything not `low` blocks Integration-Sprint entry while open. Definitions are canonical in `skills/codebase-audit/SKILL.md` Step 3. Distinct from `pbi-pipeline-envelope.schema.json`'s 4-value per-finding `severity`, which the Integrity gates consume. |
 | `parent_pbi_id` | string \| null | ID of the coarse-grained PBI this was refined from |
 | `kind` | enum (`code` \| `docs`) | Pipeline branch selector (default `code`). Set during `backlog-refinement` (the Opus 3-axis OR rule is canonical in `skills/backlog-refinement/SKILL.md`). For how `kind=docs` reshapes the pipeline, see the **kind=docs override** subsection below (and `skills/pbi-pipeline/SKILL.md` § Stages). |
 | `created_at` | ISO 8601 string | Creation timestamp |
@@ -146,7 +149,7 @@ ASCII transition graph:
 [SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
         ↓ Sprint-end SM invokes cross-review skill (whole-repo 4-axis codebase audit)
 [SM]  cross_review                 (audit-only; non-blocking, never reverts a PBI)
-        ↓ audit files Critical/High findings as next-Sprint draft PBIs
+        ↓ audit files PO-approved findings as next-Sprint draft PBIs
 [SM]  done
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)

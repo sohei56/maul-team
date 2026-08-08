@@ -92,6 +92,21 @@ backlog_status_enum() {
   printf '%s\n' "$out"
 }
 
+# backlog_audit_severity_enum <schema_path>
+# Print the audit_severity enum from the deployed backlog.schema.json, one
+# value per line, with the JSON `null` member filtered out (it is the "not an
+# audit PBI" representation, never a flag argument). Same schema-derived
+# discipline as backlog_status_enum above. Calls `fail` from lib/errors.sh.
+backlog_audit_severity_enum() {
+  local schema="$1"
+  [ -f "$schema" ] || fail E_FILE_MISSING "$schema"
+  local out
+  out="$(jq -r '.properties.items.items.properties.audit_severity.enum[]
+                | select(. != null)' "$schema" 2>/dev/null || true)"
+  [ -n "$out" ] || fail E_SCHEMA "cannot read audit_severity enum from $(basename "$schema")"
+  printf '%s\n' "$out"
+}
+
 # read_pbi_worktree_state <pbi_id>
 # Read .scrum/pbi/<pbi-id>/state.json and populate the globals
 # `PBI_WT`, `PBI_BRANCH`, `PBI_BASE_SHA`. Fails (via lib/errors.sh::fail)

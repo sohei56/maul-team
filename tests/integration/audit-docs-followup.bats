@@ -46,8 +46,8 @@ scrum() {
 
 @test "step 7b: the wrapper sequence files and prepares a docs PBI mid-Sprint" {
   PBI="$(scrum add-backlog-item.sh \
-    --title "[codebase-audit:sprint-001:DOCS:Medium] stale references" \
-    --audit-identity "docs-drift::stale-references" \
+    --title "[codebase-audit:sprint-001:DOCS:High] stale references" \
+    --audit-identity "docs-drift::stale-references" --audit-severity high \
     --description "docs/architecture.md:12 — stale anchor. See report." \
     --ac "docs/architecture.md §2 states the current module map" \
     --kind docs)"
@@ -76,8 +76,8 @@ scrum() {
 
 @test "step 7b: the docs PBI reaches done through the kind=docs status path" {
   PBI="$(scrum add-backlog-item.sh \
-    --title "[codebase-audit:sprint-001:DOCS:Medium] stale references" \
-    --audit-identity "docs-drift::stale-references" \
+    --title "[codebase-audit:sprint-001:DOCS:High] stale references" \
+    --audit-identity "docs-drift::stale-references" --audit-severity high \
     --ac "a passage states the current map" --kind docs)"
   scrum update-backlog-status.sh "$PBI" refined
   scrum set-backlog-item-field.sh "$PBI" sprint_id sprint-001
@@ -93,8 +93,8 @@ scrum() {
 
 @test "step 7b: the batch keeps its fixed identity so a later audit dedups it" {
   PBI="$(scrum add-backlog-item.sh \
-    --title "[codebase-audit:sprint-001:DOCS:Medium] stale references" \
-    --audit-identity "docs-drift::stale-references" \
+    --title "[codebase-audit:sprint-001:DOCS:High] stale references" \
+    --audit-identity "docs-drift::stale-references" --audit-severity high \
     --ac "a passage states the current map" --kind docs)"
   run jq -r --arg id "$PBI" '.items[] | select(.id == $id) | .audit_identity' .scrum/backlog.json
   [ "$output" = "docs-drift::stale-references" ]

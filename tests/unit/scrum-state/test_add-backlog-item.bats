@@ -145,7 +145,7 @@ teardown() {
 @test "add-backlog-item: --audit-identity persists on the item" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
     --title "[codebase-audit:sprint-001:F1:High] notify order inverted" \
-    --audit-identity "notify-order::send-before-write"
+    --audit-identity "notify-order::send-before-write" --audit-severity high
   [ "$status" -eq 0 ]
   run jq -r '.items[-1].audit_identity' "$TEST_TMP/.scrum/backlog.json"
   [ "$output" = "notify-order::send-before-write" ]
@@ -169,7 +169,7 @@ teardown() {
 @test "add-backlog-item: --audit-identity rejects a path-shaped key" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
     --title "[codebase-audit:sprint-001:F3:High] path key" \
-    --audit-identity "laneB/participation_job.py::is_open_for"
+    --audit-identity "laneB/participation_job.py::is_open_for" --audit-severity high
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad --audit-identity"* ]]
 }
@@ -177,7 +177,7 @@ teardown() {
 @test "add-backlog-item: --audit-identity rejects a one-part key" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
     --title "[codebase-audit:sprint-001:F4:High] one part" \
-    --audit-identity "notify-order"
+    --audit-identity "notify-order" --audit-severity high
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad --audit-identity"* ]]
 }
@@ -185,9 +185,76 @@ teardown() {
 @test "add-backlog-item: --audit-identity rejects upper case (normalization)" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
     --title "[codebase-audit:sprint-001:F5:High] upper case" \
-    --audit-identity "Notify-Order::Send-Before-Write"
+    --audit-identity "Notify-Order::Send-Before-Write" --audit-severity high
   [ "$status" -eq 64 ]
   [[ "$output" == *"bad --audit-identity"* ]]
+}
+
+@test "add-backlog-item: --audit-severity persists lowercase on the item" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F1:Critical] spec cannot be met" \
+    --audit-identity "notify-order::send-before-write" --audit-severity critical
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_severity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "critical" ]
+}
+
+@test "add-backlog-item: audit-titled PBI without --audit-severity is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F2:High] no severity flag" \
+    --audit-identity "notify-order::send-before-write"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"--audit-severity required"* ]]
+}
+
+@test "add-backlog-item: --audit-severity medium is rejected (Medium was abolished)" {
+  # Pins the 4→3 level change: a wrapper that still accepted Medium would let
+  # the retired level back in through the one writer that mints audit PBIs.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F3:Medium] retired level" \
+    --audit-identity "notify-order::send-before-write" --audit-severity medium
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad --audit-severity"* ]]
+}
+
+@test "add-backlog-item: title severity disagreeing with the field is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F4:Critical] drifted" \
+    --audit-identity "notify-order::send-before-write" --audit-severity high
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"Critical"* ]]
+  [[ "$output" == *"high"* ]]
+}
+
+@test "add-backlog-item: Title-case title with lowercase field is the happy path" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F5:Critical] agrees" \
+    --audit-identity "notify-order::send-before-write" --audit-severity critical
+  [ "$status" -eq 0 ]
+}
+
+@test "add-backlog-item: audit title with no severity suffix is rejected" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-001:F1] no suffix" \
+    --audit-identity "notify-order::send-before-write" --audit-severity high
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"no severity suffix"* ]]
+}
+
+@test "add-backlog-item: non-audit PBI may omit --audit-severity (field is null)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "ordinary feature"
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_severity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "null" ]
+}
+
+@test "add-backlog-item: non-audit PBI may carry --audit-severity (inert, mirrors --audit-identity)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "ordinary feature" --audit-severity low
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_severity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "low" ]
 }
 
 @test "add-backlog-item: id grows past pbi-999 (pbi-1000, no truncation)" {

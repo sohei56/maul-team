@@ -259,8 +259,10 @@ use support sub-agents.
    **When** the Scrum Master invokes the `cross-review` Skill,
    **Then** static analysis runs once and the 4 whole-repo
    `codebase-audit` axes are spawned in parallel; the audit is
-   **non-blocking** — its Critical/High findings become draft PBIs
-   for the **next** Sprint (title prefix
+   **non-blocking** — every finding is PO-adjudicated, Critical/High
+   carrying a next-Sprint recommendation and a rejected finding being
+   suppressed with a recorded decision; approved findings become draft
+   PBIs for the **next** Sprint (title prefix
    `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
    across Sprints), it never reverts a PBI, and every reviewed PBI
    transitions `cross_review → done`.
@@ -452,11 +454,14 @@ use support sub-agents.
   (`spec-conformance`, `logic-defect`, `redundancy`,
   `product-security`) over the accumulated codebase at HEAD —
   defects no single PBI or Sprint diff can see. The audit is
-  **non-blocking**: it never reverts a PBI; its Critical|High
-  findings become draft PBIs for the **next** Sprint (title prefix
-  `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
-  across Sprints, `[REGRESSION]`-tagged when a closed finding
-  recurs), and every reviewed PBI transitions `cross_review → done`.
+  **non-blocking**: it never reverts a PBI; **every** finding is
+  PO-adjudicated (Critical/High recommended to the next Sprint, a
+  rejected finding suppressed with a recorded decision), and the
+  approved ones become draft PBIs for the **next** Sprint (title
+  prefix `[codebase-audit:<sprint-id>:F<n>:<Severity>]` plus the
+  canonical `audit_severity` field, identity-deduped across Sprints,
+  `[REGRESSION]`-tagged when a closed finding recurs). Every reviewed
+  PBI transitions `cross_review → done`.
   The Codex-fallback rule still applies to Layer 1 codex reviewers
   (`codex-impl-reviewer`, `codex-ut-reviewer`).
 

@@ -64,7 +64,11 @@ persists the report. Use this schema per finding:
 ```
 ### <F-local-id> <one-line title>
 - axis: spec-conformance | logic-defect | redundancy | product-security
-- severity_hint: Critical | High | Medium | Low   (SM may re-rank on dedup)
+- severity_hint: Critical | High | Low   (SM may re-rank on dedup;
+  Critical = a bug that prevents the spec from being met, High = the
+  spec is met but leaving it unfixed causes future harm, Low = an
+  improvement that need not be fixed — canonical table in SKILL.md
+  Step 3)
 - location: <path>:<line> (primary occurrence)
 - occurrences: <path>:<line> — <symbol>   (one line per instance the
   sweep found — ALL of them; a genuinely single-site defect lists one)
@@ -90,9 +94,9 @@ persists the report. Use this schema per finding:
 - proposed_fix: <one line; becomes the PBI AC seed>
 ```
 
-End with a one-line summary: `<n> findings (<c> Critical, <h> High, <m>
-Medium, <l> Low)`. If you found nothing, say so explicitly — an empty
-result is a valid, useful outcome.
+End with a one-line summary: `<n> findings (<c> Critical, <h> High,
+<l> Low)`. If you found nothing, say so explicitly — an empty result is
+a valid, useful outcome.
 
 ---
 
@@ -123,6 +127,14 @@ Compare the **implementation** against the **enabled design specs** and
    PO already decided, it is **not** a finding — the code should follow
    the decision, and you check that instead. Only unadjudicated
    contradictions are findings.
+
+   **A `defect_triage` record is not grounds to skip anything.** It
+   decided whether to schedule work, not whether the defect exists;
+   only `spec_clarification` / `change_request` / `scope_change`
+   adjudications bear on classes 3 and 4. Keep detecting and re-rating
+   a class the PO previously deferred or rejected — the SM applies
+   suppression at filing time, and it lapses precisely when your fresh
+   rating comes out higher.
 4. **Spec-sanctions-a-defect** — the implementation **conforms** to an
    enabled clause, but the clause itself sanctions the defect (it
    mandates the notification write that can be lost, blesses the
@@ -151,14 +163,16 @@ Map each finding to the PBI(s) whose `paths_touched` / area it lands in
 (reverse-lookup from the PBI summary) so the SM can scope a fix PBI.
 
 Severity guide: a divergence that breaks a core AC or an unadjudicated
-conflict that makes correct behavior undefined → Critical; a divergence
-that changes observable behavior on a primary path → High;
-coded-but-unspecified dead paths → Medium unless they execute in
-production. For class 4, rate the **defect the clause sanctions**, not
-the paperwork: a clause blessing silent data loss or a dropped
-notification on a production path → Critical; one blessing an
-observable-behavior defect on a primary path → High. A clause that is
-merely untidy or over-restrictive is not a finding.
+conflict that makes correct behavior undefined → Critical (the spec
+cannot be met); a divergence that changes observable behavior on a
+primary path → Critical when it defeats the specified behavior, else
+High. Coded-but-unspecified paths → High when the path can execute or
+the gap accrues debt, Low when it is inert. For class 4, rate the
+**defect the clause sanctions**, not the paperwork: a clause blessing
+silent data loss or a dropped notification on a production path →
+Critical; one blessing an observable-behavior defect on a primary path
+→ High. A clause that is merely untidy or over-restrictive is not a
+finding.
 
 ---
 
@@ -195,7 +209,8 @@ For each: name the exact production path and the input/condition that
 triggers the defect. Distinguish **fact** (the code as written) from
 **interpretation** (the failure it produces). A silent data-loss or
 feature-off-in-prod defect on a core path is Critical/High; a
-secondary-path edge case is Medium.
+secondary-path edge case is High when leaving it unfixed causes future
+harm, Low when it need not be fixed.
 
 ---
 
@@ -225,7 +240,7 @@ grounded evidence — not a single grep.
 - **Stale comments / docstrings.** Comments or docstrings that no
   longer match the code they describe — a docstring claiming a
   parameter the signature dropped, a comment describing removed
-  behavior. Medium when actively misleading, Low when merely noise.
+  behavior. High when actively misleading, Low when merely noise.
   Enumerate these **exhaustively in one class finding** (the SM batches
   all documentation drift into a single per-audit PBI): a partial list
   guarantees the leftovers resurface at the next audit.
@@ -280,7 +295,8 @@ Severity: an exploitable cross-component authz bypass, an unsanitized
 untrusted-input-to-dangerous-sink flow, or a live exposed secret →
 Critical; a missing product-wide control on a sensitive surface or a
 plausible-but-unconfirmed injection seam → High; defense-in-depth gaps
-on secondary paths → Medium. Keep **fact** (the code/flow as written)
+on secondary paths → High when the exposure accrues, Low when it need
+not be closed. Keep **fact** (the code/flow as written)
 separate from **interpretation** (the exploit it enables), and mark
 confidence honestly when you cannot trace a full flow end-to-end.
 

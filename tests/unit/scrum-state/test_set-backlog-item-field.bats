@@ -190,6 +190,40 @@ field_value() {
   [[ "$output" == *"bad audit_identity"* ]]
 }
 
+@test "set-backlog-item-field: accepts every audit_severity level" {
+  for s in critical high low; do
+    run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_severity "$s"
+    [ "$status" -eq 0 ]
+    [ "$(field_value pbi-001 audit_severity)" = "\"$s\"" ]
+  done
+}
+
+@test "set-backlog-item-field: clears audit_severity with null" {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_severity high
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_severity null
+  [ "$status" -eq 0 ]
+  [ "$(field_value pbi-001 audit_severity)" = 'null' ]
+}
+
+@test "set-backlog-item-field: rejects audit_severity medium (retired level)" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_severity medium
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad audit_severity"* ]]
+}
+
+@test "set-backlog-item-field: rejects arbitrary audit_severity text" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 audit_severity "quite bad"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"bad audit_severity"* ]]
+}
+
+@test "set-backlog-item-field: the unknown-field message names audit_severity" {
+  # A user-facing contract that is easy to forget when a field is added.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 wibble x
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"audit_severity"* ]]
+}
+
 @test "set-backlog-item-field: sets demo_plan" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan 'make run; curl -sf http://localhost:8080/healthz; observe "ok"'
   [ "$status" -eq 0 ]
