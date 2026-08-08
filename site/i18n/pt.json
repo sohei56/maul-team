@@ -6,6 +6,7 @@
  "nav.loop": "Loop engineering",
  "nav.features": "Recursos",
  "nav.install": "Instalar",
+ "nav.changelog": "Novidades",
  "nav.download": "Baixar",
  "hero.title": "Entregue seu projeto a um <span class=\"accent\">time&nbsp;Scrum&nbsp;de&nbsp;IA.</span>",
  "hero.sub": "Um app nativo de Mac —ou um único comando de shell— roda um time Scrum multiagente no seu projeto, impulsionado pelo Claude Code Agent Teams. Mantenha o controle como <strong>Product&nbsp;Owner</strong> (com supervisão humana), ou defina o estado final e deixe o time iterar sozinho.",

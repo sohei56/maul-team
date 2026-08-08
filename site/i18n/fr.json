@@ -6,6 +6,7 @@
  "nav.loop": "Loop engineering",
  "nav.features": "Fonctions",
  "nav.install": "Installer",
+ "nav.changelog": "Nouveautés",
  "nav.download": "Télécharger",
  "hero.title": "Confiez votre projet à une <span class=\"accent\">équipe&nbsp;Scrum&nbsp;IA.</span>",
  "hero.sub": "Une app Mac native — ou une seule commande shell — fait tourner une équipe Scrum multi-agents sur votre projet, propulsée par Claude Code Agent Teams. Gardez la main comme <strong>Product&nbsp;Owner</strong> (human-in-the-loop), ou définissez l'état final et laissez l'équipe boucler seule.",

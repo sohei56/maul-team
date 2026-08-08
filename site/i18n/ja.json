@@ -6,6 +6,7 @@
  "nav.loop": "ループ設計",
  "nav.features": "機能",
  "nav.install": "導入",
+ "nav.changelog": "新着情報",
  "nav.download": "ダウンロード",
  "hero.title": "あなたのプロジェクトを <span class=\"accent\">AI&nbsp;Scrum&nbsp;チームへ。</span>",
  "hero.sub": "ネイティブ Mac アプリ、あるいはたった 1 つのシェルコマンドで、Claude Code Agent Teams を活用したマルチエージェント Scrum チームがあなたのプロジェクトを進めます。<strong>Product&nbsp;Owner</strong> として主導権を握る（human-in-the-loop）もよし、最終的な状態を指定してチームに自走でループさせるもよし。",
