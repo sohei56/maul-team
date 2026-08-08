@@ -6,6 +6,7 @@
  "nav.loop": "Loop Engineering",
  "nav.features": "Features",
  "nav.install": "Installieren",
+ "nav.changelog": "Neuerungen",
  "nav.download": "Download",
  "hero.title": "Übergib dein Projekt einem <span class=\"accent\">KI-Scrum-Team.</span>",
  "hero.sub": "Eine native Mac-App — oder ein einziger Shell-Befehl — betreibt ein Multi-Agenten-Scrum-Team auf deinem Projekt, angetrieben von Claude Code Agent Teams. Behalte als <strong>Product&nbsp;Owner</strong> die Kontrolle (Human-in-the-Loop), oder gib den Zielzustand vor und lass das Team eigenständig loopen.",

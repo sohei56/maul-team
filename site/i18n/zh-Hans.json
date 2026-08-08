@@ -6,6 +6,7 @@
  "nav.loop": "循环工程",
  "nav.features": "特性",
  "nav.install": "安装",
+ "nav.changelog": "更新动态",
  "nav.download": "下载",
  "hero.title": "把你的项目交给一支 <span class=\"accent\">AI&nbsp;Scrum&nbsp;团队。</span>",
  "hero.sub": "一个原生 Mac 应用——或一条 shell 命令——即可在你的项目上运行一支多智能体 Scrum 团队，由 Claude Code Agent Teams 驱动。作为 <strong>Product&nbsp;Owner</strong> 掌控全局（human-in-the-loop），或指定终态，让团队自行循环推进。",
