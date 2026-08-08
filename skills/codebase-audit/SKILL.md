@@ -67,10 +67,11 @@ does **not** re-review single-PBI diff-local security.
 - `.scrum/sprint.json` — `id` (drives the report filename) and
   `base_sha` (context only; the audit scope is HEAD, **not** a diff).
 - `.scrum/backlog.json` — all PBIs (`id`, `title`,
-  `acceptance_criteria`, `kind`, `status`, `description`) — for the
+  `acceptance_criteria`, `kind`, `audit_identity`) — for the
   spec-conformance axis to map requirements to implementation, for
   cross-PBI duplication reasoning, and for **cross-Sprint PBI dedup**
-  (existing `[codebase-audit:*]` items).
+  (`audit_identity` on existing `[codebase-audit:*]` items). PBI
+  `description` is **not** passed to the auditors — see Step 1.
 - `docs/requirements.md` — the requirement SSOT.
 - `docs/design/catalog-config.json` — the `enabled` array of spec IDs.
 - `docs/design/specs/**` — enabled spec files (per
@@ -185,13 +186,21 @@ after a defect-fix loop (new sprint number) has no matching
 ### Step 1 — Assemble the shared read set
 
 Collect for the auditors: enabled spec IDs + files, `requirements.md`,
-the PBI summary (`id`, `title`, `acceptance_criteria`, `kind`), and the
-most recent static-analysis file:
+the PBI summary (`id`, `title`, `acceptance_criteria`, `kind`,
+**`audit_identity`**), and the most recent static-analysis file:
 ```bash
 STATIC="$(ls .scrum/reviews/static-analysis-r*.json 2>/dev/null | sort -V | tail -1)"
 ```
 Do NOT pass `.scrum/` pipeline state, dev communications, or PBI
 descriptions beyond the fields above.
+
+`audit_identity` is in the read set for one reason: it is the key the
+auditors themselves mint, and cross-Sprint dedup matches on it exactly.
+An auditor that cannot see the keys already filed re-invents a different
+string for the same defect class every Sprint, and the class is filed
+again as new. Pass the field even when it is null — the auditors are
+told to reuse an existing key byte-for-byte and mint only for a class
+that has none (`references/axes.md`, `identity`).
 
 ### Step 2 — Announce, spawn the 4 auditors, wait (canonical procedure)
 
@@ -270,7 +279,12 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   synthetic `DOCS` finding listing all occurrences, severity = highest
   member. Documentation drift is never filed as individual PBIs — the
   per-occurrence PBI spread measurably drags Sprint velocity without
-  adding safety.
+  adding safety. The synthetic finding carries the **fixed identity
+  `docs-drift::stale-references`** — the batch is one standing class, so
+  a per-Sprint key would let a second open DOCS batch pile up beside the
+  first while both describe the same thing. Step 5's open-match branch
+  therefore *appends* to the existing batch instead of dropping the new
+  occurrences (see Step 5).
 - **Redundancy axis is static-analysis-grounded.** In context (a) the
   `redundancy` axis consumes the same two-pass static-analysis file
   cross-review produced (Pass A Sprint-diff lint + Pass B whole-repo
@@ -311,35 +325,39 @@ For each **class finding** the PO routed to `next_sprint`, file ONE
 draft PBI covering all of its occurrences (the `DOCS` batch files the
 same way, as a single PBI) — but the audit runs **every** Sprint, so an
 unfixed finding re-detected next Sprint must NOT spawn a duplicate.
-Dedup is **content-based on the `identity` key** (the defect-class key
-from the finding), not on the (per-Sprint) prefix:
+Dedup matches the finding's `identity` **exactly against the
+`audit_identity` field** on existing audit PBIs — not the per-Sprint
+title prefix, and not a substring of the description:
 
 ```bash
 # IDENTITY, Fn, SEVERITY, SUMMARY, AC, KIND from the finding
-OPEN_MATCH="$(jq --arg aid "audit-id: ${IDENTITY}" '
+OPEN_MATCH="$(jq --arg aid "$IDENTITY" '
   [.items[]
    | select(.title | startswith("[codebase-audit:"))
-   | select((.description // "") | contains($aid))
-   | select(.status != "done")] | length' .scrum/backlog.json)"
-DONE_MATCH="$(jq --arg aid "audit-id: ${IDENTITY}" '
+   | select(.audit_identity == $aid)
+   | select(.status != "done" and .status != "cancelled")] | length' .scrum/backlog.json)"
+DONE_MATCH="$(jq --arg aid "$IDENTITY" '
   [.items[]
    | select(.title | startswith("[codebase-audit:"))
-   | select((.description // "") | contains($aid))
+   | select(.audit_identity == $aid)
    | select(.status == "done")] | length' .scrum/backlog.json)"
 
 if [ "$OPEN_MATCH" -gt 0 ]; then
   # already tracked by an open PBI from this or an earlier Sprint — do
   # NOT file a duplicate; record the existing id in the report instead.
-  EXISTING="$(jq -r --arg aid "audit-id: ${IDENTITY}" '
-    .items[] | select((.description // "") | contains($aid))
-    | select(.status != "done") | .id' .scrum/backlog.json | head -1)"
+  EXISTING="$(jq -r --arg aid "$IDENTITY" '
+    .items[]
+    | select(.title | startswith("[codebase-audit:"))
+    | select(.audit_identity == $aid)
+    | select(.status != "done" and .status != "cancelled") | .id' .scrum/backlog.json | head -1)"
   echo "dedup: ${IDENTITY} already tracked by ${EXISTING}"
 else
   REGRESS=""
   [ "$DONE_MATCH" -gt 0 ] && REGRESS="[REGRESSION] "   # closed then recurred
   .scrum/scripts/add-backlog-item.sh \
     --title "[codebase-audit:${SPRINT_ID}:${Fn}:${SEVERITY}] ${REGRESS}<summary>" \
-    --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). audit-id: ${IDENTITY}. Occurrences: <path:line — symbol, one per line, ALL of them>. Sweep: <the search establishing the list is complete>. See ${REPORT}." \
+    --audit-identity "${IDENTITY}" \
+    --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). Occurrences: <path:line — symbol, one per line, ALL of them>. Sweep: <the search establishing the list is complete>. See ${REPORT}." \
     --ac "<expected vs actual per the class, independently verifiable>" \
     --kind <code|docs>
 fi
@@ -351,6 +369,24 @@ fi
   the report.
 - **No match** → file a new PBI.
 
+`cancelled` counts as **not open**, matching the Step 1b block-check: a
+PBI the PO explicitly descoped must not suppress re-detection of its
+class forever, and it must still be able to come back as a
+`[REGRESSION]`.
+
+**The `DOCS` batch is the one exception to "open match → skip."** Its
+identity is fixed (`docs-drift::stale-references`), so an open batch
+matches every Sprint. Skipping would silently discard the new drift, so
+append to the existing PBI instead — read its current description, add
+the new occurrences, and write it back:
+
+```bash
+CUR="$(jq -r --arg id "$EXISTING" '.items[] | select(.id == $id) | .description // ""' .scrum/backlog.json)"
+.scrum/scripts/set-backlog-item-field.sh "$EXISTING" description \
+  "${CUR}
+Additional occurrences found in ${SPRINT_ID}: <path:line — symbol, one per line>. See ${REPORT}."
+```
+
 Each AC states expected vs actual and is independently verifiable —
 never a bare `grep` hit count. **A class PBI's AC closes the whole
 class, not one site**: it carries the full occurrence list plus a
@@ -358,10 +394,15 @@ re-runnable zero-check derived from the sweep ("the sweep pattern
 finds no remaining instance"), so fixing a subset of occurrences does
 not satisfy the AC. `--kind docs` only when every occurrence is
 confined to `**/*.md`; else `code` (the `DOCS` batch commonly mixes
-`*.md` drift with in-source docstrings — then it is `code`). The
-`audit-id: <identity>` line in the description is the dedup key — it
-MUST be present and stable; a `[REGRESSION]` on a class identity means
-the class recurred after being swept to zero.
+`*.md` drift with in-source docstrings — then it is `code`).
+
+`--audit-identity` is the dedup key and is **required** by the wrapper
+for a `[codebase-audit:*]` title (it fails `E_INVALID_ARG` without it).
+It lives in its own field rather than in the description because the
+description is not passed to the auditors and may be rewritten wholesale
+by refinement — both of which silently broke the key before. A
+`[REGRESSION]` on a class identity means the class recurred after being
+swept to zero.
 
 ### Step 6 — Close out per context
 
@@ -392,10 +433,12 @@ the class recurred after being swept to zero.
   removes.
 - **Documentation drift always batches** into the single per-audit
   `DOCS` PBI — individual doc-fix PBIs are never filed.
-- **Cross-Sprint dedup is content-based.** Match on the `identity` key
-  in the PBI description, not the per-Sprint prefix. An open match →
-  skip; a closed-then-recurred match → `[REGRESSION]` PBI. Never file a
-  duplicate for an already-open finding.
+- **Cross-Sprint dedup keys on `audit_identity`.** Match the finding's
+  identity exactly against the `audit_identity` field, not the
+  per-Sprint prefix and not a substring of the description. An open
+  match → skip; a closed-then-recurred match → `[REGRESSION]` PBI;
+  `cancelled` is not open. Never file a duplicate for an already-open
+  finding.
 - **Fact vs interpretation stay separated** in every finding.
 - **Spec-vs-spec conflicts check the PO decision log first.**
 - **Redundancy claims are grounded** — cite the static-analysis file

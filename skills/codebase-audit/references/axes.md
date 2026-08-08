@@ -58,10 +58,19 @@ persists the report. Use this schema per finding:
 - sweep: <the searches + reasoning establishing the occurrence list is
   complete — patterns tried, variants considered; "single-site by
   construction" only when the defect cannot recur elsewhere>
-- identity: <stable defect-CLASS key — a single-site defect uses
-  <path>::<symbol-or-anchor>; a multi-site class uses a stable class
-  slug like <rule-or-guard>::<pattern>. Never line numbers, which
-  drift between Sprints; the SM uses this for cross-Sprint dedup>
+- identity: <stable defect-CLASS key, in EXACTLY the normalized form
+  <defect-class>::<pattern> — two parts joined by "::", each part
+  lower-case kebab, singular nouns (e.g.
+  notify-order::send-before-write, dynamo-query::missing-pagination).
+  NEVER a file path, a symbol name, or a line number: all three change
+  under refactoring, so an identity built from them mints a NEW class
+  and the same defect is filed again next Sprint. Name the RULE the
+  code broke, not the place it broke.
+  REUSE, never re-mint: the PBI summary you were given carries an
+  `audit_identity` on every audit PBI already filed. If this class is
+  among them, emit that exact string byte-for-byte. Mint a new
+  identity only for a class with no entry there. The SM matches on
+  this field exactly, so one character of drift files a duplicate.>
 - fact: <what is literally observed in the code/spec — no inference>
 - interpretation: <why it is a defect; the failure it causes>
 - confidence: High | Medium | Low
