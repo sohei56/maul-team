@@ -617,8 +617,8 @@ EOF
     fi
 
     # NOTE: the in-flight status filter below (in_progress_* minus
-    # in_progress_merge) is mirrored in scripts/stall-watchdog.sh
-    # (in_flight_snapshot + snapshot_count/ids/summary) — a different
+    # in_progress_merge) is mirrored in scripts/scrum/lib/activity.sh
+    # (in_flight_snapshot) — a different
     # process family kept in sync by hand, not shared, per the
     # no-cross-source convention between scripts/ and hooks/lib/. Keep the
     # two filters in sync when changing either. Total and grouped summary
