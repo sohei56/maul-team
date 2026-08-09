@@ -24,7 +24,12 @@
 #
 # Two independent stall detectors:
 #   Global   — no activity anywhere (max of the signals above) for
-#              idle_threshold_minutes. Catches a fully dead team.
+#              idle_threshold_minutes. Catches a fully dead team. When
+#              neither signal has ever existed (both 0 — no dashboard.json
+#              and no .scrum/pbi/ tree at all), it still fires, because a
+#              team that never started is precisely what it backstops; the
+#              nudge then says "never observed" rather than claiming an
+#              elapsed time that was never measured.
 #   Per-PBI  — a single in-flight PBI whose own activity (its
 #              .scrum/pbi/<id>/ artifact tree, its worktree's last
 #              commit, and dirty/untracked worktree file mtimes) is
@@ -340,7 +345,18 @@ run_once() {
   if [ "$idle_seconds" -gt "$threshold_seconds" ]; then
     local summary
     summary="$(snapshot_summary "$snapshot")"
-    nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+    if [ "$last_activity" -eq 0 ]; then
+      # Both signals are the 0 sentinel: no dashboard.json AND no .scrum/pbi/
+      # tree (an existing-but-empty .scrum/pbi/ still yields the dir's own
+      # mtime, so this really means "never observed"). Keep nudging — the
+      # never-started team is exactly what this detector backstops, per
+      # stale_pbi_list — but do not report an elapsed time we never measured,
+      # and do not send the SM probing teammates that may never have been
+      # spawned.
+      nudge_msg="[STALL-WATCHDOG] no activity has EVER been observed (no .scrum/dashboard.json, no .scrum/pbi/ tree); in-flight: ${summary:-unknown}. The pipeline likely never started — verify each PBI's worktree and .scrum/pbi/<id>/ exist before probing teammates."
+    else
+      nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+    fi
   else
     local stale_pbis
     stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) "$snapshot" | tr '\n' ' ')"
