@@ -9,7 +9,9 @@ setup() {
   for s in sprint pbi-state backlog; do cp "$PROJECT_ROOT/docs/contracts/scrum-state/${s}.schema.json" docs/contracts/scrum-state/; done
   git init -q -b main
   git config user.email t@t; git config user.name t
-  git commit -q --allow-empty -m "init"
+  echo "echo obsolete" > base-main-only.sh
+  git add base-main-only.sh
+  git commit -q -m "init"
   SHA="$(git rev-parse HEAD)"
   cat > .scrum/sprint.json <<EOF
 {"id":"sprint-001","status":"active","started_at":"2026-05-04T10:00:00Z","base_sha":"$SHA","base_sha_captured_at":"2026-05-04T10:00:00Z"}
@@ -46,12 +48,40 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = "in_progress_merge" ]
 }
 
-@test "mark-ready-to-merge: refuses if no commits diverge from base" {
-  # Reset branch to base so diff is empty.
+@test "mark-ready-to-merge: refuses if no AMR paths differ from current-main merge-base" {
+  # Reset the PBI branch to its fork point so the three-dot diff is empty.
   WT=.scrum/worktrees/pbi-001
   git -C "$WT" reset --hard HEAD~1
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
   [ "$status" -ne 0 ]
+}
+
+@test "mark-ready-to-merge: excludes paths brought in by merging main" {
+  echo "from main" > main-only.txt
+  git add main-only.txt
+  git commit -q -m "main: add main-only path"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-main-into-pbi.sh" pbi-001
+
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -c '.paths_touched' .scrum/pbi/pbi-001/state.json
+  [ "$output" = '["src.txt"]' ]
+}
+
+@test "mark-ready-to-merge: excludes merged-main paths after main advances again" {
+  echo "from main v1" > main-only.txt
+  git add main-only.txt
+  git commit -q -m "main: add main-only path"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-main-into-pbi.sh" pbi-001
+
+  echo "from main v2" > main-only.txt
+  git add main-only.txt
+  git commit -q -m "main: advance merged path"
+
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -c '.paths_touched' .scrum/pbi/pbi-001/state.json
+  [ "$output" = '["src.txt"]' ]
 }
 
 # ---------------------------------------------------------------------------
@@ -78,6 +108,41 @@ _mark_kind_docs_pbi() {
   [ "$output" = "in_progress_merge" ]
   run jq -r '.paths_touched[0]' .scrum/pbi/pbi-001/state.json
   [ "$output" = "notes.md" ]
+}
+
+@test "mark-ready-to-merge: kind=docs ignores a non-.md path brought in from main" {
+  _mark_kind_docs_pbi
+  WT=.scrum/worktrees/pbi-001
+  git -C "$WT" reset --hard HEAD~1
+  echo "# title" > "$WT/notes.md"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/commit-pbi.sh" pbi-001 "docs only"
+
+  echo "echo from main" > main-only.sh
+  git add main-only.sh
+  git commit -q -m "main: add non-doc path"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-main-into-pbi.sh" pbi-001
+
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -c '.paths_touched' .scrum/pbi/pbi-001/state.json
+  [ "$output" = '["notes.md"]' ]
+}
+
+@test "mark-ready-to-merge: kind=docs ignores a non-.md deletion brought in from main" {
+  _mark_kind_docs_pbi
+  WT=.scrum/worktrees/pbi-001
+  git -C "$WT" reset --hard HEAD~1
+  echo "# title" > "$WT/notes.md"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/commit-pbi.sh" pbi-001 "docs only"
+
+  git rm -q base-main-only.sh
+  git commit -q -m "main: delete obsolete path"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-main-into-pbi.sh" pbi-001
+
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-ready-to-merge.sh" pbi-001
+  [ "$status" -eq 0 ]
+  run jq -c '.paths_touched' .scrum/pbi/pbi-001/state.json
+  [ "$output" = '["notes.md"]' ]
 }
 
 @test "mark-ready-to-merge: kind=docs + non-.md path -> escalated(kind_mismatch)" {
@@ -115,19 +180,18 @@ _mark_kind_docs_pbi() {
   [ "$output" = "in_progress_merge" ]
 }
 
-# Helper: rebuild the pbi-001 branch so that a .sh file exists at base and is
-# then DELETED (with a .md added so paths_touched/AMR is non-empty). Re-stamps
-# state.base_sha to the commit that holds the .sh file. Echoes nothing.
+# Helper: bring a file from main into the PBI branch, then delete it in a PBI
+# commit (with a .md added so paths_touched/AMR is non-empty). This makes the
+# deletion PBI-owned relative to the current-main merge-base. Echoes nothing.
 _docs_pbi_with_deletion() {
   local extra_file="$1"   # file to delete alongside the .md addition
   _mark_kind_docs_pbi
   local WT=.scrum/worktrees/pbi-001
-  git -C "$WT" reset --hard HEAD~1        # drop setup()'s src.txt commit → back to base
-  printf 'echo hi\n' > "$WT/$extra_file"
-  git -C "$WT" add "$extra_file"
-  git -C "$WT" commit -q -m "add $extra_file"
-  local newbase; newbase="$(git -C "$WT" rev-parse HEAD)"
-  jq --arg b "$newbase" '.base_sha = $b' .scrum/pbi/pbi-001/state.json > tmp.json && mv tmp.json .scrum/pbi/pbi-001/state.json
+  git -C "$WT" reset --hard HEAD~1        # drop setup()'s src.txt commit → back to fork point
+  printf 'echo hi\n' > "$extra_file"
+  git add "$extra_file"
+  git commit -q -m "main: add $extra_file"
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-main-into-pbi.sh" pbi-001
   git -C "$WT" rm -q "$extra_file"
   echo "# notes" > "$WT/notes.md"
   git -C "$WT" add notes.md

@@ -757,9 +757,10 @@ sequence is the writer's responsibility.
 - Backlog `status: in_progress_merge`: for a kind=code PBI the conductor
   advances here only after all four `*_status` fields read `"pass"` — a
   pipeline **convention checked by the conductor, not machine-enforced**.
-  `mark-pbi-ready-to-merge.sh` validates only that commits exist beyond
-  base and records `paths_touched` / `head_sha` / `ready_at`; it does not
-  inspect the `*_status` fields. A kind=docs PBI reaches this status with
+  `mark-pbi-ready-to-merge.sh` validates only that the PBI has AMR paths since
+  its merge-base with current `main` and records `paths_touched` / `head_sha` /
+  `ready_at`; it does not inspect the `*_status` fields. A kind=docs PBI
+  reaches this status with
   `design_status` and `coverage_status` = `"skipped"` and `ut_status` =
   `"pending"` instead.
 - Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing`, `regression` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`, `merge_regression`).

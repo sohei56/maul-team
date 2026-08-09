@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/scrum/mark-pbi-ready-to-merge.sh — Developer-side handoff wrapper.
-# Computes paths_touched (base..HEAD), atomically sets head_sha/ready_at/
-# paths_touched on pbi-state.json, then sets backlog status to in_progress_merge.
+# Computes PBI-owned paths_touched (merge-base(current main, HEAD)..HEAD),
+# atomically sets head_sha/ready_at/paths_touched on pbi-state.json, then sets
+# backlog status to in_progress_merge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/errors.sh
@@ -20,6 +21,7 @@ read_pbi_worktree_state "$PBI"
 STATE=".scrum/pbi/$PBI/state.json"
 
 HEAD="$(git -C "$PBI_WT" rev-parse HEAD)"
+MAIN_SHA="$(git rev-parse main)"
 PATHS=()
 # --diff-filter=AMR: include Added, Modified, Renamed paths only.
 # Excluding Deleted paths prevents `merge-pbi.sh` artifact_missing
@@ -28,9 +30,9 @@ PATHS=()
 # the `git ls-files --error-unmatch` artifact check post-merge).
 while IFS= read -r line; do
   PATHS+=("$line")
-done < <(git -C "$PBI_WT" diff --name-only --diff-filter=AMR "$PBI_BASE_SHA..HEAD")
+done < <(git -C "$PBI_WT" diff --name-only --diff-filter=AMR "$MAIN_SHA...HEAD")
 if [ "${#PATHS[@]}" -eq 0 ]; then
-  fail E_INVALID_ARG "no commits beyond base — refusing to mark ready_to_merge"
+  fail E_INVALID_ARG "no PBI AMR paths since current-main merge-base — refusing to mark ready_to_merge"
 fi
 
 # Deleted paths (--diff-filter=D) are collected SEPARATELY from PATHS. They are
@@ -41,7 +43,7 @@ fi
 DELETED=()
 while IFS= read -r line; do
   DELETED+=("$line")
-done < <(git -C "$PBI_WT" diff --name-only --diff-filter=D "$PBI_BASE_SHA..HEAD")
+done < <(git -C "$PBI_WT" diff --name-only --diff-filter=D "$MAIN_SHA...HEAD")
 
 # kind=docs PBIs are confined to *.md by design. A docs PBI that touches a
 # non-.md path means either the PBI was mis-classified at refinement, or
