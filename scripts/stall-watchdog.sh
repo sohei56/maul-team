@@ -17,9 +17,19 @@
 #   .scrum/dashboard.json mtime        — hook event activity
 #   .scrum/pbi/<id>/ recursive mtime   — pipeline artifact activity
 #
+# The signal implementations themselves (mtime_of, max_mtime_recursive,
+# pbi_activity_epoch, in_flight_snapshot) live in
+# scripts/scrum/lib/activity.sh, sourced in place below; this file owns only
+# the detection policy built on them (thresholds, cooldown, nudge text).
+#
 # Two independent stall detectors:
 #   Global   — no activity anywhere (max of the signals above) for
-#              idle_threshold_minutes. Catches a fully dead team.
+#              idle_threshold_minutes. Catches a fully dead team. When
+#              neither signal has ever existed (both 0 — no dashboard.json
+#              and no .scrum/pbi/ tree at all), it still fires, because a
+#              team that never started is precisely what it backstops; the
+#              nudge then says "never observed" rather than claiming an
+#              elapsed time that was never measured.
 #   Per-PBI  — a single in-flight PBI whose own activity (its
 #              .scrum/pbi/<id>/ artifact tree, its worktree's last
 #              commit, and dirty/untracked worktree file mtimes) is
@@ -70,6 +80,8 @@ STALL_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$STALL_SCRIPT_DIR/lib/jq-read.sh"
 # shellcheck source=lib/time.sh
 . "$STALL_SCRIPT_DIR/lib/time.sh"
+# shellcheck source=scrum/lib/activity.sh
+. "$STALL_SCRIPT_DIR/scrum/lib/activity.sh"
 
 # Back-compat: honor the legacy per-daemon override name by mapping it onto
 # the shared time.sh seam (explicit SCRUM_NOW_EPOCH wins when both are set).
@@ -151,46 +163,8 @@ log_msg() {
   printf '%s [%s] %s\n' "$(iso_utc_now)" "$level" "$msg" >> "$LOG_FILE" 2>/dev/null || true
 }
 
-# mtime_of <path> — emit epoch seconds for a file/dir mtime, portable across
-# macOS (BSD stat) and Linux (GNU stat). Emits 0 if the path does not exist.
-# GNU stat treats `-f %m` as "filesystem status of a file named %m" and can
-# emit multi-line garbage with a nonzero exit, so each candidate output is
-# validated as a pure integer before use.
-mtime_of() {
-  local p="$1" m
-  [ -e "$p" ] || { printf '0\n'; return 0; }
-  m="$(stat -f %m "$p" 2>/dev/null || true)"
-  case "$m" in
-    ''|*[!0-9]*) m="$(stat -c %Y "$p" 2>/dev/null || true)" ;;
-  esac
-  case "$m" in
-    ''|*[!0-9]*) printf '0\n' ;;
-    *) printf '%s\n' "$m" ;;
-  esac
-}
-
-# max_mtime_recursive <dir> — emit epoch of the newest mtime found anywhere
-# under <dir> (inclusive). Walks files and directories so a newly-created
-# subdir without files yet still counts as activity. Emits 0 on missing dir.
-max_mtime_recursive() {
-  local dir="$1"
-  [ -d "$dir" ] || { printf '0\n'; return 0; }
-  local max=0 m
-  # First the dir itself
-  m="$(mtime_of "$dir")"
-  [ "$m" -gt "$max" ] && max="$m"
-  # find -print0 not portable to bare Bash 3.2 read; the file names we walk
-  # are .scrum/pbi/* — controlled internal IDs without whitespace.
-  local p
-  while IFS= read -r p; do
-    [ -z "$p" ] && continue
-    m="$(mtime_of "$p")"
-    [ "$m" -gt "$max" ] && max="$m"
-  done <<EOF
-$(find "$dir" -mindepth 1 2>/dev/null)
-EOF
-  printf '%s\n' "$max"
-}
+# mtime_of / max_mtime_recursive / pbi_activity_epoch / in_flight_snapshot
+# come from scripts/scrum/lib/activity.sh (sourced above).
 
 # read_cfg_or <jq_path> <default>
 # Thin wrapper over the shared jq_cfg_or (scripts/lib/jq-read.sh), binding the
@@ -226,30 +200,9 @@ write_last_nudge_epoch() {
   printf '%s\n' "$1" > "$STATE_FILE"
 }
 
-# in_flight_snapshot — the ONE place the in-flight PBI filter lives in this
-# file. Reads backlog.json once and emits one TSV line "<id>\t<status>" per
-# PBI in in_progress_* (excluding in_progress_merge); the id field may be
-# empty. Count, ids, and the grouped status summary are all derived from this
-# single snapshot (snapshot_count / snapshot_ids / snapshot_summary) so the
-# filter and the backlog read are no longer duplicated three times.
-# Mirrors the `pbi_pipeline_active` in-flight filter in
-# hooks/completion-gate.sh — a DIFFERENT process family. Per the documented
-# no-cross-source convention between scripts/ and hooks/lib/ (see
-# scripts/scrum/lib/atomic.sh / queries.sh), the two are kept in sync by hand,
-# not shared; keep them in sync when changing the filter. Emits nothing on a
-# missing / unparseable backlog.
-in_flight_snapshot() {
-  if [ ! -f "$BACKLOG_FILE" ] || ! jq empty "$BACKLOG_FILE" >/dev/null 2>&1; then
-    return 0
-  fi
-  jq -r '
-    .items[]?
-      | select(.status | startswith("in_progress_"))
-      | select(.status != "in_progress_merge")
-      | [(.id // ""), .status]
-      | @tsv
-  ' "$BACKLOG_FILE" 2>/dev/null || true
-}
+# Count, ids, and the grouped status summary all derive from the single
+# in_flight_snapshot projection (activity.sh) so the filter and the backlog
+# read are not duplicated per consumer.
 
 # snapshot_count <snapshot> — number of in-flight PBIs (every snapshot line).
 snapshot_count() {
@@ -279,41 +232,6 @@ snapshot_summary() {
   ' 2>/dev/null || printf '\n'
 }
 
-# pbi_activity_epoch <pbi_id> — newest activity epoch attributable to ONE
-# PBI:
-#   - .scrum/pbi/<id>/ recursive mtime (state.json, pipeline.log, reviews,
-#     metrics — small, controlled tree)
-#   - the PBI worktree's last commit time (commit-pbi.sh commits)
-#   - dirty/untracked file mtimes from `git status --porcelain` in the
-#     worktree (live sub-agent edits between commits), capped at 200
-#     entries so a pathological worktree cannot stall the poll loop
-# Emits 0 when the PBI artifact dir does not exist yet (pipeline not
-# initialized) — callers must skip those rather than treat 0 as "stale
-# since epoch".
-pbi_activity_epoch() {
-  local id="$1"
-  local dir="$PBI_DIR/$id" wt="$SCRUM_DIR/worktrees/$id"
-  [ -d "$dir" ] || { printf '0\n'; return 0; }
-  local max m
-  max="$(max_mtime_recursive "$dir")"
-  if [ -d "$wt" ] && command -v git >/dev/null 2>&1; then
-    m="$(git -C "$wt" log -1 --format=%ct 2>/dev/null || true)"
-    case "$m" in ''|*[!0-9]*) m=0 ;; esac
-    [ "$m" -gt "$max" ] && max="$m"
-    # Porcelain lines are "XY path"; rename lines ("R  old -> new") yield a
-    # non-existent combined path, which mtime_of maps to 0 — harmless.
-    local p
-    while IFS= read -r p; do
-      [ -z "$p" ] && continue
-      m="$(mtime_of "$wt/$p")"
-      [ "$m" -gt "$max" ] && max="$m"
-    done <<EOF
-$(git -C "$wt" status --porcelain 2>/dev/null | head -n 200 | cut -c4-)
-EOF
-  fi
-  printf '%s\n' "$max"
-}
-
 # stale_pbi_list <now_epoch> <threshold_seconds> <snapshot> — emit "id(Nm)"
 # tokens, one per line, for every in-flight PBI whose per-PBI activity is
 # older than the threshold. PBIs without an artifact dir are skipped (the
@@ -323,7 +241,7 @@ stale_pbi_list() {
   local now="$1" threshold="$2" snapshot="$3" id act idle
   snapshot_ids "$snapshot" | while IFS= read -r id; do
     [ -z "$id" ] && continue
-    act="$(pbi_activity_epoch "$id")"
+    act="$(pbi_activity_epoch "$id" "$SCRUM_DIR")"
     [ "$act" -eq 0 ] && continue
     idle=$((now - act))
     if [ "$idle" -gt "$threshold" ]; then
@@ -397,7 +315,7 @@ run_once() {
   # In-flight snapshot (single backlog read) — count / ids / summary derive
   # from this one projection.
   local snapshot in_flight
-  snapshot="$(in_flight_snapshot)"
+  snapshot="$(in_flight_snapshot "$BACKLOG_FILE")"
   in_flight="$(snapshot_count "$snapshot")"
   if [ "${in_flight:-0}" -eq 0 ]; then
     log_msg INFO "no in-flight PBIs; nothing to monitor"
@@ -427,7 +345,18 @@ run_once() {
   if [ "$idle_seconds" -gt "$threshold_seconds" ]; then
     local summary
     summary="$(snapshot_summary "$snapshot")"
-    nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+    if [ "$last_activity" -eq 0 ]; then
+      # Both signals are the 0 sentinel: no dashboard.json AND no .scrum/pbi/
+      # tree (an existing-but-empty .scrum/pbi/ still yields the dir's own
+      # mtime, so this really means "never observed"). Keep nudging — the
+      # never-started team is exactly what this detector backstops, per
+      # stale_pbi_list — but do not report an elapsed time we never measured,
+      # and do not send the SM probing teammates that may never have been
+      # spawned.
+      nudge_msg="[STALL-WATCHDOG] no activity has EVER been observed (no .scrum/dashboard.json, no .scrum/pbi/ tree); in-flight: ${summary:-unknown}. The pipeline likely never started — verify each PBI's worktree and .scrum/pbi/<id>/ exist before probing teammates."
+    else
+      nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+    fi
   else
     local stale_pbis
     stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) "$snapshot" | tr '\n' ' ')"

@@ -757,9 +757,10 @@ sequence is the writer's responsibility.
 - Backlog `status: in_progress_merge`: for a kind=code PBI the conductor
   advances here only after all four `*_status` fields read `"pass"` — a
   pipeline **convention checked by the conductor, not machine-enforced**.
-  `mark-pbi-ready-to-merge.sh` validates only that commits exist beyond
-  base and records `paths_touched` / `head_sha` / `ready_at`; it does not
-  inspect the `*_status` fields. A kind=docs PBI reaches this status with
+  `mark-pbi-ready-to-merge.sh` validates only that the PBI has AMR paths since
+  its merge-base with current `main` and records `paths_touched` / `head_sha` /
+  `ready_at`; it does not inspect the `*_status` fields. A kind=docs PBI
+  reaches this status with
   `design_status` and `coverage_status` = `"skipped"` and `ut_status` =
   `"pending"` instead.
 - Backlog `status: escalated` requires `escalation_reason` to be non-null. When the cause is a merge failure, `merge_failure.kind` MUST also be set to one of `conflict`, `artifact_missing`, `regression` (corresponding `escalation_reason` values are `merge_conflict`, `merge_artifact_missing`, `merge_regression`).
@@ -803,6 +804,17 @@ sequence is the writer's responsibility.
 | `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to `idle_threshold_minutes`. |
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
+
+**Two thresholds, on purpose.** The Scrum Master's own in-session
+health check is the primary per-PBI stall detector and runs on a
+10-minute cadence (`.scrum/scripts/pbi-idle.sh
+--threshold-minutes 10`; see `agents/scrum-master.md` § Periodic
+pipeline health check). `stall_watchdog.pbi_idle_threshold_minutes`
+is the external backstop for when that SM session is itself
+unresponsive, so it is meant to fire *later* — it defaults to
+`idle_threshold_minutes` (15). The two are deliberately not
+unified: set below 10 and the daemon's tmux nudge pre-empts the
+SM's own probe, duplicating every probe it would have sent.
 
 `po_mode`, `po`, and `autonomous` are constrained by
 `docs/contracts/scrum-state/config.schema.json`. Other keys are

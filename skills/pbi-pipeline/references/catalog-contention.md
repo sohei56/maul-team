@@ -67,13 +67,41 @@ a Developer that dies mid-write leaves the `.lock.d` directory behind
 After releasing the lock, verify nothing else wrote in between:
 
 ```bash
+# Emit epoch seconds for <path>, or 0 when unknown (path missing, or
+# neither stat dialect returned a number). Do NOT chain the two dialects
+# with `||`: GNU stat (Linux) reads `-f` as --file-system and treats `%m`
+# as a file NAME, so it prints a multi-line filesystem block on stdout AND
+# exits non-zero. The `||` fallback then appends the epoch to that block —
+# and because the block carries a Free-block counter that changes on every
+# write, the comparison below mismatches almost always, turning Layer 3
+# into a generator of false conflicts and `catalog_lock_timeout` escalations.
+_spec_mtime() {
+  local p="$1" m
+  [ -e "$p" ] || { printf '0\n'; return 0; }
+  m="$(stat -f %m "$p" 2>/dev/null || true)"
+  case "$m" in
+    ''|*[!0-9]*) m="$(stat -c %Y "$p" 2>/dev/null || true)" ;;
+  esac
+  case "$m" in
+    ''|*[!0-9]*) printf '0\n' ;;
+    *) printf '%s\n' "$m" ;;
+  esac
+}
 verify_no_conflict() {
-  local spec_path="$1" mtime_before="$2"
-  local mtime_now
-  mtime_now="$(stat -f %m "$spec_path" 2>/dev/null || stat -c %Y "$spec_path")"
+  local spec_path="$1" mtime_before="$2" mtime_now
+  mtime_now="$(_spec_mtime "$spec_path")"
+  # An unknown mtime on either side cannot prove "nobody wrote"; report a
+  # conflict rather than passing silently. Discarding one change and
+  # retrying is recoverable, clobbering another PBI's spec edit is not.
+  { [ "$mtime_before" -gt 0 ] && [ "$mtime_now" -gt 0 ]; } || return 1
   [ "$mtime_now" = "$mtime_before" ]
 }
 ```
+
+Capture `mtime_before` with `_spec_mtime` too — take it right after your
+own write, while you still hold the lock. A hand-rolled `stat` at the
+capture site reintroduces exactly the mismatch this function exists to
+prevent, and both sides must agree on the 0-means-unknown convention.
 
 If conflict detected: discard the change, log event, retry once. On
 second conflict: escalate `catalog_lock_timeout`.
