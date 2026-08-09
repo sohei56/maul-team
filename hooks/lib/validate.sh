@@ -204,12 +204,42 @@ JSON_LOCK_TIMEOUT_SEC="${JSON_LOCK_TIMEOUT_SEC:-2}"
 JSON_LOCK_POLL_SEC="${JSON_LOCK_POLL_SEC:-0.05}"
 JSON_LOCK_STALE_SEC="${JSON_LOCK_STALE_SEC:-30}"
 
+# _json_mtime_of <path> — epoch seconds of <path>'s mtime, or 0 when unknown
+# (path missing, or neither stat dialect produced a number).
+#
+# Each candidate is validated as a pure integer rather than the two stat
+# forms being chained with `||`, because that naive chain is FATAL on Linux:
+# GNU stat reads `-f` as --file-system and treats the format as a file NAME,
+# so it prints a multi-line filesystem block on stdout *and* exits non-zero.
+# The fallback then appends the GNU epoch to that block, and the caller's
+# `$((now - mtime))` resolves the block's leading `File` as a variable —
+# aborting the whole hook process under `set -u`. macOS never showed it
+# because BSD stat succeeds on the first try. (Do not restore the chain to
+# shorten this: tests/lint/mirror-helpers.bats greps all three trees for it.)
+#
+# MIRROR of scripts/scrum/lib/activity.sh::mtime_of (canonical). Duplicated
+# rather than sourced because hooks/lib/ must stay standalone (see the NOTE
+# above). KEEP IN SYNC — pinned by tests/lint/mirror-helpers.bats.
+_json_mtime_of() {
+  local p="$1" m
+  [ -e "$p" ] || { printf '0\n'; return 0; }
+  m="$(stat -f %m "$p" 2>/dev/null || true)"
+  case "$m" in
+    ''|*[!0-9]*) m="$(stat -c %Y "$p" 2>/dev/null || true)" ;;
+  esac
+  case "$m" in
+    ''|*[!0-9]*) printf '0\n' ;;
+    *) printf '%s\n' "$m" ;;
+  esac
+}
+
 _json_lock_is_stale() {
   local lock_dir="$1" now mtime
   now="$(date +%s 2>/dev/null)" || return 1
-  # stat is BSD on macOS, GNU on Linux — try both, give up quietly otherwise.
-  mtime="$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null)" || return 1
-  [ -n "$mtime" ] || return 1
+  mtime="$(_json_mtime_of "$lock_dir")"
+  # 0 = mtime unknown → NOT stale. Fail-safe direction: leaving a live lock
+  # alone costs one acquisition timeout, breaking one corrupts the file.
+  [ "$mtime" -gt 0 ] || return 1
   [ "$((now - mtime))" -ge "$JSON_LOCK_STALE_SEC" ]
 }
 
