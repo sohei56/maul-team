@@ -804,6 +804,17 @@ sequence is the writer's responsibility.
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
+**Two thresholds, on purpose.** The Scrum Master's own in-session
+health check is the primary per-PBI stall detector and runs on a
+10-minute cadence (`.scrum/scripts/pbi-idle.sh
+--threshold-minutes 10`; see `agents/scrum-master.md` § Periodic
+pipeline health check). `stall_watchdog.pbi_idle_threshold_minutes`
+is the external backstop for when that SM session is itself
+unresponsive, so it is meant to fire *later* — it defaults to
+`idle_threshold_minutes` (15). The two are deliberately not
+unified: set below 10 and the daemon's tmux nudge pre-empts the
+SM's own probe, duplicating every probe it would have sent.
+
 `po_mode`, `po`, and `autonomous` are constrained by
 `docs/contracts/scrum-state/config.schema.json`. Other keys are
 tolerated via the schema's top-level `additionalProperties: true`

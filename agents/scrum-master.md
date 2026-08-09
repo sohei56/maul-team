@@ -453,11 +453,17 @@ Once no `in_progress_*` item remains (all merged or terminal),
 **On firing** (and on any stall nudge), deterministically:
 
 a. List `in_progress_*` PBIs from `.scrum/backlog.json`.
-b. Per PBI, last activity = the newest of: deepest mtime under
-   `.scrum/pbi/<id>/`, the `pipeline.log` tail, and the PBI
-   worktree.
-c. Any PBI quiet ≥ 10 minutes → `SendMessage` probe to its owning
-   Developer — always, immediately, unconditionally.
+b. Measure quiet time with
+   `.scrum/scripts/pbi-idle.sh --threshold-minutes 10` — never
+   hand-rolled `stat` / `date` arithmetic. One tab-separated row
+   per in-flight PBI (`id status last_activity_epoch idle_seconds
+   idle_minutes verdict`); activity is the newest of the whole
+   `.scrum/pbi/<id>/` tree (`pipeline.log` and reviews included),
+   the worktree's last commit, and its dirty files.
+c. Probe every `stale` row — `SendMessage` to its owning Developer,
+   always, immediately, unconditionally. An `uninitialized` row
+   carries `-` for both idle fields (no activity ever observed):
+   skip it here, and never report it as fresh.
 d. Re-spawn (per `../skills/spawn-teammates/SKILL.md` § Re-Spawn
    Recovery) only after BOTH: no probe reply within ~120s AND
    termination confirmed — `TaskGet` for teammates spawned this
@@ -486,6 +492,11 @@ trigger: end the turn on it and nothing ever revisits it. A probe
 is harmless to a genuinely working teammate, and a dormant one
 wakes on the probe itself (observed twice in multi-hour
 target-project stalls).
+
+Also forbidden: improvising the quiet-time arithmetic. An empty
+variable in `$((NOW - X))` yields NOW-NOW=0, reports a dead PBI as
+0m quiet, and suppresses its probe forever — only `pbi-idle.sh`
+measures.
 
 ## Recovery Wrappers
 
