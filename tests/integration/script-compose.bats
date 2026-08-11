@@ -288,6 +288,7 @@ PY
   # Runtime-doc subset mirrors the source subtree under .claude/docs/.
   [ -f ".claude/docs/data-model.md" ]
   [ -f ".claude/docs/autonomous-mode.md" ]
+  [ -f ".claude/docs/artifact-policy.md" ]
   [ -f ".claude/docs/contracts/agent-interfaces.md" ]
   [ -f ".claude/docs/contracts/sub-agents.md" ]
 
@@ -296,6 +297,8 @@ PY
   run grep -q '^# maul-team deploy manifest v[0-9]' ".claude/.maul-manifest"
   assert_success
   run grep -Fxq ".claude/docs/data-model.md" ".claude/.maul-manifest"
+  assert_success
+  run grep -Fxq ".claude/docs/artifact-policy.md" ".claude/.maul-manifest"
   assert_success
   run grep -Fxq ".claude/docs/contracts/agent-interfaces.md" ".claude/.maul-manifest"
   assert_success

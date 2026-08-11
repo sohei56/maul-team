@@ -798,23 +798,21 @@ sequence is the writer's responsibility.
 | `autonomous.permission_mode` | enum (`"dontAsk"` \| `"bypassPermissions"`) | Passed to `claude -p --permission-mode` (default `"dontAsk"`). |
 | `autonomous.notify_command` | string \| `null` | Shell command run on watchdog exit with `WATCHDOG_EXIT` in env. Failures are swallowed. |
 | `autonomous.fallback_model` | string \| `null` | Passed to `claude -p --fallback-model` when non-null. |
-| `stall_watchdog` | object \| absent | Settings for the external teammate-stall monitor `scripts/stall-watchdog.sh` (non-autonomous mode only). |
+| `stall_watchdog` | object \| absent | PBI activity-monitor settings. Human tmux mode uses the external `scripts/stall-watchdog.sh`; autonomous mode consumes its per-PBI threshold inside the existing outer watchdog. |
 | `stall_watchdog.enabled` | boolean | When `false`, the daemon exits without nudging. Default `true`. |
-| `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Idle window (no `.scrum/dashboard.json` mtime AND no `.scrum/pbi/*/` mtime change) after which a nudge is sent. Default 15. |
-| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to `idle_threshold_minutes`. |
+| `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Legacy-compatible threshold and fallback for `pbi_idle_threshold_minutes`. Default 10. |
+| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI activity threshold used by `pbi-idle.sh` over artifact trees, worktree commits, and dirty worktree files. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to `idle_threshold_minutes` (10). |
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
-**Two thresholds, on purpose.** The Scrum Master's own in-session
-health check is the primary per-PBI stall detector and runs on a
-10-minute cadence (`.scrum/scripts/pbi-idle.sh
---threshold-minutes 10`; see `agents/scrum-master.md` § Periodic
-pipeline health check). `stall_watchdog.pbi_idle_threshold_minutes`
-is the external backstop for when that SM session is itself
-unresponsive, so it is meant to fire *later* — it defaults to
-`idle_threshold_minutes` (15). The two are deliberately not
-unified: set below 10 and the daemon's tmux nudge pre-empts the
-SM's own probe, duplicating every probe it would have sent.
+The activity contract uses a 10-minute default in both human and autonomous
+modes. A normal timer poll is read-only and sends no tmux input or LLM prompt.
+In human mode, only an anomalous stale/unknown result is handed to the existing
+interactive SM through its tmux pane. In autonomous mode, the outer watchdog
+adds the anomaly to the next already-scheduled SM iteration; it never starts a
+separate cron/timer LLM check. A missing or malformed backlog is `unknown`, not
+evidence that there are no in-flight PBIs, and requests one bounded read-only
+`scrum-explorer` investigation.
 
 `po_mode`, `po`, and `autonomous` are constrained by
 `docs/contracts/scrum-state/config.schema.json`. Other keys are

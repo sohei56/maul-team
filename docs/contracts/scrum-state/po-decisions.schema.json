@@ -36,6 +36,7 @@
               "spec_clarification",
               "change_request",
               "demo_acceptance",
+              "sprint_acceptance",
               "uat_item",
               "defect_triage",
               "release_decision",
@@ -51,7 +52,7 @@
             "type": "string"
           },
           "decision": {
-            "description": "The decision itself, in free-form text (e.g. 'go', 'no-go', 'split into pbi-007 / pbi-008').",
+            "description": "The decision itself. The wrapper constrains sprint_acceptance to the canonical approve/reject tokens; other kinds use their protocol-specific verdicts.",
             "type": "string"
           },
           "rationale": {
@@ -59,9 +60,12 @@
             "type": "string"
           },
           "evidence": {
-            "description": "Paths to files / artifacts that ground the decision (test reports, demo logs, design docs). Required (non-empty) for demo_acceptance / uat_item / release_decision kinds — enforced by the wrapper.",
+            "description": "Paths to files / artifacts that ground the decision (test reports, demo logs, design docs). Required (non-empty) for demo_acceptance / sprint_acceptance / uat_item / release_decision kinds — enforced by the wrapper.",
             "type": "array",
-            "items": {"type": "string"}
+            "items": {
+              "type": "string",
+              "pattern": "\\S"
+            }
           },
           "assumption": {
             "description": "True iff the decision was made under best-effort with unverified assumptions (clarification budget exhausted etc.). Used to flag risky decisions for human review.",

@@ -13,6 +13,101 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_FILE=".scrum/state.json"
 SPRINT_FILE=".scrum/sprint.json"
 BACKLOG_FILE=".scrum/backlog.json"
+COMMUNICATIONS_FILE=".scrum/communications.json"
+PBI_DIR=".scrum/pbi"
+
+# Return the deterministic next orchestration action. Merge handoffs take
+# precedence over ordinary pipeline work; a recorded retryable failure routes
+# back to a Developer, while the established three-strike ceiling routes to
+# escalation. Review and Sprint Review deliberately remain distinct phases.
+next_processing_step() {
+  local escalated retryable preflight merge_ready id classification state_file
+  if [ "$backlog_valid" != "true" ]; then
+    printf 'SM requests a bounded Scrum Explorer backlog preflight; backlog.json is missing or malformed, so do not continue or merge.'
+    return
+  fi
+
+  escalated="$(jq -r '[.items[]? | select(.status == "escalated") | .id] | sort | first // empty' "$BACKLOG_FILE" 2>/dev/null || true)"
+  if [ -n "$escalated" ]; then
+    printf 'SM handles escalation for %s.' "$escalated"
+    return
+  fi
+
+  retryable=""
+  preflight=""
+  merge_ready=""
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    state_file="$PBI_DIR/$id/state.json"
+    classification="$(jq -er --arg id "$id" '
+      if type != "object" or .pbi_id != $id then "preflight"
+      elif (.merge_failure_count | type) != "number"
+        or .merge_failure_count < 0
+        or (.merge_failure_count | floor) != .merge_failure_count then "preflight"
+      elif .merge_failure_count >= 3 then "escalate"
+      elif .merge_failure_count >= 1 and .merge_failure_count <= 2 then
+        if has("merge_failure") and (.merge_failure | type) == "object"
+        then "retry" else "preflight" end
+      elif .merge_failure_count == 0 then
+        if has("merge_failure") then "preflight"
+        elif (.head_sha | type) == "string"
+          and (.head_sha | test("^[0-9a-f]{7,40}$"))
+          and has("ready_at") and (.ready_at | type) == "string"
+          and (.ready_at | length) > 0
+          and (.paths_touched | type) == "array"
+        then "ready" else "preflight" end
+      else "preflight"
+      end
+    ' "$state_file" 2>/dev/null || printf 'preflight')"
+    if [ "$classification" = "escalate" ]; then
+      printf 'SM escalates %s after the merge retry limit was reached.' "$id"
+      return
+    elif [ "$classification" = "retry" ]; then
+      [ -n "$retryable" ] || retryable="$id"
+    elif [ "$classification" = "ready" ]; then
+      [ -n "$merge_ready" ] || merge_ready="$id"
+    else
+      [ -n "$preflight" ] || preflight="$id"
+    fi
+  done <<EOF
+$(jq -r '[.items[]? | select(.status == "in_progress_merge") | .id] | sort[]' "$BACKLOG_FILE" 2>/dev/null || true)
+EOF
+  if [ -n "$retryable" ]; then
+    printf 'SM respawns a Developer for %s to repair the retryable merge failure.' "$retryable"
+  elif [ -n "$preflight" ]; then
+    printf 'SM runs a bounded Scrum Explorer merge preflight for %s; state is absent or inconsistent, so do not merge.' "$preflight"
+  elif [ -n "$merge_ready" ]; then
+    printf 'SM merges %s.' "$merge_ready"
+  else
+    case "$phase" in
+      pbi_pipeline_active) printf 'SM continues the active PBI pipeline and waits for its next artifact.' ;;
+      review) printf 'SM completes Sprint-end review, then advances to sprint_review.' ;;
+      sprint_review) printf 'SM runs the Sprint Review and obtains the separate PO Sprint acceptance verdict.' ;;
+      retrospective) printf 'SM runs the Retrospective.' ;;
+      integration_sprint) printf 'SM runs Sprint integration tests.' ;;
+      uat_release) printf 'SM runs UAT and release processing.' ;;
+      complete) printf 'No processing remains; the Scrum workflow is complete.' ;;
+      *) printf 'SM continues the workflow for phase %s.' "$phase" ;;
+    esac
+  fi
+}
+
+open_po_decisions() {
+  if [ ! -f "$COMMUNICATIONS_FILE" ]; then
+    printf 'none recorded'
+    return
+  fi
+  jq -r '
+    reduce (.messages[]? | select(.content | test("PO_DECISION_REQUEST|PO_DECISION"))) as $m
+      ({};
+       ($m.content | capture("^\\[(?<scope>[^]]+)\\]").scope? // "unknown") as $scope
+       | ($m.content | capture("(?:^|[[:space:]])kind=(?<kind>[^][,[:space:]]+)").kind? // "unknown") as $kind
+       | ($scope + "/" + $kind) as $key
+       | if ($m.content | contains("PO_DECISION_REQUEST")) then .[$key] = true
+         elif ($m.content | contains("PO_DECISION")) then del(.[$key]) else . end)
+    | keys | sort | if length == 0 then "none" else join(", ") end
+  ' "$COMMUNICATIONS_FILE" 2>/dev/null || printf 'unknown'
+}
 
 # Read the hook payload from stdin to learn which event fired. Claude Code
 # honours context returned under hookSpecificOutput.additionalContext only when
@@ -42,8 +137,8 @@ esac
 #   1. No human PO is present — never wait for human input; spawn the
 #      product-owner teammate if not already running.
 #   2. In-process Teammates do NOT survive session restarts (Agent-tool
-#      sub-agents are bound to the parent session). Backlog scan tells SM
-#      whether re-spawn is needed.
+#      sub-agents are bound to the parent session). The resume summary tells
+#      SM whether Developer restoration or merge handling is needed.
 #   3. Iteration N of M is a quick budget reminder.
 autonomous_prologue() {
   if ! autonomy_enabled; then
@@ -58,18 +153,22 @@ autonomous_prologue() {
   else
     iter_line=" Autonomous run iteration ${iter}."
   fi
-  printf '%s' "AUTONOMOUS PO MODE: No human is present. The product-owner teammate is the PO — spawn it first if not running (see scrum-master.md § Autonomous PO Mode). Never wait for human input. In-process teammates do NOT survive session restarts. If backlog.json has in_progress_* PBIs, re-spawn Developers per the Teammate Liveness Protocol; re-spawn the product-owner teammate as well.${iter_line}"
+  printf '%s' "AUTONOMOUS PO MODE: No human is present. The product-owner teammate is the PO — spawn it first if not running (see scrum-master.md, Product Owner and user interaction). Never wait for human input. In-process teammates do NOT survive session restarts. Apply the documented liveness checks and restore Developers only for the resume summary's Active PBIs; never generically re-spawn one for a Merge-waiting in_progress_merge PBI. Re-spawn the product-owner teammate as well.${iter_line}"
 }
 
 # Build context based on available state
 if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   phase="$(jq -r '.phase // "unknown"' "$STATE_FILE")"
   sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
+  backlog_valid="false"
+  if [ -f "$BACKLOG_FILE" ] && jq -e 'type == "object" and (.items | type == "array")' "$BACKLOG_FILE" >/dev/null 2>&1; then
+    backlog_valid="true"
+  fi
   # product_goal SSOT is backlog.json (set by init-backlog.sh
   # --product-goal); state.json's copy is vestigial and always null in
   # wrapper-governed projects.
-  product_goal="Not yet defined"
-  if [ -f "$BACKLOG_FILE" ]; then
+  product_goal="unknown"
+  if [ "$backlog_valid" = "true" ]; then
     product_goal="$(jq -r '.product_goal // "Not yet defined"' "$BACKLOG_FILE" 2>/dev/null || true)"
     [ -n "$product_goal" ] || product_goal="Not yet defined"
   fi
@@ -84,10 +183,21 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
     sprint_status="$(jq -r '.status // "unknown"' "$SPRINT_FILE")"
   fi
 
-  # Build resume context
-  context="Resuming project. Product Goal: ${product_goal}. Current phase: ${phase}."
+  # Build one compact resume summary. Every field is present so a resumed SM
+  # does not need a second discovery turn merely because a collection is empty.
+  active_pbis="unknown"
+  merge_waiting="unknown"
+  escalations="unknown"
+  if [ "$backlog_valid" = "true" ]; then
+    active_pbis="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | select(.status != "in_progress_merge") | "\(.id)(\(.status))"] | sort | if length == 0 then "none" else join(", ") end' "$BACKLOG_FILE" 2>/dev/null || echo unknown)"
+    merge_waiting="$(jq -r '[.items[]? | select(.status == "in_progress_merge") | .id] | sort | if length == 0 then "none" else join(", ") end' "$BACKLOG_FILE" 2>/dev/null || echo unknown)"
+    escalations="$(jq -r '[.items[]? | select(.status == "escalated") | .id] | sort | if length == 0 then "none" else join(", ") end' "$BACKLOG_FILE" 2>/dev/null || echo unknown)"
+  fi
+  po_open="$(open_po_decisions)"
+  next_step="$(next_processing_step)"
+  context="Resume summary. Phase: ${phase}. Product Goal: ${product_goal}. Sprint Goal: ${sprint_goal}. Active PBIs: ${active_pbis}. Merge-waiting: ${merge_waiting}. Escalations: ${escalations}. Open PO decisions: ${po_open}. Next processing step: ${next_step}"
   if [ "$sprint_id" != "none" ] && [ "$sprint_id" != "null" ]; then
-    context="${context} Active Sprint: ${sprint_id} (${sprint_type}, ${sprint_status}). Sprint Goal: ${sprint_goal}."
+    context="${context} Active Sprint: ${sprint_id} (${sprint_type}, ${sprint_status})."
   fi
 
   # PBI Pipeline awareness: derive active pipelines from backlog.json (the
@@ -101,8 +211,8 @@ if validate_json_file "$STATE_FILE" "phase" 2>/dev/null; then
   # Reporting a merge-queued PBI here as an active pipeline is the exact
   # signal that triggers Developer re-spawn (see § Teammate Liveness
   # Protocol), i.e. duplicate work on an already-complete PBI.
-  if [ "$phase" = "pbi_pipeline_active" ] && [ -f "$BACKLOG_FILE" ]; then
-    active_pipelines="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | select(.status != "in_progress_merge") | .id] | join(", ")' "$BACKLOG_FILE" 2>/dev/null)"
+  if [ "$phase" = "pbi_pipeline_active" ] && [ "$backlog_valid" = "true" ]; then
+    active_pipelines="$(jq -r '[.items[]? | select(.status | startswith("in_progress_")) | select(.status != "in_progress_merge") | .id] | sort | join(", ")' "$BACKLOG_FILE" 2>/dev/null)"
     if [ -n "$active_pipelines" ]; then
       context="${context} Active PBI pipelines: ${active_pipelines}."
     fi

@@ -29,8 +29,8 @@
   },
   "stall_watchdog": {
     "enabled": true,
-    "idle_threshold_minutes": 15,
-    "pbi_idle_threshold_minutes": 15,
+    "idle_threshold_minutes": 10,
+    "pbi_idle_threshold_minutes": 10,
     "cooldown_minutes": 15,
     "poll_interval_seconds": 60
   },

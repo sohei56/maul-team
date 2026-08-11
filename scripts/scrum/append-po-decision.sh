@@ -20,9 +20,12 @@
 #
 # Mechanical guards (must hold before any write):
 #   (a) --kind must be in the enum (matches schema)
-#   (b) For kind ∈ {demo_acceptance, uat_item, release_decision},
-#       --evidence must be supplied at least once. Approving without
-#       evidence is a process violation.
+#   (b) For kind ∈ {demo_acceptance, sprint_acceptance, uat_item,
+#       release_decision},
+#       at least one non-blank --evidence path must be supplied. Approving
+#       without evidence is a process violation.
+#   (b2) A sprint_acceptance is Sprint-scoped and its decision is exactly
+#       approve or reject. Per-PBI pass/fail/waive remains demo_acceptance.
 #   (c) For kind=release_decision with decision=go, .scrum/test-results.json
 #       must exist AND .overall_status ∈ {passed, passed_with_skips}.
 #       A release_decision=no_go can be recorded freely.
@@ -62,6 +65,8 @@ EVIDENCE_JSON="[]"
 
 # Append one string to EVIDENCE_JSON using jq so quoting is correct.
 _append_evidence() {
+  jq -eRn --arg value "$1" '$value | test("\\S")' >/dev/null ||
+    fail E_INVALID_ARG "--evidence must contain a non-whitespace path"
   EVIDENCE_JSON="$(jq -c --arg p "$1" '. + [$p]' <<<"$EVIDENCE_JSON")"
 }
 
@@ -86,7 +91,7 @@ done
 [ -n "$RATIONALE" ] || fail E_INVALID_ARG "--rationale required"
 
 case "$KIND" in
-  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change|sprint_continuation|quality_gate_config) ;;
+  sprint_goal_approval|pbi_split|escalation_choice|spec_clarification|change_request|demo_acceptance|sprint_acceptance|uat_item|defect_triage|release_decision|git_dirty|backlog_approval|scope_change|sprint_continuation|quality_gate_config) ;;
   *) fail E_INVALID_ARG "bad --kind: $KIND" ;;
 esac
 
@@ -96,6 +101,18 @@ fi
 
 if [ -n "$PBI" ] && [ "$PBI" != "null" ]; then
   assert_pbi_id "$PBI" --pbi
+fi
+
+# Guard (b2): the aggregate Sprint verdict deliberately uses the protocol's
+# canonical approval tokens. `accept` is not a second spelling of `approve`,
+# and a Sprint acceptance without a Sprint id cannot satisfy the Stop gate.
+if [ "$KIND" = "sprint_acceptance" ]; then
+  [ -n "$SPRINT" ] && [ "$SPRINT" != "null" ] ||
+    fail E_INVALID_ARG "sprint_acceptance requires --sprint"
+  case "$DECISION" in
+    approve|reject) ;;
+    *) fail E_INVALID_ARG "sprint_acceptance --decision must be approve or reject" ;;
+  esac
 fi
 
 PATHF=".scrum/po/decisions.json"
@@ -114,11 +131,12 @@ if [ -n "$AUDIT_SEVERITY" ]; then
     "bad --audit-severity: $AUDIT_SEVERITY (allowed: $(printf '%s' "$SEV_ENUM" | tr '\n' ' '))"
 fi
 
-# Guard (b): evidence required for approval-kinds. Empty array literal "[]" is
-# the only "no evidence" representation here.
+# Guard (b): evidence required for approval-kinds. `_append_evidence` has
+# already rejected empty/whitespace-only values, so a positive count means
+# that at least one usable path was supplied.
 EVIDENCE_COUNT="$(jq 'length' <<<"$EVIDENCE_JSON")"
 case "$KIND" in
-  demo_acceptance|uat_item|release_decision)
+  demo_acceptance|sprint_acceptance|uat_item|release_decision)
     if [ "$EVIDENCE_COUNT" -eq 0 ]; then
       fail E_INVALID_ARG "evidence required for --kind=$KIND (no evidence = no approval)"
     fi

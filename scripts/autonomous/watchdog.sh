@@ -26,6 +26,7 @@
 #
 # Test hooks (env vars; harmless in production):
 #   AUTON_CLAUDE_BIN     — claude binary (default `claude`)
+#   AUTON_PBI_IDLE_BIN   — pbi-idle reporter (default sibling scrum script)
 #   AUTON_SLEEP_SCALE    — multiplier on every sleep duration (default 1; 0
 #                          disables sleeping entirely — useful for tests)
 #   SCRUM_NOW_EPOCH      — pins now_epoch for the "now" comparison points
@@ -57,6 +58,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # --- Configurable test hooks --------------------------------------------------
 AUTON_CLAUDE_BIN="${AUTON_CLAUDE_BIN:-claude}"
+AUTON_PBI_IDLE_BIN="${AUTON_PBI_IDLE_BIN:-$SCRIPT_DIR/../scrum/pbi-idle.sh}"
 AUTON_SLEEP_SCALE="${AUTON_SLEEP_SCALE:-1}"
 
 # --- Files -------------------------------------------------------------------
@@ -74,6 +76,7 @@ DEFAULT_MAX_WALL_HOURS=8
 DEFAULT_MAX_SPRINTS=8
 DEFAULT_MAX_CONSECUTIVE_FAILURES=3
 DEFAULT_PERMISSION_MODE="dontAsk"
+DEFAULT_PBI_IDLE_THRESHOLD_MIN=10
 
 # Rate-limit handling: when a session ends because Claude returned a
 # rate-limit / usage-limit / overload error, watchdog sleeps until the
@@ -303,9 +306,9 @@ EOF
 # announces the autonomous context; the per-phase tail nudges the SM toward
 # the right ceremony / handler.
 build_prompt() {
-  local phase="$1"
+  local phase="$1" liveness_handoff="${2:-}"
   local preamble tail
-  preamble='AUTONOMOUS PO MODE: no human is present. po_mode=agent — every PO decision must be delegated to the product-owner teammate (Liveness Protocol). Read .scrum/state.json, .scrum/autonomy.json, .scrum/backlog.json, and .scrum/sprint.json before deciding. Operate as Scrum Master in Delegate mode. The Stop hook will release you when the workflow phase advances or a checkpoint is reached; do not stop early.'
+  preamble='AUTONOMOUS PO MODE: no human is present. po_mode=agent — every PO decision must be delegated to the product-owner teammate (Liveness Protocol). Resume from the SessionStart summary; do not reread the full Scrum state, backlog, Sprint, or implementation files at startup. If evidence needed for the next decision is absent, delegate one targeted read-only investigation to scrum-explorer. Operate as Scrum Master in Delegate mode. The Stop hook will release you when the workflow phase advances or a checkpoint is reached; do not stop early.'
 
   case "$phase" in
     ""|new|unknown)
@@ -321,7 +324,7 @@ build_prompt() {
       tail='Finalise Sprint Planning. Spawn the developer teammates and transition to `pbi_pipeline_active`.'
       ;;
     pbi_pipeline_active)
-      tail='PBI pipeline active. The previous session has exited and any in-process teammates have been destroyed — for every PBI in `in_progress_*`, re-spawn the responsible developer via Liveness Protocol (and, if po_mode=agent, re-spawn the product-owner teammate as well). Resume the PBI conductor loop until all PBIs are merged.'
+      tail='PBI pipeline active. The previous session has exited and any in-process teammates have been destroyed. Re-spawn the responsible Developer only for statuses that require Developer execution (`in_progress_design`, `in_progress_impl`, `in_progress_pbi_review`, or `in_progress_ut_run`). For `in_progress_merge`, do not re-spawn a Developer: the Scrum Master must perform the pending merge handoff. Re-spawn the product-owner teammate only when a PO decision is needed. Resume the conductor loop until all PBIs are merged.'
       ;;
     review|sprint_review)
       tail='Run Sprint Review with the product-owner teammate, then drive Retrospective. After retrospective is recorded, transition either to `sprint_planning` (next Sprint) or, when the Product Goal is satisfied, to `integration_sprint`.'
@@ -344,6 +347,29 @@ build_prompt() {
   esac
 
   printf '%s\n\n%s\n' "$preamble" "$tail"
+  if [ -n "$liveness_handoff" ]; then
+    printf '\n%s\n' "$liveness_handoff"
+  fi
+}
+
+# autonomous_liveness_handoff — emits an anomaly-only instruction to append
+# to the already scheduled outer-loop session. A healthy poll emits nothing
+# and never launches or types into an additional LLM session.
+autonomous_liveness_handoff() {
+  local phase="$1" threshold report rc stale unknown
+  [ "$phase" = "pbi_pipeline_active" ] || return 0
+  threshold="$(jq_cfg_uint_or "$CONFIG_FILE" '.stall_watchdog.pbi_idle_threshold_minutes' "$DEFAULT_PBI_IDLE_THRESHOLD_MIN")"
+  rc=0
+  report="$(SCRUM_NOW_EPOCH="$(now_epoch)" "$AUTON_PBI_IDLE_BIN" --threshold-minutes "$threshold" 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    printf '%s' "PBI liveness is unknown because the backlog/activity reporter exited ${rc}. Delegate one bounded read-only investigation to scrum-explorer to inspect backlog validity and per-PBI activity evidence; do not infer that there are no in-flight PBIs and do not respawn a Developer from the timer result alone."
+    return 0
+  fi
+  stale="$(printf '%s\n' "$report" | awk -F '\t' '!/^#/ && $6 == "stale" {print $1}' | paste -sd ' ' -)"
+  unknown="$(printf '%s\n' "$report" | awk -F '\t' '!/^#/ && $6 == "uninitialized" {print $1}' | paste -sd ' ' -)"
+  if [ -n "$stale" ] || [ -n "$unknown" ]; then
+    printf '%s' "PBI liveness anomaly: stale=${stale:-none}; unknown/uninitialized=${unknown:-none}. Delegate one bounded read-only investigation to scrum-explorer for the named PBIs and use its evidence before any teammate respawn."
+  fi
 }
 
 # _jq_safe is provided by lib/report.sh, sourced unconditionally near the
@@ -516,7 +542,8 @@ while :; do
   fi
 
   # ----- 4. Build prompt + launch -----
-  PROMPT="$(build_prompt "$PHASE")"
+  LIVENESS_HANDOFF="$(autonomous_liveness_handoff "$PHASE")"
+  PROMPT="$(build_prompt "$PHASE" "$LIVENESS_HANDOFF")"
   ITER_STDOUT="${ITER_OUT_DIR}/iter-${ITER}.json"
   ITER_STDERR="${ITER_OUT_DIR}/iter-${ITER}.err"
   ITER_START_EPOCH="$NOW_EPOCH"

@@ -72,14 +72,18 @@
       }
     },
     "stall_watchdog": {
-      "description": "Settings for the external teammate-stall monitor scripts/stall-watchdog.sh (non-autonomous mode only).",
+      "description": "PBI activity-monitor settings. The external tmux handoff daemon uses them in human mode; the autonomous outer watchdog consumes the per-PBI threshold without launching a second monitor or LLM check.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "enabled": {"type": "boolean"},
-        "idle_threshold_minutes": {"type": "integer", "minimum": 1},
+        "idle_threshold_minutes": {
+          "description": "Legacy-compatible idle threshold and default for pbi_idle_threshold_minutes. The monitor's default is 10 minutes.",
+          "type": "integer",
+          "minimum": 1
+        },
         "pbi_idle_threshold_minutes": {
-          "description": "Per-PBI stall detector: nudge when a single in-flight PBI's own activity (artifact tree, worktree commits, dirty worktree files) is older than this, even while global activity stays fresh. Defaults to idle_threshold_minutes.",
+          "description": "Per-PBI activity threshold used by the read-only pbi-idle reporter. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to idle_threshold_minutes (10 minutes by default).",
           "type": "integer",
           "minimum": 1
         },

@@ -38,6 +38,7 @@ HISTORY_FILE=".scrum/sprint-history.json"
 IMPROVEMENTS_FILE=".scrum/improvements.json"
 TEST_RESULTS_FILE=".scrum/test-results.json"
 DASHBOARD_FILE=".scrum/dashboard.json"
+PO_DECISIONS_FILE=".scrum/po/decisions.json"
 
 # ---------------------------------------------------------------------------
 # stdin payload — read once, never block.
@@ -459,7 +460,10 @@ EOF
     ;;
 
   sprint_review)
-    # sprint-history.json must have entry for current sprint
+    # Sprint Review has two independent completion records: the mechanical
+    # Sprint summary and the PO's evidence-grounded Sprint acceptance verdict.
+    # A per-PBI demo verdict is not a substitute for the aggregate Sprint
+    # verdict, and a recommendation is never treated as acceptance.
     if [ "$current_sprint_id" = "none" ] || [ "$current_sprint_id" = "null" ]; then
       block_stop \
         "Sprint review phase: no current Sprint ID in state.json." \
@@ -480,6 +484,27 @@ EOF
       block_stop \
         "Sprint review phase: no entry found for Sprint '${current_sprint_id}' in sprint-history.json. Record the Sprint summary before stopping." \
         "sprint_history_missing" \
+        "$current_sprint_id"
+    fi
+
+    has_po_acceptance="0"
+    if [ -f "$PO_DECISIONS_FILE" ]; then
+      has_po_acceptance="$(jq -r --arg sid "$current_sprint_id" '
+        ([.decisions[]?
+          | select(.sprint_id == $sid and .kind == "sprint_acceptance")]
+          | last) as $latest
+        | if $latest == null then 0
+          elif (($latest.decision == "approve" or $latest.decision == "reject")
+            and any(($latest.evidence // [])[]?;
+              type == "string" and test("\\S"))) then 1
+          else 0
+          end
+      ' "$PO_DECISIONS_FILE" 2>/dev/null || echo 0)"
+    fi
+    if [ "${has_po_acceptance:-0}" -eq 0 ]; then
+      block_stop \
+        "Sprint review phase: Sprint '${current_sprint_id}' has no valid evidence-grounded PO verdict. Record kind=sprint_acceptance, decision=approve or reject, and at least one non-empty evidence path before stopping." \
+        "po_acceptance_missing" \
         "$current_sprint_id"
     fi
 

@@ -183,7 +183,7 @@ copy_tree "$PROJECT_ROOT/rules" "*.md" "$TARGET_DIR/.claude/rules" false ".claud
 echo "Copying runtime-doc subset to $TARGET_DIR/.claude/docs/..."
 mkdir -p "$TARGET_DIR/.claude/docs/contracts"
 # top-level docs → .claude/docs/<name>
-for doc in data-model.md autonomous-mode.md; do
+for doc in data-model.md autonomous-mode.md artifact-policy.md; do
   if [ -f "$PROJECT_ROOT/docs/$doc" ]; then
     cp "$PROJECT_ROOT/docs/$doc" "$TARGET_DIR/.claude/docs/$doc"
     manifest_add ".claude/docs/$doc"

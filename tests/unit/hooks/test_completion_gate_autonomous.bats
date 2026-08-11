@@ -30,7 +30,9 @@ setup() {
   FIXTURES="$PROJECT_ROOT/tests/fixtures"
   TEST_TMP="$(mktemp -d /tmp/claude/completion-gate-autonomous.XXXXXX 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/completion-gate-autonomous.XXXXXX")"
   cd "$TEST_TMP" || exit 1
-  mkdir -p .scrum
+  mkdir -p .scrum docs/contracts/scrum-state
+  cp "$PROJECT_ROOT/docs/contracts/scrum-state/po-decisions.schema.json" docs/contracts/scrum-state/
+  PO_WRAPPER="$PROJECT_ROOT/scripts/scrum/append-po-decision.sh"
 }
 
 teardown() {
@@ -177,9 +179,90 @@ stdin_session() {
   write_state_phase sprint_review sprint-001
   # sprint-history entry exists -> existing exit criteria passes
   jq -n '{sprints: [{id: "sprint-001", goal: "g"}]}' > .scrum/sprint-history.json
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind sprint_acceptance --decision approve --sprint sprint-001 \
+    --rationale "evidence supports acceptance" --evidence .scrum/po/report.md
   run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK"
   [ "$status" -eq 2 ]
   [[ "$output" == *"retrospective"* ]]
+}
+
+@test "human mode: sprint_review requires separate evidence-grounded PO acceptance" {
+  write_config_human
+  write_state_phase sprint_review sprint-001
+  jq -n '{sprints: [{id: "sprint-001", goal: "g"}]}' > .scrum/sprint-history.json
+
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"sprint_acceptance"* ]]
+
+  # A persisted per-PBI demo result is not the aggregate Sprint verdict.
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind demo_acceptance --decision pass --sprint sprint-001 --pbi pbi-001 \
+    --rationale "demo passed" --evidence .scrum/po/acceptance/sprint-001/pbi-001.md
+  rm -f .scrum/stop-gate.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"sprint_acceptance"* ]]
+
+  # The real wrapper rejects blank evidence before it can create a record.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind sprint_acceptance --decision approve --sprint sprint-001 \
+    --rationale "verified" --evidence "   "
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"non-whitespace path"* ]]
+
+  # An evidence-grounded rejection is a terminal ruling and opens the
+  # verdict-presence gate. Remediation and release remain separate contracts.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind sprint_acceptance --decision reject --sprint sprint-001 \
+    --rationale "demo evidence shows a gap" \
+    --evidence .scrum/po/acceptance/sprint-001/pbi-001.md
+  [ "$status" -eq 0 ]
+  rm -f .scrum/stop-gate.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+
+  # A wrapper-persisted canonical approval with evidence opens the gate.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind sprint_acceptance --decision approve --sprint sprint-001 \
+    --rationale "verified against per-PBI report" \
+    --evidence .scrum/po/acceptance/sprint-001/pbi-001.md
+  [ "$status" -eq 0 ]
+  rm -f .scrum/stop-gate.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+
+  # Append-only decisions supersede earlier rulings: the latest grounded
+  # rejection controls and remains a terminal verdict.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PO_WRAPPER" \
+    --kind sprint_acceptance --decision reject --sprint sprint-001 \
+    --rationale "new evidence invalidated approval" \
+    --evidence .scrum/po/acceptance/sprint-001/regression.md
+  [ "$status" -eq 0 ]
+  rm -f .scrum/stop-gate.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 0 ]
+}
+
+@test "human mode: blank or invalid latest sprint verdict does not open presence gate" {
+  write_config_human
+  write_state_phase sprint_review sprint-001
+  mkdir -p .scrum/po
+  jq -n '{sprints: [{id: "sprint-001", goal: "g"}]}' > .scrum/sprint-history.json
+
+  # Direct malformed state is possible after manual corruption or a partial
+  # migration; the hook must fail closed even though the wrapper rejects it.
+  jq -n '{decisions: [{sprint_id: "sprint-001", kind: "sprint_acceptance", decision: "accept", evidence: [".scrum/po/report.md"]}]}' > .scrum/po/decisions.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"valid evidence-grounded PO verdict"* ]]
+
+  rm -f .scrum/stop-gate.json
+  jq -n '{decisions: [{sprint_id: "sprint-001", kind: "sprint_acceptance", decision: "reject", evidence: ["   "]}]}' > .scrum/po/decisions.json
+  run bash -c "printf '%s' '$(stdin_session sess-x)' | $HOOK 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"valid evidence-grounded PO verdict"* ]]
 }
 
 # ------------------------------------------------------------------

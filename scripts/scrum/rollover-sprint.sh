@@ -74,6 +74,11 @@ if [ -n "$PBIS_COMPLETED" ]; then HIST_ARGS+=(--pbis-completed "$PBIS_COMPLETED"
 
 "$HERE/append-sprint-history.sh" "${HIST_ARGS[@]}" >/dev/null
 
+# Refresh the compact, derived index while sprint.json is still intact. If
+# generation fails, leave the active Sprint pointer and sprint.json untouched
+# so retrying rollover is safe; fixed-path readers continue to use history.
+"$HERE/generate-sprint-index.sh" >/dev/null
+
 # 2. Clear state.current_sprint_id BEFORE removing sprint.json. state.json's
 #    field is defined as "ID of the active Sprint, null if none"; leaving it
 #    naming the just-archived Sprint is the drift init-sprint.sh guards against
@@ -91,6 +96,6 @@ fi
 #    archive above is the durable record; sprint.json is ephemeral runtime.
 rm -f "$SPRINT"
 
-printf '[rollover-sprint] archived %s to sprint-history.json, nulled state.current_sprint_id, and cleared sprint.json\n' \
+printf '[rollover-sprint] archived %s, refreshed sprint-index.md, nulled state.current_sprint_id, and cleared sprint.json\n' \
   "$SPRINT_ID" >&2
 printf '%s\n' "$SPRINT_ID"
