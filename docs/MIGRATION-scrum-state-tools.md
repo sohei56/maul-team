@@ -21,6 +21,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | **Removed** (OD-1, 2026-07): the message-append wrapper that used to live here had zero runtime invokers — no skill, agent, or hook ever called it — and was retired. `.scrum/communications.json` is written directly by `hooks/dashboard-event.sh` (hook process, outside the agent tool surface); there is no agent-callable wrapper. |
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | **Removed**: `.scrum/dashboard.json` is hook-only telemetry written by `hooks/dashboard-event.sh` via `hooks/lib/dashboard.sh::append_dashboard_event`. No agent-callable wrapper. Agents instead emit dashboard signals indirectly via the tools they use (PostToolUse / SendMessage / SubagentStop). |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
+| Integrity FAIL: conductor independently counts findings, then calls the state, backlog, and log wrappers one by one | `.scrum/scripts/resolve-integrity-fail.sh "$PBI"` (the only permitted Integrity-FAIL caller of those low-level writers; validates the current and selected latest-prior aggregate, derives classification, selects the outcome, and owns the reason-first state transition + log; accepts kind=code from `in_progress_ut_run`, kind=docs from `in_progress_pbi_review`) |
 | `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
 | `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `demo_plan`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`, `audit_identity`) |
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the recurring `current_sprint_id` lag bug surfaced by target-project retrospectives) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
@@ -92,6 +93,15 @@ PBIs. Direct
 `update-pbi-state.sh ... impl_round <N>` is still accepted (for
 migration tooling and tests) but is forbidden during the live
 pipeline.
+
+Integrity-stage FAIL resolution follows the same high-level-wrapper
+rule: the conductor MUST call `resolve-integrity-fail.sh <pbi-id>` and
+MUST NOT reproduce its `jq` classification or issue the underlying
+state setters directly. Existing in-flight `integrity-rN.json`
+artifacts remain compatible when they carry the documented spawned
+aspect list and valid signatures. A filename/payload Round mismatch or
+incomplete aspect list now fails closed; regenerate that Round's
+aggregate from the retained reviewer results before retrying.
 
 ## What enforces this
 
