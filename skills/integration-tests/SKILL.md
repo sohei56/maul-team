@@ -73,10 +73,9 @@ start gate of its own.
    (No-op when already there on re-entry.)
 
    **Codebase-audit pre-flight re-check (mandatory, thin).** The
-   whole-repo `codebase-audit` (4 axes) IS the Sprint-end `cross-review`
-   ceremony (context (a)) and runs every Sprint, so by now the codebase
-   has already been audited and the findings the PO approved filed as
-   PBIs. This step is a cheap **re-check**, not a fresh full audit: run
+   whole-repo `codebase-audit` (4 axes) runs inside the Sprint-end
+   `cross-review` ceremony (context (a)) every third Sprint (`N % 3 ==
+   0`). This mandatory preflight is cadence-independent: run
    the `codebase-audit` skill
    with `context=integration_entry`. It verifies (i) the latest audit
    report is fresh — `.scrum/reviews/codebase-audit-s{N}.md` exists for
@@ -84,11 +83,16 @@ start gate of its own.
    `sprint.json.id`) — and (ii) no open `[codebase-audit:*]` PBI with a
    blocking (non-`low`) `audit_severity` remains in `backlog.json`
    (`done` = fixed and `cancelled` = PO-descoped; neither counts as
-   open). Both hold → proceed to Step 2. Report stale/missing → it runs
+   open). Both hold → proceed to Step 2. Report stale/missing (including
+   a final non-due Sprint with no scheduled report) → it runs
    a fresh audit now; any unresolved blocking PBI → it sets the phase to
    `backlog_created` and **stops here** (the Integration Sprint resumes
    after the defect-fix loop). This closes the hole where an audit PBI
-   was filed but never fixed before integration.
+   was filed but never fixed before integration. If that fresh audit
+   finds documentation drift, the DOCS batch is also routed to
+   `backlog_created` and completed through the normal fix loop before
+   Step 2, regardless of severity; on re-entry the current/final Sprint
+   report is checked again.
 
 2. **Spawn the testing Developer teammate(s)** via the
    `spawn-teammates` skill (1–2 for testing). The Developer(s) run

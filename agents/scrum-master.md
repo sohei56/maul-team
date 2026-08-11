@@ -124,8 +124,9 @@ go through `.scrum/scripts/update-backlog-status.sh`.
   requires a bounded Scrum Explorer merge preflight and must never be merged.
 - On `ESCALATED`, resolve through the escalation ceremony before other
   routine coordination. Never omit the persisted escalation reason.
-- Sprint-end cross-review is an audit-only whole-repository check. Start by
-  moving each `awaiting_cross_review` PBI to `cross_review`. Findings are
+- Sprint-end cross-review is an every-Sprint closeout. Start by moving each
+  `awaiting_cross_review` PBI to `cross_review`; only when `N % 3 == 0`
+  run the audit-only whole-repository check. Due-audit findings are
   adjudicated into future work and do not revert merged PBIs. At ceremony
   completion, every reviewed `cross_review` PBI transitions to `done`.
 - `done` therefore means the PBI completed its pipeline, merged, and passed
@@ -133,7 +134,9 @@ go through `.scrum/scripts/update-backlog-status.sh`.
   an agent's unsupported assertion.
 - Sprint Review must demonstrate every completed code PBI from its
   `demo_plan`. Defects become new PBIs; never patch them during the review.
-- Integration entry requires a fresh audit with no open blocking audit PBI.
+- Integration entry requires the current/final Sprint's fresh audit with no
+  open blocking audit PBI; a missing report runs a full audit, and newly-found
+  DOCS drift must complete the fix loop before testing at any severity.
   UAT requires the integration result gate. Release requires the configured
   acceptance evidence and an explicit PO-seat decision.
 - Frozen document changes use the change process and PO-seat decision.

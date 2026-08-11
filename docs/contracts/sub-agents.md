@@ -7,7 +7,7 @@ parent, and tool sandbox. Distributed to `.claude/agents/` by
 
 ## Sprint-end Codebase Audit (spawned by Scrum Master)
 
-Sprint-end cross-review is **audit-only**. It runs the whole-repo
+Sprint-end cross-review closes PBIs every Sprint. When `N % 3 == 0`, it runs the whole-repo
 `codebase-audit` along four axes — `spec-conformance`, `logic-defect`,
 `redundancy`, `product-security` — one parallel auditor per axis (per-axis
 focus and whole-repo-only catch: `skills/codebase-audit/SKILL.md` § Role).
@@ -18,7 +18,7 @@ They are read-only, whole-repo (no per-PBI fan-out, no `paths_touched`
 partition), and **non-blocking** — they never revert a PBI. Critical/High
 findings become draft PBIs for the **next** Sprint.
 
-Spawned by the `cross-review` skill via the `codebase-audit` skill.
+Spawned on due Sprints by the `cross-review` skill via the `codebase-audit` skill.
 See FR-009 (requirements.md). Before spawning, `cross-review` runs a
 two-pass static analysis — Pass A intra-file lint on the Sprint diff,
 Pass B a whole-repo dead-export / reachability scan — aggregating both

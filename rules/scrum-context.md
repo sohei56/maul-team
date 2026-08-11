@@ -57,8 +57,8 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
        requirement-conformance / functional-quality / security
        / maintainability / docs-consistency  reviewers
 
-   Sprint-end (SM-owned, AUDIT-ONLY, non-blocking, parallel via Agent tool):
-     codebase-audit 4 axes: spec-conformance / logic-defect
+   Sprint-end (SM-owned): every-Sprint closeout; only N % 3 == 0 runs
+     non-blocking codebase-audit 4 axes: spec-conformance / logic-defect
      / redundancy / product-security
 ```
 
@@ -235,7 +235,7 @@ Rules that apply uniformly to both modes:
   **Audit-finding `defect_triage` verdicts are logged in both modes** —
   in `po_mode=human` the SM records the human's verdict on their
   behalf, because a suppression that is not in the log silently
-  re-surfaces every Sprint. Canonical procedure:
+  re-surfaces at the next audit. Canonical procedure:
   `skills/codebase-audit/SKILL.md` Step 4a.
 
 Canonical sources: the `po_mode` schema is in
@@ -244,6 +244,21 @@ shapes and `kind` enum are normative in
 `../agents/product-owner.md` § Communication protocol; the wrapper
 contract is in `scripts/scrum/append-po-decision.sh` (deployed as
 `.scrum/scripts/append-po-decision.sh`).
+
+## Audit cadence invariant
+
+`cross-review` is an every-Sprint ceremony and always performs
+`awaiting_cross_review → cross_review → done`. Its high-cost static
+analysis, four whole-repo axes, PO audit triage, and DOCS Step 7b run
+only when the decimal Sprint number satisfies `N % 3 == 0`; non-due
+Sprints create no dummy audit report. This cadence is unrelated to
+`improvements.json.last_consolidation_sprint`.
+
+Integration-test entry is the deliberate exception to cadence: its
+mandatory thin preflight requires the current/final Sprint report,
+falls through to a full audit when missing, reuses it when fresh, and
+blocks on open non-Low audit PBIs. Documentation drift found by that
+fresh audit enters the normal fix loop before tests at any severity.
 
 ## When you don't know
 

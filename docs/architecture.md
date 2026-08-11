@@ -408,9 +408,10 @@ Developers reviewing each other's code.
 - **Sub-agent catalog**: full list, roles, and tool sandbox in
   `docs/contracts/sub-agents.md`.
 - Distributed via `setup-user.sh` to `.claude/agents/`.
-- Cross-review flow (Sprint-end, audit-only): Scrum Master invokes the
-  `cross-review` skill, which runs a static analysis pass and then the
-  whole-repo 4-axis `codebase-audit` (non-blocking; regulation in
+- Cross-review flow (Sprint-end): Scrum Master invokes the
+  `cross-review` skill every Sprint for closeout. When `N % 3 == 0`, it
+  runs a static analysis pass and then the whole-repo 4-axis
+  `codebase-audit` (non-blocking; regulation in
   `skills/codebase-audit/SKILL.md`).
 - Per-PBI Integrity stage: the 5 aspect reviewers (catalog:
   `docs/contracts/sub-agents.md`) run **per-PBI**, spawned by the

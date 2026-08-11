@@ -65,7 +65,7 @@ responsibilities (what it owns).
 | FR-006 | Assign implementers (one per PBI). Per-PBI aspect review runs inside the pipeline (Developer-conducted Integrity stage); Sprint-end audit is owned by SM via cross-review (FR-009) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` as an audit-only, non-blocking ceremony (regulation: `skills/codebase-audit/SKILL.md`). |
+| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the always-on 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` closeout every Sprint and its non-blocking whole-repo audit when `N % 3 == 0` (regulation: `skills/codebase-audit/SKILL.md`). |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -124,8 +124,8 @@ named SKILL.md for the exact required state and files/keys written.
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
 | `pbi-merge` | SM-side per-PBI merge into main (rollback / strike rule: see Skills Mapping above) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
 | `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
-| `cross-review` | Sprint-end audit-only ceremony (runs `codebase-audit`; regulation: `skills/codebase-audit/SKILL.md`) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
-| `codebase-audit` | Whole-repo 4-axis audit (embedded in cross-review; thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
+| `cross-review` | Every-Sprint closeout ceremony (runs `codebase-audit` every third Sprint; regulation: `skills/codebase-audit/SKILL.md`) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `codebase-audit` | Whole-repo 4-axis audit (every third cross-review; mandatory thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
 | `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
 | `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
 | `integration-tests` | Design-driven systematic integration testing (boundary values, flow/pattern-branch coverage, external-interface stubs) | `skills/integration-tests/SKILL.md` § Inputs/Outputs |
@@ -284,8 +284,9 @@ Full sub-agent catalog (roles, spawning parents, tool sandboxes) in
 `security-reviewer`, `maintainability-reviewer`,
 `docs-consistency-reviewer`) are spawned **per-PBI by the Developer** at
 the pipeline's Integrity stage (not Sprint-end). Sprint-end cross-review
-runs the whole-repo `codebase-audit` axes as general-purpose `Agent`
-spawns by the SM (not named catalog agents); audit-only regulation:
+runs the whole-repo `codebase-audit` axes every third Sprint as
+general-purpose `Agent` spawns by the SM (not named catalog agents);
+non-blocking audit regulation:
 `skills/codebase-audit/SKILL.md`. PBI Pipeline uses
 `pbi-{designer, implementer, ut-author}` workers and `codex-{design,
 impl, ut}-reviewer` critics per Round.

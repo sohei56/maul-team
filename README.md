@@ -121,7 +121,7 @@ In short: **shape the requirements → plan a Sprint → develop and review PBIs
    - **Isolated & parallel** — every Developer works in its own git worktree (`.scrum/worktrees/<pbi-id>/`, branch `pbi/<pbi-id>`), so PBIs proceed in parallel without stepping on each other
    - **Cross-model review** — each Round (design → implementation + black-box UT) is reviewed by **Codex** when available (Claude-based fallback), with deterministic termination gates
    - **Merge is gated, not granted** — a PBI reaches the SM's merge only after its black-box UT passes with real C0/C1 coverage and a 5-aspect Integrity review (requirement-conformance, functional-quality, security, maintainability, docs-consistency) clears its diff
-6. **Cross-Review** — once all PBIs are merged, the SM runs an audit-only cross-review: a whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). It is non-blocking — Critical/High findings become draft PBIs for the next Sprint
+6. **Cross-Review** — once all PBIs are merged, the SM closes every Sprint's PBIs; every third Sprint (`N % 3 == 0`) it also runs a non-blocking whole-repo 4-axis `codebase-audit` (spec-conformance, logic-defect, redundancy, product-security). Critical/High findings become draft PBIs for the next Sprint
 7. **Sprint Review** — the SM launches the app and demos each completed PBI in turn; you confirm each works
 8. **Retrospective** — the team reflects and records improvements for future Sprints
 9. **Repeat** from step 3 until the Product Goal is achieved; then advance to the two closing phases:
@@ -149,7 +149,7 @@ This is the default **human-in-the-loop** mode: the team runs delivery, and you 
 **Loop engineering** means designing a system in which agents repeatedly plan, act, verify, and improve instead of relying on isolated prompts. Maul Team implements it at three levels: **Development pipeline**, **Sprint**, and **autonomous execution**.
 
 - **Development pipeline loop (innermost — build & verify).** Per PBI, in its own git worktree: Rounds of design → implementation + black-box unit tests → Codex cross-model review, until deterministic termination gates pass (success / stagnation / divergence / hard cap) — and the merge stays locked until tests and review clear. Details: [What a Sprint looks like](#what-a-sprint-looks-like).
-- **Sprint loop (middle — drift detection & self-improvement).** Every Sprint ends with a whole-repo, 4-axis `codebase-audit` that detects drift between the merged code and the requirements/design; its Critical/High findings are filed as draft PBIs for the next Sprint, and the Retrospective feeds process improvements forward the same way. The product and the process both hill-climb. *(LangChain's hill-climbing loop.)*
+- **Sprint loop (middle — drift detection & self-improvement).** Every Sprint ends with a lightweight cross-review closeout; every third Sprint adds a whole-repo, 4-axis `codebase-audit` that detects drift between merged code and requirements/design. Its Critical/High findings are filed as draft PBIs for the next Sprint, and the Retrospective feeds process improvements forward independently. The product and the process both hill-climb. *(LangChain's hill-climbing loop.)*
 - **Autonomous execution loop (outermost — event-driven, unattended).** Specify the end state once in a co-authored product brief and even the PO seat becomes an agent (`po_mode=agent`): the agent Product Owner and the Scrum Master keep running Scrum toward that end state while an outer [Ralph-Loop](https://ghuntley.com/ralph/) watchdog re-launches headless sessions iteration after iteration, enforces safety valves (iterations / wall-clock / Sprints / failure budgets), sleeps through API rate limits and resumes, and writes you a morning report. *(LangChain's event-driven loop.)*
 
 The main risk is **cognitive surrender**: accepting whatever an autonomous loop produces. Maul Team counters it with enforced state and branch rules, deterministic gates, measured coverage, and escalation of unclear requirements.
@@ -176,7 +176,7 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
 **Extensions leveraging AI strengths:**
 
 - **Dynamic team sizing** — the number of Developer agents is optimized per Sprint based on PBI count and complexity
-- **Two-tier independent review** — the Increment is inspected at two altitudes: each PBI's diff before merge (the 5-aspect Integrity gate), then a Sprint-end whole-repo codebase audit over the merged Increment, complemented by optional per-PBI Codex cross-model review with a Claude-based fallback. See [What a Sprint looks like](#what-a-sprint-looks-like) for the full aspect and axis catalog
+- **Two-tier independent review** — the Increment is inspected at two altitudes: each PBI's diff before merge (the always-on 5-aspect Integrity gate), then every third Sprint a whole-repo codebase audit over the merged Increment, complemented by optional per-PBI Codex cross-model review with a Claude-based fallback. See [What a Sprint looks like](#what-a-sprint-looks-like) for the full aspect and axis catalog
 
 **Constraints addressing AI weaknesses:**
 
@@ -216,9 +216,9 @@ This is not a carbon copy of human Scrum — it adapts the framework to how AI a
  │                         pass (--no-ff + regression gate;    │
  │                         3-strike escalation)                │
  │          ▼                                                  │
- │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
- │                         (audit-only, non-blocking;          │
- │                         findings → next-Sprint draft PBIs)  │
+ │  7. Cross-Review      Every-Sprint lightweight closeout;    │
+ │                         N % 3 == 0: whole-repo 4-axis audit │
+ │                         (non-blocking; findings → draft PBIs)│
  │          ▼                                                  │
  │  8. Sprint Review     Demo to PO, accept/reject PBIs        │
  │          ▼                                                  │

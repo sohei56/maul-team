@@ -45,19 +45,24 @@ Valid phases:
 - `sprint_planning` — Sprint Planning in progress (refining PBIs, assigning teammates)
 - `pbi_pipeline_active` — Developers driving per-PBI `pbi-pipeline` skill (replaces former `design` + `implementation` phases). Each Developer's PBI internal state lives at `.scrum/pbi/<pbi-id>/state.json` (see `PbiPipelineState` below).
 - `review` — Sprint-end cross-review phase (`cross-review` skill).
-  A PBI pipeline may legitimately run here: the ceremony files the
-  audit's documentation batch into the current Sprint and drives it to
-  merge (`skills/cross-review/SKILL.md` Step 7b), so `in_progress_*`
-  reappears after the ceremony's entry check.
+  On due Sprints (`N % 3 == 0`) a PBI pipeline may legitimately run
+  here: the ceremony files the scheduled audit's documentation batch
+  into the current Sprint and drives it to merge
+  (`skills/cross-review/SKILL.md` Step 7b), so `in_progress_*`
+  reappears after the ceremony's entry check. Non-due Sprints perform
+  lightweight closeout without an audit artifact.
 - `sprint_review` — Sprint Review with user
 - `retrospective` — Sprint Retrospective
 - `integration_sprint` — Integration Tests in progress. Opens with a
-  thin `codebase-audit` re-check (the whole-repo audit itself runs
-  every Sprint inside `cross-review`, non-blocking; this re-check just
-  verifies the latest audit report is fresh and no open
+  mandatory thin `codebase-audit` re-check (the scheduled whole-repo
+  audit runs every third Sprint inside `cross-review`, non-blocking;
+  this preflight verifies the current/final Sprint's report is fresh
+  and no open
   `[codebase-audit:*]` PBI carries a blocking (non-`low`)
-  `audit_severity` — unresolved → route back to
-  `backlog_created`), then design-driven systematic testing (boundary
+  `audit_severity` — missing report falls through to a full audit and
+  unresolved findings route back to `backlog_created`). Documentation
+  drift found by that fresh audit also routes through the fix loop at
+  any severity before testing, then design-driven systematic testing (boundary
   values, flow-branch and pattern-branch coverage, external-interface
   stubs) via the `integration-tests` skill. On passing tests the Scrum
   Master advances to `uat_release`; on failures it returns to
@@ -147,9 +152,10 @@ ASCII transition graph:
         ↓ SM picks up, runs merge-pbi.sh
         ↓ merge PASS
 [SM]  awaiting_cross_review        (merged into main, queued until Sprint end)
-        ↓ Sprint-end SM invokes cross-review skill (whole-repo 4-axis codebase audit)
-[SM]  cross_review                 (audit-only; non-blocking, never reverts a PBI)
-        ↓ audit files PO-approved findings as next-Sprint draft PBIs
+        ↓ Sprint-end SM invokes cross-review skill (every-Sprint closeout;
+          whole-repo 4-axis audit only when N % 3 == 0)
+[SM]  cross_review                 (closeout; audit when due is non-blocking)
+        ↓ due audit may file PO-approved findings as next-Sprint draft PBIs
 [SM]  done
 
   any [Dev] in_progress_* → [SM] escalated  (Developer trips a termination gate)
@@ -214,7 +220,13 @@ State descriptions:
 - `in_progress_ut_run` — Real test execution + coverage gate; FAIL loops back to `in_progress_impl`.
 - `in_progress_merge` — Developer has signalled ready-for-merge (`mark-pbi-ready-to-merge.sh`); SM is about to run `merge-pbi.sh`.
 - `awaiting_cross_review` — Per-PBI merge succeeded; PBI queued for the Sprint-end `cross-review` ceremony (see `cross_review` entry).
-- `cross_review` — Sprint-end `cross-review` ceremony (whole-repo 4-axis codebase audit) running. The ceremony is audit-only and non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
+- `cross_review` — Sprint-end `cross-review` ceremony running. Every Sprint performs the state closeout; only `N % 3 == 0` runs static analysis and the whole-repo 4-axis audit. A due audit is non-blocking: the PBI transitions straight through to `done` and is never reverted here (per-PBI quality was already gated by the Integrity stage before merge).
+- A scheduled-audit DOCS batch reused by Step 7b preserves its existing
+  lifecycle. Only a new `draft` batch receives fresh refinement, PBI
+  state, and worktree setup. An `escalated` kind=docs batch resumes via
+  `pbi-escalation-handler` (`escalated → in_progress_impl`) with its
+  existing worktree; prepared/in-progress batches are never reinitialized
+  or rewound to `refined`.
 - `done` — Sprint-end ceremony complete (see `cross_review` entry); the PBI's Definition of Done (FR-017) was met at the per-PBI Integrity stage before merge.
 - `escalated` — Developer-side gate trip OR SM-side merge failure (3 consecutive). Detail preserved in `pbi-state.json.escalation_reason` and `merge_failure.kind`. SM `pbi-escalation-handler` decides retry / hold / human-escalate.
 - `blocked` — SM-decided hold (e.g., external blocker, requires human input). Reaches `in_progress_design` again once the blocker clears. **Not** for PBIs that will never resume — those go to `cancelled`.
@@ -660,8 +672,9 @@ UAT stories file before allowing that phase to end.
 Consolidated per-PBI Integrity review, authored by the Developer conductor
 at the Integrity stage (the final gate before ready-to-merge; FR-009). It
 embeds each aspect reviewer's markdown verdict for this PBI's increment.
-The Sprint-end whole-repo audit report is a separate artifact at
-`.scrum/reviews/codebase-audit-s{N}.md`. Per-PBI codex pipeline reviews
+On due Sprints, the whole-repo audit report is a separate artifact at
+`.scrum/reviews/codebase-audit-s{N}.md`; non-due closeout creates no
+dummy report. Per-PBI codex pipeline reviews
 live separately under `.scrum/pbi/<pbi-id>/{impl,ut}/review-r{n}.md`.
 
 ---
