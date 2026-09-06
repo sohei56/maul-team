@@ -156,7 +156,7 @@ jobs:
       - name: Install dependencies
         # dashboard/app.py imports textual (which pulls rich) and watchdog;
         # the widget tests drive it through Textual's run_test() pilot.
-        run: pip install pytest textual watchdog
+        run: pip install pytest textual watchdog jsonschema
       - name: Run dashboard tests
         run: pytest -q tests/dashboard/
 

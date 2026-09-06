@@ -88,8 +88,11 @@ SHIM
   # Sources the script with its main block disabled, resolves credentials the
   # real way, then calls one notary function. `set --` first so the sourced
   # script does not read this driver's argv as its MODE.
+  # Driven with bash, not sh: the script needs `set -o pipefail`, which the
+  # macOS /bin/sh (bash in POSIX mode — what release.yml uses) accepts but
+  # Linux's dash rejects, so under `sh` on CI every function call would fail.
   cat > "$BATS_TEST_TMPDIR/driver.sh" <<'DRIVER'
-#!/bin/sh
+#!/bin/bash
 fn="$1"
 arg="${2:-}"
 set --
@@ -118,7 +121,7 @@ drive() {
     SIGN_NOTARIZE_SH="$SCRIPT" \
     NOTARY_BACKOFF_BASE=0 \
     "${envs[@]}" \
-    sh "$BATS_TEST_TMPDIR/driver.sh" "$@"
+    bash "$BATS_TEST_TMPDIR/driver.sh" "$@"
 }
 
 count_calls() {

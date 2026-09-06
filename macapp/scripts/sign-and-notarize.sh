@@ -82,7 +82,7 @@ resolve_notary_auth() {
       echo "Error: provide NOTARY_KEY_PATH (file) or NOTARY_KEY_P8 (base64)." >&2
       exit 2
     fi
-    TMP_P8="$(mktemp -t notary-key)"
+    TMP_P8="$(mktemp -t notary-key.XXXXXX)"
     printf '%s' "$NOTARY_KEY_P8" | base64 --decode > "$TMP_P8"
     NOTARY_KEY_FILE="$TMP_P8"
   fi
