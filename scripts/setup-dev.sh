@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # setup-dev.sh — Contributor setup: install dev dependencies + user setup
 # Usage: sh scripts/setup-dev.sh
+# Re-exec under bash when started as `sh <script>` on a system whose /bin/sh is
+# not bash (Linux: dash). Everything below needs bash (pipefail, arrays), and
+# the documented launch command is `sh …`, so this keeps that command portable.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -69,7 +75,7 @@ if [ -f "$settings_file" ]; then
   settings_snapshot="$(mktemp)"
   cp "$settings_file" "$settings_snapshot"
 fi
-sh "$SCRIPT_DIR/setup-user.sh"
+bash "$SCRIPT_DIR/setup-user.sh"
 if [ -n "$settings_snapshot" ]; then
   cp "$settings_snapshot" "$settings_file"   # cp (not mv) keeps the file's mode
   rm -f "$settings_snapshot" "${settings_file}.bak"

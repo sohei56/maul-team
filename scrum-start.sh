@@ -77,6 +77,12 @@
 #
 # Note: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set process-scoped
 # when launching claude. Users do NOT need to export it globally.
+# Re-exec under bash when started as `sh <script>` on a system whose /bin/sh is
+# not bash (Linux: dash). Everything below needs bash (pipefail, arrays), and
+# the documented launch command is `sh …`, so this keeps that command portable.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -323,7 +329,7 @@ fi
 validate_model "--sm-model" "$OPT_SM_MODEL"
 
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
-sh "$SCRIPT_DIR/scripts/setup-user.sh"
+bash "$SCRIPT_DIR/scripts/setup-user.sh"
 
 # setup-user.sh just restored the source agent definition. Reapply the resolved
 # Scrum Master model to its deployed frontmatter (the single source of truth).
@@ -371,7 +377,7 @@ else
   # Bootstrap .scrum/state.json via the deployed wrapper so the SM's first
   # update-state-phase call has a file to mutate. setup-user.sh above has
   # already copied scripts/scrum/*.sh to .scrum/scripts/.
-  sh .scrum/scripts/init-state.sh
+  bash .scrum/scripts/init-state.sh
   initial_prompt="Introduce yourself and begin the Requirement Definition. Greet the user, explain the Scrum workflow briefly. A product brief has been co-authored at docs/product/brief.md — read it first and use it as the anchor for the interview: elicit requirements that realize the brief, and when a requirement conflicts with the brief, surface the conflict and resolve it by amending either the brief or the requirement (do not silently diverge)."
 fi
 
