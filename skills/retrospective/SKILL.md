@@ -20,6 +20,9 @@ disable-model-invocation: false
   only when Step 4b fires; the `.md` is the postable body and nothing
   is published without a human's explicit permission
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "sprint_review"

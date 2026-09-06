@@ -18,6 +18,9 @@ disable-model-invocation: false
 
 - `.scrum/test-results.json`
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - Developer teammate assigned to Integration Sprint testing

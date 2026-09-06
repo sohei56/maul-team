@@ -36,8 +36,16 @@ under it, never the main repo checkout) and the `{review_sha}` /
 
 Aspect-specific inputs:
 
-- The PBI backlog entry: `id`, `title`, `acceptance_criteria`,
-  `paths_touched`, `kind`, `parent_pbi_id`
+- The PBI id + the backlog record path `.scrum/backlog.json` (valid
+  from the worktree root — `.scrum` is a symlink to the shared SSOT).
+  You read the entry yourself:
+  `jq '.items[] | select(.id=="<pbi-id>")' .scrum/backlog.json`, for
+  `id`, `title`, `acceptance_criteria`, `paths_touched`, `kind`,
+  `parent_pbi_id`. That record's `acceptance_criteria` array is the
+  ONLY AC source — never compare against a summary or restatement in
+  the spawn prompt. Unreadable file / no such entry → state it in your
+  Summary and report no AC-conformance finding; an AC you could not
+  read is not an AC the increment failed.
 - Design doc (**kind=code only**):
   `.scrum/pbi/<pbi-id>/design/design.md` (the `Acceptance Criteria
   Mapping` section is the AC→interface contract)
@@ -67,6 +75,17 @@ only the diff under `{base_sha}..{review_sha}` limited to
 
 The criteria split by PBI `kind`. Pick the branch matching the PBI
 under review.
+
+**Evidence obligation (both kinds).** Every finding asserting that an
+AC is unmapped or unmet (`missing_requirement`, `semantic_ac_unmet`)
+MUST list, for each criterion it names: (a) the exact AC text from the
+backlog record, (b) the exact string(s) you searched for, and (c) the
+matching row / passage verbatim, or the literal word `absent` if the
+search matched none. A finding missing any of (a)-(c) for any
+criterion it names is malformed — drop it rather than report it. This
+is the same rule as
+[`codex-design-reviewer.md`](codex-design-reviewer.md) § Review
+Criteria 6; keep the two in sync.
 
 ### kind=code PBIs
 

@@ -535,8 +535,9 @@ use support sub-agents.
   Developers, and current project workflow phase
   (`state.json.phase`, e.g. `pbi_pipeline_active`);
   (b) **Real-time PBI Progress Board** — each PBI's 13-value
-  status (see Q&A 2026-02-25 below and `docs/data-model.md` §
-  State Transitions: status) updated as work progresses;
+  status (`backlog.json.items[].status` is the sole SSOT; the
+  canonical enum and transition graph live in `docs/data-model.md`
+  § State Transitions) updated as work progresses;
   (c) **Work Log** — a single chronological stream merging
   messages exchanged between agents (Scrum Master <-> Developers,
   Developer <-> PO) and work events (files created, modified, or
@@ -588,6 +589,11 @@ use support sub-agents.
   any missing required sub-agent BLOCKS the pipeline. Path-level
   constraints on `pbi-implementer` (no test paths) and `pbi-ut-author`
   (no impl paths) are enforced by `hooks/pre-tool-use-path-guard.sh`.
+  Developer teammates are full Claude Code sessions that load
+  `.claude/agents/` automatically and invoke these sub-agents through
+  the Task tool as ephemeral workers inside their own session — a
+  different mechanism from Agent Teams itself, where teammates
+  coordinate through the shared task list and direct messaging.
 
 - **FR-020**: The requirements document MUST be frozen during
   Development Sprints. Design documents MUST be frozen after the
@@ -599,6 +605,10 @@ use support sub-agents.
   project root so that the user can close Claude Code at any point
   and resume the project in a later session. On resume, the project
   MUST continue from the exact point where it was interrupted.
+  Cross-Sprint context is kept fresh rather than carried: the Scrum
+  Master re-reads the state files from disk at Sprint start, and each
+  Developer teammate receives only its assigned artifacts (its PBI,
+  the relevant design documents, and the requirements).
 
 - **FR-022**: If a Developer teammate fails or crashes during
   implementation, the Scrum Master MUST detect the failure,
@@ -653,9 +663,9 @@ use support sub-agents.
   PBIs start coarse-grained and are progressively refined.
 
 - **Product Backlog Item (PBI)**: A unit of work with a 13-state
-  lifecycle split between SM-managed and Developer-managed states
-  (see Q&A 2026-02-25 below for the full enum, and
-  `docs/data-model.md` § PBI for the schema and transition graph).
+  lifecycle split between SM-managed and Developer-managed states;
+  `status` is the sole SSOT (full enum, schema, and transition graph
+  in `docs/data-model.md` § PBI).
   `escalated` is the gate-trip / merge-failure state resolved by
   SM `pbi-escalation-handler`; `blocked` is an SM-decided hold for
   external blockers (hold-and-resume only); `cancelled` is the
@@ -683,8 +693,11 @@ use support sub-agents.
   improvements that carries across Sprints.
 
 - **Project Directory (`.scrum/`)**: Root directory for Scrum runtime
-  state (JSON files) and cross-review results, located in the user's
-  project root. Design documents are governed separately by
+  state — flat JSON files, one per concern (`state.json`,
+  `backlog.json`, `sprint.json`, ...) — plus a `reviews/`
+  subdirectory for review and audit reports, located in the user's
+  project root. Design documents live separately under
+  `docs/design/specs/{category}/`, governed by
   `docs/design/catalog.md`.
 
 - **Product Goal**: The desired future state of the product,
@@ -772,30 +785,3 @@ use support sub-agents.
   are provided instead)
 - Multiple Scrum Teams working on the same product
 
-## Clarifications
-
-### 2026-04-12
-
-- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly. (superseded 2026-07-11: the 5 aspect reviewers moved per-PBI to the pipeline Integrity stage and Sprint-end cross-review became a non-blocking whole-repo audit; superseded 2026-08-11: closeout remains every Sprint while the high-cost audit runs only when `N % 3 == 0`; every reviewed PBI still transitions `cross_review → done`; see FR-009 and US5)
-- Q: Where do specialist sub-agents come from? A: All sub-agents are project-managed in `agents/` and distributed by `setup-user.sh`. The external awesome-claude-code-subagents catalog dependency was removed. FR-019 and User Story 5 updated.
-
-### 2026-02-26
-
-- Q: Should external dependencies be allowed for the TUI dashboard? A: Yes — Python 3.9+ with `textual` and `watchdog` packages are allowed as TUI dependencies. FR-018 revised to permit this. The dashboard must display three panels: Sprint Overview, PBI Progress Board, and Work Log (history: 2026-06-12 merged the former Communication Log and File Change Log panels into a single panel originally named "Team Log"; renamed to "Work Log" in 6996cf6).
-- Q: Should the awesome-claude-code-subagents catalog be installed into `.claude/skills/` instead of `.claude/agents/`? A: No — catalog entries are subagent definition files (`.md` with subagent YAML frontmatter: `tools`, `model`), not Skill format. They require context isolation, model routing, and tool sandboxing that only subagents provide. Keep `.claude/agents/` as the installation target.
-
-### 2026-02-25
-
-- Q: What is the agent orchestration model? A: Agent Teams — the shell script launches one Claude Code session as the team lead (Scrum Master), which spawns Developer teammates via Agent Teams. Each teammate is an independent Claude Code session coordinating through a shared task list and direct messaging.
-- Q: Where are project artifacts stored on disk? A: A `.scrum/` directory in the project root with flat JSON files (one file per concern: `state.json`, `backlog.json`, `sprint.json`, etc.) and a `reviews/` subdirectory. Design documents live separately under `docs/design/specs/{category}/`, governed by `docs/design/catalog.md`.
-- Q: What serialization format for state files? A: JSON — one file per concern (e.g., `state.json`, `backlog.json`, `improvements.json`).
-- Q: How are cross-Sprint context limits managed? A: Fresh context per Sprint — the Scrum Master (team lead) reads state files from disk at Sprint start; Developer teammates receive only their assigned artifacts (PBI, relevant design docs, requirements).
-- Q: What are the explicit PBI lifecycle states? A: 13 states (v2 schema), actor-split — see `docs/data-model.md` § State Transitions for the canonical enum list and ASCII transition graph. The legacy 6-state model (`draft → refined → in_progress → review → done | blocked`) was replaced when the `pbi-state.json.phase` field was removed; status is the sole SSOT.
-- Q: Can Agent Teams teammates use specialist sub-agents from the catalog? A: Yes — teammates are full Claude Code sessions that load `.claude/agents/` automatically. They install sub-agent `.md` files from the catalog and use them via the Task tool. This is distinct from Agent Teams itself: teammates coordinate via shared task list and messaging, while sub-agents are ephemeral workers within a teammate's session.
-
-### 2026-02-21
-
-- Q: Can the user close Claude Code mid-Sprint and resume later? A: Full resume — all project state is persisted to disk and the project resumes on the next session.
-- Q: What happens if the shell script is run when a project already exists? A: Auto-resume — the script resumes the existing project automatically.
-- Q: How does the user access the TUI dashboard during a Sprint? A: Always visible — the dashboard is shown persistently alongside the conversation.
-- Q: What happens if a Developer agent fails mid-implementation? A: Auto-recover — the Scrum Master detects the failure, reassigns the PBI to a new Developer agent, and work resumes.

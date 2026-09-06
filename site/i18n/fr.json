@@ -63,7 +63,7 @@
  "loop.c1_map": "≈ boucle d'agent + boucle de vérification",
  "loop.c2_depth": "Intermédiaire · détection de dérive",
  "loop.c2_h": "La boucle de Sprint",
- "loop.c2_p": "Chaque Sprint se termine par un audit du dépôt entier, sur quatre axes, qui repère les dérives entre\n           le code fusionné et ses exigences. Les constats critiques deviennent des PBI en draft pour le\n           Sprint suivant ; la Retrospective reporte les correctifs de processus de la même façon. Le produit\n           et le processus grimpent tous deux vers le sommet.",
+ "loop.c2_p": "Chaque Sprint se termine par une clôture de cross-review légère, et un Sprint sur trois y\n           ajoute un audit du dépôt entier, sur quatre axes, qui repère les dérives entre le code\n           fusionné et ses exigences. Les constats sont classés par sévérité et soumis au Product Owner ; ceux qui sont\n           acceptés deviennent des PBI en draft pour le Sprint suivant ; la Retrospective reporte les correctifs de processus de la même façon. Le produit\n           et le processus grimpent tous deux vers le sommet.",
  "loop.c2_map": "≈ boucle de hill-climbing",
  "loop.c3_depth": "Le plus externe · sans surveillance",
  "loop.c3_h": "La boucle d'exécution autonome",

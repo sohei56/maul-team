@@ -16,6 +16,9 @@ disable-model-invocation: false
 - Oversized PBIs split into children (parent_pbi_id set)
 - `state.json` → phase: sprint_planning
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "backlog_created" or "retrospective"

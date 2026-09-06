@@ -17,6 +17,9 @@ disable-model-invocation: false
 - sprint.json → developers[].sub_agents (the sub-agents installed for
   this developer's pipeline profiles this Sprint)
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Required Sub-Agents
 
 Verify these 11 sub-agents exist with valid YAML frontmatter at

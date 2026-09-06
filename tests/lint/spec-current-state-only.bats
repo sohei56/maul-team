@@ -13,10 +13,29 @@ setup() {
   CATALOG="${PROJECT_ROOT}/docs/design/catalog.md"
   AXES="${PROJECT_ROOT}/skills/codebase-audit/references/axes.md"
   REVIEWER="${PROJECT_ROOT}/agents/docs-consistency-reviewer.md"
+  # Spec bodies the rule governs and that live in this repo. `requirements.md`
+  # is one: `agents/requirements-analyst.md` binds it to Rule 8 by name ("no
+  # Clarifications changelog"), and it has no frontmatter `revision_history`
+  # carve-out to fall back on, so every dated annotation in it is a violation.
+  SPEC_BODIES=("docs/requirements.md")
 }
 
 rule_8_block() {
   awk '/^8\. \*\*Current state only/{f=1} /^## How to read/{f=0} f' "$CATALOG"
+}
+
+# The three body shapes Rule 8 names, as a grep-able detector:
+#   1. a `(superseded …)` / `(history: …)` retraction parenthetical;
+#   2. a dated log heading (`### 2026-02-21`) — the Q/A-diary shape;
+#   3. an "as of <ISO date>" claim.
+# ISO dates only: "experimental as of February 2026" is a present-tense claim
+# about the world, not a diary entry, and must not be flagged.
+history_diary_hits() {
+  grep -nEi \
+    -e '\((superseded|history)[[:space:]:)]' \
+    -e '^#{2,6}[[:space:]]+[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]]*$' \
+    -e '[[:space:]]as of[[:space:]]+[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+    "$1" || true
 }
 
 @test "catalog carries Governance Rule 8 as a content rule" {
@@ -109,4 +128,81 @@ rule_8_block() {
       return 1
     }
   done
+}
+
+@test "this repo's spec bodies carry no dated history annotation" {
+  # The rule is prose everywhere else; this is the one place it is enforced
+  # against an actual body in this repo.
+  local f hits
+  for f in "${SPEC_BODIES[@]}"; do
+    hits="$(history_diary_hits "${PROJECT_ROOT}/${f}")"
+    [ -z "$hits" ] || {
+      echo "${f} states history in its body (Rule 8):" >&2
+      echo "$hits" >&2
+      return 1
+    }
+  done
+}
+
+@test "the detector catches the annotations Rule 8 names" {
+  # Without this the check above passes on a broken detector.
+  local fixture="${BATS_TEST_TMPDIR}/spec-with-diary.md"
+  cat > "$fixture" <<'MD'
+- **FR-001**: The system MUST launch a Scrum team. (superseded 2026-07-11: it
+  spawns teammates instead)
+- **FR-002**: The dashboard shows three panels (history: 2026-06-12 merged two
+  panels into one).
+- **FR-003**: The pipeline runs five aspects as of 2026-08-11.
+
+## Clarifications
+
+### 2026-02-21
+
+- Q: Can the user resume later? A: Yes.
+MD
+  local hits
+  hits="$(history_diary_hits "$fixture")"
+  local line
+  local expected=(
+    '(superseded 2026-07-11'
+    '(history: 2026-06-12'
+    'as of 2026-08-11'
+    '### 2026-02-21'
+  )
+  for line in "${expected[@]}"; do
+    printf '%s' "$hits" | grep -qF "$line" || {
+      echo "detector missed the Rule 8 violation: ${line}" >&2
+      echo "hits were: ${hits}" >&2
+      return 1
+    }
+  done
+
+  # …and does not fire on present-tense prose. A detector that flags every
+  # requirement is uninstallable, so the false-positive side is pinned too.
+  local clean="${BATS_TEST_TMPDIR}/spec-clean.md"
+  cat > "$clean" <<'MD'
+- **FR-001**: The system MUST launch a Scrum team.
+- Agent Teams is an experimental feature as of February 2026.
+- The legacy `reviewer_id` field is removed from `backlog.json` items.
+
+## Out of Scope
+
+- Web-based dashboard
+MD
+  hits="$(history_diary_hits "$clean")"
+  [ -z "$hits" ] || {
+    echo "detector fired on present-tense prose:" >&2
+    echo "$hits" >&2
+    return 1
+  }
+}
+
+@test "requirements.md carries no Clarifications Q/A log" {
+  # The undated variant the dated-heading pattern cannot see. Rule 8's store
+  # for these is the runtime decision log in a target project's `.scrum/`,
+  # not a committed section here — see agents/requirements-analyst.md.
+  ! grep -qE '^## Clarifications' "${PROJECT_ROOT}/docs/requirements.md" || {
+    echo "docs/requirements.md grew a Clarifications changelog again" >&2
+    return 1
+  }
 }

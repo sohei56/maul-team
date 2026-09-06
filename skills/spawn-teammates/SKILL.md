@@ -17,6 +17,9 @@ disable-model-invocation: false
 - `sprint.json` → developers[] populated, status: "active"
 - Agent Teams teammates spawned
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "sprint_planning" or "integration_sprint"

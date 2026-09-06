@@ -89,6 +89,9 @@ analysis reports. At ceremony end every reviewed PBI transitions
 - `state.json` overall phase: `review`.
 - `sprint.json.status: "cross_review"`.
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - Every Sprint PBI is at backlog

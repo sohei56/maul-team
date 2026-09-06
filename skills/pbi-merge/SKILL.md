@@ -55,6 +55,9 @@ leave `merge_failure` / `merge_failure_count` untouched.
 - Worktree `.scrum/worktrees/<pbi-id>` removed on success
 - Sprint-level state untouched
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - SM has just received `[<pbi-id>] PBI_READY_TO_MERGE` from a Developer
@@ -205,3 +208,31 @@ One of the following outcomes holds for the PBI:
 - Never run two `pbi-merge` invocations in parallel — even though the
   wrapper has an `mkdir`-based lock backstop, the SendMessage ordering
   depends on serial processing.
+
+### Forbidden Inspection Actions
+
+Merge orchestration is mechanical: run the wrapper, branch on the exit
+code, message the Developer. Diagnosing *why* a merge failed is the work
+of the Developer who owns `pbi/<pbi-id>`. The general Delegate-mode rule
+lives in `../../agents/scrum-master.md` § Scrum Master judgment; these
+are its merge-specific prohibitions.
+
+- Never read files under `.scrum/worktrees/<pbi-id>/` — impl source,
+  tests, design specs — and never edit them to resolve a conflict.
+  `state.merge_failure.paths` is the only inspection artifact SM needs.
+- Never search worktree files for conflict markers (`grep -n '<<<<<<'`
+  and friends).
+- Never run the project toolchain to judge a failure: no `python3 -c`,
+  no `source .venv/bin/activate`, no test / lint / build command.
+  Relay the wrapper's stderr and the `merge-regression.log` path to the
+  Developer instead of reproducing the failure yourself.
+- Never run raw `git -C .scrum/worktrees/<pbi-id> …`, read-only
+  subcommands included. Worktree git goes through `.scrum/scripts/*.sh`
+  wrappers.
+- Never route around these by spawning a `scrum-explorer` (or any other
+  agent) to inspect the merge for you. Explorers answer bounded
+  repository questions; merge diagnosis stays with the assigned
+  Developer.
+
+If you reach for any of the above, stop and SendMessage the Developer
+with the failure kind and paths verbatim.

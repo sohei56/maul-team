@@ -42,6 +42,9 @@ disable-model-invocation: false
 - state.json → phase: "uat_release" → "complete" when release-ready,
   or → "backlog_created" when UAT defects route back to development.
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - `integration-tests` completed with

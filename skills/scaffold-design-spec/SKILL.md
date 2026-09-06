@@ -16,6 +16,9 @@ disable-model-invocation: false
 - `docs/design/specs/{category}/{id}-{slug}.md` stub files
 - YAML frontmatter: catalog_id, created_sprint, last_updated_sprint, related_pbis, frozen: false, revision_history
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "sprint_planning"

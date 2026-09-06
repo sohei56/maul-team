@@ -753,6 +753,7 @@ sequence is the writer's responsibility.
 | `metrics/coverage-r{n}.json` | Normalized coverage report (see `docs/contracts/coverage-rN.schema.json`) |
 | `metrics/test-results-r{n}.json` | Normalized test results (see `docs/contracts/test-results-rN.schema.json`) |
 | `metrics/pragma-audit-r{n}.json` | Pragma exclusion audit (see `docs/contracts/pragma-audit-rN.schema.json`) |
+| `metrics/integrity-r{n}.json` | Integrity-stage aggregate per Round — `aspects` (every reviewer spawned) plus each finding's `signature` / anchor fields / `severity` / `aspect`. Synthesized by the conductor from the aspect reviewers' markdown verdicts (they have no `Write` tool), **not** a sub-agent envelope; read by `resolve-integrity-fail.sh` to derive the divergence class. Shape: `skills/pbi-pipeline/references/integrity-stage.md` § Step I-4 |
 | `feedback/impl-r{n+1}.md` | Aggregated feedback for next-round `pbi-implementer` |
 | `feedback/ut-r{n+1}.md` | Aggregated feedback for next-round `pbi-ut-author` |
 | `pipeline.log` | Append-only event log: `<ISO8601>\t<stage>\t<round>\t<event>\t<detail>`. `<stage>` is the fixed coarse set `init\|design\|pbi_review\|ut_run\|complete\|escalated` enforced by `append-pbi-log.sh` — not the 13-value backlog status enum |

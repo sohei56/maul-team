@@ -20,6 +20,9 @@ disable-model-invocation: false
 - state.json → phase: sprint_review
 - sprint.json → status: "sprint_review"
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "review"

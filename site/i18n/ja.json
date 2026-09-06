@@ -63,7 +63,7 @@
  "loop.c1_map": "≈ agent loop + verification loop",
  "loop.c2_depth": "中間 · ドリフト検出",
  "loop.c2_h": "Sprint ループ",
- "loop.c2_p": "各 Sprint の末尾で、マージ済みコードとその要件との乖離を検出する、リポジトリ全体・4 軸の監査を実行します。Critical な指摘は次 Sprint の draft PBI になり、Retrospective も同じ形でプロセス改善を前へ送ります。プロダクトとプロセスの双方が hill-climb します。",
+ "loop.c2_p": "各 Sprint の末尾では軽量な cross-review closeout を実行し、3 Sprint ごとに、マージ済みコードとその要件との乖離を検出するリポジトリ全体・4 軸の監査を追加で実行します。指摘は severity で格付けして Product Owner に提示され、承認されたものが次 Sprint の draft PBI になり、Retrospective も同じ形でプロセス改善を前へ送ります。プロダクトとプロセスの双方が hill-climb します。",
  "loop.c2_map": "≈ hill-climbing loop",
  "loop.c3_depth": "最外 · 無人",
  "loop.c3_h": "自律実行ループ",

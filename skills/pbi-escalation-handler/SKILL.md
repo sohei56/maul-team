@@ -41,6 +41,9 @@ disable-model-invocation: false
     in a lingering `escalated` status.
 - User notified via SM channel when human escalation is needed
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Response Matrix
 
 | escalation_reason | Action |

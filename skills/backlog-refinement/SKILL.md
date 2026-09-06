@@ -24,6 +24,9 @@ disable-model-invocation: false
 - `.scrum/po/decisions.json` (agent mode) — any `spec_clarification`
   ruling emitted during refinement, logged via `append-po-decision.sh`
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "backlog_created" or "retrospective"
