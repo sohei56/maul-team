@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020610">
 <link rel="icon" type="image/png" href="./assets/app-icon.png">
-<title data-i18n="meta.title">MaulTeam.app — AI Scrum Team for Claude Code, on your Mac</title>
-<meta name="description" data-i18n-attr="content:meta.description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<title data-i18n="meta.title">MaulTeam.app — Run an AI Scrum team with Claude Code</title>
+<meta name="description" data-i18n-attr="content:meta.description" content="Run multi-agent Scrum sprints with Claude Code from a native Mac app or the command line. You guide the work as Product Owner, or use autonomous mode.">
 <link rel="canonical" href="https://sohei56.github.io/maul-team/">
-<meta property="og:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
-<meta property="og:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<meta property="og:title" content="MaulTeam.app — Run an AI Scrum team with Claude Code">
+<meta property="og:description" content="Run multi-agent Scrum sprints with Claude Code from a native Mac app or the command line. You guide the work as Product Owner, or use autonomous mode.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://sohei56.github.io/maul-team/">
 <meta property="og:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
@@ -17,8 +17,8 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Maul Team — AI Scrum Team for Claude Code">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MaulTeam.app — AI Scrum Team for Claude Code, on your Mac">
-<meta name="twitter:description" content="An AI Scrum team for Claude Code: multi-agent Sprints in a native Mac app or one shell command, on an open-source framework. You stay Product Owner.">
+<meta name="twitter:title" content="MaulTeam.app — Run an AI Scrum team with Claude Code">
+<meta name="twitter:description" content="Run multi-agent Scrum sprints with Claude Code from a native Mac app or the command line. You guide the work as Product Owner, or use autonomous mode.">
 <meta name="twitter:image" content="https://sohei56.github.io/maul-team/assets/og-card.png">
 <meta name="twitter:image:alt" content="Maul Team — AI Scrum Team for Claude Code">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="9005e05d-1557-4ac1-bb9e-bc05201b77db" data-domains="sohei56.github.io"></script>
@@ -33,7 +33,7 @@
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "macOS 14+",
       "url": "https://sohei56.github.io/maul-team/",
-      "description": "Native Mac app that hands your project to a full AI Scrum team powered by Claude Code Agent Teams. A Scrum Master coordinates Developer agents through Sprint cycles while you act as Product Owner.",
+      "description": "A native Mac app for running multi-agent Scrum sprints with Claude Code Agent Teams. A Scrum Master coordinates Developer agents while you guide the work as Product Owner.",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "license": "https://github.com/sohei56/maul-team/blob/main/macapp/LICENSE",
       "author": { "@type": "Person", "name": "sohei56", "url": "https://github.com/sohei56" },
@@ -62,18 +62,18 @@
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "How do AI agents actually run a Scrum sprint?",
+          "name": "How do the AI agents run a Scrum sprint?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree. Codex provides cross-model review when available, with a Claude-based fallback. Merges are gated by regression tests; the Sprint ends with a demo to you. It's the ceremony loop, not a prompt chain."
+            "text": "A Scrum Master agent plans the Sprint and starts one Developer agent per backlog item. Each Developer designs, implements, and writes black-box unit tests in its own git worktree. Codex reviews the work when available, with a Claude-based fallback. Regression tests must pass before changes are merged, and the Sprint ends with a demo of the working product."
           }
         },
         {
           "@type": "Question",
-          "name": "Is this autonomous AI development, or am I babysitting prompts?",
+          "name": "Can Maul Team run autonomously?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Both. In human-in-the-loop mode Sprint execution is hands-off and you make the Product-Owner decisions at the gates. In --autonomous mode you specify the end state once and an agent PO and the Scrum Master keep the loop turning unattended."
+            "text": "Yes. In human-in-the-loop mode, the team runs the Sprint while you make Product Owner decisions at review points. In --autonomous mode, you define the intended outcome and an agent Product Owner works with the Scrum Master without waiting for your input at each step."
           }
         },
         {
@@ -89,7 +89,7 @@
           "name": "Do I need the Mac app, or can I use the terminal?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "One shell command runs the identical pipeline in tmux. The Mac app is the friendly front door, not a requirement."
+            "text": "The same pipeline runs in tmux from one shell command. The Mac app provides a visual interface but is not required."
           }
         },
         {
@@ -97,7 +97,7 @@
           "name": "How is this different from Devin or other AI software engineers?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A whole team of agents with real Scrum gates, not a single autonomous engineer; source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat."
+            "text": "Maul Team coordinates several agents through defined Scrum stages and review checks. It is source-available, runs locally, and lets you direct the work as Product Owner."
           }
         },
         {
@@ -958,11 +958,11 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <section class="hero" aria-label="Introduction">
     <img class="hero-appicon hload d1" src="./assets/app-icon.png" alt="MaulTeam.app app icon" width="92" height="92">
     <p class="hero-badge hload d1"><span class="dot" aria-hidden="true"></span>sprint-001 · active · source-available</p>
-    <h1 class="hload d2" data-i18n="hero.title">Hand your project to an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
+    <h1 class="hload d2" data-i18n="hero.title">Run your project with an <span class="accent">AI&nbsp;Scrum&nbsp;team.</span></h1>
     <p class="hero-sub hload d3" data-i18n="hero.sub">
-      A native Mac app — or one shell command — runs a multi-agent Scrum team on your project,
-      powered by Claude Code Agent Teams. Stay in control as <strong>Product&nbsp;Owner</strong>
-      (human-in-the-loop), or specify the end state and let the team loop on its own.
+      Use the native Mac app or a single shell command to run a multi-agent Scrum team with
+      Claude Code Agent Teams. Guide each Sprint as <strong>Product&nbsp;Owner</strong>, or define
+      the intended outcome and use autonomous mode.
     </p>
     <div class="hero-ctas hload d4">
       <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="hero" data-i18n="common.download_mac">Download for macOS</a>
@@ -1101,34 +1101,33 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ WHY ============ -->
   <section class="section" id="why" aria-labelledby="why-h">
     <p class="kicker reveal" data-i18n="why.kicker">The problem</p>
-    <h2 id="why-h" class="reveal" style="--d:.06s" data-i18n="why.title">Vibe coding decays.<br>Spec-driven suffocates.</h2>
+    <h2 id="why-h" class="reveal" style="--d:.06s" data-i18n="why.title">Keep moving without losing structure.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="why.lede">
-      Most real projects live between the two extremes. Maul Team brings Scrum's
-      inspect-and-adapt loop to Claude Code — structured iteration without a complete
-      spec on day one.
+      Fast experiments can become difficult to maintain, while detailed upfront specifications
+      can be hard to write for a product that is still changing. Maul Team uses short Scrum
+      cycles so you can refine the requirements as the product develops.
     </p>
     <div class="why-grid">
       <article class="why-card reveal" style="--d:.05s">
         <span class="why-x" aria-hidden="true">✕</span>
         <span class="why-tag" data-i18n="why.c1_tag">Vibe coding</span>
-        <h3 data-i18n="why.c1_h">Fast, then fragile</h3>
-        <p data-i18n="why.c1_p">Prompt, accept, repeat. Speed is real — but as the project runs longer,
-           order erodes. No requirements, no tests, no memory of why anything is the way it is.</p>
+        <h3 data-i18n="why.c1_h">Quick to start, harder to maintain</h3>
+        <p data-i18n="why.c1_p">Repeated prompting can produce a prototype quickly. As the project grows,
+           missing requirements, tests, and decision records make changes harder to manage.</p>
       </article>
       <article class="why-card reveal" style="--d:.12s">
         <span class="why-x" aria-hidden="true">✕</span>
         <span class="why-tag" data-i18n="why.c2_tag">Spec-Driven Development</span>
-        <h3 data-i18n="why.c2_h">Ordered, but upfront-everything</h3>
-        <p data-i18n="why.c2_p">SDD keeps order, but can require more upfront definition than an evolving project
-           can provide. Real projects rarely know everything on day one.</p>
+        <h3 data-i18n="why.c2_h">Structured, but demanding upfront</h3>
+        <p data-i18n="why.c2_p">Spec-driven development adds useful structure, but an evolving project may not
+           have enough information to define every detail at the start.</p>
       </article>
       <article class="why-card answer reveal" style="--d:.19s">
         <span class="why-x" aria-hidden="true">✓</span>
         <span class="why-tag" data-i18n="why.c3_tag">The Scrum loop</span>
-        <h3 data-i18n="why.c3_h">Inspect and adapt, every Sprint</h3>
-        <p data-i18n="why.c3_p">An AI team plans a Sprint, builds a working Increment, demos it to you,
-           and adapts from your feedback. Requirements sharpen as the product grows —
-           and you never leave the Product Owner seat.</p>
+        <h3 data-i18n="why.c3_h">Review and adjust each Sprint</h3>
+        <p data-i18n="why.c3_p">The team plans a Sprint, builds a working Increment, and demonstrates it to you.
+           Your feedback shapes the next Sprint, so the requirements become more precise over time.</p>
       </article>
     </div>
   </section>
@@ -1136,10 +1135,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ DEMO ============ -->
   <section class="section" id="demo" aria-labelledby="demo-h">
     <p class="kicker reveal" data-i18n="demo.kicker">See it run</p>
-    <h2 id="demo-h" class="reveal" style="--d:.06s" data-i18n="demo.title">Your whole team, one window.</h2>
+    <h2 id="demo-h" class="reveal" style="--d:.06s" data-i18n="demo.title">Follow the whole Sprint in one window.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="demo.lede">
-      Watch a real session: the Scrum Master plans, Developers build in parallel,
-      and PBIs move across the board — while you review the working product.
+      This recorded session shows the Scrum Master planning, Developers working in parallel,
+      and PBIs moving across the board as the product takes shape.
     </p>
 
     <div class="video-shell reveal" style="--d:.1s">
@@ -1161,21 +1160,21 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <div class="pane-cards">
       <article class="pane-card reveal" style="--d:.05s">
         <span class="pane-num" data-i18n="demo.p1_num">PANE 01 — LEFT</span>
-        <h3 data-i18n="demo.p1_h">Your code, live</h3>
-        <p data-i18n="demo.p1_p">File tree and a syntax-highlighting code editor — double-click a file to open
-           it in its own editor window; framework files are lock-marked so you always know what's yours.</p>
+        <h3 data-i18n="demo.p1_h">Project files and editor</h3>
+        <p data-i18n="demo.p1_p">Browse the file tree and double-click a file to open it in a separate editor
+           window with syntax highlighting. Lock icons identify framework files.</p>
       </article>
       <article class="pane-card reveal" style="--d:.12s">
         <span class="pane-num" data-i18n="demo.p2_num">PANE 02 — CENTER</span>
-        <h3 data-i18n="demo.p2_h">The Scrum Master, embedded</h3>
-        <p data-i18n="demo.p2_p">A real terminal running the Scrum Master, plus a native Work Log streaming every
-           agent spawn, file change, and message as it happens.</p>
+        <h3 data-i18n="demo.p2_h">Scrum Master and activity log</h3>
+        <p data-i18n="demo.p2_p">Use the built-in terminal to talk to the Scrum Master. The Work Log records agent
+           starts, file changes, and messages as they happen.</p>
       </article>
       <article class="pane-card reveal" style="--d:.19s">
         <span class="pane-num" data-i18n="demo.p3_num">PANE 03 — RIGHT</span>
-        <h3 data-i18n="demo.p3_h">Mission-control dashboard</h3>
-        <p data-i18n="demo.p3_p">Native sprint overview and PBI board — click any PBI for details — plus
-           integration test results, updating as the team works.</p>
+        <h3 data-i18n="demo.p3_h">Sprint dashboard</h3>
+        <p data-i18n="demo.p3_p">See the current Sprint, open any PBI for details, and check integration test
+           results as the team works.</p>
       </article>
     </div>
   </section>
@@ -1183,11 +1182,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ HOW IT WORKS ============ -->
   <section class="section" id="how" aria-labelledby="how-h">
     <p class="kicker reveal" data-i18n="how.kicker">The lifecycle</p>
-    <h2 id="how-h" class="reveal" style="--d:.06s" data-i18n="how.title">Real Scrum. Real gates.<br>No hand-waving.</h2>
+    <h2 id="how-h" class="reveal" style="--d:.06s" data-i18n="how.title">A defined process from requirements to release.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="how.lede">
-      Every Sprint runs the full ceremony loop — with deterministic termination gates,
-      measured coverage, and review with an optional cross-model pass. Not a prompt chain
-      wearing a Scrum costume.
+      Each Sprint follows the same stages, with explicit completion rules, measured test
+      coverage, and optional cross-model review. Select a stage below to see what happens.
     </p>
 
     <div class="loop-flow reveal" style="--d:.05s">
@@ -1273,7 +1271,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="ld-item" data-step="02" style="--c:#4a90d9">
         <div class="ld-row"><span class="ld-num">02</span>
         <div><h3>Backlog Refinement</h3>
-        <p data-i18n="how.s2_p">Coarse ideas become sprint-ready PBIs with acceptance criteria and scoped paths.</p></div></div>
+        <p data-i18n="how.s2_p">Broad ideas become Sprint-ready PBIs with acceptance criteria and defined file paths.</p></div></div>
       </div>
       <div class="ld-item" data-step="03" style="--c:#38b6e0">
         <div class="ld-row"><span class="ld-num">03</span>
@@ -1283,15 +1281,15 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="ld-item on" data-step="04" style="--c:#28c8e6">
         <div class="ld-row"><span class="ld-num">04</span>
         <div><h3>Development Pipeline<span class="phase-tag">parallel</span></h3>
-        <p data-i18n="how.s4_p"><strong>Each Developer builds its PBI in an isolated git worktree, in parallel.</strong>
-           Every Round of design → implementation + black-box unit tests is
-           <strong>cross-reviewed by Codex</strong> (Claude-based fallback), with deterministic
-           termination gates and real C0/C1 coverage. And <strong>no PBI merges until its
-           tests and a 5-aspect integrity gate pass</strong> — then the SM lands it with a
-           <span class="mono">--no-ff</span> merge plus a regression gate; three strikes and
-           it escalates instead of limping forward. At Sprint end, four parallel auditors
-           sweep the whole repo for the drift per-PBI review structurally can't see;
-           findings become next-Sprint PBIs.</p></div></div>
+        <p data-i18n="how.s4_p"><strong>Each Developer works on one PBI in a separate git worktree.</strong>
+           Design, implementation, and black-box unit tests repeat in Rounds and can be
+           <strong>reviewed by Codex</strong>, with a Claude-based fallback. Coverage is measured
+           with standard tools against the C0/C1 requirements. A PBI can merge only after its
+           tests and five-part integrity review pass. The Scrum Master then uses a
+           <span class="mono">--no-ff</span> merge and runs regression tests. After three failed
+           attempts, the issue is escalated. Every Sprint closes with a lightweight cross-review;
+           every third Sprint also runs a whole-repository audit, and accepted findings become
+           PBIs for a later Sprint.</p></div></div>
         <!-- ===== signature: animated sprint board (shown with this step) ===== -->
         <div class="board-wrap">
           <div class="board-frame">
@@ -1344,7 +1342,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <div class="ld-item" data-step="05" style="--c:#2ed2c0">
         <div class="ld-row"><span class="ld-num">05</span>
         <div><h3>Sprint Review</h3>
-        <p data-i18n="how.s5_p">The team demos the working Increment to you. You inspect the product, not a diff.</p></div></div>
+        <p data-i18n="how.s5_p">The team demonstrates the working Increment so you can review its behavior.</p></div></div>
       </div>
       <div class="ld-item" data-step="06" style="--c:#34d399">
         <div class="ld-row"><span class="ld-num">06</span>
@@ -1368,11 +1366,11 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ LOOP ENGINEERING ============ -->
   <section class="section" id="loop" aria-labelledby="loop-h">
     <p class="kicker reveal" data-i18n="loop.kicker">Loop engineering</p>
-    <h2 id="loop-h" class="reveal" style="--d:.06s" data-i18n="loop.title">Stop prompting agents.<br>Engineer the loops instead.</h2>
+    <h2 id="loop-h" class="reveal" style="--d:.06s" data-i18n="loop.title">Give agents a process they can repeat.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="loop.lede">
-      Loop engineering means designing a system in which agents repeatedly plan, act,
-      verify, and improve instead of relying on isolated prompts. Maul Team implements
-      it at three levels: Development pipeline, Sprint, and autonomous execution.
+      Loop engineering gives agents a repeatable cycle for planning, acting, checking the
+      result, and improving it. Maul Team applies this at three levels: the development
+      pipeline, each Sprint, and autonomous execution.
     </p>
     <p class="loop-lineage reveal" style="--d:.16s" data-i18n="loop.lineage">
       prompt engineering <b>→</b> context engineering <b>→</b> loop engineering
@@ -1381,32 +1379,28 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <div class="loop-grid">
       <article class="loop-card reveal" style="--d:.05s">
         <span class="loop-depth" data-i18n="loop.c1_depth">Innermost · build &amp; verify</span>
-        <h3 data-i18n="loop.c1_h">The Development pipeline loop</h3>
-        <p data-i18n="loop.c1_p">Per PBI, in its own git worktree: design, implementation with black-box unit
-           tests, and Codex cross-model review, repeated in Rounds until deterministic
-           termination gates pass. The merge stays locked until tests and review clear —
-           coverage measured by real tooling, not self-reported.</p>
+        <h3 data-i18n="loop.c1_h">Development pipeline</h3>
+        <p data-i18n="loop.c1_p">Each PBI has its own git worktree. Design, implementation, black-box unit tests,
+           and optional Codex review repeat until the defined completion rules pass. Changes
+           cannot merge until the tests and review pass, and standard tools measure coverage.</p>
         <span class="loop-map" data-i18n="loop.c1_map">≈ agent loop + verification loop</span>
       </article>
       <article class="loop-card reveal" style="--d:.12s">
         <span class="loop-depth" data-i18n="loop.c2_depth">Middle · drift detection</span>
-        <h3 data-i18n="loop.c2_h">The Sprint loop</h3>
-        <p data-i18n="loop.c2_p">Every Sprint ends with a lightweight cross-review closeout, and every third
-           Sprint adds a whole-repo, four-axis audit that catches drift between the merged
-           code and its requirements. Findings are graded by severity and put to the
-           Product Owner; the accepted ones become draft PBIs for the next Sprint. The
-           retrospective feeds process fixes forward the same way. Product and process both
-           hill-climb.</p>
+        <h3 data-i18n="loop.c2_h">Sprint cycle</h3>
+        <p data-i18n="loop.c2_p">Every Sprint ends with a lightweight cross-review. Every third Sprint also runs
+           a four-part audit of the repository to find differences between the merged code
+           and its requirements. The Product Owner reviews findings by severity, and accepted
+           findings become draft PBIs. Retrospective actions carry into the next Sprint.</p>
         <span class="loop-map" data-i18n="loop.c2_map">≈ hill-climbing loop</span>
       </article>
       <article class="loop-card reveal" style="--d:.19s">
         <span class="loop-depth" data-i18n="loop.c3_depth">Outermost · unattended</span>
-        <h3 data-i18n="loop.c3_h">The Autonomous execution loop</h3>
-        <p data-i18n="loop.c3_p">Specify the end state in a product brief and even the Product Owner seat becomes
-           an agent — the agent PO and the Scrum Master keep running Scrum toward it. An outer
-           Ralph-Loop watchdog re-launches headless sessions iteration after iteration,
-           enforces safety valves, sleeps through API rate limits and resumes, and leaves you
-           a morning report. The loop keeps turning while you sleep.</p>
+        <h3 data-i18n="loop.c3_h">Autonomous execution</h3>
+        <p data-i18n="loop.c3_p">Define the intended outcome in a product brief and assign the Product Owner role
+           to an agent. The agent Product Owner and Scrum Master continue running Sprints toward
+           that outcome. A Ralph-Loop watchdog restarts headless sessions, applies time and
+           iteration limits, resumes after API rate limits, and writes a report.</p>
         <span class="loop-map" data-i18n="loop.c3_map">≈ event-driven loop</span>
       </article>
     </div>
@@ -1418,10 +1412,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     </blockquote>
 
     <p class="loop-closer reveal" style="--d:.10s" data-i18n="loop.closer">
-      The risk in any loop is <strong>cognitive surrender</strong> — letting it run and
-      quietly accepting whatever comes back. Our answer is gates, not trust: hooks enforce
-      the rules, termination is deterministic, coverage is real, and unclear requirements
-      escalate to the PO seat instead of being guessed.
+      Autonomous work still needs review. Hooks enforce process rules, completion conditions
+      are explicit, test tools measure coverage, and unclear requirements are sent to the
+      Product Owner instead of being resolved by assumption.
     </p>
 
     <div class="loop-sources reveal" style="--d:.14s">
@@ -1434,8 +1427,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ PO SECTION ============ -->
   <section class="section" id="po" aria-labelledby="po-h">
-    <p class="kicker reveal" data-i18n="po.kicker">Your seat</p>
-    <h2 id="po-h" class="reveal" style="--d:.06s" data-i18n="po.title">You set product direction.<br>The team runs delivery.</h2>
+    <p class="kicker reveal" data-i18n="po.kicker">Your role</p>
+    <h2 id="po-h" class="reveal" style="--d:.06s" data-i18n="po.title">You guide the product. The team handles the workflow.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="po.lede">
       In the default human-in-the-loop mode, you approve goals, review working software, and
       make release decisions. The team handles requirements, planning, implementation, review,
@@ -1477,22 +1470,21 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
 
   <!-- ============ FEATURES ============ -->
   <section class="section" id="features" aria-labelledby="features-h">
-    <p class="kicker reveal" data-i18n="features.kicker">Under the hood</p>
-    <h2 id="features-h" class="reveal" style="--d:.06s" data-i18n="features.title">Built like infrastructure,<br>not a demo.</h2>
+    <p class="kicker reveal" data-i18n="features.kicker">Features</p>
+    <h2 id="features-h" class="reveal" style="--d:.06s" data-i18n="features.title">Controls for repeatable, reviewable work.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="features.lede">
-      Hooks enforce the process. State survives restarts. Reviews cross model families.
-      The framework assumes agents will be confidently wrong — and catches it.
+      Hooks enforce the process, saved state lets sessions resume after a restart, and an
+      optional second model can review the work independently.
     </p>
 
     <div class="feature-grid">
 
       <!-- orchestration diagram -->
       <article class="feature orch reveal" style="--d:.03s">
-        <h3 data-i18n="features.orch_h">Multi-agent orchestration, native to Claude Code</h3>
-        <p data-i18n="features.orch_p">The Scrum Master runs in Delegate mode — it coordinates, never writes code —
-           orchestrating up to 6 parallel Developer agents, one per PBI, each building in
-           an isolated git worktree. Each Developer is itself a conductor, spawning
-           per-round specialist sub-agents.</p>
+        <h3 data-i18n="features.orch_h">Multi-agent coordination in Claude Code</h3>
+        <p data-i18n="features.orch_p">The Scrum Master runs in Delegate mode and coordinates up to six Developer
+           agents in parallel. Each Developer handles one PBI in an isolated git worktree
+           and starts specialist sub-agents for each Round.</p>
         <svg viewBox="0 0 880 430" role="img" data-i18n-attr="aria-label:features.orch_aria"
              aria-label="Orchestration diagram: a Scrum Master delegates to six Developer agents; each Developer spawns designer, implementer, and unit-test author sub-agents. Codex cross-model review is used when available, with a Claude-based fallback.">
           <!-- SM -> devs wires -->
@@ -1551,8 +1543,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">⌘</span>
         <h3 data-i18n="features.f1_h">Native Mac app</h3>
-        <p data-i18n="features.f1_p">Your AI dev team in one Mac window — editor, Scrum Master terminal, Work Log,
-           and dashboard. SwiftUI, not Electron.</p>
+        <p data-i18n="features.f1_p">The SwiftUI app combines an editor, the Scrum Master terminal, the Work Log,
+           and the Sprint dashboard in one window.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">19</span>
@@ -1563,45 +1555,45 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">∞</span>
         <h3 data-i18n="features.f3_h">Autonomous mode (Loop Engineering)</h3>
-        <p data-i18n="features.f3_p">Run <span class="f-mono">--autonomous</span> from the command line: specify the end state in a
-           product brief, and an agent Product Owner and the Scrum Master keep running Scrum
-           toward it — Ralph-Loop watchdog, safety valves, morning report.</p>
+        <p data-i18n="features.f3_p">Run <span class="f-mono">--autonomous</span> from the command line and define the intended outcome
+           in a product brief. An agent Product Owner and the Scrum Master continue the work,
+           with a Ralph-Loop watchdog, execution limits, and a generated report.</p>
       </article>
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">§</span>
-        <h3 data-i18n="features.f4_h">Design-doc governance</h3>
-        <p data-i18n="features.f4_p">An immutable document catalog with editable enablement — hooks enforce which
-           design docs may exist and who may touch them.</p>
+        <h3 data-i18n="features.f4_h">Design document controls</h3>
+        <p data-i18n="features.f4_p">A read-only catalog and editable configuration define which design documents
+           may exist. Hooks also control which roles may edit them.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">⛨</span>
-        <h3 data-i18n="features.f5_h">Quality-enforcement hooks</h3>
-        <p data-i18n="features.f5_p">Status gates, path guards, branch-ops guard, completion-flow and
-           Definition-of-Done checks — process rules the agents cannot skip.</p>
+        <h3 data-i18n="features.f5_h">Quality checks</h3>
+        <p data-i18n="features.f5_p">Status checks, path and branch guards, completion-flow checks, and the
+           Definition of Done enforce the workflow.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">⟳</span>
         <h3 data-i18n="features.f6_h">State persistence</h3>
-        <p data-i18n="features.f6_p">All team state lives in <span class="f-mono">.scrum/</span> JSON. Kill the session,
-           relaunch, and the team resumes exactly where it stopped.</p>
+        <p data-i18n="features.f6_p">Team state is stored as JSON in <span class="f-mono">.scrum/</span>. Restart the session and
+           the team continues from the saved state.</p>
       </article>
       <article class="feature reveal" style="--d:.04s">
         <span class="f-ico" aria-hidden="true">✓</span>
         <h3 data-i18n="features.f7_h">Automated testing</h3>
-        <p data-i18n="features.f7_p">Design-driven integration tests plus story-driven UAT — boundary cases derived
-           from the design docs, not guessed.</p>
+        <p data-i18n="features.f7_p">Integration tests derive boundary cases from the design documents, followed by
+           user-story-based acceptance testing.</p>
       </article>
       <article class="feature reveal" style="--d:.08s">
         <span class="f-ico" aria-hidden="true">↻</span>
         <h3 data-i18n="features.f8_h">Retrospective-driven improvement</h3>
-        <p data-i18n="features.f8_p">The team retrospects every Sprint and feeds process improvements forward —
-           the loop applies to the team itself.</p>
+        <p data-i18n="features.f8_p">The team records process improvements after each Sprint and applies them to
+           later Sprints.</p>
       </article>
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">◎</span>
-        <h3 data-i18n="features.f9_h">AI-native adaptations</h3>
-        <p data-i18n="features.f9_p">Dynamic team sizing, mandatory requirement definition first, no work without
-           a PBI — Scrum re-derived for how agents actually work.</p>
+        <h3 data-i18n="features.f9_h">Scrum adapted for agents</h3>
+        <p data-i18n="features.f9_p">Team size changes with the Sprint, requirements are defined before development,
+           and every code change must belong to a PBI.</p>
       </article>
     </div>
   </section>
@@ -1609,12 +1601,12 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ INSTALL ============ -->
   <section class="section" id="install" aria-labelledby="install-h">
     <p class="kicker reveal" data-i18n="install.kicker">Get started</p>
-    <h2 id="install-h" class="reveal" style="--d:.06s" data-i18n="install.title">Download. Drag to Applications.<br>Meet your team.</h2>
+    <h2 id="install-h" class="reveal" style="--d:.06s" data-i18n="install.title">Install MaulTeam.app on your Mac.</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="install.lede">
-      MaulTeam.app ships as a signed, Apple-notarized <span class="mono">.dmg</span> that opens
-      with no Gatekeeper warnings — currently free for personal and internal business use, built on the
-      MIT-licensed open-source framework. Prefer a package manager or a compiler?
-      Homebrew and a source build are right here too.
+      MaulTeam.app is distributed as a signed, Apple-notarized <span class="mono">.dmg</span> for
+      macOS 14 and later. It is currently free for personal and internal business use, and the
+      underlying framework uses the MIT License. You can also install it with Homebrew or build
+      it from source.
     </p>
 
     <div class="install-grid">
@@ -1622,7 +1614,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         <div class="install-main-inner">
           <span class="install-flag" data-i18n="install.flag">● Recommended</span>
           <h3 data-i18n="install.dl_h">Download the app</h3>
-          <p data-i18n="install.dl_p">Three steps, no toolchain. Universal binary for Apple&nbsp;Silicon and Intel.</p>
+          <p data-i18n="install.dl_p">The universal binary supports Apple&nbsp;Silicon and Intel, with no build tools required.</p>
           <ol class="dl-steps">
             <li data-i18n="install.step1">Download the <span class="mono">.dmg</span> below</li>
             <li data-i18n="install.step2">Drag <span class="mono">MaulTeam.app</span> to Applications</li>
@@ -1635,9 +1627,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
             <h4 data-i18n="install.reqs_h">Requirements</h4>
             <ul>
               <li data-i18n="install.req1"><span class="mono">macOS 14+</span> (Apple Silicon or Intel)</li>
-              <li data-i18n="install.req2"><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — sub-agents spawning sub-agents was unlocked there</li>
-              <li data-i18n="install.req3"><span class="mono">Python 3.9+</span> — the launcher validates it</li>
-              <li data-i18n="install.req4"><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; Claude-based review is the fallback</li>
+              <li data-i18n="install.req2"><span class="mono">Claude Code CLI ≥ 2.1.172</span> on PATH — this version added the nested sub-agents used by the pipeline</li>
+              <li data-i18n="install.req3"><span class="mono">Python 3.9+</span> — checked by the launcher</li>
+              <li data-i18n="install.req4"><span class="mono">Codex CLI</span> (optional, recommended) — enables cross-model review; otherwise, the pipeline uses Claude-based review</li>
             </ul>
           </div>
         </div>
@@ -1650,8 +1642,8 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
         </div>
         <div class="side-card reveal" style="--d:.16s">
           <h3 data-i18n="install.src_h">Build from source</h3>
-          <p data-i18n="install.src_p"><span class="mono">make-app.sh release</span> produces the same universal2 build.
-             Needs <span class="mono">Xcode 16+</span> (Swift 6 toolchain); the first build fetches SwiftTerm.</p>
+          <p data-i18n="install.src_p"><span class="mono">make-app.sh release</span> creates the universal2 build.
+             It requires <span class="mono">Xcode 16+</span> with the Swift 6 toolchain, and the first build downloads SwiftTerm.</p>
           <div class="codeblock">
             <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy install commands to clipboard">copy</button>
             <div id="installCmds"><span class="c-p">$ </span><span class="c-cmd">git clone git@github.com:sohei56/maul-team.git</span>
@@ -1667,15 +1659,15 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     <!-- ===== faux terminal (tmux, two panes) ===== -->
     <div class="term-grid">
       <div class="term-copy reveal" style="--d:.05s">
-        <p class="kicker" data-i18n="install.term_kicker">Or skip the GUI</p>
-        <h3 data-i18n="install.term_h">One command. Same team.</h3>
-        <p data-i18n="install.term_p1">The Mac app wraps the open-source <span class="mono">maul-team</span> framework —
-           launch it from any terminal with <span class="mono" style="color:var(--amber-hi)">scrum-start.sh</span> and get the
-           identical pipeline in tmux: the Scrum Master on the left, the live team dashboard on
-           the right. Workflow and project state stay on your machine; model requests go
-           through your installed Claude Code and, when configured, Codex.</p>
-        <p data-i18n="install.term_p2">Agents report facts, not vibes: status transitions, coverage numbers, merge results.
-           When something is genuinely unclear, the team escalates to you instead of guessing.</p>
+        <p class="kicker" data-i18n="install.term_kicker">Command-line option</p>
+        <h3 data-i18n="install.term_h">Run the same pipeline in tmux.</h3>
+        <p data-i18n="install.term_p1">The Mac app includes the open-source <span class="mono">maul-team</span> framework.
+           You can also start the framework from a terminal with
+           <span class="mono" style="color:var(--amber-hi)">scrum-start.sh</span>. The tmux interface shows the Scrum Master
+           on the left and the team dashboard on the right. Workflow and project state remain
+           on your machine; model requests go through Claude Code and, when configured, Codex.</p>
+        <p data-i18n="install.term_p2">The dashboard shows status changes, test coverage, and merge results. The team
+           asks you to resolve requirements it cannot determine from the project.</p>
       </div>
       <div class="terminal reveal" style="--d:.12s" data-i18n-attr="aria-label:install.term_aria"
            aria-label="tmux session with two panes: left, a Claude Code session running the Scrum Master; right, the Maul Team Dashboard TUI showing the Sprint summary, the PBI board, and a live work log. A green tmux status bar runs along the bottom.">
@@ -1745,27 +1737,26 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ FAQ ============ -->
   <section class="section" id="faq" aria-labelledby="faq-h">
     <p class="kicker reveal" data-i18n="faq.kicker">Questions</p>
-    <h2 id="faq-h" class="reveal" style="--d:.06s" data-i18n="faq.title">The parts people<br>ask about twice.</h2>
+    <h2 id="faq-h" class="reveal" style="--d:.06s" data-i18n="faq.title">Frequently asked questions</h2>
     <p class="lede reveal" style="--d:.12s" data-i18n="faq.lede">
-      Short answers to what a "team of AI agents running Scrum" actually means in practice.
+      What the agent team does, how much control you keep, and what runs on your machine.
     </p>
 
     <div class="feature-grid">
       <article class="feature reveal" style="--d:.03s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3 data-i18n="faq.q1_h">How do AI agents actually run a Scrum sprint?</h3>
-        <p data-i18n="faq.q1_p">A Scrum Master agent plans the Sprint and spawns Developer agents, one per backlog
-           item. Each Developer designs, implements, and writes black-box unit tests in its own
-           git worktree, with Codex cross-model review (Claude-based fallback). A PBI merges
-           only after its tests and reviews pass — then a regression gate at merge. The Sprint
-           ends with a demo to you. It's the ceremony loop, not a prompt chain.</p>
+        <h3 data-i18n="faq.q1_h">How do the AI agents run a Scrum sprint?</h3>
+        <p data-i18n="faq.q1_p">A Scrum Master agent plans the Sprint and starts one Developer agent per backlog
+           item. Each Developer designs, implements, and writes black-box unit tests in a separate
+           git worktree. Codex reviews the work when available, with a Claude-based fallback.
+           Tests and reviews must pass before merge, and the Sprint ends with a product demo.</p>
       </article>
       <article class="feature reveal" style="--d:.06s">
         <span class="f-ico" aria-hidden="true">?</span>
-        <h3 data-i18n="faq.q2_h">Is this autonomous AI development, or am I babysitting prompts?</h3>
-        <p data-i18n="faq.q2_p">Both. In human-in-the-loop mode Sprint execution is hands-off and you make the
-           Product-Owner decisions at the gates. In <span class="f-mono">--autonomous</span> mode you specify the
-           end state once and an agent PO and the Scrum Master keep the loop turning unattended.</p>
+        <h3 data-i18n="faq.q2_h">Can Maul Team run autonomously?</h3>
+        <p data-i18n="faq.q2_p">Yes. In human-in-the-loop mode, the team runs the Sprint while you make Product
+           Owner decisions at review points. In <span class="f-mono">--autonomous</span> mode, you define the intended
+           outcome and an agent Product Owner works with the Scrum Master without waiting at each step.</p>
       </article>
       <article class="feature reveal" style="--d:.09s">
         <span class="f-ico" aria-hidden="true">?</span>
@@ -1778,14 +1769,14 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
       <article class="feature reveal" style="--d:.12s">
         <span class="f-ico" aria-hidden="true">?</span>
         <h3 data-i18n="faq.q4_h">Do I need the Mac app, or can I use the terminal?</h3>
-        <p data-i18n="faq.q4_p">One shell command runs the identical pipeline in tmux. The Mac app is the friendly
-           front door, not a requirement.</p>
+        <p data-i18n="faq.q4_p">One shell command runs the same pipeline in tmux. The Mac app provides a visual
+           interface but is not required.</p>
       </article>
       <article class="feature reveal" style="--d:.15s">
         <span class="f-ico" aria-hidden="true">?</span>
         <h3 data-i18n="faq.q5_h">How is this different from Devin or other AI software engineers?</h3>
-        <p data-i18n="faq.q5_p">A whole team of agents with real Scrum gates, not a single autonomous engineer;
-           source-available and locally operated rather than closed SaaS; and you hold the Product Owner seat.</p>
+        <p data-i18n="faq.q5_p">Maul Team coordinates several agents through defined Scrum stages and review checks.
+           It is source-available, runs locally, and lets you direct the work as Product Owner.</p>
       </article>
       <article class="feature reveal" style="--d:.18s">
         <span class="f-ico" aria-hidden="true">?</span>
@@ -1802,10 +1793,10 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
   <!-- ============ BOTTOM CTA ============ -->
   <section class="section" aria-labelledby="cta-h">
     <div class="cta-band reveal">
-      <p class="kicker" data-i18n="cta.kicker">Ready when you are</p>
-      <h2 id="cta-h" data-i18n="cta.title">Hand your next project<br>to a team.</h2>
-      <p class="cta-sub" data-i18n="cta.sub">Download, drag to Applications, and start Sprint&nbsp;1.
-         Currently free for personal and internal business use.</p>
+      <p class="kicker" data-i18n="cta.kicker">Get started</p>
+      <h2 id="cta-h" data-i18n="cta.title">Run your next project with Maul Team.</h2>
+      <p class="cta-sub" data-i18n="cta.sub">Download the app, move it to Applications, and start Sprint&nbsp;1.
+         The app is currently free for personal and internal business use.</p>
       <div class="cta-actions">
         <a class="btn btn-primary" href="https://github.com/sohei56/maul-team/releases/latest/download/MaulTeam.dmg" data-umami-event="download-dmg" data-umami-event-position="final-cta" data-i18n="common.download_mac">Download for macOS</a>
         <a class="btn btn-ghost" href="#install" data-i18n="cta.other">Other install options</a>
@@ -1972,7 +1963,7 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     });
     video.addEventListener("error", function(){
       var small = cover.querySelector("small");
-      if (small) small.textContent = T("video_blocked", "Video blocked here — use the GitHub link below");
+      if (small) small.textContent = T("video_blocked", "Video unavailable here — use the GitHub link below");
     }, true);
   }
 
@@ -2001,9 +1992,9 @@ footer{margin-top:120px; border-top:1px solid var(--line); background:linear-gra
     copyBtn.addEventListener("click", function(){
       track("copy-build-cmds");
       function done(){
-        copyBtn.textContent = T("copy_done", "copied ✓");
+        copyBtn.textContent = T("copy_done", "Copied ✓");
         copyBtn.classList.add("copied");
-        setTimeout(function(){ copyBtn.textContent = T("copy", "copy"); copyBtn.classList.remove("copied"); }, 1800);
+        setTimeout(function(){ copyBtn.textContent = T("copy", "Copy"); copyBtn.classList.remove("copied"); }, 1800);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(CMDS).then(done, fallback);
