@@ -23,6 +23,19 @@
 # order and the path-normalization rule live in lib/validate.sh
 # (resolve_project_root, hook_anchor_init, project_rel_path).
 #
+# PATTERN POLICY — FROZEN (Issue #93 (2), decision A):
+#   The Write/Edit `file_path` checks are this guard's real protection:
+#   they are structural and cannot be spelled around. The Bash branch's
+#   command-text patterns are a guardrail against honest mistakes, NOT a
+#   sandbox against obfuscation — text-scanning a shell command diverges
+#   (every closed hole opens a larger one, and each hardening pass
+#   over-blocks legitimate commands, e.g. a heredoc that quotes the
+#   pattern). The Bash pattern set below is therefore FROZEN: adding,
+#   widening or narrowing one is a design decision, not a hardening PR.
+#   Same scope rule as the other shipped PreToolUse guards — see
+#   CLAUDE.md § Git workflow. The count is pinned by
+#   tests/lint/state-guard-pattern-freeze.bats.
+#
 # Stdin payload: JSON {tool_name, cwd, tool_input.{file_path,command,...}, ...}.
 # Exit 2 = block (with stderr message). Exit 0 = allow.
 #

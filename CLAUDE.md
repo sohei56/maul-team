@@ -315,6 +315,10 @@ they protect downstream target projects, not this repo. The one
 exception is `pre-tool-use-scrum-state-guard.sh`, which **is**
 registered in the framework's own `.claude/settings.json` because
 this repo also writes to `.scrum/` during integration tests.
+Its Bash text scan has that same guardrail scope: the structural
+`file_path` checks are the real protection. That pattern set is frozen —
+changing it is a design decision (Issue #93 (2), decision A), not a
+hardening PR.
 
 <tone_preference>
 Keep responses and authored docs reasonably concise (§ Output
