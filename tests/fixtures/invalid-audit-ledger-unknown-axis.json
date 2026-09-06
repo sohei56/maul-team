@@ -1,0 +1,10 @@
+{
+  "classes": [
+    {
+      "identity": "notify-order::send-before-write",
+      "axis": ["performance"],
+      "status": "open",
+      "first_seen_sprint": "sprint-003"
+    }
+  ]
+}

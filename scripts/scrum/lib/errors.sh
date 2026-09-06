@@ -88,6 +88,37 @@ assert_audit_identity() {
   fi
 }
 
+# assert_dec_id_exists <dec-id> <decisions_path> <allowed_kinds_pipe>
+# Verify that a cited PO decision id (a) has the `dec-NNNN` form, (b) actually
+# exists in the append-only PO decisions log, and (c) was recorded under one of
+# the allowed kinds (a `|`-separated list, e.g.
+# "defect_triage|spec_clarification"). Fails E_INVALID_ARG on every miss,
+# naming the id and the store.
+#
+# Why existence and not just form: a `dec_id` is what turns a ledger
+# suppression (`status: accepted`, `exclusions[]`) into something a human can
+# audit back to a decision. An id that matches the pattern but names no record
+# reads as justified while grounding nothing — the same "the record says it, so
+# it must be true" failure `assert_audit_identity` exists to stop. Unlike its
+# pure-form siblings above this helper reads a file, so it takes the store path
+# explicitly rather than assuming a cwd. Used by update-audit-ledger.sh
+# (`set-status accepted`, `add-exclusion`).
+assert_dec_id_exists() {
+  local dec_id="$1" store="$2" kinds="$3"
+  if ! printf '%s' "$dec_id" | grep -Eq '^dec-[0-9]{4,}$'; then
+    fail E_INVALID_ARG "bad --dec-id: $dec_id (expected dec-NNNN, at least 4 digits)"
+  fi
+  [ -f "$store" ] || fail E_INVALID_ARG \
+    "--dec-id $dec_id cannot be verified: $store not found (record the decision through append-po-decision.sh first)"
+  local kind
+  kind="$(jq -r --arg id "$dec_id" \
+    'first(.decisions[]? | select(.id == $id) | .kind) // ""' "$store" 2>/dev/null || true)"
+  [ -n "$kind" ] || fail E_INVALID_ARG \
+    "--dec-id $dec_id not found in $store (a suppression must cite a decision that exists)"
+  printf '%s' "$kinds" | tr '|' '\n' | grep -Fxq "$kind" || fail E_INVALID_ARG \
+    "--dec-id $dec_id has kind '$kind'; allowed here: $(printf '%s' "$kinds" | tr '|' ' ')"
+}
+
 # parse_json_string_array <label> <value>
 # Parse <value> as JSON, require an array of strings, and echo the compact form
 # (jq -ce) on success. On malformed JSON the wrapper fails E_INVALID_ARG

@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Codebase-audit class ledger",
+  "description": "Ledger at .scrum/audit-ledger.json. One entry per defect CLASS the audit has ever seen, keyed by the same audit_identity backlog.json carries. Purpose is cross-round class IDENTITY and occurrence retention, not issuance suppression. Writes go exclusively through scripts/scrum/update-audit-ledger.sh; direct edits are blocked by pre-tool-use-scrum-state-guard.sh.",
+  "type": "object",
+  "required": ["classes"],
+  "additionalProperties": true,
+  "properties": {
+    "updated_at": { "type": "string", "format": "date-time" },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["identity", "status", "first_seen_sprint"],
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*::[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "axis": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": ["spec-conformance", "logic-defect", "redundancy", "product-security"]
+            }
+          },
+          "severity": { "enum": ["critical", "high", "low", null] },
+          "status": { "enum": ["open", "sweeping", "guarded", "accepted", "closed"] },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "symbol": { "type": ["string", "null"] },
+                "note": { "type": ["string", "null"] },
+                "first_seen_sprint": { "type": "string", "pattern": "^sprint-[0-9]+$" },
+                "last_seen_sprint": { "type": "string", "pattern": "^sprint-[0-9]+$" }
+              }
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "reason", "dec_id"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "symbol": { "type": ["string", "null"] },
+                "reason": { "type": "string", "minLength": 1 },
+                "dec_id": { "type": "string", "pattern": "^dec-[0-9]{4,}$" },
+                "round": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "detector": {
+            "type": ["object", "null"],
+            "required": ["command", "registered_sprint", "verified_at", "verified_exit"],
+            "additionalProperties": false,
+            "properties": {
+              "command": { "type": "string", "minLength": 1 },
+              "registered_sprint": { "type": "string", "pattern": "^sprint-[0-9]+$" },
+              "verified_at": { "type": "string", "format": "date-time" },
+              "verified_exit": { "type": "integer", "minimum": 0 },
+              "scope_caveat": { "type": ["string", "null"] }
+            }
+          },
+          "pbi_ids": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "role"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "pattern": "^pbi-[0-9]+$" },
+                "role": { "enum": ["sweep", "detector"] }
+              }
+            }
+          },
+          "first_seen_sprint": { "type": "string", "pattern": "^sprint-[0-9]+$" },
+          "last_confirmed_sprint": { "type": ["string", "null"], "pattern": "^sprint-[0-9]+$" },
+          "closed_evidence": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

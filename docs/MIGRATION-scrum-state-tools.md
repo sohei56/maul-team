@@ -31,6 +31,8 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Ask how long each in-flight PBI has been quiet before probing its Developer (was: **no wrapper** — every SM session improvised its own `stat` / `date` arithmetic, and a live run's empty-variable fallback evaluated `NOW - NOW = 0`, reported stalled PBIs as `0m quiet`, and suppressed the probe indefinitely) | `.scrum/scripts/pbi-idle.sh [--threshold-minutes N]` (read-only — reads `backlog.json` plus the per-PBI activity signals and writes nothing; emits one tab-separated row per in-flight PBI: `id status last_activity_epoch idle_seconds idle_minutes verdict`, `verdict ∈ {fresh, stale, uninitialized}`, where `uninitialized` means no `.scrum/pbi/<id>/` exists yet and prints `-` for both idle fields. Exits `0` whether or not anything is stale — staleness is data, not an error; `67` on a missing backlog, `65` on an unparseable one) |
 | Advance from a completed Sprint to the next (was: **no wrapper** — `init-sprint.sh` refused while `sprint.json` existed and `freeze-sprint-base.sh` refused while `base_sha` was frozen, leaving the team unable to start any Sprint after Sprint 1) | `.scrum/scripts/rollover-sprint.sh` (archives the `status: complete` `sprint.json` to `sprint-history.json`, then removes `sprint.json` so `init-sprint.sh` + `freeze-sprint-base.sh` can start the next Sprint on a fresh base; refuses a non-complete Sprint; idempotent no-op when no `sprint.json`) |
 
+| Record a codebase-audit defect CLASS and its occurrences (was: **no store at all** — the class key lived on one PBI at a time and the occurrence list only ever existed as `--description` prose, so a class with no open PBI had no identity to reuse and a sweep's completeness was unmeasurable) | `.scrum/scripts/update-audit-ledger.sh <upsert-class\|add-occurrences\|set-status\|add-exclusion\|link-pbi\|confirm-seen\|register-detector\|list>` (writes `.scrum/audit-ledger.json`; `list` is read-only and takes no lock. `set-status` carries the machine preconditions — `guarded` needs a verified detector **and** a deployed `merge-pbi.sh` that invokes `run-detectors.sh`; `accepted` / `add-exclusion` need a `--dec-id` that exists with `kind ∈ {defect_triage, spec_clarification}`; `closed` needs a linked `done` PBI plus a clean detector run or `--evidence`) |
+
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
 field was removed in v2; lifecycle moves through
 `update-backlog-status.sh` instead):
@@ -510,3 +512,40 @@ byte-identical — whole-file rather than per-record, because
 `atomic_write` re-validates the result, so a partial clean could not be
 written without bypassing the schema-validated-write contract. It exits
 0; hand-edit the named records and relaunch to clean the rest.
+
+## v6 → v7: the codebase-audit class ledger (2026-09-06)
+
+A new SSOT file, `.scrum/audit-ledger.json`
+(`audit-ledger.schema.json`), with a new sole writer,
+`update-audit-ledger.sh`. It holds one entry per defect **class** the
+codebase audit has ever seen, keyed by the same `audit_identity`
+`backlog.json` already carries.
+
+This is **additive**: no existing schema, wrapper, or field changes, and
+a project that never writes the file behaves exactly as before. The
+reason it is a state file rather than a report is that the two things
+the audit most needed to remember — the class identity and its
+occurrence set — used to live only where they could not survive: the
+identity on whichever PBI happened to be open (so a class with no open
+PBI had no key to reuse), and the occurrences in `--description` prose
+(so "did the sweep shrink?" was unanswerable, and re-transcription lost
+most of the list every round).
+
+Two shapes deviate from the obvious minimum, both deliberately:
+`pbi_ids[]` holds `{id, role}` objects rather than plain ids, because
+promotion to `guarded` has to know *which* merged PBI wired the
+detector; and `detector` is an object carrying its own
+`verified_at` / `verified_exit` stamp rather than a boolean, because the
+wrapper must not trust a flag an agent typed — it re-runs
+`run-detectors.sh --check` and writes the result it observed.
+
+`guarded` is the one status with teeth, and its preconditions are
+checked in the wrapper rather than the schema, because two of them are
+statements the schema cannot make: that the **deployed**
+`merge-pbi.sh` greps as invoking `run-detectors.sh`, and that a live
+`--check` actually executed (exit 0 or 1 — exit 2 means the detector
+could not run). A `guarded` class leaves LLM audit scope, so a ledger
+that claims it while no gate runs would silently stop auditing the class
+altogether. There is no other path to the status: `upsert-class` never
+writes `status`, and `pre-tool-use-scrum-state-guard.sh` blocks a
+hand-written file.

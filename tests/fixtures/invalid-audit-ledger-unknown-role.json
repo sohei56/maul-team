@@ -1,0 +1,10 @@
+{
+  "classes": [
+    {
+      "identity": "notify-order::send-before-write",
+      "status": "open",
+      "first_seen_sprint": "sprint-003",
+      "pbi_ids": [{ "id": "pbi-101", "role": "reviewer" }]
+    }
+  ]
+}
