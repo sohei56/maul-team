@@ -412,11 +412,15 @@ case "$outcome" in
 esac
 ```
 
-The resolver validates the current aggregate, selects the most recent
-prior Round that produced an Integrity aggregate, and evaluates
-Stagnation / Divergence / Hard cap in that order. With no prior
-aggregate it skips both comparison gates; Hard cap still applies. It
-prints `next_round` or the escalation reason.
+This is the canonical Integrity-FAIL invocation; `termination-gates.md`
+§ Status transition on escalation points here rather than restating it.
+
+The resolver refuses any backlog status other than the kind's Integrity
+entry status (above). It validates the current aggregate, selects the
+most recent prior Round that produced an Integrity aggregate, and
+evaluates Stagnation / Divergence / Hard cap in that order. With no
+prior aggregate it skips both comparison gates; Hard cap still applies.
+It prints `next_round` or the escalation reason.
 
 On `next_round`, the resolver has already reverted the PBI to impl by
 setting `impl_status=fail`, backlog status `in_progress_impl`, and the

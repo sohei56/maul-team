@@ -4,11 +4,13 @@
 
 ```text
 scrum-start.sh           # Entry point — validates prereqs, launches tmux (supports --autonomous)
-agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-master, developer, product-owner, requirements-analyst; sub-agents listed in docs/contracts/sub-agents.md)
+agents/                  # 4 top-level agents (scrum-master, developer, product-owner, requirements-analyst) + 2 SM-spawned bounded agents + 11 sub-agent definitions (all listed in docs/contracts/sub-agents.md)
   scrum-master.md        # Team lead (Delegate mode)
   developer.md           # Developer teammate (PBI pipeline conductor)
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
   requirements-analyst.md # Requirement Definition ceremony (interview + mandatory benchmark web search + requirements.md/CLAUDE.md authoring)
+  scrum-explorer.md      # SM-spawned bounded agent: read-only, root-scoped evidence investigation for one question
+  ceremony-operator.md   # SM-spawned bounded agent: executes exactly one named ceremony skill; no product/release judgment
   # Per-PBI Integrity stage (5-aspect, Developer-spawned at Round tail): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
   # Sprint-end cross-review always closes PBIs; every third Sprint it adds 4 whole-repo codebase-audit axes (general-purpose Agent spawns, not named agents)
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer

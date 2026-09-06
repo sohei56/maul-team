@@ -48,6 +48,13 @@ Agent Teams using the `spawn-teammates` Skill (R6) for reproducibility.
 - Requires: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (set by
   `scrum-start.sh`; see R5).
 - Team lead persists across Sprints; teammates are per-Sprint.
+- To keep its own context thin, the Scrum Master also spawns two
+  **short-lived bounded agents** (catalog: `docs/contracts/sub-agents.md`;
+  selection rules: `agents/scrum-master.md` § Choosing bounded agents):
+  - `scrum-explorer` — read-only, root-scoped investigation of one
+    bounded question, returning `path:line` evidence.
+  - `ceremony-operator` — executes exactly one named ceremony skill,
+    returning candidates and gaps but never a PO or release judgment.
 
 ---
 

@@ -37,6 +37,14 @@ For specs, follow the pointers in [Where to look](#where-to-look-for-what).
                           │      Definition ceremony: interview + mandatory
                           │      benchmark web search + requirements.md
                           │
+              SM-spawned bounded agents (short-lived, evidence only —
+              never decide; see agents/scrum-master.md § Choosing
+              bounded agents):
+                scrum-explorer     read-only, root-scoped answer to ONE
+                                   question, with path:line evidence
+                ceremony-operator  runs ONE named ceremony skill;
+                                   returns candidates + gaps
+                          │
               spawn-teammates / pbi-merge / cross-review …
                           │
                           ▼

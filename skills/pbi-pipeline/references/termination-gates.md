@@ -43,25 +43,11 @@ notify_sm_escalation "$PBI_ID" "<reason>"
 ```
 
 **Integrity FAIL exception:** the conductor MUST NOT issue the first
-three durable operations above itself. It invokes the higher-level
-resolver, which owns reason → backlog status → pipeline.log in that
-order; the conductor only sends the notification when the returned
-outcome is an escalation:
-
-```bash
-outcome="$(.scrum/scripts/resolve-integrity-fail.sh "$PBI_ID")"
-case "$outcome" in
-  stagnation|divergence|max_rounds)
-    notify_sm_escalation "$PBI_ID" "$outcome"
-    ;;
-  next_round) ;;
-  *) echo "unexpected Integrity resolver outcome: $outcome" >&2; exit 1 ;;
-esac
-```
-
-The resolver accepts only the actual Integrity entry status for the
-PBI kind: `in_progress_ut_run` for kind=code and
-`in_progress_pbi_review` for kind=docs.
+three durable operations above itself. It invokes
+`.scrum/scripts/resolve-integrity-fail.sh`, which owns reason → backlog
+status → pipeline.log in that order; the conductor only notifies SM when
+the returned outcome is an escalation. Canonical invocation, outcome
+handling, and entry-status rule: `integrity-stage.md` § Step I-5b.
 
 - `<reason>` — the stage's chosen `escalation_reason` enum value
   (termination gates: `stagnation` / `divergence` / `max_rounds` /
@@ -296,14 +282,9 @@ files (union).
 ## Divergence detection
 
 For Design, PBI Review, and UT Run, count all Critical/High findings as
-before. Integrity FAIL resolution MUST go through the deployed wrapper;
-do not reproduce its classification with ad-hoc `jq`:
-
-```bash
-outcome="$(.scrum/scripts/resolve-integrity-fail.sh "$PBI_ID")"
-```
-
-The wrapper compares with the most recent lower-numbered
+before. Integrity FAIL resolution MUST go through the deployed wrapper
+(`integrity-stage.md` § Step I-5b); do not reproduce its classification
+with ad-hoc `jq`. The wrapper compares with the most recent lower-numbered
 `integrity-r*.json`, applies the table in § Integrity stage — gate
 wiring, and prints the selected outcome. The generic count below is
 therefore only for non-Integrity stages.
