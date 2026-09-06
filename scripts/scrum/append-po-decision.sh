@@ -107,8 +107,9 @@ fi
 # canonical approval tokens. `accept` is not a second spelling of `approve`,
 # and a Sprint acceptance without a Sprint id cannot satisfy the Stop gate.
 if [ "$KIND" = "sprint_acceptance" ]; then
-  [ -n "$SPRINT" ] && [ "$SPRINT" != "null" ] ||
+  if [ -z "$SPRINT" ] || [ "$SPRINT" = "null" ]; then
     fail E_INVALID_ARG "sprint_acceptance requires --sprint"
+  fi
   case "$DECISION" in
     approve|reject) ;;
     *) fail E_INVALID_ARG "sprint_acceptance --decision must be approve or reject" ;;
