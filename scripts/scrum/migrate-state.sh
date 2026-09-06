@@ -93,7 +93,8 @@ STRICT_MAP=".scrum/state.json state.schema.json
 .scrum/improvements.json improvements.schema.json
 .scrum/sprint-history.json sprint-history.schema.json
 .scrum/test-results.json test-results.schema.json
-.scrum/po/decisions.json po-decisions.schema.json"
+.scrum/po/decisions.json po-decisions.schema.json
+.scrum/audit-ledger.json audit-ledger.schema.json"
 
 WARN_MAP=".scrum/communications.json communications.schema.json
 .scrum/dashboard.json dashboard.schema.json

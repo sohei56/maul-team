@@ -14,7 +14,11 @@
 # `--audit-identity` is the cross-Sprint dedup key for codebase-audit PBIs and
 # is REQUIRED when the title starts with "[codebase-audit:". It must be two
 # lower-kebab parts joined by "::" — never a file path or line number, both of
-# which drift under refactoring and silently mint a new defect class.
+# which drift under refactoring and silently mint a new defect class. When
+# `.scrum/audit-ledger.json` exists it must also NAME A CLASS ALREADY IN IT:
+# transcribe the class through `update-audit-ledger.sh upsert-class` first, so
+# an identity is reused from the ledger rather than minted at filing time. An
+# absent ledger is allowed (bootstrap — see the guard below).
 #
 # `--audit-severity` is likewise REQUIRED for a "[codebase-audit:*" title and
 # must agree case-insensitively with the title's 4th colon segment (the
@@ -64,6 +68,7 @@ done
 [ -n "$TITLE" ] || fail E_INVALID_ARG "--title required"
 
 PATHF=".scrum/backlog.json"
+AUDIT_LEDGER=".scrum/audit-ledger.json"
 # Resolved before the guards below because the audit-severity check derives its
 # allow-list from the schema rather than hardcoding a parallel copy.
 SCHEMA="$(resolve_schema_dir)/backlog.schema.json"
@@ -78,6 +83,22 @@ esac
 # audit axes often enough that the machine has to be the one that insists.
 if [ -n "$AUDIT_IDENTITY" ]; then
   assert_audit_identity "$AUDIT_IDENTITY" --audit-identity
+  # Form is not enough: a well-formed key that names no known class is a NEW
+  # class minted at filing time, which is exactly the identity drift the
+  # ledger exists to end. The class must be transcribed first, so the audit
+  # reuses a key it can see rather than inventing one it cannot.
+  #
+  # Bootstrap: an ABSENT ledger is allowed. A target that has never run an
+  # audit and has not yet been migrated must not be bricked;
+  # migrations/008-seed-audit-ledger.sh creates the file at the first launch
+  # after the upgrade for every project that has a backlog, so this branch is
+  # only reachable before then. The error text is self-describing on purpose —
+  # it is how a session running stale skill text recovers without a human.
+  if [ -f "$AUDIT_LEDGER" ]; then
+    jq -e --arg k "$AUDIT_IDENTITY" 'any(.classes[]?; .identity == $k)' \
+      "$AUDIT_LEDGER" >/dev/null 2>&1 || fail E_INVALID_ARG \
+      "audit identity '$AUDIT_IDENTITY' is not in $AUDIT_LEDGER — transcribe the class first: .scrum/scripts/update-audit-ledger.sh upsert-class --identity '$AUDIT_IDENTITY' --sprint <sprint-id>"
+  fi
 fi
 if [ -n "$AUDIT_SEVERITY" ]; then
   backlog_audit_severity_enum "$SCHEMA" | grep -Fxq "$AUDIT_SEVERITY" || fail E_INVALID_ARG \
