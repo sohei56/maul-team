@@ -155,6 +155,36 @@ EOF
   [ "$output" = "in_progress_merge" ]
 }
 
+@test "merge-pbi: no audit ledger → detector gate is a silent no-op and leaves no artifact" {
+  # The compatibility floor: a target that never adopted guard-first detectors
+  # must see exactly the pre-gate behaviour — no WARN, no log file.
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -q "detector"
+  [ ! -f .scrum/pbi/pbi-001/detector-regression.log ]
+}
+
+@test "merge-pbi: a guarded detector reporting violations → exit 2, kind=detector_regression" {
+  PRE_MAIN_HEAD="$(git rev-parse HEAD)"
+  # Written directly: the ledger's wrapper (update-audit-ledger.sh) is not
+  # what is under test here, and a bats run is not an agent tool call.
+  cat > .scrum/audit-ledger.json <<'EOF'
+{"classes":[{"identity":"forbidden-token::literal-forbidden","status":"guarded",
+ "first_seen_sprint":"sprint-001",
+ "detector":{"command":"echo 'file.txt:1: FORBIDDEN'; exit 1",
+             "registered_sprint":"sprint-001",
+             "verified_at":"2026-05-04T10:00:00Z","verified_exit":0}}]}
+EOF
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/merge-pbi.sh" pbi-001
+  [ "$status" -eq 2 ]
+  run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "detector_regression" ]
+  [ "$(git rev-parse HEAD)" = "$PRE_MAIN_HEAD" ]
+  grep -q "forbidden-token::literal-forbidden" .scrum/pbi/pbi-001/detector-regression.log
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+}
+
 @test "merge-pbi: disjoint working-tree drift does NOT block the merge (P0-b) and is restored" {
   # A tracked file the merge never touches is dirtied on main. Historically
   # the blanket clean check refused ALL merges in this state, stranding

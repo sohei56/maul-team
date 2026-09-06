@@ -13,6 +13,7 @@ disable-model-invocation: false
 - state.json → phase: "integration_sprint"
 - requirements.md (endpoint/workflow discovery)
 - Project source code
+- `.scrum/audit-ledger.json` (optional) — guarded classes' detectors
 
 ## Outputs
 
@@ -73,6 +74,43 @@ The wrapper updates `updated_at` and recomputes `overall_status` on every call.
 ```
 For large test suites (>100 tests), use `grep -A 5 'FAIL\|Error\|✗\|FAILED'` to extract failure details only. Record full pass/fail counts from exit code + summary line, not from reading every test result line.
 
+### 3.5 Guard-first audit detectors
+
+Classes the codebase-audit promoted to `guarded` in
+`.scrum/audit-ledger.json` own a mechanical detector (contract:
+`../codebase-audit/references/detectors.md`). The per-PBI merge gate
+runs them on each merge; this is the Sprint-level net that catches a
+class reintroduced by anything that did not go through `merge-pbi.sh`.
+
+```bash
+DET_RC=0
+DET_JSON="$(.scrum/scripts/run-detectors.sh --json)" || DET_RC=$?
+COUNT="$(printf '%s' "$DET_JSON" | jq '.detectors | length')"
+
+if [ "$COUNT" -eq 0 ]; then
+  .scrum/scripts/record-test-result.sh --name detectors \
+    --status skipped --runner-command 'no guarded classes'
+elif [ "$DET_RC" -eq 0 ]; then
+  .scrum/scripts/record-test-result.sh --name detectors \
+    --status passed --total "$COUNT" --passed "$COUNT" --failed 0 \
+    --runner-command '.scrum/scripts/run-detectors.sh'
+else
+  # rc=1 violations, rc=2 a detector could not execute. BOTH record
+  # `failed`: a broken ratchet is a failure, not an absence, and
+  # overall_status=failed is what blocks the Integration-Sprint exit
+  # and a `release_decision=go`. Pass up to 10 --error lines, one per
+  # offending class, from .detectors[] | select(.outcome != "clean").
+  .scrum/scripts/record-test-result.sh --name detectors \
+    --status failed --total "$COUNT" \
+    --runner-command '.scrum/scripts/run-detectors.sh' \
+    --error '<identity>::<first violation line, or the could-not-execute reason>'
+fi
+```
+
+`--json` always emits a document, so an empty `detectors` array is the
+one reliable way to tell "no guarded classes" from "all clean" — a
+clean detector prints nothing. Never record `passed` on `DET_RC != 0`.
+
 ### 4. HTTP smoke testing
 
 1. Find start command (package.json/Makefile/docker-compose etc)
@@ -114,4 +152,5 @@ Ref: FR-013
 
 - test-results.json exists with overall_status set
 - All detectable categories executed or skipped
+- A `detectors` category is recorded (`skipped` when no class is guarded)
 - Results reported to SM

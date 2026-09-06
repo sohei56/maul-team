@@ -19,7 +19,8 @@
 #                     coverage_tool_unavailable|catalog_lock_timeout|
 #                     reviewer_unavailable|stale_review_snapshot|
 #                     merge_conflict|merge_artifact_missing|merge_regression|
-#                     kind_mismatch|teammate_unrecoverable
+#                     merge_detector_regression|kind_mismatch|
+#                     teammate_unrecoverable
 #
 # skipped is the canonical value for the two *_status fields a kind=docs
 # PBI never exercises: design_status and coverage_status. ut_status
@@ -115,7 +116,7 @@ while [ "$#" -ge 2 ]; do
     escalation_reason)
       case "$V" in
         null) EXPR="$EXPR | .escalation_reason = null" ;;
-        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|reviewer_unavailable|stale_review_snapshot|merge_conflict|merge_artifact_missing|merge_regression|kind_mismatch|teammate_unrecoverable)
+        stagnation|divergence|max_rounds|budget_exhausted|requirements_unclear|coverage_tool_error|coverage_tool_unavailable|catalog_lock_timeout|reviewer_unavailable|stale_review_snapshot|merge_conflict|merge_artifact_missing|merge_regression|merge_detector_regression|kind_mismatch|teammate_unrecoverable)
           EXPR="$EXPR | .escalation_reason = \"$V\""
           ;;
         *) fail E_INVALID_ARG "bad escalation_reason: $V" ;;
