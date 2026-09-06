@@ -216,13 +216,36 @@ footer{border-top:1px solid var(--line); margin-top:56px}
        data-i18n="cl.cta">Download for macOS</a>
   </section>
 
+  <!-- ============ v2.0.12 ============ -->
+  <article class="rel">
+    <div class="rel-meta">
+      <span class="rel-date" data-i18n="cl.v212.date">September 6, 2026</span>
+      <span class="rel-sep">·</span>
+      <span class="rel-ver">v2.0.12</span>
+      <span class="badge latest" data-i18n="cl.latest">Latest</span>
+      <span class="badge k-new" data-i18n="cl.kind.new">New</span>
+      <span class="badge k-imp" data-i18n="cl.kind.improved">Improved</span>
+      <span class="badge k-fix" data-i18n="cl.kind.fixed">Fixed</span>
+    </div>
+    <h2 data-i18n="cl.v212.h">The audit remembers, and guards must be able to fail</h2>
+    <p class="rel-sum" data-i18n="cl.v212.sum">MaulTeam now remembers every kind of problem its periodic project-wide review has ever found, so nothing comes back under a new name — and the kinds a script can catch are turned into checks that stop them returning at all. Checks themselves are held to the same standard: they have to be shown failing before the team trusts them.</p>
+    <ul class="rel-list">
+      <li data-i18n="cl.v212.b1"><strong>The review remembers what it has already found.</strong> The periodic read-through of the whole project now keeps a running list of every kind of problem it has ever seen, so the same one is never filed again under a new name, and every place a problem turns up is recorded as a proper list instead of buried in prose. Where a kind of problem can be caught by a script, the team writes that check and wires it into the gate that lets finished work in — anything that brings the problem back is stopped right there, and a check that is itself broken fails loudly instead of quietly passing. A problem counts as guarded only once that gate has been seen to run.</li>
+      <li data-i18n="cl.v212.b2"><strong>Reviews now show their evidence.</strong> When a design review claims that something you asked for is not covered, it has to quote your wording, say what it searched for and what it found. And it reads what you asked for from the to-do list itself, never from someone else's summary of it.</li>
+      <li data-i18n="cl.v212.b3"><strong>A check has to prove it can fail.</strong> Anything the team delivers as a test, a check or an alarm is now demonstrated twice: once with the fault deliberately put back, to show it is caught, and once with the fault gone. A check that cannot be made to fail on demand is not accepted.</li>
+      <li data-i18n="cl.v212.b4"><strong>The team's own records are protected from anywhere.</strong> The safeguards that stop those records being edited by hand now locate the project root wherever they are run from, so they hold inside a sub-folder of a package or a per-item working copy — places where such edits used to slip through unnoticed. When the root cannot be found, they refuse to judge rather than guess.</li>
+      <li data-i18n="cl.v212.b5"><strong>It runs everywhere it says it does.</strong> The documented one-line start command now works on Linux, where it used to stop immediately. On the release side, the step that gets the Mac app cleared by Apple retries when the network hiccups instead of failing the build, and every test suite now runs before a release goes out.</li>
+    </ul>
+    <a class="rel-notes" href="https://github.com/sohei56/maul-team/releases/tag/v2.0.12"
+       target="_blank" rel="noopener" data-i18n="cl.notes">Full technical notes on GitHub ↗</a>
+  </article>
+
   <!-- ============ v2.0.11 ============ -->
   <article class="rel">
     <div class="rel-meta">
       <span class="rel-date" data-i18n="cl.v211.date">September 6, 2026</span>
       <span class="rel-sep">·</span>
       <span class="rel-ver">v2.0.11</span>
-      <span class="badge latest" data-i18n="cl.latest">Latest</span>
       <span class="badge k-new" data-i18n="cl.kind.new">New</span>
       <span class="badge k-imp" data-i18n="cl.kind.improved">Improved</span>
       <span class="badge k-fix" data-i18n="cl.kind.fixed">Fixed</span>
