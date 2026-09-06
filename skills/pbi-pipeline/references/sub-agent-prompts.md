@@ -507,8 +507,17 @@ Inputs:
   there is no persisted paths_touched yet at this point):
   - <path1>
   - <path2>
-- PBI backlog entry (id, title, acceptance_criteria, kind, parent_pbi_id):
-{paste backlog.json entry for {pbi_id}}
+- PBI backlog record (id, title, acceptance_criteria, kind,
+  parent_pbi_id) — this prompt carries no AC text: read the entry
+  yourself from `.scrum/backlog.json` (valid relative to the worktree
+  root; `create-pbi-worktree.sh` installs a `.scrum` symlink to the
+  shared SSOT in every worktree):
+    jq '.items[] | select(.id=="{pbi_id}")' .scrum/backlog.json
+  That record's `acceptance_criteria` array is the ONLY AC source —
+  never against any summary or restatement of it. Unreadable file / no
+  such entry → say so explicitly in your Summary and report NO
+  AC-conformance finding (an AC you could not read is not an AC the
+  increment failed); never reconstruct the ACs from memory.
 - requirements.md: <path>
 {aspect-specific input lines — see below}
 
