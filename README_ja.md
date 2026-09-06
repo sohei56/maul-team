@@ -124,7 +124,7 @@ open macapp/build/MaulTeam.app
    - **worktree 分離 × 並列** — Developer ごとに専用の git worktree (`.scrum/worktrees/<pbi-id>/`, ブランチ `pbi/<pbi-id>`) で開発するため、PBI 同士が干渉せずに並走する
    - **クロスモデルレビュー** — design → implementation + black-box UT の各 Round を **Codex** がレビューし (未導入なら Claude ベースにフォールバック)、終了は決定論的なゲートで判定する
    - **マージはゲート制** — black-box UT が実測の C0/C1 カバレッジ付きで通り、5 観点の Integrity レビュー (requirement-conformance / functional-quality / security / maintainability / docs-consistency) がその PBI の diff を通過して初めて、SM がマージする
-6. **Cross-Review** — 全 PBI のマージ後、SM が監査専任の cross-review を実行: リポジトリ全体への 4 軸 `codebase-audit` (spec-conformance / logic-defect / redundancy / product-security)。non-blocking で、Critical/High の指摘は次 Sprint の draft PBI になる
+6. **Cross-Review** — 全 PBI のマージ後、SM は毎 Sprint の PBI closeout を実行し、3 Sprint ごと (`N % 3 == 0`) に non-blocking なリポジトリ全体への 4 軸 `codebase-audit` (spec-conformance / logic-defect / redundancy / product-security) も実行する。Critical/High の指摘は次 Sprint の draft PBI になる
 7. **Sprint Review** — SM がアプリを起動し、完了した PBI を順にデモ。あなたがそれぞれの動作を確認する
 8. **Retrospective** — チームが振り返り、次 Sprint 以降への改善を記録する
 9. Product Goal を達成するまで 3 に戻って**反復**。達成後、以下の 2 フェーズへ進む:
@@ -152,7 +152,7 @@ open macapp/build/MaulTeam.app
 **Loop engineering (ループエンジニアリング)** は、単発のプロンプトではなく、エージェントが計画・実行・検証・改善を繰り返す仕組みを設計する考え方です。Maul Team はこれを **Development pipeline**、**Sprint**、**自律実行**の 3 層で実装しています。
 
 - **Development pipeline ループ (最内 — 構築と検証)。** PBI ごとに専用の git worktree で、design → implementation + black-box unit test → Codex クロスモデルレビューの Round を、決定論的な終了ゲート (success / stagnation / divergence / hard cap) が通るまで反復する。テストとレビューを通過するまでマージは開かない。詳細は [Scrum 開発の流れ](#scrum-開発の流れ)。
-- **Sprint ループ (中間 — ドリフト検出と自己改善)。** 各 Sprint の末尾で、マージ済みコードと要件・設計の乖離を検出するリポジトリ全体・4 軸の `codebase-audit` を実行する。Critical/High の指摘は次 Sprint の draft PBI として起票され、Retrospective も同じ形でプロセス改善を前へ送る。プロダクトとプロセスの双方が hill-climb する。*(LangChain の hill-climbing ループ。)*
+- **Sprint ループ (中間 — ドリフト検出と自己改善)。** 各 Sprint の末尾で軽量な cross-review closeout を実行し、3 Sprint ごとにマージ済みコードと要件・設計の乖離を検出するリポジトリ全体・4 軸の `codebase-audit` を追加実行する。Critical/High の指摘は次 Sprint の draft PBI として起票され、Retrospective は独立してプロセス改善を前へ送る。プロダクトとプロセスの双方が hill-climb する。*(LangChain の hill-climbing ループ。)*
 - **自律実行ループ (最外 — イベント駆動・無人)。** 目指すべき状態をプロダクトブリーフとして一度指定すれば、PO の席さえエージェントになる (`po_mode=agent`): エージェント PO と Scrum Master がその状態に向かってスクラムを回し続け、外側の [Ralph-Loop](https://ghuntley.com/ralph/) ウォッチドッグがヘッドレスセッションをイテレーションのたびに再起動し、安全弁 (iterations / wall-clock / Sprints / failure budgets) を強制し、API のレート制限中はスリープして復帰し、朝レポートを書き出す。*(LangChain の event-driven ループ。)*
 
 主なリスクは、ループの出力をそのまま受け入れてしまう **cognitive surrender (認知的な明け渡し)** です。Maul Team は、state-write とブランチのルール、決定論的なゲート、実測カバレッジ、曖昧な要件のエスカレーションによってこれを抑えます。
@@ -179,7 +179,7 @@ open macapp/build/MaulTeam.app
 **AI の強みを活かす拡張:**
 
 - **動的なチームサイジング** — Developer エージェントの数は、PBI 数と複雑度に応じて Sprint ごとに最適化される
-- **二層の独立レビュー** — Increment を 2 つの粒度で検査する: マージ前に各 PBI の diff (5 観点の Integrity ゲート)、続いて Sprint 末にマージ後の Increment 全体へのリポジトリ全体 codebase audit。加えて、Codex が利用可能なら PBI 単位のクロスモデルレビューを実施し、未導入なら Claude ベースのレビューにフォールバックする。観点・軸の一覧は [Scrum 開発の流れ](#scrum-開発の流れ) を参照
+- **二層の独立レビュー** — Increment を 2 つの粒度で検査する: マージ前は毎 PBI の diff に 5 観点の Integrity ゲート、3 Sprint ごとにマージ後の Increment 全体へのリポジトリ全体 codebase audit。加えて、Codex が利用可能なら PBI 単位のクロスモデルレビューを実施し、未導入なら Claude ベースのレビューにフォールバックする。観点・軸の一覧は [Scrum 開発の流れ](#scrum-開発の流れ) を参照
 
 **AI の弱点を抑え込む制約:**
 
@@ -219,9 +219,9 @@ open macapp/build/MaulTeam.app
  │                         pass (--no-ff + regression gate;    │
  │                         3-strike escalation)                │
  │          ▼                                                  │
- │  7. Cross-Review      Whole-repo 4-axis codebase-audit      │
- │                         (audit-only, non-blocking;          │
- │                         findings → next-Sprint draft PBIs)  │
+ │  7. Cross-Review      毎 Sprint の軽量 closeout;            │
+ │                         N % 3 == 0: whole-repo 4-axis audit │
+ │                         (non-blocking; findings → draft PBIs)│
  │          ▼                                                  │
  │  8. Sprint Review     Demo to PO, accept/reject PBIs        │
  │          ▼                                                  │

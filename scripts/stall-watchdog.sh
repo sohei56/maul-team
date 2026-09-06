@@ -5,44 +5,24 @@
 # Replaces the legacy SM-side "Stop hook block" approach: instead of forcing
 # the Scrum Master to babysit teammate liveness on every turn-end (which
 # burned context), this daemon watches filesystem signals from outside the
-# Claude session and nudges the SM via tmux only when no activity has been
-# observed for a configurable threshold.
+# Claude session. Its timer invokes pbi-idle.sh and exits silently while all
+# observed PBIs are fresh; only stale or unknown results nudge the SM.
 #
 # Signals consulted:
-#   .scrum/backlog.json                — in-flight PBI count (status =
-#                                        in_progress_* but NOT
-#                                        in_progress_merge; matches the
-#                                        `pbi_pipeline_active` in-flight filter
-#                                        in completion-gate.sh)
-#   .scrum/dashboard.json mtime        — hook event activity
-#   .scrum/pbi/<id>/ recursive mtime   — pipeline artifact activity
+#   scripts/scrum/pbi-idle.sh          — the single per-PBI activity reader,
+#                                        over backlog, artifacts, commits, and
+#                                        dirty worktree files
 #
-# The signal implementations themselves (mtime_of, max_mtime_recursive,
-# pbi_activity_epoch, in_flight_snapshot) live in
-# scripts/scrum/lib/activity.sh, sourced in place below; this file owns only
-# the detection policy built on them (thresholds, cooldown, nudge text).
-#
-# Two independent stall detectors:
-#   Global   — no activity anywhere (max of the signals above) for
-#              idle_threshold_minutes. Catches a fully dead team. When
-#              neither signal has ever existed (both 0 — no dashboard.json
-#              and no .scrum/pbi/ tree at all), it still fires, because a
-#              team that never started is precisely what it backstops; the
-#              nudge then says "never observed" rather than claiming an
-#              elapsed time that was never measured.
-#   Per-PBI  — a single in-flight PBI whose own activity (its
-#              .scrum/pbi/<id>/ artifact tree, its worktree's last
-#              commit, and dirty/untracked worktree file mtimes) is
-#              older than pbi_idle_threshold_minutes, even while other
-#              teammates keep the global signals fresh. Catches the
-#              "one stalled conductor masked by an otherwise busy
-#              team" case, which the global detector cannot see.
+# The signal implementations live in scripts/scrum/lib/activity.sh and are
+# consumed by pbi-idle.sh. This file owns only timer, cooldown, and handoff
+# policy. Unknown/uninitialized activity is never converted to "fresh".
 #
 # Nudge transport:
 #   tmux send-keys -t <sm_pane_id>     — single-line probe sent to the SM
 #                                        pane. The SM is idle waiting for
-#                                        the user, so the keystroke reliably
-#                                        wakes it.
+#                                        the user. Used only for an anomalous
+#                                        stale/unknown explorer handoff, never
+#                                        for a normal fresh poll.
 #
 # Usage:
 #   scripts/stall-watchdog.sh <project_dir> [--once]
@@ -54,8 +34,8 @@
 # Config (.scrum/config.json -> .stall_watchdog):
 #   {
 #     "enabled": true,
-#     "idle_threshold_minutes": 15,
-#     "pbi_idle_threshold_minutes": 15,   // default: idle_threshold_minutes
+#     "idle_threshold_minutes": 30,
+#     "pbi_idle_threshold_minutes": 30,   // default: idle_threshold_minutes
 #     "cooldown_minutes": 15,
 #     "poll_interval_seconds": 60
 #   }
@@ -137,18 +117,21 @@ SCRUM_DIR="$PROJECT_DIR/.scrum"
 CONFIG_FILE="$SCRUM_DIR/config.json"
 RUNTIME_FILE="$SCRUM_DIR/runtime.json"
 BACKLOG_FILE="$SCRUM_DIR/backlog.json"
-DASHBOARD_FILE="$SCRUM_DIR/dashboard.json"
-PBI_DIR="$SCRUM_DIR/pbi"
 LOG_DIR="$SCRUM_DIR/logs"
 LOG_FILE="$LOG_DIR/stall-watchdog.log"
 STATE_FILE="$LOG_DIR/stall-watchdog.state"
 
 DEFAULT_ENABLED="true"
-DEFAULT_IDLE_THRESHOLD_MIN=15
+# 30 minutes, not 10: healthy multi-aspect review stages measured 11-25
+# minutes of zero artifact activity (Issue #95). Rationale and the full
+# nudge contract: docs/contracts/agent-interfaces.md
+# § External liveness nudge.
+DEFAULT_IDLE_THRESHOLD_MIN=30
 DEFAULT_COOLDOWN_MIN=15
 DEFAULT_POLL_INTERVAL_SEC=60
 
 TMUX_BIN="${STALL_TMUX_BIN:-tmux}"
+PBI_IDLE_BIN="${STALL_PBI_IDLE_BIN:-$STALL_SCRIPT_DIR/scrum/pbi-idle.sh}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -213,43 +196,6 @@ snapshot_count() {
   printf '%s\n' "$1" | grep -c .
 }
 
-# snapshot_ids <snapshot> — the non-empty PBI ids, one per line.
-snapshot_ids() {
-  [ -z "$1" ] && return 0
-  printf '%s\n' "$1" | cut -f1 | grep -v '^$' || true
-}
-
-# snapshot_summary <snapshot> — grouped "N status" join. Statuses keep their
-# in_progress_ prefix (matching the historical stall message). An empty
-# snapshot yields an empty line.
-snapshot_summary() {
-  [ -z "$1" ] && { printf '\n'; return 0; }
-  printf '%s\n' "$1" | cut -f2 | jq -Rrn '
-    [inputs]
-    | if length == 0 then ""
-      else (group_by(.) | map("\(length) \(.[0])") | join(", "))
-      end
-  ' 2>/dev/null || printf '\n'
-}
-
-# stale_pbi_list <now_epoch> <threshold_seconds> <snapshot> — emit "id(Nm)"
-# tokens, one per line, for every in-flight PBI whose per-PBI activity is
-# older than the threshold. PBIs without an artifact dir are skipped (the
-# global idle detector still covers a team that never started). Ids are
-# derived from the shared in-flight snapshot.
-stale_pbi_list() {
-  local now="$1" threshold="$2" snapshot="$3" id act idle
-  snapshot_ids "$snapshot" | while IFS= read -r id; do
-    [ -z "$id" ] && continue
-    act="$(pbi_activity_epoch "$id" "$SCRUM_DIR")"
-    [ "$act" -eq 0 ] && continue
-    idle=$((now - act))
-    if [ "$idle" -gt "$threshold" ]; then
-      printf '%s(%sm)\n' "$id" "$((idle / 60))"
-    fi
-  done
-}
-
 # send_nudge <pane> <message>
 # Independent function so bats can stub tmux via a PATH shim. Returns 0 on
 # success regardless of tmux exit so the loop never crashes on transient
@@ -274,7 +220,13 @@ send_nudge() {
 run_once() {
   # Config check
   local enabled idle_threshold_min cooldown_min
-  enabled="$(read_cfg_or '.stall_watchdog.enabled' "$DEFAULT_ENABLED")"
+  # jq's `//` treats boolean false like null, so the generic scalar helper
+  # cannot distinguish an explicit disable from a missing key.
+  if [ -f "$CONFIG_FILE" ] && jq -e '.stall_watchdog | has("enabled")' "$CONFIG_FILE" >/dev/null 2>&1; then
+    enabled="$(jq -r '.stall_watchdog.enabled' "$CONFIG_FILE" 2>/dev/null || echo "$DEFAULT_ENABLED")"
+  else
+    enabled="$DEFAULT_ENABLED"
+  fi
   case "$enabled" in
     false|0|"") log_msg INFO "stall_watchdog disabled by config"; return 99 ;;
   esac
@@ -312,61 +264,58 @@ run_once() {
     return 98
   fi
 
-  # In-flight snapshot (single backlog read) — count / ids / summary derive
-  # from this one projection.
+  # A missing or malformed backlog is unknown, never an empty team. Since the
+  # only safe handoff transport for this daemon is the configured tmux pane,
+  # request one bounded Explorer there instead of claiming no work is active.
+  local backlog_unknown=0
+  if [ ! -f "$BACKLOG_FILE" ] || ! jq -e '(.items | type) == "array"' "$BACKLOG_FILE" >/dev/null 2>&1; then
+    backlog_unknown=1
+  fi
+
+  # In-flight snapshot (single valid backlog read) — count / ids / summary
+  # derive from this one projection.
   local snapshot in_flight
-  snapshot="$(in_flight_snapshot "$BACKLOG_FILE")"
+  if [ "$backlog_unknown" = "1" ]; then
+    snapshot=""
+  else
+    snapshot="$(in_flight_snapshot "$BACKLOG_FILE")"
+  fi
   in_flight="$(snapshot_count "$snapshot")"
-  if [ "${in_flight:-0}" -eq 0 ]; then
+  if [ "$backlog_unknown" = "0" ] && [ "${in_flight:-0}" -eq 0 ]; then
     log_msg INFO "no in-flight PBIs; nothing to monitor"
     return 0
   fi
 
-  # Activity mtime
-  local dash_mtime pbi_mtime last_activity
-  dash_mtime="$(mtime_of "$DASHBOARD_FILE")"
-  pbi_mtime="$(max_mtime_recursive "$PBI_DIR")"
-  if [ "$dash_mtime" -gt "$pbi_mtime" ]; then
-    last_activity="$dash_mtime"
-  else
-    last_activity="$pbi_mtime"
-  fi
-
-  local now idle_seconds threshold_seconds cooldown_seconds
+  # The timer's only normal path is the read-only pbi-idle reporter. A fresh
+  # report exits here without sending tmux input, so the periodic check does
+  # not wake an LLM merely to confirm that work is healthy. Stale and unknown
+  # (never initialized or unreadable) results alone request one bounded,
+  # read-only explorer investigation from the SM.
+  local now cooldown_seconds idle_report idle_rc stale_ids unknown_ids
   now="$(now_epoch)"
-  idle_seconds=$((now - last_activity))
-  threshold_seconds=$((idle_threshold_min * 60))
   cooldown_seconds=$((cooldown_min * 60))
-
-  # Decide which detector (if any) fires. Global takes precedence; when
-  # global activity is fresh, look for individually stalled PBIs that the
-  # rest of the team's activity would otherwise mask.
   local nudge_msg=""
-  if [ "$idle_seconds" -gt "$threshold_seconds" ]; then
-    local summary
-    summary="$(snapshot_summary "$snapshot")"
-    if [ "$last_activity" -eq 0 ]; then
-      # Both signals are the 0 sentinel: no dashboard.json AND no .scrum/pbi/
-      # tree (an existing-but-empty .scrum/pbi/ still yields the dir's own
-      # mtime, so this really means "never observed"). Keep nudging — the
-      # never-started team is exactly what this detector backstops, per
-      # stale_pbi_list — but do not report an elapsed time we never measured,
-      # and do not send the SM probing teammates that may never have been
-      # spawned.
-      nudge_msg="[STALL-WATCHDOG] no activity has EVER been observed (no .scrum/dashboard.json, no .scrum/pbi/ tree); in-flight: ${summary:-unknown}. The pipeline likely never started — verify each PBI's worktree and .scrum/pbi/<id>/ exist before probing teammates."
-    else
-      nudge_msg="[STALL-WATCHDOG] no activity for ${idle_threshold_min}m; in-flight: ${summary:-unknown}. Probe teammates via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
-    fi
+  idle_rc=0
+  if [ "$backlog_unknown" = "1" ]; then
+    idle_rc=65
+    idle_report=""
   else
-    local stale_pbis
-    stale_pbis="$(stale_pbi_list "$now" $((pbi_idle_threshold_min * 60)) "$snapshot" | tr '\n' ' ')"
-    # Trim the trailing space from the join.
-    stale_pbis="${stale_pbis% }"
-    if [ -z "$stale_pbis" ]; then
-      log_msg INFO "active: idle=${idle_seconds}s threshold=${threshold_seconds}s in_flight=${in_flight}"
+    idle_report="$(cd "$PROJECT_DIR" && SCRUM_NOW_EPOCH="$now" "$PBI_IDLE_BIN" --threshold-minutes "$pbi_idle_threshold_min" 2>&1)" || idle_rc=$?
+  fi
+  if [ "$backlog_unknown" = "1" ]; then
+    nudge_msg="[STALL-WATCHDOG] PBI liveness is unknown because backlog.json is missing, malformed, or lacks an items array. Spawn one bounded read-only explorer to inspect backlog and per-PBI artifacts, report evidence to the SM, then exit. Do not infer that there are no in-flight PBIs and do not wake or respawn a Developer from this timer alone."
+  elif [ "$idle_rc" -ne 0 ]; then
+    nudge_msg="[STALL-WATCHDOG] PBI liveness is unknown because pbi-idle.sh exited ${idle_rc}. Spawn one bounded read-only explorer to inspect backlog and per-PBI artifacts, report evidence to the SM, then exit. Do not wake or respawn a Developer from this timer alone."
+  else
+    stale_ids="$(printf '%s\n' "$idle_report" | awk -F '\t' '!/^#/ && $6 == "stale" {print $1}' | tr '\n' ' ')"
+    unknown_ids="$(printf '%s\n' "$idle_report" | awk -F '\t' '!/^#/ && $6 == "uninitialized" {print $1}' | tr '\n' ' ')"
+    stale_ids="${stale_ids% }"
+    unknown_ids="${unknown_ids% }"
+    if [ -z "$stale_ids" ] && [ -z "$unknown_ids" ]; then
+      log_msg INFO "pbi-idle fresh; in_flight=${in_flight}; normal exit without model wakeup"
       return 0
     fi
-    nudge_msg="[STALL-WATCHDOG] per-PBI stall: ${stale_pbis} quiet over ${pbi_idle_threshold_min}m while other team activity continues. Probe the owning Developer via SendMessage/TaskGet; re-spawn only if terminated AND artifact missing."
+    nudge_msg="[STALL-WATCHDOG] bounded investigation requested; stale PBIs: ${stale_ids:-none}; unknown/uninitialized PBIs: ${unknown_ids:-none}. Spawn one bounded read-only explorer to inspect activity artifacts and teammate evidence, report findings to the SM, then exit. Do not respawn a Developer unless the SM separately confirms termination and missing expected artifacts."
   fi
 
   # Cooldown check

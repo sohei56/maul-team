@@ -1,14 +1,15 @@
 ---
 name: codebase-audit
 description: >
-  Whole-repo, multi-agent audit that IS the Sprint-end cross-review
-  ceremony (product-wide integrity): 4 axes — spec-conformance,
+  Whole-repo, multi-agent audit run by the Sprint-end cross-review
+  every third Sprint (product-wide integrity): 4 axes — spec-conformance,
   logic/defect hunt, redundancy, and product-security — over the
   ACCUMULATED codebase at HEAD, not the Sprint diff. Findings are
   swept to zero per defect class — one class = one PBI covering every
   occurrence, documentation drift batched into a single DOCS PBI — and
-  non-blocking: EVERY finding is PO-adjudicated, Critical/High carrying
-  a next-Sprint recommendation, and a rejected finding is suppressed
+  non-blocking: every ordinary finding is PO-adjudicated, Critical/High
+  carrying a next-Sprint recommendation, while the DOCS batch is
+  mandatory remediation. A rejected ordinary finding is suppressed
   with a recorded decision. At Integration-Sprint entry a thin re-check
   confirms the latest audit is fresh and no open blocking (non-Low)
   audit PBIs remain before testing proceeds.
@@ -32,10 +33,11 @@ they never edit.
 
 | Context | When | Gate semantics |
 |---|---|---|
-| **(a) cross-review** (primary) | Every Sprint, embedded in the `cross-review` ceremony | **Non-blocking.** Never fails the Sprint, never transitions the phase. **Every** finding is PO-adjudicated (Step 4a); Critical/High carry a `next_sprint` recommendation, Low a `defer` one. The one exception is the `DOCS` batch, which the ceremony closes inside the current Sprint (`../cross-review/SKILL.md` Step 7b) — documentation drift compounds while it waits. |
+| **(a) cross-review** (primary) | Every third Sprint (`N % 3 == 0`), embedded in the every-Sprint `cross-review` ceremony | **Non-blocking.** Never fails the Sprint, never transitions the phase. Every ordinary finding is PO-adjudicated (Step 4a); Critical/High carry a `next_sprint` recommendation, Low a `defer` one. The `DOCS` batch is mandatory file/reuse and the ceremony closes it inside the current Sprint (`../cross-review/SKILL.md` Step 7b) — documentation drift compounds while it waits. |
 | **(b) integration entry** (thin re-check) | Once, at the top of `integration-tests` Step 1 | Verifies the latest audit is **fresh** and no open blocking (non-`low`) audit PBI remains. Both hold → proceed. Stale/missing → run a fresh audit; unresolved blocking PBIs → **block** and route to `backlog_created`. |
 
-Context (a) is the audit's real home — findings are caught every Sprint
+Context (a) is the audit's real home — findings are caught on the
+three-Sprint cadence
 and fixed in the normal development cadence, so the Integration Sprint
 starts from an already-audited, already-remediated codebase. Context
 (b) is a cheap safety re-check, not a fresh full audit in the common
@@ -108,9 +110,11 @@ does **not** re-review single-PBI diff-local security.
   Every block-check and re-rank reads the field.
   Filing granularity is **class-level, not occurrence-level**: one PBI
   per defect class covering every occurrence the sweep found (Step 3),
-  plus at most one `[codebase-audit:<sprint-id>:DOCS:<Severity>]` batch
-  PBI holding ALL documentation-drift findings of the audit. Which
-  classes are filed is the PO's call (Step 4a). Created as `draft` →
+  plus, when documentation drift exists, exactly one filed/reused
+  `[codebase-audit:<sprint-id>:DOCS:<Severity>]` batch PBI holding ALL
+  documentation-drift findings of the audit. Which
+  ordinary classes are filed is the PO's call (Step 4a); DOCS is
+  mandatory. Created as `draft` →
   picked up by next Sprint's Backlog Refinement / Sprint Planning.
   **Non-blocking in context (a).** The `DOCS` batch is the exception:
   `cross-review` Step 7b refines it into the **current** Sprint and
@@ -120,19 +124,23 @@ does **not** re-review single-PBI diff-local security.
   **suppressing** verdict (`defer` / `reject`) carrying the finding's
   `audit_identity` + `audit_severity`. A `next_sprint` verdict needs no
   record — the PBI it produces is the record.
-- **Context (b) only, on an unresolved blocking (non-`low`) PBI:**
+- **Context (b) only, on an unresolved blocking (non-`low`) PBI or
+  newly-found DOCS drift at any severity:**
   `state.json` phase → `backlog_created` via
   `.scrum/scripts/update-state-phase.sh`.
 - A report to the user / PO (severity counts + PBIs created / skipped
   by dedup + regressions).
+- When DOCS drift exists, a validated context handoff id:
+  `CROSS_REVIEW_DOCS_PBI` for context (a), or
+  `INTEGRATION_DOCS_PBI` for context (b).
 
 ## Preconditions
 
 - ≥1 Development Sprint has completed (there is accumulated code to
   audit). The audit is a no-op on an empty repo.
 - `requirements.md` and the enabled design specs exist.
-- Context (a): invoked inside the `cross-review` ceremony (see
-  `../cross-review/SKILL.md` Steps 6–7). Context (b): invoked at
+- Context (a): invoked only on a due Sprint inside the `cross-review`
+  ceremony (see `../cross-review/SKILL.md` Steps 7–7a). Context (b): invoked at
   the top of `integration-tests` Step 1.
 
 ## PO Mode (po_mode: "agent")
@@ -145,8 +153,8 @@ block on human input). Skill-specific overrides:
 
 | Context | Override (po_mode=agent) |
 |------|--------------------------|
-| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject]` carrying **every** finding, each with its severity and the decision-ready explanation of Step 4a; `recommendation=next_sprint` for critical/high, `defer` for low. The PO returns a route per finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file. Per-finding `defer`/`reject` verdicts are persisted via `append-po-decision.sh` **before** Step 5 runs. No human-input wait, non-blocking either way. When Axis A returned a class 1/3/4/5 finding, a **second** request follows (Step 4b): `kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]` — which side is authoritative (class 5 narrows the options to `[fix_spec,accept_as_is]`). |
-| (b) integration entry | On an unresolved blocking (non-`low`) PBI, replace "inform the user of the block" with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[fix_now,defer] recommendation=fix_now` carrying the blocking PBI list. The route to `backlog_created` is taken regardless (a non-`low` audit PBI blocks integration); the PO reply sets fix priority, it does not waive the block. |
+| (a) cross-review | Replace the PBI-routing prompt with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[next_sprint,defer,reject]` carrying every **non-DOCS** finding, each with its severity and the decision-ready explanation of Step 4a; `recommendation=next_sprint` for critical/high, `defer` for low. The synthetic DOCS batch is mandatory file/reuse and proceeds to Step 7b, so it is reported but never offered as a waive choice. The PO returns a route per ordinary finding in one reply; `next_sprint` → file the draft PBI, `defer`/`reject` → do not file. Per-finding `defer`/`reject` verdicts are persisted via `append-po-decision.sh` **before** Step 5 runs. No human-input wait, non-blocking either way. When Axis A returned a class 1/3/4/5 finding, a **second** request follows (Step 4b): `kind=spec_clarification options=[fix_spec,fix_code,accept_as_is]` — which side is authoritative (class 5 narrows the options to `[fix_spec,accept_as_is]`). |
+| (b) integration entry | A newly-found DOCS batch is **not** offered as a file/waive choice: Step 5 files or reuses it first, regardless of severity or any prior/current PO `defer`/`reject`, then Step 6 reports its PBI id and routes to `backlog_created`. For other unresolved blocking (non-`low`) PBIs, replace "inform the user of the block" with `[sprint-<N>] PO_DECISION_REQUEST kind=defect_triage options=[fix_now,defer] recommendation=fix_now` carrying the blocking PBI list. That reply sets fix priority; it does not waive the block. |
 
 ## Steps
 
@@ -164,8 +172,9 @@ Branch on `context`:
 - **`integration_entry`** → do the **thin re-check first** (Step 1b).
   It short-circuits to *proceed* in the common case and only falls
   through to the full audit (Steps 1–5) when the report is stale/missing.
-- **`cross_review`** → skip Step 1b and run Steps 1–5 (invoked from
-  the `cross-review` ceremony, Steps 6–7, after it produced the
+- **`cross_review`** → the caller MUST first establish `N % 3 == 0`;
+  skip Step 1b and run Steps 1–5 (invoked from
+  the `cross-review` ceremony, Steps 7–7a, after it produced the
   static-analysis file).
 
 ### Step 1b — Integration-entry thin re-check (context (b) only)
@@ -203,6 +212,13 @@ fail-safe direction, and what migration 006 back-fills.
 after a defect-fix loop (new sprint number) has no matching
 `$FRESH_REPORT` and runs a fresh audit against the fixed code — intended.
 
+The integration-entry preflight is mandatory and is **not cadence-
+gated**. Its freshness target is always the current/final Development
+Sprint named by `sprint.json.id`. Therefore a final non-due Sprint will
+normally have no scheduled report and intentionally falls through to a
+full audit here. Do not substitute the most recent older scheduled
+report.
+
 ### Step 1 — Assemble the shared read set
 
 Collect for the auditors: enabled spec IDs + files, `requirements.md`,
@@ -217,7 +233,7 @@ descriptions beyond the fields above.
 `audit_identity` is in the read set for one reason: it is the key the
 auditors themselves mint, and cross-Sprint dedup matches on it exactly.
 An auditor that cannot see the keys already filed re-invents a different
-string for the same defect class every Sprint, and the class is filed
+string for the same defect class every audit, and the class is filed
 again as new. Pass the field even when it is null — the auditors are
 told to reuse an existing key byte-for-byte and mint only for a class
 that has none (`references/axes.md`, `identity`).
@@ -324,9 +340,9 @@ Produce the report at `$REPORT` (persist via a Bash heredoc —
   + why it looks like a defect). Do not silently drop them and do not
   promote them to findings. They are the audit's record of what an
   enabled clause suppressed this Sprint: without it the same judgement
-  is re-made from scratch — and re-decided differently — every Sprint,
+  is re-made from scratch — and re-decided differently — every audit,
   and a clause that is quietly load-bearing never becomes visible. A
-  repeat across Sprints is the signal to re-examine the clause as an
+  repeat across scheduled or integration-entry audits is the signal to re-examine the clause as an
   Axis A class 4 finding.
 - Report structure: headline (total findings, count per severity) →
   severity-sorted finding table → per-finding detail → spec-exempted
@@ -364,7 +380,12 @@ PO can answer the second, and the audit must not answer it by default.
 
 **4a — Defect triage (all axes).**
 
-**Every finding is adjudicated — there is no mandatory-filing tier.**
+**Every ordinary finding is adjudicated.** In both contexts, remove the
+synthetic DOCS finding from the PO's file/waive decision set. It is
+mandatory remediation, not a product-priority choice: Step 5 files/reuses it
+regardless of severity, prior suppression, or a PO `defer`/`reject`.
+The PO may prioritize the resulting PBI but cannot waive the pre-test
+fix loop. All non-DOCS findings retain the normal adjudication below.
 What gets built next is a product-value call, so the PO rules on all of
 them, `critical` included. The audit supplies the recommendation:
 `next_sprint` for critical/high, `defer` for low. Send **one** request
@@ -492,10 +513,20 @@ finding is offered only the first and third):
 Record the verdict and `dec_id` per finding in the report, so a reader
 can tell an unraised question from an answered one.
 
-For each remaining **class finding** the PO routed to `next_sprint`, file ONE
-draft PBI covering all of its occurrences (the `DOCS` batch files the
-same way, as a single PBI) — but the audit runs **every** Sprint, so an
-unfixed finding re-detected next Sprint must NOT spawn a duplicate.
+Build the Step 5 filing set as follows:
+
+- ordinary class findings: only those the PO routed to `next_sprint`;
+- in either context: the synthetic DOCS finding is added
+  unconditionally, whether Low, High, or Critical and regardless of a
+  PO `defer`/`reject`;
+- in `integration_entry`, mark it `MANDATORY_INTEGRATION_DOCS`;
+- in `cross_review`, call the same marker `MANDATORY_CROSS_REVIEW_DOCS`;
+  Step 7b handles the filed/reused batch in the current Sprint.
+
+For each finding in that set, file ONE draft PBI covering all of its
+occurrences (the `DOCS` batch files the same way, as a single PBI).
+The next scheduled or integration-entry audit must not spawn a
+duplicate for an unfixed finding.
 Dedup matches the finding's `identity` **exactly against the
 `audit_identity` field** on existing audit PBIs — not the per-Sprint
 title prefix, and not a substring of the description:
@@ -540,18 +571,41 @@ if [ "$OPEN_MATCH" -gt 0 ]; then
     | select(.audit_identity == $aid)
     | select(.status != "done" and .status != "cancelled") | .id' .scrum/backlog.json | head -1)"
   echo "dedup: ${IDENTITY} already tracked by ${EXISTING}"
+  RESULT_PBI="$EXISTING"
 else
   REGRESS=""
   [ "$DONE_MATCH" -gt 0 ] && REGRESS="[REGRESSION] "   # closed then recurred
-  .scrum/scripts/add-backlog-item.sh \
+  RESULT_PBI="$(.scrum/scripts/add-backlog-item.sh \
     --title "[codebase-audit:${SPRINT_ID}:${Fn}:${SEVERITY}] ${REGRESS}<summary>" \
     --audit-identity "${IDENTITY}" \
     --audit-severity "${SEV}" \
     --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). Occurrences: <path:line — symbol, one per line, ALL of them>. Sweep: <the search establishing the list is complete>. See ${REPORT}." \
     --ac "<expected vs actual per the class, independently verifiable>" \
-    --kind <code|docs>
+    --kind <code|docs>)"
 fi
 ```
+
+For either mandatory DOCS marker, execute the fixed-DOCS branch above
+even if Step 4a or an older decision says `defer`/`reject`: suppression
+is deliberately bypassed. The normal `OPEN_MATCH` logic is the required
+**reuse** path (append the new occurrences below); no open match is the
+required **file** path. Both branches MUST leave the id in
+`RESULT_PBI`. After the DOCS append/re-rank work completes, save the
+handoff explicitly and validate it:
+
+```bash
+if [ "$context" = "cross_review" ]; then
+  CROSS_REVIEW_DOCS_PBI="$RESULT_PBI"
+  [ -n "$CROSS_REVIEW_DOCS_PBI" ] || { echo "contract violation: missing CROSS_REVIEW_DOCS_PBI" >&2; return 1; }
+else
+  INTEGRATION_DOCS_PBI="$RESULT_PBI"
+  [ -n "$INTEGRATION_DOCS_PBI" ] || { echo "contract violation: missing INTEGRATION_DOCS_PBI" >&2; return 1; }
+fi
+```
+
+The caller receives that context-specific id together with the report.
+This exception changes neither PO adjudication nor suppression for
+non-DOCS findings.
 
 - **`SUPPRESSED` non-empty and this audit's `$SEV` is NOT strictly
   higher than the recorded one** → do **not** file. Record
@@ -586,7 +640,7 @@ class forever, and it must still be able to come back as a
 
 **The `DOCS` batch is the one exception to "open match → skip."** Its
 identity is fixed (`docs-drift::stale-references`), so an open batch
-matches every Sprint. Skipping would silently discard the new drift, so
+matches every audit. Skipping would silently discard the new drift, so
 append to the existing PBI instead — read its current description, add
 the new occurrences, and write it back:
 
@@ -619,7 +673,19 @@ swept to zero.
 - **Context (a)** → report severity counts + PBIs filed / deduped /
   regressed / suppressed to the PO. Return to the `cross-review`
   ceremony. Phase untouched.
-- **Context (b)** → recompute `OPEN_BLOCKING` (Step 1b).
+- **Context (b)** → if the fresh audit found documentation drift, its
+  already-filed/reused `INTEGRATION_DOCS_PBI` MUST enter the normal defect-fix loop before any
+  integration test starts, regardless of `audit_severity`: set
+  `.scrum/scripts/update-state-phase.sh backlog_created`, report
+  `$INTEGRATION_DOCS_PBI`, and stop. The PBI is then
+  refined and completed through the existing `kind=docs` pipeline
+  (Integrity aspects 1 + 5), or `kind=code` when the path boundary
+  requires it. Integration entry resumes only after that PBI is
+  `done`; the new current/final Sprint id then requires a fresh report.
+  This is the integration-entry analogue of cross-review Step 7b, but
+  uses the normal fix-loop state model rather than creating in-progress
+  work inside `integration_sprint`.
+  Otherwise recompute `OPEN_BLOCKING` (Step 1b).
   `OPEN_BLOCKING == 0` → proceed (hand back to `integration-tests`,
   phase untouched). `OPEN_BLOCKING > 0` → route to `backlog_created`
   and report the blocking PBIs. Either way, name every `critical`
@@ -636,7 +702,8 @@ swept to zero.
   HEAD, not any Sprint or PBI diff. `base_sha` is context only.
 - **Context (a) is non-blocking.** It never fails the Sprint and never
   transitions the phase. Only context (b) may set `backlog_created`,
-  and only on an unresolved blocking (non-`low`) audit PBI.
+  on an unresolved blocking (non-`low`) audit PBI **or on a newly-found
+  DOCS batch at any severity**.
 - **No fix without a PBI.** Every actioned finding becomes a draft PBI
   through `.scrum/scripts/add-backlog-item.sh` — never a direct edit,
   never a raw `jq` write to `backlog.json`.
@@ -659,7 +726,7 @@ swept to zero.
   a later audit rates the class strictly higher.
 - **The audit never self-suppresses on a `defect_triage` record.** Only
   Step 5 consults them. The axes keep detecting and re-rating a rejected
-  class every Sprint — the escalation re-open is only computable from a
+  class every audit — the escalation re-open is only computable from a
   fresh rating.
 - **Fact vs interpretation stay separated** in every finding.
 - **Spec-vs-spec conflicts check the PO decision log first.**
@@ -678,7 +745,7 @@ swept to zero.
 
 ## Exit Criteria
 
-- **Context (a):** `.scrum/reviews/codebase-audit-s{N}.md` exists for
+- **Context (a), due Sprints only:** `.scrum/reviews/codebase-audit-s{N}.md` exists for
   the Sprint with all 4 axes represented, findings deduped (within
   audit), **merged to class level with complete occurrence lists (sweep
   recorded per class)**, severity-classified, fact separated from
@@ -690,8 +757,8 @@ swept to zero.
   recorded as awaiting triage. Phase untouched.
 - **Context (b):** either **proceed** (fresh report + no open blocking
   (non-`low`) audit PBI → handed back, phase untouched) or **block**
-  (open/newly-found blocking PBI → `backlog_created`, blocking PBIs
-  reported).
+  (open/newly-found blocking PBI, or newly-found documentation drift at
+  any severity → `backlog_created`, blocking PBIs reported).
 - `git status` clean (auditors made no edits).
 
 ## References

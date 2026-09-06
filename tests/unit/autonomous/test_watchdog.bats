@@ -370,3 +370,46 @@ JSON
   cost="$(jq -r '.total_cost_usd' .scrum/autonomy.json)"
   awk -v c="$cost" 'BEGIN{exit !(c >= 99.99 && c <= 100.01)}'
 }
+
+@test "watchdog: resume prompt uses SessionStart summary and handles merge without Developer respawn" {
+  jq '.phase = "pbi_pipeline_active"' .scrum/state.json > .scrum/state.json.tmp \
+    && mv .scrum/state.json.tmp .scrum/state.json
+  printf '{"items":[{"id":"pbi-001","status":"in_progress_merge"}]}\n' > .scrum/backlog.json
+  mkdir -p .scrum/pbi/pbi-001
+  cat > scenario.json <<'JSON'
+{"calls":[{"phase_to":"complete","stdout_json":{},"exit_code":0}]}
+JSON
+  cat > capture-prompt.sh <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$TEST_TMP/prompt-args.log"
+exec "$FAKE_CLAUDE" "\$@"
+EOF
+  chmod +x capture-prompt.sh
+
+  AUTON_CLAUDE_BIN="$TEST_TMP/capture-prompt.sh" run "$WATCHDOG"
+  [ "$status" -eq 0 ]
+  grep -F 'Resume from the SessionStart summary' "$TEST_TMP/prompt-args.log" >/dev/null
+  grep -F 'For `in_progress_merge`, do not re-spawn a Developer' "$TEST_TMP/prompt-args.log" >/dev/null
+  ! grep -F 'Read .scrum/state.json, .scrum/autonomy.json' "$TEST_TMP/prompt-args.log" >/dev/null
+}
+
+@test "watchdog: malformed backlog adds bounded Explorer handoff to scheduled iteration" {
+  jq '.phase = "pbi_pipeline_active"' .scrum/state.json > .scrum/state.json.tmp \
+    && mv .scrum/state.json.tmp .scrum/state.json
+  printf 'broken\n' > .scrum/backlog.json
+  cat > scenario.json <<'JSON'
+{"calls":[{"phase_to":"complete","stdout_json":{},"exit_code":0}]}
+JSON
+  cat > capture-prompt.sh <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$TEST_TMP/prompt-args.log"
+exec "$FAKE_CLAUDE" "\$@"
+EOF
+  chmod +x capture-prompt.sh
+
+  AUTON_CLAUDE_BIN="$TEST_TMP/capture-prompt.sh" run "$WATCHDOG"
+  [ "$status" -eq 0 ]
+  grep -F 'PBI liveness is unknown' "$TEST_TMP/prompt-args.log" >/dev/null
+  grep -F 'bounded read-only investigation to scrum-explorer' "$TEST_TMP/prompt-args.log" >/dev/null
+  [ "$(cat "$FAKE_CLAUDE_COUNTER")" -eq 1 ]
+}

@@ -323,3 +323,98 @@ JSON
   run jq -r '.autonomous | has("po_model")' .scrum/config.json
   [ "$output" = "false" ]
 }
+
+# --- (i) Scrum Master model is independent of PO mode and PO model ----------
+
+@test "scrum-start defaults deployed Scrum Master model to opus in human PO mode" {
+  run bash "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: opus" ]
+}
+
+@test "scrum-start --sm-model accepts explicit alias in human PO mode" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --sm-model sonnet
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$output" = "model: sonnet" ]
+}
+
+@test "scrum-start --autonomous --sm-model accepts custom model ID" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/brief.md" \
+    --sm-model claude-opus-4-1-20250805
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$output" = "model: claude-opus-4-1-20250805" ]
+}
+
+@test "scrum-start keeps Scrum Master and Product Owner model choices independent" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --autonomous --brief "$TEMP_DIR/seed/brief.md" \
+    --sm-model fable --po-model haiku
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$output" = "model: fable" ]
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$output" = "model: haiku" ]
+}
+
+@test "scrum-start persists Scrum Master model across setup refreshes" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --sm-model haiku
+  [ "$status" -eq 0 ]
+  run bash "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$output" = "model: haiku" ]
+}
+
+@test "scrum-start rejects unsafe Scrum Master model syntax" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --sm-model 'opus: unsafe'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--sm-model must be"* ]]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --sm-model ''
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--sm-model must be"* ]]
+}
+
+@test "scrum-start rejects empty, multiline, and colon Product Owner models" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous --po-model ''
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--po-model must be"* ]]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous --po-model 'opus:unsafe'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--po-model must be"* ]]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous --po-model $'opus\nhaiku'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--po-model must be"* ]]
+}
+
+@test "scrum-start rejects multiline Scrum Master model syntax" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --sm-model $'opus\nhaiku'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--sm-model must be"* ]]
+}
+
+@test "scrum-start help documents Scrum Master model flag" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--sm-model <name>"* ]]
+  [[ "$output" == *"human-PO and"* ]]
+}
+
+@test "resume startup prompt uses SessionStart summary and targeted explorer" {
+  run grep -F 'Resume the Scrum workflow from the SessionStart resume summary.' \
+    "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+  run grep -F 'delegate a targeted investigation to scrum-explorer' \
+    "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+  run grep -F 'Reconcile PBI statuses in backlog.json against actual project state' \
+    "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -ne 0 ]
+}

@@ -56,6 +56,52 @@ teardown() {
   [[ "$ctx" == *"pbi_pipeline_active"* ]]
 }
 
+@test "session-context.sh preflights a missing backlog for an existing project" {
+  mkdir -p .scrum
+  printf '{"phase":"pbi_pipeline_active","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Product Goal: unknown"* ]]
+  [[ "$ctx" == *"Active PBIs: unknown. Merge-waiting: unknown. Escalations: unknown."* ]]
+  [[ "$ctx" == *"requests a bounded Scrum Explorer backlog preflight"* ]]
+  [[ "$ctx" == *"do not continue or merge"* ]]
+  [[ "$ctx" != *"continues the active PBI pipeline"* ]]
+}
+
+@test "session-context.sh preflights a malformed backlog for an existing project" {
+  mkdir -p .scrum
+  printf '{"phase":"pbi_pipeline_active","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  printf '{"product_goal":"Untrusted","items":{}}\n' > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Product Goal: unknown"* ]]
+  [[ "$ctx" == *"Active PBIs: unknown. Merge-waiting: unknown. Escalations: unknown."* ]]
+  [[ "$ctx" == *"requests a bounded Scrum Explorer backlog preflight"* ]]
+  [[ "$ctx" != *"SM merges"* ]]
+  [[ "$ctx" != *"continues the active PBI pipeline"* ]]
+}
+
+@test "session-context.sh treats a valid empty backlog as known empty" {
+  mkdir -p .scrum
+  printf '{"phase":"review","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  printf '{"product_goal":"Goal","items":[]}\n' > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Product Goal: Goal"* ]]
+  [[ "$ctx" == *"Active PBIs: none. Merge-waiting: none. Escalations: none."* ]]
+  [[ "$ctx" == *"Next processing step: SM completes Sprint-end review"* ]]
+  [[ "$ctx" != *"backlog preflight"* ]]
+}
+
 # `PostCompact` is a real hook EVENT but is NOT a member of the
 # hookSpecificOutput.hookEventName union (verified against the shipped binary:
 # it never appears adjacent to `hookEventName`, while SessionStart/Stop/
@@ -119,7 +165,7 @@ EOF
   ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"product-owner teammate"* ]]
-  [[ "$ctx" == *"Teammate Liveness Protocol"* ]]
+  [[ "$ctx" == *"restore Developers only for the resume summary's Active PBIs"* ]]
   [[ "$ctx" == *"iteration 3 of 50"* ]]
 }
 
@@ -145,6 +191,114 @@ EOF
   ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
   [[ "$ctx" == *"AUTONOMOUS PO MODE"* ]]
   [[ "$ctx" == *"New project"* ]]
+}
+
+@test "session-context.sh emits deterministic merge and ceremony resume actions" {
+  mkdir -p .scrum/pbi/pbi-001
+  cat > .scrum/state.json <<'EOF'
+{"phase":"pbi_pipeline_active","current_sprint_id":"sprint-001"}
+EOF
+  cat > .scrum/sprint.json <<'EOF'
+{"id":"sprint-001","goal":"Ship safely","type":"delivery","status":"active"}
+EOF
+  cat > .scrum/backlog.json <<'EOF'
+{"product_goal":"Useful product","items":[{"id":"pbi-001","status":"in_progress_merge","sprint_id":"sprint-001"}]}
+EOF
+  cat > .scrum/pbi/pbi-001/state.json <<'EOF'
+{"pbi_id":"pbi-001","head_sha":"abcdef0","ready_at":"2026-01-01T00:00:00Z","paths_touched":[],"merge_failure_count":0}
+EOF
+
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Product Goal: Useful product"* ]]
+  [[ "$ctx" == *"Sprint Goal: Ship safely"* ]]
+  [[ "$ctx" == *"Merge-waiting: pbi-001"* ]]
+  [[ "$ctx" == *"Next processing step: SM merges pbi-001."* ]]
+
+  jq '.merge_failure_count=1 | .merge_failure={kind:"conflict",pre_head_at_failure:"abcdef0"}' \
+    .scrum/pbi/pbi-001/state.json > state.tmp && mv state.tmp .scrum/pbi/pbi-001/state.json
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"respawns a Developer for pbi-001"* ]]
+
+  jq '.merge_failure_count=3' .scrum/pbi/pbi-001/state.json > state.tmp && mv state.tmp .scrum/pbi/pbi-001/state.json
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"escalates pbi-001 after the merge retry limit"* ]]
+}
+
+@test "session-context.sh keeps review and sprint_review next steps distinct" {
+  mkdir -p .scrum
+  printf '{"product_goal":"Goal","items":[]}\n' > .scrum/backlog.json
+  printf '{"phase":"review","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  [[ "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" == *"completes Sprint-end review"* ]]
+
+  printf '{"phase":"sprint_review","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  [[ "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" == *"obtains the separate PO Sprint acceptance verdict"* ]]
+}
+
+@test "session-context.sh reports only unresolved PO decision scopes" {
+  mkdir -p .scrum
+  printf '{"phase":"sprint_planning","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  printf '{"product_goal":"Goal","items":[]}\n' > .scrum/backlog.json
+  cat > .scrum/communications.json <<'EOF'
+{"messages":[
+  {"timestamp":"2026-01-01T00:00:00Z","sender_id":"sm","type":"message","content":"[pbi-001] PO_DECISION_REQUEST kind=scope_change"},
+  {"timestamp":"2026-01-01T00:01:00Z","sender_id":"po","type":"message","content":"[pbi-001] PO_DECISION kind=scope_change decision=keep"},
+  {"timestamp":"2026-01-01T00:02:00Z","sender_id":"sm","type":"message","content":"[sprint-001] PO_DECISION_REQUEST kind=sprint_goal_approval"}
+]}
+EOF
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Open PO decisions: sprint-001/sprint_goal_approval"* ]]
+  [[ "$ctx" != *"Open PO decisions: pbi-001/scope_change"* ]]
+}
+
+@test "session-context.sh tracks two unresolved PO decision kinds in one scope" {
+  mkdir -p .scrum
+  printf '{"phase":"sprint_planning","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  printf '{"product_goal":"Goal","items":[]}\n' > .scrum/backlog.json
+  cat > .scrum/communications.json <<'EOF'
+{"messages":[
+  {"content":"[pbi-001] PO_DECISION_REQUEST kind=scope_change"},
+  {"content":"[pbi-001] PO_DECISION_REQUEST kind=spec_clarification"},
+  {"content":"[pbi-001] PO_DECISION kind=scope_change decision=keep"}
+]}
+EOF
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"Open PO decisions: pbi-001/spec_clarification"* ]]
+  [[ "$ctx" != *"pbi-001/scope_change"* ]]
+}
+
+@test "session-context.sh preflights missing or inconsistent merge state and never merges" {
+  mkdir -p .scrum/pbi/pbi-001
+  printf '{"phase":"pbi_pipeline_active","current_sprint_id":"sprint-001"}\n' > .scrum/state.json
+  printf '{"product_goal":"Goal","items":[{"id":"pbi-001","status":"in_progress_merge"}]}\n' > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  [[ "$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')" == *"bounded Scrum Explorer merge preflight for pbi-001"* ]]
+
+  printf '{"pbi_id":"pbi-001","head_sha":"not-a-sha","ready_at":"2026-01-01T00:00:00Z","paths_touched":[],"merge_failure_count":0}\n' > .scrum/pbi/pbi-001/state.json
+  run bash "$PROJECT_ROOT/hooks/session-context.sh" <<< '{"hook_event_name":"SessionStart"}'
+  assert_success
+  local ctx
+  ctx="$(echo "$output" | jq -r '.hookSpecificOutput.additionalContext')"
+  [[ "$ctx" == *"bounded Scrum Explorer merge preflight for pbi-001"* ]]
+  [[ "$ctx" != *"SM merges pbi-001"* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -219,7 +373,7 @@ EOF
   jq -e '.messages[-1].type == "message"' .scrum/communications.json
   jq -e '.messages[-1].sender_id == "dev-001"' .scrum/communications.json
   jq -e '.messages[-1].recipient_id == "scrum-master"' .scrum/communications.json
-  jq -e '.messages[-1].content == "PBI ready to merge"' .scrum/communications.json
+  jq -e '.messages[-1].content == "[pbi-003] PBI_READY_TO_MERGE"' .scrum/communications.json
 
   # Messages do not generate dashboard.json work events
   [ ! -f ".scrum/dashboard.json" ]
@@ -707,6 +861,24 @@ EOF
 # the healthy inner loop, so its block must be UNBOUNDED — a bounded block
 # would consume the per-phase breaker budget and fail an autonomous run for
 # doing what the ceremony asked. A genuinely stalled PBI stays bounded.
+# Issue #94: `blocked` is the escalation-handler's third legitimate outcome
+# (parked on an external blocker) and is non-terminal by design. The review
+# gate exists to catch mid-pipeline PBIs, which a parked one is not — so it
+# must not block Stop. Naming the blocker and deciding carry-over vs.
+# return-to-backlog belongs to the Sprint Review ceremony.
+@test "completion-gate.sh allows stop when a review PBI is blocked and the rest are done" {
+  mkdir -p .scrum
+  jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  # Two Sprint PBIs: one parked on an external blocker, the other done.
+  jq '.items[0].status = "blocked"
+      | .items += [(.items[0] | .id = "pbi-002" | .status = "done")]' \
+    "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  assert_success
+}
+
 @test "completion-gate.sh blocks in-flight review pipeline as pipeline_in_flight (unbounded)" {
   mkdir -p .scrum
   jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json

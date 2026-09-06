@@ -182,8 +182,9 @@ the SM.
 - `<kind>` is drawn from the enum below.
 - `options` is the SM's bounded choice set (may be empty for binary
   approvals).
-- `recommendation` is the SM's preferred answer; the PO may agree
-  or override and must say which in the rationale.
+- `recommendation` is the SM's evidence-derived preferred answer; the PO may
+  agree or override and must say which cited evidence or product fact controls
+  the rationale. A recommendation without evidence is not a default verdict.
 
 **Outbound decision (to SM):**
 
@@ -193,7 +194,8 @@ the SM.
 
 - `<verdict>` is one of `approve`, `reject`, `choice:<label>`, `go`,
   `no_go`, `pass`, `fail`. The legal verdict per `kind` matches the
-  `options` set offered by the SM.
+  `options` set offered by the SM. `kind=sprint_acceptance` uses exactly
+  `approve | reject`; `accept` is not a legal alias.
 - `dec_id` is the id returned by `append-po-decision.sh`. The reply
   is invalid without it — the SM uses `dec_id` to back-link the
   decision log entry.
@@ -224,7 +226,7 @@ questions always traverse the SM.
 ```
 sprint_goal_approval | pbi_split | escalation_choice |
 spec_clarification | change_request | demo_acceptance |
-uat_item | defect_triage | release_decision | git_dirty |
+sprint_acceptance | uat_item | defect_triage | release_decision | git_dirty |
 backlog_approval | scope_change | sprint_continuation |
 quality_gate_config
 ```
@@ -263,6 +265,29 @@ quality_gate_config
   payload — the wrapper does not accept an `--options` flag.
   `--evidence` is repeatable; `--assumption` takes no argument.
 
+- A `kind=sprint_acceptance` request is the aggregate Sprint Review ruling,
+  separate from every per-PBI `kind=demo_acceptance` result. It must be scoped
+  to the Sprint, offer `options=[approve,reject]`, and cite the per-PBI demo
+  transcripts / `PO_ACCEPTANCE_REPORT` (plus any human-review report) in its
+  payload. After inspecting that evidence, persist exactly one aggregate
+  ruling with `--sprint <sprint-id> --decision <approve|reject>` and repeat
+  every grounding report/transcript path as `--evidence`. Return the wrapper's
+  `dec_id` in the normal `PO_DECISION`; a recommendation alone is not a ruling.
+  Append exactly one ruling for each review attempt. The log is append-only,
+  and the latest Sprint-scoped ruling controls; never manufacture a later
+  approval just to move past a rejection.
+
+- An evidence-grounded `sprint_acceptance=reject` is a terminal Sprint Review
+  outcome, not an unanswered prompt. Identify every defect, requested change,
+  demo gap, or other remediation in the response so the SM can create or
+  update one corresponding draft PBI through Sprint Review step 9 and report
+  its id. The rejected Increment may proceed to Retrospective. It remains
+  rejected and is not approved for release.
+
+- Sprint acceptance and release authorization are separate decisions. A
+  `sprint_acceptance` verdict never substitutes for `kind=release_decision`,
+  and no acceptance verdict alone authorizes release.
+
 - Demo and UAT acceptance verifications produce a per-PBI / per-item
   transcript at:
   - `.scrum/po/acceptance/<sprint-id>/<pbi-id>.md` (demo mode)
@@ -273,6 +298,9 @@ quality_gate_config
 
   These transcripts are referenced as the `evidence` of the
   matching `demo_acceptance` / `uat_item` decision.
+- The aggregate `sprint_acceptance` decision references those per-PBI demo
+  transcripts and/or the Sprint acceptance report. It never changes a PBI's
+  `done` status and never replaces its `demo_acceptance` decision.
 - Writable paths are limited to `docs/product/**` and `.scrum/po/**`
   (enforced by `pre-tool-use-path-guard.sh`). Any other Write/Edit
   is blocked.
@@ -282,26 +310,22 @@ quality_gate_config
 - **Clarification cap.** A single `PO_DECISION_REQUEST` may trigger
   at most `po.max_clarification_rounds` rounds of `PO_CLARIFY` (default
   2 when the config key is absent). This section is canonical for the
-  cap **semantics**; config tables elsewhere may mirror the default
-  value. On exceeding the cap the PO must issue a binding decision
-  and explicitly mark the unknowns it assumed.
-  - Invoke `append-po-decision.sh` with the bare `--assumption`
-    flag (it takes no argument — it sets `assumption: true` on the
-    record) AND begin `rationale` with the literal prefix
-    `ASSUMPTION:` followed by the assumed fact, then the rest of
-    the rationale. The SM treats the `ASSUMPTION:` prefix as a
-    structured field; Sprint Review re-examines all
-    `assumption: true` records.
+  cap **semantics**; config tables elsewhere may mirror the default value.
+  Reaching the cap never forces approval or a guessed binding decision.
+  Return an evidence-supported alternative that avoids the unresolved fact
+  when one exists. Otherwise append a human-attention blocker, report it to
+  the SM, and stop the gated step; identify whether it is release-blocking.
 - **Sprint Goal reject cap.** A Sprint Goal proposed by the SM may
   be rejected at most twice (`kind=sprint_goal_approval` with
-  `decision=reject`). On the third round the PO must reply
-  `decision=approve` with a verbatim Sprint Goal in the
-  `rationale` — e.g., `rationale=PROPOSED_GOAL: <text>`. The SM
-  treats this as the authoritative Sprint Goal for the cycle.
+  `decision=reject`). On the third round, propose an evidence-supported
+  alternative Goal as `decision=reject` with
+  `rationale=PROPOSED_GOAL: <text>`; do not force approval. If no Goal can be
+  supported without the unresolved fact, append and report a human-attention
+  blocker.
 - **No silent rollover.** When either cap fires, the decision log
   entry must record `cap_hit=true` (via wrapper flag if available;
-  otherwise inside the rationale) so retrospectives can detect
-  recurring deadlock.
+  otherwise inside the rationale) so retrospectives can detect recurring
+  deadlock. A blocker is not an approval and must not advance the gated phase.
 
 ## Output discipline
 

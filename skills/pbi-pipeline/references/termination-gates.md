@@ -19,7 +19,7 @@ Deterministic — no fuzzy heuristics.
 | Success | (stage-specific success criteria all true) | STOP success |
 | Tech-error recurrence | Same root web-searchable technical error in 2 consecutive Rounds AND `websearch_attempted` unset | Set latch; conductor runs the web search and folds findings into the next Round's feedback (no escalate). See § Technical-error recurrence |
 | Stagnation | Same `signature` repeats in 2 consecutive Rounds (Critical/High only) | STOP escalate (`stagnation`) |
-| Divergence | (CRITICAL+HIGH count) increases Round n → n+1 | STOP escalate (`divergence`) |
+| Divergence | Comparable Critical/High `increment` count increases Round n → n+1 (Integrity classification below; other stages count all C/H) | STOP escalate (`divergence`) |
 | Hard cap | `round_n >= 5` — `design_round` is a strict cap (max 5, no latch); `impl_round`'s technical-error latch may add one remediation impl Round → absolute impl bound 6 (see § Technical-error recurrence) | STOP escalate (`max_rounds`) |
 | Budget cap | (cumulative token > threshold) | STOP escalate (`budget_exhausted`) — the value is live: schema accepts it, `update-pbi-state.sh` writes it, and `pbi-escalation-handler` matches it as "Immediate human-escalate". The threshold itself is operator-configurable (no gate code wires up the comparison yet); declare a target via `.scrum/config.json` to enable. |
 
@@ -41,6 +41,13 @@ recorded `escalation_reason`:
 .scrum/scripts/append-pbi-log.sh "$PBI_ID" "<stage>" "$n" gate "escalate → <reason>"
 notify_sm_escalation "$PBI_ID" "<reason>"
 ```
+
+**Integrity FAIL exception:** the conductor MUST NOT issue the first
+three durable operations above itself. It invokes
+`.scrum/scripts/resolve-integrity-fail.sh`, which owns reason → backlog
+status → pipeline.log in that order; the conductor only notifies SM when
+the returned outcome is an escalation. Canonical invocation, outcome
+handling, and entry-status rule: `integrity-stage.md` § Step I-5b.
 
 - `<reason>` — the stage's chosen `escalation_reason` enum value
   (termination gates: `stagnation` / `divergence` / `max_rounds` /
@@ -80,14 +87,39 @@ Integrity FAIL reverts to `in_progress_impl`, and the next
 (`impl_round >= 5`) bounds the Integrity retry loop** with no new
 counter regime.
 
-Stagnation and Divergence for the Integrity stage operate on the
-**union of all spawned aspect reviewers' findings** for the Round —
-the aggregate the conductor persisted to
-`.scrum/pbi/<id>/metrics/integrity-r{n}.json` (Critical/High only),
-exactly as the PBI Review stage builds its set from the union of both
-codex reviewers. The "prior review" for the comparison is the previous
-Round's `integrity-r{n-prev}.json` (the last Round that reached the
-Integrity stage).
+Stagnation for the Integrity stage operates on the **union of all
+spawned aspect reviewers' Critical/High signatures** for the Round.
+Divergence uses the same aggregate but counts only the findings
+classified as `increment` by the deterministic table below. The
+aggregate is persisted at
+`.scrum/pbi/<id>/metrics/integrity-r{n}.json`; the conductor does not
+classify findings itself. `.scrum/scripts/resolve-integrity-fail.sh`
+validates the aggregate, derives each class, evaluates the gates, and
+owns the resulting durable state transition.
+
+| PBI kind | Aspect | Signature anchor | Divergence class |
+|---|---|---|---|
+| `docs` | any allowed Integrity aspect | any valid anchor | `increment` |
+| `code` | functional-quality / security / maintainability | any valid anchor | `increment` |
+| `code` | docs-consistency | contractually a doc path | `sync_lag` |
+| `code` | requirement-conformance | path ending in `.md` | `sync_lag` |
+| `code` | requirement-conformance | other path | `increment` |
+
+`sync_lag` findings still fail Integrity and participate in
+Stagnation. They are excluded only from the code-PBI Divergence count,
+because a design/spec update and its documentation repair can be an
+expected intermediate state in the same implementation loop. For a
+docs PBI the Markdown is the increment itself, so no finding is
+excluded. Unknown aspects and malformed signatures are hard errors:
+the resolver refuses to transition. A stored `divergence_class`, if a
+producer adds one, is never trusted; the resolver derives the class
+from PBI kind, aspect, and the signature's anchor path.
+
+The aggregate's `aspects` array is the spawned-reviewer set, not the
+finding union: it MUST contain exactly all five aspects for kind=code
+or exactly requirement-conformance + docs-consistency for kind=docs,
+without duplicates, and every `finding.aspect` must be a member. This
+keeps a passing reviewer with zero findings represented.
 
 ### Integrity stage re-entry boundary
 
@@ -101,8 +133,17 @@ PBI Review or UT Run) produces **no** `integrity-r{n}.json`, so the
   produced one**. If no comparable prior aggregate exists (this is the
   first Round to reach the Integrity stage), skip Stagnation for this
   Round — you cannot detect a repeat with nothing to compare against.
-- **Divergence** and **Hard cap** always apply (they count, not
-  compare), using the same integrity aggregate.
+- **Divergence** compares derived `increment` counts against that same
+  most recent prior aggregate. If none exists, skip Divergence too — an
+  increase cannot be established from one observation.
+- **Hard cap** always applies, including when no prior aggregate exists.
+
+The resolver selects the most recent lower-numbered
+`integrity-rN.json` by filename, then requires that selected payload's
+`.round == N` and its kind-specific spawned-aspect contract. A mismatch
+fails closed before state mutation instead of comparing against
+mislabeled evidence. Older, unselected aggregates are not comparison
+inputs and do not block the current Round.
 
 ### kind=docs overrides
 
@@ -123,9 +164,9 @@ When `backlog.json items[].kind == "docs"`:
   begin-impl-round.sh).
 - **Integrity stage**: runs aspects 1 (requirement-conformance) + 5
   (docs-consistency) only. Success = both `verdict == PASS`.
-  Stagnation/Divergence evaluate on the union of those two aspects'
-  findings — a strict subset of the kind=code aspect set, so the same
-  algorithms apply unchanged.
+  Stagnation evaluates on the union of those two aspects' C/H
+  signatures. Divergence counts every C/H finding: for kind=docs the
+  changed documentation is the increment, not synchronization lag.
 - **Impl stage hard cap**: same as kind=code (`impl_round >= 5`).
   doc-only PBIs that can't converge in 5 impl rounds usually mean
   the parent finding was mis-framed; escalating to the SM is
@@ -239,6 +280,14 @@ For the PBI Review stage, build the set from BOTH impl and ut review
 files (union).
 
 ## Divergence detection
+
+For Design, PBI Review, and UT Run, count all Critical/High findings as
+before. Integrity FAIL resolution MUST go through the deployed wrapper
+(`integrity-stage.md` § Step I-5b); do not reproduce its classification
+with ad-hoc `jq`. The wrapper compares with the most recent lower-numbered
+`integrity-r*.json`, applies the table in § Integrity stage — gate
+wiring, and prints the selected outcome. The generic count below is
+therefore only for non-Integrity stages.
 
 ```bash
 count_n="$(jq '

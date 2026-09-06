@@ -134,6 +134,19 @@ teardown() {
   [[ "$output" == *"evidence required"* ]]
 }
 
+@test "append-po-decision: rejects empty and whitespace-only evidence paths" {
+  run "$SCRIPT" --kind demo_acceptance --decision pass --rationale "demo" \
+    --evidence ""
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"non-whitespace path"* ]]
+
+  run "$SCRIPT" --kind demo_acceptance --decision pass --rationale "demo" \
+    --evidence $' \t\n '
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"non-whitespace path"* ]]
+  [ ! -e .scrum/po/decisions.json ]
+}
+
 @test "append-po-decision: uat_item without evidence is rejected" {
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$SCRIPT" \
     --kind uat_item --decision accept --rationale ok
@@ -299,4 +312,26 @@ teardown() {
   [ "$status" -eq 0 ]
   run jq -r '.decisions[-1].kind' "$TEST_TMP/.scrum/po/decisions.json"
   [ "$output" = "quality_gate_config" ]
+}
+
+@test "append-po-decision: sprint_acceptance requires canonical verdict, Sprint, and evidence" {
+  run "$SCRIPT" --kind sprint_acceptance --decision accept --rationale "looks good" \
+    --sprint sprint-001 --evidence .scrum/po/sprint-001-acceptance.md
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"approve or reject"* ]]
+
+  run "$SCRIPT" --kind sprint_acceptance --decision approve --rationale "looks good" \
+    --evidence .scrum/po/sprint-001-acceptance.md
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"requires --sprint"* ]]
+
+  run "$SCRIPT" --kind sprint_acceptance --decision approve --rationale "looks good" --sprint sprint-001
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"evidence required"* ]]
+
+  run "$SCRIPT" --kind sprint_acceptance --decision approve --rationale "verified against report" \
+    --sprint sprint-001 --evidence .scrum/po/sprint-001-acceptance.md
+  [ "$status" -eq 0 ]
+  run jq -r '.decisions[-1] | [.kind,.decision,.evidence[0]] | @tsv' .scrum/po/decisions.json
+  [ "$output" = $'sprint_acceptance\tapprove\t.scrum/po/sprint-001-acceptance.md' ]
 }

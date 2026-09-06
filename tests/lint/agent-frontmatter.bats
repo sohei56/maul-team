@@ -35,10 +35,10 @@ extract_frontmatter() {
   refute_output ""
 }
 
-@test "scrum-master.md has skills field with 14 entries" {
-  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-master.md' | yq '.skills | length'"
+@test "scrum-master.md does not always-load ceremony skills" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-master.md' | yq '.skills'"
   assert_success
-  assert_output "14"
+  assert_output "null"
 }
 
 @test "scrum-master.md mentions Delegate mode" {
@@ -62,6 +62,60 @@ extract_frontmatter() {
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-master.md' | yq '.disallowedTools | length'"
   assert_success
   assert_output "2"
+}
+
+@test "scrum-master.md selects bounded explorer and ceremony operator" {
+  run grep -E 'scrum-explorer|ceremony-operator' "${PROJECT_ROOT}/agents/scrum-master.md"
+  assert_success
+}
+
+# ---------------------------------------------------------------------------
+# Thin Scrum Harness agents
+# ---------------------------------------------------------------------------
+
+@test "scrum-explorer.md has valid frontmatter without a fixed model" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-explorer.md' | yq '(.name == \"scrum-explorer\") and (.model == null)'"
+  assert_success
+  assert_output "true"
+}
+
+@test "scrum-explorer.md has a read-only tool surface" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-explorer.md' | yq -r '.tools | sort | join(\",\")'"
+  assert_success
+  assert_output "Glob,Grep,Read"
+}
+
+@test "scrum-explorer.md does not expose Bash" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/scrum-explorer.md' | yq '.tools | contains([\"Bash\"])'"
+  assert_success
+  assert_output "false"
+}
+
+@test "scrum-explorer.md contains exact bounded input and output keys" {
+  run grep -E 'question: 判断したいこと|required_evidence: path-and-line|additional_scope_needed: \[\]' "${PROJECT_ROOT}/agents/scrum-explorer.md"
+  assert_success
+}
+
+@test "ceremony-operator.md has valid frontmatter without skills or fixed model" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/ceremony-operator.md' | yq '(.name == \"ceremony-operator\") and (.model == null) and (.skills == null)'"
+  assert_success
+  assert_output "true"
+}
+
+@test "ceremony-operator.md can load its one requested skill" {
+  run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/ceremony-operator.md' | yq '.tools | contains([\"Skill\", \"Agent\"])'"
+  assert_success
+  assert_output "true"
+}
+
+@test "ceremony-operator.md enforces one skill and excludes product judgments" {
+  run grep -E 'exactly one named|must not approve/reject|Do not request or consume full conversation history' "${PROJECT_ROOT}/agents/ceremony-operator.md"
+  assert_success
+}
+
+@test "ceremony-operator.md bounds mechanical agents and hands judgment back to SM" {
+  run grep -E 'agent_calls.max|Do not spawn or restore durable|mechanical SM action-plan handoff|decision_points' "${PROJECT_ROOT}/agents/ceremony-operator.md"
+  assert_success
 }
 
 # ---------------------------------------------------------------------------
@@ -351,4 +405,3 @@ extract_frontmatter() {
   assert_success
   assert_output "false"
 }
-

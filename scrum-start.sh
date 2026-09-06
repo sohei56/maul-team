@@ -2,7 +2,7 @@
 # scrum-start.sh — Entry point for Maul Team (AI-powered Scrum team)
 #
 # Usage (interactive / human-PO mode):
-#   sh scrum-start.sh
+#   sh scrum-start.sh [--sm-model <name>]
 #   On a NEW project with no docs/product/brief.md, an interactive Claude
 #   session co-authors the product brief (create-brief skill) first; the
 #   Scrum Master's Requirement Definition then begins with that brief as its
@@ -11,6 +11,7 @@
 # Usage (autonomous-PO mode — Ralph Loop, no human at the keyboard):
 #   sh scrum-start.sh --autonomous [--brief docs/product/brief.md] \
 #                     [--max-sprints N] [--max-hours H] \
+#                     [--sm-model <name>] \
 #                     [--po-model <name>] \
 #                     [--bypass-permissions] [--no-attach]
 #
@@ -25,6 +26,11 @@
 #                           docs/product/brief.md as the seed input.
 #   --max-sprints N         Overrides `.scrum/config.json.autonomous.max_sprints`.
 #   --max-hours H           Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`.
+#   --sm-model <name>       Sets the Scrum Master model in both human-PO and
+#                           autonomous-PO modes. Accepts CLI aliases (including
+#                           `opus`, `fable`, `sonnet`, and `haiku`) or a
+#                           specific model ID. Default `opus`; a prior choice
+#                           persists across re-runs via the deployed agent file.
 #   --po-model <name>       Autonomous-only. Sets the model used by the
 #                           product-owner teammate. Accepts CLI aliases
 #                           (`opus`, `sonnet`, `haiku`) or a specific model
@@ -42,13 +48,12 @@
 #                           when starting overnight runs.
 #
 # Interactive wizard:
-#   When stdin is a TTY (no pipe/redirect) and --autonomous is given, any
-#   setting NOT supplied via CLI flag is prompted at startup with the prior
-#   value as the default (press Enter to accept). Defaults come from
-#   `.scrum/config.json.autonomous.*` and the deployed PO agent file, so
-#   re-runs remember your last choices. The wizard is skipped on non-TTY
-#   stdin and under SCRUM_START_DRY_RUN=1 — existing CLI flags + persisted
-#   config + deployed agent file remain authoritative in those cases.
+#   On a TTY, the Scrum Master model is selected in both PO modes; autonomous
+#   mode also prompts for any other setting not supplied via CLI. Press Enter
+#   to accept the prior/default value. Defaults come from persisted config and
+#   deployed agent files, so re-runs remember the last choices. Prompts are
+#   skipped on non-TTY stdin and under SCRUM_START_DRY_RUN=1 — CLI flags and
+#   persisted values remain authoritative in those cases.
 #
 # Prerequisites:
 #   - Claude Code CLI on PATH (>= 2.1.172 recommended; older versions
@@ -81,7 +86,10 @@ AUTONOMOUS=0
 BRIEF_FILE=""
 OPT_MAX_SPRINTS=""
 OPT_MAX_HOURS=""
+OPT_SM_MODEL=""
+SM_MODEL_GIVEN=0
 OPT_PO_MODEL=""
+PO_MODEL_GIVEN=0
 BYPASS_PERMS=0
 # Distinguish "flag not given" from "flag explicitly set to 0". The interactive
 # wizard reads BYPASS_PERMS_GIVEN to decide whether to prompt.
@@ -100,9 +108,12 @@ while [ "$#" -gt 0 ]; do
     --max-hours)
       [ "$#" -ge 2 ] || { echo "Error: --max-hours requires a value." >&2; exit 2; }
       OPT_MAX_HOURS="$2"; shift 2 ;;
+    --sm-model)
+      [ "$#" -ge 2 ] || { echo "Error: --sm-model requires a value." >&2; exit 2; }
+      OPT_SM_MODEL="$2"; SM_MODEL_GIVEN=1; shift 2 ;;
     --po-model)
       [ "$#" -ge 2 ] || { echo "Error: --po-model requires a value." >&2; exit 2; }
-      OPT_PO_MODEL="$2"; shift 2 ;;
+      OPT_PO_MODEL="$2"; PO_MODEL_GIVEN=1; shift 2 ;;
     --bypass-permissions) BYPASS_PERMS=1; BYPASS_PERMS_GIVEN=1; shift ;;
     --no-attach)          NO_ATTACH=1; shift ;;
     -h|--help)
@@ -115,14 +126,39 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+# Model values are written as unquoted YAML scalars and passed to Claude Code.
+# Keep validation deliberately syntactic: aliases/model IDs need only be a
+# non-empty, single-line token. Claude CLI remains authoritative for whether a
+# syntactically valid alias or ID is actually available to this account.
+is_safe_model_token() {
+  local value="$1"
+  [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]
+}
+
+validate_model() {
+  local option="$1" value="$2"
+  if ! is_safe_model_token "$value"; then
+    echo "Error: $option must be a non-empty, single-line model alias or ID" >&2
+    echo "  using only letters, digits, '.', '_', '/', and '-'." >&2
+    exit 2
+  fi
+}
+
+if [ "$SM_MODEL_GIVEN" = "1" ]; then
+  validate_model "--sm-model" "$OPT_SM_MODEL"
+fi
+
 # --po-model is only meaningful in autonomous mode (it patches the deployed
 # product-owner agent frontmatter, which only autonomous mode bothers to do).
 # Reject the combination explicitly rather than silently ignoring the flag.
-if [ -n "$OPT_PO_MODEL" ] && [ "$AUTONOMOUS" = "0" ]; then
+if [ "$PO_MODEL_GIVEN" = "1" ] && [ "$AUTONOMOUS" = "0" ]; then
   echo "Error: --po-model requires --autonomous." >&2
   echo "  In non-autonomous (human) mode the product-owner teammate is not used;" >&2
   echo "  the PO seat is the human at the keyboard." >&2
   exit 2
+fi
+if [ "$PO_MODEL_GIVEN" = "1" ]; then
+  validate_model "--po-model" "$OPT_PO_MODEL"
 fi
 
 # --- Capture prior deployed PO model BEFORE setup-user.sh overwrites it -----
@@ -139,8 +175,27 @@ if [ "$AUTONOMOUS" = "1" ] && [ -f ".claude/agents/product-owner.md" ]; then
     /^---$/ { depth++; if (depth > 1) exit; next }
     depth == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }
   ' .claude/agents/product-owner.md 2>/dev/null || true)"
-  if [ -n "$_cap" ]; then
+  if is_safe_model_token "$_cap"; then
     PRIOR_PO_MODEL="$_cap"
+  elif [ -n "$_cap" ]; then
+    echo "Warning: ignoring syntactically invalid deployed Product Owner model; using opus." >&2
+  fi
+fi
+
+# The deployed Scrum Master agent file is also the persistence layer for the
+# lead model. Capture it before setup-user.sh refreshes the deployed agents so
+# an earlier selection survives subsequent starts in either PO mode.
+PRIOR_SM_MODEL="opus"
+if [ -f ".claude/agents/scrum-master.md" ]; then
+  _cap="$(awk '
+    BEGIN { depth = 0 }
+    /^---$/ { depth++; if (depth > 1) exit; next }
+    depth == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }
+  ' .claude/agents/scrum-master.md 2>/dev/null || true)"
+  if is_safe_model_token "$_cap"; then
+    PRIOR_SM_MODEL="$_cap"
+  elif [ -n "$_cap" ]; then
+    echo "Warning: ignoring syntactically invalid deployed Scrum Master model; using opus." >&2
   fi
 fi
 
@@ -208,6 +263,40 @@ prompt_yes_no() {
   done
 }
 
+prompt_model_choice() {
+  # prompt_model_choice <label> <default>
+  # Offers the well-known aliases plus a validated custom model ID. On
+  # non-TTY and dry-run launches, simply returns the persisted/default value.
+  local label="$1" default="$2" answer custom
+  if [ ! -t 0 ] || [ "${SCRUM_START_DRY_RUN:-0}" = "1" ]; then
+    printf '%s' "$default"
+    return 0
+  fi
+  while :; do
+    printf '\n%s (current default: %s):\n' "$label" "$default" >&2
+    printf '  1) opus\n  2) fable\n  3) sonnet\n  4) haiku\n  5) custom model ID\n' >&2
+    printf '  Choice [Enter keeps %s]: ' "$default" >&2
+    IFS= read -r answer || answer=""
+    case "$answer" in
+      "")      printf '%s' "$default"; return 0 ;;
+      1|opus)  printf 'opus'; return 0 ;;
+      2|fable) printf 'fable'; return 0 ;;
+      3|sonnet) printf 'sonnet'; return 0 ;;
+      4|haiku) printf 'haiku'; return 0 ;;
+      5|custom)
+        printf '  Custom model ID: ' >&2
+        IFS= read -r custom || custom=""
+        if is_safe_model_token "$custom"; then
+          printf '%s' "$custom"
+          return 0
+        fi
+        echo "    Enter a non-empty single-line token using letters, digits, '.', '_', '/', or '-'." >&2
+        ;;
+      *) echo "    Choose 1-5 (opus, fable, sonnet, haiku, or custom)." >&2 ;;
+    esac
+  done
+}
+
 # jq_write_inplace <file> <jq_filter> [jq_args...]
 # Rewrites <file> in place through jq via a same-directory tmp file so the
 # final mv is atomic. Extra args are passed to jq before the filter
@@ -226,8 +315,27 @@ jq_write_inplace() {
   fi
 }
 
+# Resolve the Scrum Master model for every launch mode. On first use the
+# default is opus; thereafter the deployed agent file supplies the default.
+if [ "$SM_MODEL_GIVEN" = "0" ]; then
+  OPT_SM_MODEL="$(prompt_model_choice 'Scrum Master model' "$PRIOR_SM_MODEL")"
+fi
+validate_model "--sm-model" "$OPT_SM_MODEL"
+
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 sh "$SCRIPT_DIR/scripts/setup-user.sh"
+
+# setup-user.sh just restored the source agent definition. Reapply the resolved
+# Scrum Master model to its deployed frontmatter (the single source of truth).
+SM_AGENT_FILE=".claude/agents/scrum-master.md"
+if [ -f "$SM_AGENT_FILE" ]; then
+  TMP_AGENT="${SM_AGENT_FILE}.tmp.$$.${RANDOM}"
+  awk -v m="$OPT_SM_MODEL" '
+    !done && /^model:/ { print "model: " m; done=1; next }
+    { print }
+  ' "$SM_AGENT_FILE" > "$TMP_AGENT" && mv "$TMP_AGENT" "$SM_AGENT_FILE"
+  echo "  Scrum Master model: $OPT_SM_MODEL"
+fi
 
 # --- Upgrade gate: migrate state + validate against the deployed schemas ---
 # setup-user.sh above just refreshed .scrum/scripts/ and the schemas; existing
@@ -254,7 +362,7 @@ if [ -f ".scrum/state.json" ]; then
 
   phase="$(jq -r '.phase // "unknown"' .scrum/state.json)"
   echo "  Current phase: $phase"
-  initial_prompt="Read .scrum/state.json, .scrum/sprint.json, and .scrum/backlog.json. Reconcile PBI statuses in backlog.json against actual project state — check if implementation files exist for each in-progress PBI and update statuses accordingly (e.g., mark PBIs as done if their code is complete, or keep as in_progress if work remains). Report where we left off, then continue the workflow from the current phase."
+  initial_prompt="Resume the Scrum workflow from the SessionStart resume summary. Do not reread all Scrum state, backlog, or implementation files at startup. If evidence needed for the next decision is missing from the summary, delegate a targeted investigation to scrum-explorer, then continue from the current phase."
 else
   IS_NEW_PROJECT=1
   echo ""
@@ -331,7 +439,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
     OPT_MAX_HOURS="$(prompt_value 'Maximum wall-clock hours' "$_cur_max_hours")"
   fi
   if [ -z "$OPT_PO_MODEL" ]; then
-    OPT_PO_MODEL="$(prompt_value 'Product Owner model' "$PRIOR_PO_MODEL")"
+    OPT_PO_MODEL="$(prompt_model_choice 'Product Owner model' "$PRIOR_PO_MODEL")"
   fi
   if [ "$BYPASS_PERMS_GIVEN" = "0" ]; then
     _ans="$(prompt_yes_no \
@@ -443,6 +551,7 @@ if [ "$AUTONOMOUS" = "1" ]; then
   if [ -z "$OPT_PO_MODEL" ]; then
     OPT_PO_MODEL="$PRIOR_PO_MODEL"
   fi
+  validate_model "--po-model" "$OPT_PO_MODEL"
   PO_AGENT_FILE=".claude/agents/product-owner.md"
   if [ -f "$PO_AGENT_FILE" ]; then
     TMP_AGENT="${PO_AGENT_FILE}.tmp.$$.${RANDOM}"

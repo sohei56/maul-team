@@ -312,17 +312,24 @@ run the canonical escalation transition (`termination-gates.md`
 Parse each returned message's `**Verdict:**` line and its markdown
 Findings list (`- #k [Severity] [File:Lines] [criterion_key] —
 Description`). For each finding synthesize the signature
-`{file}:{line_start}-{line_end}:{criterion_key}` and record its
-`severity` + `aspect`. Union across the aspects and persist the
+`{file}:{line_start}-{line_end}:{criterion_key}` and record its anchor
+fields, `severity`, and `aspect`. Union across the aspects and persist the
 aggregate so the next Round can compare (termination gates):
 
 ```bash
 AGG=".scrum/pbi/$PBI_ID/metrics/integrity-r$n.json"
 # AGG = { "round": n, "aspects": ["requirement-conformance", ...],
 #         "findings": [ { "signature": "<file>:<s>-<e>:<criterion_key>",
+#                         "file_path": "<file>", "line_start": <s>,
+#                         "line_end": <e>, "criterion_key": "<key>",
 #                         "severity": "critical|high|medium|low",
 #                         "aspect": "<aspect>", "description": "..." }, ... ] }
 ```
+
+`aspects` lists every reviewer spawned for the Round, including a
+reviewer that returned no findings: exactly five named aspects for
+kind=code, and exactly requirement-conformance + docs-consistency for
+kind=docs. It is not derived from `findings[].aspect`.
 
 This aggregate is the conductor's own artifact — it is NOT a sub-agent
 envelope and is not bound by `pbi-pipeline-envelope.schema.json`, so
@@ -331,6 +338,12 @@ Descriptions from the functional-quality / security aspects may begin
 with a `[codex]` or `[codex-unverified]` prefix (their in-reviewer
 second opinion); the prefix is part of the Description text and does
 not change signature derivation or the severity rule below.
+
+Do not add or choose a trusted `divergence_class`. On FAIL,
+`resolve-integrity-fail.sh` validates the signature/anchor fields and
+derives the class centrally from PBI kind + aspect + signature anchor.
+An unknown aspect, malformed signature, or inconsistent explicit
+anchor field causes the resolver to reject the transition.
 
 **Integrity verdict** — deterministic:
 
@@ -382,25 +395,42 @@ status becomes `in_progress_merge`.
 
 ### Step I-5b: FAIL → revert through existing feedback-routing
 
-A FAIL routes exactly like a PBI Review / UT Run FAIL. **First**
-evaluate the termination gates on the aggregated integrity findings
-(see `termination-gates.md` § Integrity stage — Success is already
-ruled out, then Stagnation / Divergence / Hard cap on the union). If an
-escalate gate fires, run the canonical escalation transition
-(`termination-gates.md` § Status transition on escalation) with
-`<reason>` = the gate outcome and `<stage>=pbi_review`.
+A FAIL routes exactly like a PBI Review / UT Run FAIL, but its gate
+evaluation and durable transition are machine-owned. Invoke the
+resolver exactly once; do not run individual state setters or
+reimplement the classification/count in the conductor:
 
-Otherwise revert to impl for the next Round and build feedback (see
+```bash
+outcome="$(.scrum/scripts/resolve-integrity-fail.sh "$PBI_ID")"
+case "$outcome" in
+  stagnation|divergence|max_rounds)
+    # The resolver already wrote reason → escalated → pipeline.log.
+    notify_sm_escalation "$PBI_ID" "$outcome"
+    ;;
+  next_round) ;;
+  *) echo "unexpected Integrity resolver outcome: $outcome" >&2; exit 1 ;;
+esac
+```
+
+This is the canonical Integrity-FAIL invocation; `termination-gates.md`
+§ Status transition on escalation points here rather than restating it.
+
+The resolver refuses any backlog status other than the kind's Integrity
+entry status (above). It validates the current aggregate, selects the
+most recent prior Round that produced an Integrity aggregate, and
+evaluates Stagnation / Divergence / Hard cap in that order. With no
+prior aggregate it skips both comparison gates; Hard cap still applies.
+It prints `next_round` or the escalation reason.
+
+On `next_round`, the resolver has already reverted the PBI to impl by
+setting `impl_status=fail`, backlog status `in_progress_impl`, and the
+pipeline log. Build feedback next (see
 `feedback-routing.md` § Integrity-stage revert input — the Critical/High
 findings fold into `impl-r{n+1}.md` and `ut-r{n+1}.md`, each sub-agent
 interpreting which lines apply to it):
 
-```bash
-.scrum/scripts/update-pbi-state.sh "$PBI_ID" impl_status fail
-.scrum/scripts/update-backlog-status.sh "$PBI_ID" in_progress_impl
-.scrum/scripts/append-pbi-log.sh "$PBI_ID" pbi_review "$n" gate "integrity FAIL → next round"
-# Loop back to impl-ut-stage.md "Pipeline entry"; begin-impl-round.sh returns n+1.
-```
+Then loop back to `impl-ut-stage.md` "Pipeline entry";
+`begin-impl-round.sh` returns n+1.
 
 ## Stage procedure (kind=docs — aspects 1 + 5 only)
 

@@ -21,6 +21,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | `jq '.messages += [{...}]' .scrum/communications.json > tmp && mv ...` | **Removed** (OD-1, 2026-07): the message-append wrapper that used to live here had zero runtime invokers — no skill, agent, or hook ever called it — and was retired. `.scrum/communications.json` is written directly by `hooks/dashboard-event.sh` (hook process, outside the agent tool surface); there is no agent-callable wrapper. |
 | `jq '.events += [{...}]' .scrum/dashboard.json > tmp && mv ...` | **Removed**: `.scrum/dashboard.json` is hook-only telemetry written by `hooks/dashboard-event.sh` via `hooks/lib/dashboard.sh::append_dashboard_event`. No agent-callable wrapper. Agents instead emit dashboard signals indirectly via the tools they use (PostToolUse / SendMessage / SubagentStop). |
 | `update_state ".scrum/pbi/$PBI/" '.design_round = 1'` (PR #22 inline helper) | `.scrum/scripts/update-pbi-state.sh "$PBI" design_round 1` (variadic field/value pairs in one atomic write) |
+| Integrity FAIL: conductor independently counts findings, then calls the state, backlog, and log wrappers one by one | `.scrum/scripts/resolve-integrity-fail.sh "$PBI"` (the only permitted Integrity-FAIL caller of those low-level writers; validates the current and selected latest-prior aggregate, derives classification, selects the outcome, and owns the reason-first state transition + log; accepts kind=code from `in_progress_ut_run`, kind=docs from `in_progress_pbi_review`) |
 | `printf '%s\t%s\t...\n' >> .scrum/pbi/$PBI/pipeline.log` | `.scrum/scripts/append-pbi-log.sh "$PBI" <stage> <round> <event> <detail>` |
 | `jq '(.items[]\|select(.id==$id)).sprint_id = "sprint-NNN"' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/set-backlog-item-field.sh "$PBI" sprint_id sprint-NNN` (also: `implementer_id`, `review_doc_path`, `catalog_targets`, `priority`, `description`, `ux_change`, `demo_plan`, `acceptance_criteria`, `design_doc_paths`, `depends_on_pbi_ids`, `kind`, `audit_identity`) |
 | Create `.scrum/sprint.json` at planning AND set `state.current_sprint_id` (was: raw `jq` + `mv` + separate `update-state-phase.sh` pair, which leaked the recurring `current_sprint_id` lag bug surfaced by target-project retrospectives) | `.scrum/scripts/init-sprint.sh <sprint-id> [--goal <goal>] [--type development\|integration]` (writes both files; refuses if `sprint.json` already exists) |
@@ -92,6 +93,15 @@ PBIs. Direct
 `update-pbi-state.sh ... impl_round <N>` is still accepted (for
 migration tooling and tests) but is forbidden during the live
 pipeline.
+
+Integrity-stage FAIL resolution follows the same high-level-wrapper
+rule: the conductor MUST call `resolve-integrity-fail.sh <pbi-id>` and
+MUST NOT reproduce its `jq` classification or issue the underlying
+state setters directly. Existing in-flight `integrity-rN.json`
+artifacts remain compatible when they carry the documented spawned
+aspect list and valid signatures. A filename/payload Round mismatch or
+incomplete aspect list now fails closed; regenerate that Round's
+aggregate from the retained reviewer results before retrying.
 
 ## What enforces this
 
@@ -445,3 +455,56 @@ actively misleads") is squarely the new High — and the error direction
 was chosen deliberately: `medium→low` would silently drop those PBIs out
 of the block set (an invisible failure), while `medium→high` adds them
 (a visible one the PO can clear with a single `reject` or `cancelled`).
+
+## v5 → v6: non-blank `evidence` entries in the PO decisions log (2026-09-06)
+
+`po-decisions.schema.json` gains `"pattern": "\\S"` on
+`decisions[].evidence[]`: an evidence path must contain at least one
+non-whitespace character. `append-po-decision.sh` gained the matching
+argument check, so `--evidence ""` is now rejected at the source.
+
+This is a **tightening**, and it is the failure class the CI job
+"Schema / migration pairing" exists to catch. `append-po-decision.sh`
+writes through `atomic_write`, which re-validates the *whole* file
+before the mv, so one pre-existing blank entry does not merely fail the
+launch gate — it makes every future PO decision unappendable, and
+`pre-tool-use-scrum-state-guard.sh` blocks agents from repairing the
+JSON by hand. Blank entries are a real legacy shape: the wrapper
+accepted them until this same change.
+
+### Backward compatibility
+
+- The `sprint_acceptance` addition to the `kind` enum in the same
+  change is purely additive — existing records validate unchanged and
+  it needs no migration of its own.
+- `config.schema.json` also changed in this range, but description-only;
+  no data is affected.
+- No field is removed, and no evidence path that carries information is
+  altered.
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/007-po-decisions-evidence-nonempty.sh [--dry-run]
+```
+
+Drops empty / whitespace-only `evidence` entries from **every** decision,
+preserving order and every other field. Idempotent.
+
+Approval kinds (`demo_acceptance`, `sprint_acceptance`, `uat_item`,
+`release_decision`) are cleaned too, even when that leaves the array
+empty. The schema carries no `minItems`, so `[]` is valid and the launch
+gate passes; the non-empty rule lives in wrapper guard (b) and applies to
+new records, and re-adjudicating an approval already recorded without a
+usable path is not a migration's job. Each such record is named in a
+stderr WARNING (`dec-NNNN (kind=…)`) so a human can attach the evidence
+through `append-po-decision.sh`.
+
+One shape is **held**: an `evidence` entry that is not a string. That is
+pre-existing malformation the schema rejected before this tightening
+too, and deleting data a machine cannot interpret is the failure 005/006
+are written to avoid. The migration names the records and leaves the file
+byte-identical — whole-file rather than per-record, because
+`atomic_write` re-validates the result, so a partial clean could not be
+written without bypassing the schema-validated-write contract. It exits
+0; hand-edit the named records and relaunch to clean the rest.

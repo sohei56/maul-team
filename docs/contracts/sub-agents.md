@@ -5,9 +5,28 @@ definitions live in `agents/`; this file lists name, role, spawning
 parent, and tool sandbox. Distributed to `.claude/agents/` by
 `setup-user.sh`.
 
+## SM-spawned bounded agents
+
+Short-lived, synchronous agents the Scrum Master spawns to keep its own
+context thin. Both take a fixed YAML input contract (in their agent
+definitions), receive only bounded paths/identifiers — never full chat
+history or the full backlog — and return evidence or candidates, never
+decisions. Completion is success, not a reason to re-spawn.
+
+| Agent | Role | maxTurns | Tools |
+|---|---|---|---|
+| `scrum-explorer` | Read-only investigation of one bounded question; returns `path:line` evidence, conflicts, uncertainties, and out-of-scope gaps | 60 | Glob, Grep, Read |
+| `ceremony-operator` | Executes exactly one named ceremony skill: organizes evidence, validates ceremony scripts, records already-decided outcomes, returns candidates/gaps + a mechanical SM action plan | 100 | Skill, Agent, Read, Edit, Write, Bash, Grep, Glob |
+
+Neither may make PO or release judgments (priority, acceptance, gate
+waivers). An operator that needs broad repository research reports the
+gap; the SM decides whether to spawn an Explorer — operators never
+spawn one themselves. Selection rules: `agents/scrum-master.md`
+§ Choosing bounded agents.
+
 ## Sprint-end Codebase Audit (spawned by Scrum Master)
 
-Sprint-end cross-review is **audit-only**. It runs the whole-repo
+Sprint-end cross-review closes PBIs every Sprint. When `N % 3 == 0`, it runs the whole-repo
 `codebase-audit` along four axes — `spec-conformance`, `logic-defect`,
 `redundancy`, `product-security` — one parallel auditor per axis (per-axis
 focus and whole-repo-only catch: `skills/codebase-audit/SKILL.md` § Role).
@@ -18,7 +37,7 @@ They are read-only, whole-repo (no per-PBI fan-out, no `paths_touched`
 partition), and **non-blocking** — they never revert a PBI. Critical/High
 findings become draft PBIs for the **next** Sprint.
 
-Spawned by the `cross-review` skill via the `codebase-audit` skill.
+Spawned on due Sprints by the `cross-review` skill via the `codebase-audit` skill.
 See FR-009 (requirements.md). Before spawning, `cross-review` runs a
 two-pass static analysis — Pass A intra-file lint on the Sprint diff,
 Pass B a whole-repo dead-export / reachability scan — aggregating both

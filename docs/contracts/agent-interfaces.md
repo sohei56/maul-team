@@ -65,7 +65,7 @@ responsibilities (what it owns).
 | FR-006 | Assign implementers (one per PBI). Per-PBI aspect review runs inside the pipeline (Developer-conducted Integrity stage); Sprint-end audit is owned by SM via cross-review (FR-009) — no reviewer assigned per PBI in backlog |
 | FR-007 | Calculate Developer count: min(refined PBIs, 6) |
 | FR-008 | Avoid dependent PBIs in same Sprint (use `depends_on_pbi_ids`) |
-| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` as an audit-only, non-blocking ceremony (regulation: `skills/codebase-audit/SKILL.md`). |
+| FR-009 | Two-tier review. (1) Per-PBI: the Developer conductor runs the always-on 5-aspect **Integrity stage** at each Round tail before ready-to-merge (Critical/High → revert to `in_progress_impl`, bounded by the impl_round hard cap; PASS → consolidated `.scrum/reviews/<pbi-id>-review.md`). (2) Sprint-end: SM runs `cross-review` closeout every Sprint and its non-blocking whole-repo audit when `N % 3 == 0` (regulation: `skills/codebase-audit/SKILL.md`). |
 | FR-010 | Present Sprint Review, conditional live demo (based on `ux_change` field) |
 | FR-011 | Report remaining scope and progress |
 | FR-012 | Record and consolidate retrospective improvements |
@@ -124,8 +124,8 @@ named SKILL.md for the exact required state and files/keys written.
 | `pbi-pipeline` | Per-PBI design + impl + UT pipeline (Developer-conducted) | `skills/pbi-pipeline/SKILL.md` § Inputs/Outputs |
 | `pbi-merge` | SM-side per-PBI merge into main (rollback / strike rule: see Skills Mapping above) | `skills/pbi-merge/SKILL.md` § Inputs/Outputs |
 | `pbi-escalation-handler` | SM-side handling of pipeline escalations | `skills/pbi-escalation-handler/SKILL.md` § Inputs/Outputs |
-| `cross-review` | Sprint-end audit-only ceremony (runs `codebase-audit`; regulation: `skills/codebase-audit/SKILL.md`) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
-| `codebase-audit` | Whole-repo 4-axis audit (embedded in cross-review; thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
+| `cross-review` | Every-Sprint closeout ceremony (runs `codebase-audit` every third Sprint; regulation: `skills/codebase-audit/SKILL.md`) | `skills/cross-review/SKILL.md` § Inputs/Outputs |
+| `codebase-audit` | Whole-repo 4-axis audit (every third cross-review; mandatory thin re-check at Integration-Sprint entry) | `skills/codebase-audit/SKILL.md` § Inputs/Outputs |
 | `sprint-review` | Sprint Review ceremony | `skills/sprint-review/SKILL.md` § Inputs/Outputs |
 | `retrospective` | Retrospective; consolidate improvements | `skills/retrospective/SKILL.md` § Inputs/Outputs |
 | `integration-tests` | Design-driven systematic integration testing (boundary values, flow/pattern-branch coverage, external-interface stubs) | `skills/integration-tests/SKILL.md` § Inputs/Outputs |
@@ -284,8 +284,9 @@ Full sub-agent catalog (roles, spawning parents, tool sandboxes) in
 `security-reviewer`, `maintainability-reviewer`,
 `docs-consistency-reviewer`) are spawned **per-PBI by the Developer** at
 the pipeline's Integrity stage (not Sprint-end). Sprint-end cross-review
-runs the whole-repo `codebase-audit` axes as general-purpose `Agent`
-spawns by the SM (not named catalog agents); audit-only regulation:
+runs the whole-repo `codebase-audit` axes every third Sprint as
+general-purpose `Agent` spawns by the SM (not named catalog agents);
+non-blocking audit regulation:
 `skills/codebase-audit/SKILL.md`. PBI Pipeline uses
 `pbi-{designer, implementer, ut-author}` workers and `codex-{design,
 impl, ut}-reviewer` critics per Round.
@@ -533,6 +534,14 @@ and elided here.
 - **Output**: exit code 2 + `reason` if exit criteria not met
 - **Logging**: Logs all blocked stop attempts to `.scrum/hooks.log`
 - **Purpose**: Prevent premature phase completion
+- **Review-phase accepted set**: in `review`, every Sprint PBI must be
+  `done`, `cancelled`, or `blocked`. `blocked` is accepted because the
+  gate exists to catch PBIs still mid-pipeline, and a PBI parked on an
+  external blocker is not one — the status is non-terminal and
+  resumable by design (Issue #94); the Sprint Review names the parked
+  PBI and decides carry-over vs. return-to-backlog. Any other status
+  is a bounded `review_incomplete` block; `in_progress_*` is the
+  unbounded `pipeline_in_flight` inner loop.
 - **Mode-dependent policy**:
   - *Autonomy loop active* (`autonomy_loop_active` = autonomous mode
     **and** a live watchdog, verified via `kill -0 watchdog_pid`):
@@ -552,11 +561,8 @@ and elided here.
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In
     `pbi_pipeline_active` the gate only blocks on unresolved
-    `escalated` PBIs — Teammate liveness is monitored by the SM's
-    session-cron health check (`agents/scrum-master.md` § Periodic
-    pipeline health check), with the external
-    `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`
-    as fallback.
+    `escalated` PBIs — teammate liveness is monitored entirely from
+    outside the session (§ External liveness nudge).
 - **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
   blocks until `.scrum/test-results.json.overall_status` is `"passed"`
   or `"passed_with_skips"` (`"failed"` blocks naming the failed
@@ -608,6 +614,64 @@ and elided here.
   [`../data-model.md`](../data-model.md) § Entity: Autonomy).
 - **Output**: none; always exits 0. The `autonomy.json` write is
   fail-open — the dashboard event is the authoritative log.
+
+---
+
+## System: External liveness nudge
+
+The only mechanism that wakes the Scrum Master about teammate
+liveness. It lives outside the Claude session by design: the thin SM
+runs **no in-agent cron self-poll**, so nothing inside a session
+periodically re-checks the pipeline on its own.
+
+### Emitters
+- **Human mode** — `scripts/stall-watchdog.sh`, the background daemon
+  `scrum-start.sh` launches in its non-autonomous branch. It calls
+  `scripts/scrum/pbi-idle.sh`, exits silently on a fresh report, and
+  on a stale/unknown one sends one `[STALL-WATCHDOG] …` line through
+  `tmux send-keys` into `.scrum/runtime.json.sm_pane_id`.
+- **Autonomous mode** — `autonomous_liveness_handoff()` in
+  `scripts/autonomous/watchdog.sh`. Same `pbi-idle.sh` report; an
+  anomaly is appended to the next already-scheduled outer-loop
+  prompt. No second monitor and no separate timer LLM check start.
+
+### Receiver
+The Scrum Master. Its judgment rules are canonical in
+[`../../agents/scrum-master.md`](../../agents/scrum-master.md)
+§ Scrum Master judgment and are not restated here.
+
+### Invariants
+- The nudge text is **self-describing** — it carries the instruction
+  it wants executed, so no agent-side prompt encodes watchdog
+  semantics.
+- It requests a **bounded, read-only investigation** only: one
+  `scrum-explorer` handoff that gathers evidence, reports, and exits.
+  It never instructs a terminate, a re-spawn, or a state write.
+- **Quiet time alone never justifies terminating or re-spawning.** A
+  running reviewer sub-agent is positive evidence of progress; only
+  confirmed termination plus a missing expected artifact justifies
+  recovery.
+- The review stage is **structurally quiet for tens of minutes** — a
+  multi-aspect review emits no artifact until it finishes.
+
+### Configuration
+Both keys live under `config.json.stall_watchdog` (types and
+constraints: [`../data-model.md`](../data-model.md) § Entity: Config).
+
+| Key | Default | Consumed by |
+|---|---|---|
+| `idle_threshold_minutes` | 30 | `stall-watchdog.sh`; also the fallback for the key below |
+| `pbi_idle_threshold_minutes` | 30 | `stall-watchdog.sh`, `autonomous_liveness_handoff()` |
+
+**Why 30.** Issue #95 measured healthy multi-aspect review stages
+sitting at 11–25 minutes of zero artifact activity across five items,
+so a 10-minute probe fires on healthy work. A nudge starts an
+LLM-driven bounded investigation, so a false positive costs a model
+wakeup and risks a harmful "recovery" of work that was never stuck.
+Real stalls are not subtle — the observed ones ran 63 minutes and 8.6
+hours — so a 30-minute default still catches them with margin. Both
+keys stay configurable for projects whose stages are quieter or
+noisier than that.
 
 ---
 

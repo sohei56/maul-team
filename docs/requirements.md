@@ -92,8 +92,8 @@ and Sprint Review presents the Increment to the user.
    implementer (1 Developer = 1 PBI). No per-PBI reviewer is
    assigned — per-PBI aspect review runs at the pipeline's
    Integrity stage (FR-009 Layer 1), and Sprint-end cross-review
-   is performed by the Scrum Master via the whole-repo
-   `codebase-audit` spawns (FR-009 Layer 2).
+   is performed by the Scrum Master; its whole-repo `codebase-audit`
+   spawns run every third Sprint (FR-009 Layer 2).
 
 3. **Given** Sprint Planning is complete,
    **When** the Design phase begins,
@@ -219,8 +219,8 @@ sub-agents (`requirement-conformance-reviewer`,
 **Integrity stage** (the final quality gate before ready-to-merge)
 to evaluate that one PBI's increment along requirement coverage,
 functional quality, security, maintainability, and docs
-consistency. Sprint-end cross-review is an **audit-only**
-ceremony in which the Scrum Master spawns the whole-repo
+consistency. Sprint-end cross-review is an every-Sprint closeout
+ceremony; only when `N % 3 == 0` does the Scrum Master spawn the whole-repo
 `codebase-audit` along four axes (spec-conformance, logic-defect,
 redundancy, product-security) — defects that only emerge in the
 accumulated codebase, not in any single diff. During
@@ -232,8 +232,9 @@ This happens automatically without user involvement.
 
 **Verification**: Observe a PBI pipeline and verify the Developer
 spawns the 5 aspect reviewers at the Integrity stage. Observe
-Sprint-end cross-review and verify the Scrum Master spawns the 4
-whole-repo audit axes. Observe implementation and verify Developers
+Sprint-end cross-review and verify its state closeout every Sprint;
+on a due Sprint verify the Scrum Master spawns the 4 whole-repo audit
+axes, while a non-due Sprint creates no dummy report. Observe implementation and verify Developers
 use support sub-agents.
 
 **Acceptance Scenarios**:
@@ -257,15 +258,19 @@ use support sub-agents.
 
 3. **Given** all Sprint PBIs have merged,
    **When** the Scrum Master invokes the `cross-review` Skill,
-   **Then** static analysis runs once and the 4 whole-repo
+   **Then** every Sprint transitions reviewed PBIs through closeout;
+   when `N % 3 == 0`, static analysis runs once and the 4 whole-repo
    `codebase-audit` axes are spawned in parallel; the audit is
-   **non-blocking** — every finding is PO-adjudicated, Critical/High
+   **non-blocking** — every ordinary finding is PO-adjudicated, Critical/High
    carrying a next-Sprint recommendation and a rejected finding being
    suppressed with a recorded decision; approved findings become draft
    PBIs for the **next** Sprint (title prefix
    `[codebase-audit:<sprint-id>:F<n>:<Severity>]`, identity-deduped
-   across Sprints), it never reverts a PBI, and every reviewed PBI
-   transitions `cross_review → done`.
+   across Sprints), while the DOCS batch is mandatory file/reuse and
+   proceeds through Step 7b. It never reverts a PBI, and every reviewed PBI
+   transitions `cross_review → done`. When `N % 3 != 0`, the expensive
+   audit work and Step 7b are skipped without a placeholder report,
+   while the same `cross_review → done` transition still occurs.
 
 4. **Given** Sprint Planning assigns a PBI to a Developer teammate,
    **When** the Developer prepares for implementation,
@@ -294,9 +299,9 @@ use support sub-agents.
 
 - What happens when a Sprint has only one PBI?
   The single Developer implements the PBI. Sprint-end cross-review
-  is independent of Developer count — the Scrum Master always
-  performs it via the whole-repo `codebase-audit` spawns (FR-009
-  Layer 2).
+  closeout is independent of Developer count. The Scrum Master runs
+  the whole-repo `codebase-audit` spawns only on a due Sprint
+  (`N % 3 == 0`; FR-009 Layer 2).
 
 - What happens when cross-review finds issues that cannot be fixed
   within the Sprint?
@@ -405,8 +410,9 @@ use support sub-agents.
   implementer (1 Developer = 1 PBI). The system MUST NOT assign
   per-PBI reviewers to Developers. Per-PBI aspect review runs at
   the pipeline's **Integrity stage** via Developer-spawned aspect
-  reviewer sub-agents (see FR-009 Layer 1); Sprint-end
-  cross-review is the Scrum-Master-owned **audit-only** ceremony
+  reviewer sub-agents (see FR-009 Layer 1); Sprint-end cross-review is
+  the Scrum-Master-owned every-Sprint closeout, with the audit-only
+  whole-repo pass added when `N % 3 == 0`
   (see FR-009 Layer 2). The legacy `reviewer_id`
   field is removed from `backlog.json` items, and `assigned_work`
   no longer contains a `review` array.
@@ -443,24 +449,31 @@ use support sub-agents.
   `impl_round` hard cap N=5), its findings folding into the next
   Round's impl/UT fix input; a PASS writes the consolidated
   `.scrum/reviews/<pbi-id>-review.md`, sets `review_doc_path`, and
-  proceeds to ready-to-merge. **Layer 2 (Sprint-end cross-review,
-  audit-only)**: after each per-PBI merge, the PBI is queued at
+  proceeds to ready-to-merge. **Layer 2 (Sprint-end cross-review)**:
+  after each per-PBI merge, the PBI is queued at
   `status: awaiting_cross_review`. At Sprint end the Scrum Master
   runs the `cross-review` skill which transitions each queued PBI to
-  `status: cross_review`, runs static analysis once (Python `ruff`,
+  `status: cross_review` every Sprint. When the decimal Sprint number
+  satisfies `N % 3 == 0` (`sprint-003`, `-006`, `-009`, ...), it runs
+  static analysis once (Python `ruff`,
   Shell `shellcheck` intra-file lint + a whole-repo dead-export /
   reachability pass) feeding the redundancy axis, then spawns the
   whole-repo `codebase-audit` along **four axes in parallel**
   (`spec-conformance`, `logic-defect`, `redundancy`,
   `product-security`) over the accumulated codebase at HEAD —
-  defects no single PBI or Sprint diff can see. The audit is
+  defects no single PBI or Sprint diff can see. On non-due Sprints it
+  skips static analysis, axes, PO audit triage, and DOCS Step 7b without
+  creating dummy reports, then performs the same lightweight closeout.
+  When due, the audit is
   **non-blocking**: it never reverts a PBI; **every** finding is
   PO-adjudicated (Critical/High recommended to the next Sprint, a
   rejected finding suppressed with a recorded decision), and the
   approved ones become draft PBIs for the **next** Sprint (title
   prefix `[codebase-audit:<sprint-id>:F<n>:<Severity>]` plus the
   canonical `audit_severity` field, identity-deduped across Sprints,
-  `[REGRESSION]`-tagged when a closed finding recurs). Every reviewed
+  `[REGRESSION]`-tagged when a closed finding recurs). Scheduled-audit
+  documentation drift is fixed in the current Sprint via Step 7b.
+  Every reviewed
   PBI transitions `cross_review → done`.
   The Codex-fallback rule still applies to Layer 1 codex reviewers
   (`codex-impl-reviewer`, `codex-ut-reviewer`).
@@ -489,6 +502,13 @@ use support sub-agents.
   the user indicates the Product Goal is achieved, covering
   integration testing, end-to-end testing, regression testing,
   documentation consistency checks, and user acceptance testing.
+  Integration-test entry MUST always run the thin codebase-audit
+  preflight, independent of the three-Sprint cadence: a report for the
+  current/final Development Sprint is reused when fresh, a missing
+  report falls through to a full audit, and any open non-Low audit PBI
+  routes to `backlog_created` and blocks testing. Documentation drift
+  found by that fresh audit MUST also enter and complete the normal fix
+  loop before integration tests begin, regardless of severity.
   Before user acceptance testing, the team MUST verify
   design-document functional completeness at integration-test
   granularity — every function described in the enabled design
@@ -543,7 +563,7 @@ use support sub-agents.
   `pragma-audit-r{n}.json`). Existing tests must continue to pass
   (no regressions); linter/formatter must pass. After per-PBI merge
   succeeds the PBI sits at `awaiting_cross_review`; the Sprint-end
-  `cross-review` (FR-009 Layer 2) is audit-only and non-blocking —
+  `cross-review` (FR-009 Layer 2) always performs closeout; its due audit is non-blocking —
   every reviewed PBI transitions `cross_review → done`
   unconditionally.
 
@@ -688,7 +708,8 @@ use support sub-agents.
   sub-agents (see `docs/contracts/sub-agents.md` § PBI Integrity
   stage) spawned by the Developer conductor
   before ready-to-merge, plus a non-blocking Sprint-end whole-repo
-  `codebase-audit` (4 axes) spawned by the Scrum Master.
+  `codebase-audit` (4 axes) spawned by the Scrum Master every third
+  Sprint; non-due Sprints still complete cross-review closeout.
 
 - **SC-004**: The user can understand project status at any time
   through the TUI dashboard without inspecting code, logs, or
@@ -750,7 +771,7 @@ use support sub-agents.
 
 ### 2026-04-12
 
-- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly. (superseded 2026-07-11: two-tier review — the 5 aspect reviewers moved per-PBI to the pipeline's Integrity stage (FR-009 Layer 1), and Sprint-end cross-review became the audit-only whole-repo 4-axis `codebase-audit`, non-blocking, every reviewed PBI transitions `cross_review → done`; see FR-009 and US5)
+- Q: How does cross-review work now that it uses independent sub-agents instead of peer Developers? A: The Scrum Master invokes the `cross-review` Skill, which runs static analysis once and then spawns the 5 aspect-specialized sub-agents enumerated in US5 in parallel via the Task tool. Each reviews the **whole Sprint Increment**, not per-PBI; Findings carry PBI tags via `paths_touched` reverse-lookup. Aspect 1/2/3 FAIL reverts the PBI to `in_progress_impl`; aspect 4/5 FAIL spawns a follow-up draft PBI. This replaces the earlier model where Developer teammates reviewed each other's code, and supersedes the 2026-04-12 Codex-CLI-based single `codex-code-reviewer` design (the Codex-CLI cross-model review remains in Layer 1 per-PBI via `codex-impl-reviewer` / `codex-ut-reviewer`). FR-009 and FR-019 updated accordingly. (superseded 2026-07-11: the 5 aspect reviewers moved per-PBI to the pipeline Integrity stage and Sprint-end cross-review became a non-blocking whole-repo audit; superseded 2026-08-11: closeout remains every Sprint while the high-cost audit runs only when `N % 3 == 0`; every reviewed PBI still transitions `cross_review → done`; see FR-009 and US5)
 - Q: Where do specialist sub-agents come from? A: All sub-agents are project-managed in `agents/` and distributed by `setup-user.sh`. The external awesome-claude-code-subagents catalog dependency was removed. FR-019 and User Story 5 updated.
 
 ### 2026-02-26

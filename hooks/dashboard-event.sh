@@ -161,9 +161,9 @@ case "$hook_type" in
         content="$(echo "$tool_input" | jq -r '
           (.summary // "") as $s
           | (.message // "") as $m
-          | if $s != "" then $s
-            elif ($m | type) == "string" then $m
-            elif ($m | type) == "object" then ($m.type // "")
+          | if ($m | type) == "string" and $m != "" then $m
+            elif ($m | type) == "object" and ($m | length) > 0 then ($m | tojson)
+            elif $s != "" then $s
             else "" end
         ' | head -c 300)"
         if [ -n "$recipient" ] && [ -n "$content" ]; then

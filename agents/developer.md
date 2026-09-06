@@ -62,8 +62,9 @@ Scrum team Developer teammate. Spawned by SM per Sprint via Agent Teams.
   gate (success requires impl+UT verdicts PASS, tests pass, C0/C1
   100%, pragma justified, **and the per-PBI Integrity stage — the
   5-aspect review at the Round tail (aspects 1+5 for kind=docs) —
-  PASS**). Sprint-end SM `cross-review` is now an audit-only
-  whole-repo check, not a per-PBI gate.
+  PASS**). Sprint-end SM `cross-review` is an every-Sprint closeout,
+  not a per-PBI gate; its audit-only whole-repo check runs when
+  `N % 3 == 0`.
 - **FR-019 Sub-Agent Selection**: Run `install-subagents`→select specialists→use via Agent tool
 
 ### Integration Sprint Testing

@@ -127,10 +127,27 @@ set_mtime_ago() {
 # (a) in-flight == 0 → no nudge
 # --------------------------------------------------------------------------
 @test "stall-watchdog: zero in-flight PBIs → no nudge" {
-  # No backlog.json at all → in_flight = 0
+  printf '{"items":[]}\n' > .scrum/backlog.json
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
   [ "$(nudge_count)" -eq 0 ]
+}
+
+@test "stall-watchdog: missing backlog is unknown and requests bounded Explorer" {
+  rm -f .scrum/backlog.json
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+  grep -F 'PBI liveness is unknown' "$TMUX_LOG" >/dev/null
+  grep -F 'bounded read-only explorer' "$TMUX_LOG" >/dev/null
+}
+
+@test "stall-watchdog: malformed backlog is unknown and requests bounded Explorer" {
+  printf 'not json\n' > .scrum/backlog.json
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+  grep -F 'PBI liveness is unknown' "$TMUX_LOG" >/dev/null
 }
 
 # --------------------------------------------------------------------------
@@ -138,7 +155,9 @@ set_mtime_ago() {
 # --------------------------------------------------------------------------
 @test "stall-watchdog: in-flight with fresh activity → no nudge" {
   seed_backlog_inflight 1
-  # dashboard.json freshly touched → last_activity = now
+  # The timer delegates liveness to pbi-idle; a fresh PBI artifact is the
+  # healthy signal. Dashboard activity does not substitute for it.
+  mkdir -p .scrum/pbi/pbi-001
   printf '{"events":[]}\n' > .scrum/dashboard.json
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
@@ -210,9 +229,10 @@ set_mtime_ago() {
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
   [ "$(nudge_count)" -eq 1 ]
-  grep -F 'per-PBI stall' "$TMUX_LOG" | grep -q 'pbi-002'
+  grep -F 'bounded investigation requested' "$TMUX_LOG" | grep -q 'pbi-002'
+  grep -F 'Spawn one bounded read-only explorer' "$TMUX_LOG" >/dev/null
   # The active PBI must NOT be named as stale.
-  run bash -c "grep -F 'per-PBI stall' '$TMUX_LOG' | grep 'pbi-001('"
+  run bash -c "grep -F 'bounded investigation requested' '$TMUX_LOG' | grep 'stale PBIs: pbi-001'"
   [ "$status" -ne 0 ]
 }
 
@@ -238,23 +258,25 @@ set_mtime_ago() {
 }
 
 # --------------------------------------------------------------------------
-# (d4) per-PBI: PBI dir missing entirely (pipeline not initialized) → skipped
+# (d4) per-PBI: PBI dir missing entirely → bounded unknown investigation
 # --------------------------------------------------------------------------
-@test "stall-watchdog: in-flight PBI without artifact dir → per-PBI check skipped" {
+@test "stall-watchdog: in-flight PBI without artifact dir requests bounded explorer investigation" {
   seed_backlog_inflight 1
   # Global activity fresh; .scrum/pbi/pbi-001 never created.
   printf '{"events":[]}\n' > .scrum/dashboard.json
 
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
-  [ "$(nudge_count)" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+  grep -F 'unknown/uninitialized PBIs: pbi-001' "$TMUX_LOG" >/dev/null
+  grep -F 'Spawn one bounded read-only explorer' "$TMUX_LOG" >/dev/null
 }
 
 # --------------------------------------------------------------------------
 # (d5) global: no activity signal has ever existed → still nudges (the
 #      never-started backstop) but says so instead of claiming an elapsed time
 # --------------------------------------------------------------------------
-@test "stall-watchdog: activity never observed → nudge reports never-started, not an elapsed time" {
+@test "stall-watchdog: activity never observed → bounded unknown investigation" {
   seed_backlog_inflight 1
   # setup() creates .scrum/pbi unconditionally; remove it so BOTH global
   # signals are absent and last_activity stays the 0 sentinel. No
@@ -264,17 +286,15 @@ set_mtime_ago() {
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
   [ "$(nudge_count)" -eq 1 ]
-  grep -F 'STALL-WATCHDOG' "$TMUX_LOG" | grep -F 'EVER been observed' | grep -q 'never started'
-  # Must NOT claim a measured idle duration.
-  run bash -c "grep -F 'no activity for' '$TMUX_LOG'"
-  [ "$status" -ne 0 ]
+  grep -F 'unknown/uninitialized PBIs: pbi-001' "$TMUX_LOG" >/dev/null
+  grep -F 'Spawn one bounded read-only explorer' "$TMUX_LOG" >/dev/null
 }
 
 # --------------------------------------------------------------------------
 # (d6) boundary: an empty-but-existing .scrum/pbi/ is an OBSERVED signal (the
 #      dir's own mtime), so the measured wording stands
 # --------------------------------------------------------------------------
-@test "stall-watchdog: empty but existing .scrum/pbi dir → measured nudge wording" {
+@test "stall-watchdog: empty but existing .scrum/pbi dir → unknown PBI handoff" {
   seed_backlog_inflight 1
   # .scrum/pbi exists (from setup) but holds nothing; back-date it well past
   # the 1-min threshold. With no dashboard.json, that dir mtime is the only
@@ -284,9 +304,7 @@ set_mtime_ago() {
   run "$WATCHDOG" "$TEST_TMP" --once
   [ "$status" -eq 0 ]
   [ "$(nudge_count)" -eq 1 ]
-  grep -F 'STALL-WATCHDOG' "$TMUX_LOG" | grep -q 'no activity for 1m'
-  run bash -c "grep -F 'EVER been observed' '$TMUX_LOG'"
-  [ "$status" -ne 0 ]
+  grep -F 'unknown/uninitialized PBIs: pbi-001' "$TMUX_LOG" >/dev/null
 }
 
 # --------------------------------------------------------------------------
@@ -354,4 +372,39 @@ set_mtime_ago() {
   [ "$status" -eq 0 ]
   [ "$(nudge_count)" -eq 0 ]
   grep -q 'tmux session test-session no longer exists' .scrum/logs/stall-watchdog.log
+}
+
+# --------------------------------------------------------------------------
+# (h) the shipped default threshold, with no config override
+# --------------------------------------------------------------------------
+@test "stall-watchdog: shipped default threshold is 30 minutes (Issue #95)" {
+  # Config declares the daemon but omits both threshold keys, so the run
+  # falls back to DEFAULT_IDLE_THRESHOLD_MIN. Issue #95 measured healthy
+  # multi-aspect review stages at 11-25 minutes of zero artifact activity:
+  # 20 minutes must stay silent, a real stall past 30 must still nudge.
+  cat > .scrum/config.json <<'JSON'
+{
+  "stall_watchdog": {
+    "enabled": true,
+    "poll_interval_seconds": 1
+  }
+}
+JSON
+  seed_backlog_inflight 1
+  mkdir -p .scrum/pbi/pbi-001
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+
+  set_mtime_ago .scrum/dashboard.json 20
+  set_mtime_ago .scrum/pbi/pbi-001 20
+  set_mtime_ago .scrum/pbi 20
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 0 ]
+
+  set_mtime_ago .scrum/dashboard.json 31
+  set_mtime_ago .scrum/pbi/pbi-001 31
+  set_mtime_ago .scrum/pbi 31
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
 }

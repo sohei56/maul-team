@@ -61,6 +61,9 @@ write_state() {
   [ ! -f "$SPRINT" ]
   # history records the Sprint once.
   [ -f "$HIST" ]
+  [ -f "$TEST_TMP/.scrum/sprint-index.md" ]
+  grep -qF '| sprint-001 | Ship the MVP | 2026-06-14T00:00:00Z | 2/3 |' \
+    "$TEST_TMP/.scrum/sprint-index.md"
   run jq -r '.sprints | length' "$HIST"
   [ "$output" = "1" ]
   run jq -r '.sprints[0].id' "$HIST"

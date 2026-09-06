@@ -4,20 +4,22 @@
 
 ```text
 scrum-start.sh           # Entry point — validates prereqs, launches tmux (supports --autonomous)
-agents/                  # Agent + 11 sub-agent definitions (top-level: scrum-master, developer, product-owner, requirements-analyst; sub-agents listed in docs/contracts/sub-agents.md)
+agents/                  # 4 top-level agents (scrum-master, developer, product-owner, requirements-analyst) + 2 SM-spawned bounded agents + 11 sub-agent definitions (all listed in docs/contracts/sub-agents.md)
   scrum-master.md        # Team lead (Delegate mode)
   developer.md           # Developer teammate (PBI pipeline conductor)
   product-owner.md       # PO teammate (autonomous mode; po_mode=agent)
   requirements-analyst.md # Requirement Definition ceremony (interview + mandatory benchmark web search + requirements.md/CLAUDE.md authoring)
+  scrum-explorer.md      # SM-spawned bounded agent: read-only, root-scoped evidence investigation for one question
+  ceremony-operator.md   # SM-spawned bounded agent: executes exactly one named ceremony skill; no product/release judgment
   # Per-PBI Integrity stage (5-aspect, Developer-spawned at Round tail): requirement-conformance-reviewer, functional-quality-reviewer, security-reviewer, maintainability-reviewer, docs-consistency-reviewer
-  # Sprint-end cross-review is audit-only: 4 whole-repo codebase-audit axes (general-purpose Agent spawns, not named agents)
+  # Sprint-end cross-review always closes PBIs; every third Sprint it adds 4 whole-repo codebase-audit axes (general-purpose Agent spawns, not named agents)
   # PBI pipeline (per Round): pbi-{designer,implementer,ut-author}, codex-{design,impl,ut}-reviewer
 skills/                  # 19 Skills (Scrum ceremonies + pipeline/merge/orchestration tooling + 1 PO acceptance + 1 brief authoring) — YAML frontmatter + Markdown, deployed to target projects via setup-user.sh
   backlog-refinement/    # Refine PBIs from coarse to sprint-ready
   create-brief/          # Co-author docs/product/brief.md with the human (interactive); pre-flight for autonomous launch when no brief exists
   change-process/        # Manage changes to frozen design docs
-  codebase-audit/        # Whole-repo 4-axis audit (spec-conformance/logic-defect/redundancy/product-security); IS the Sprint-end cross-review (non-blocking, next-Sprint PBIs) + thin re-check at Integration-Sprint entry
-  cross-review/          # Sprint-end audit-only ceremony (runs codebase-audit; non-blocking)
+  codebase-audit/        # Whole-repo 4-axis audit (spec-conformance/logic-defect/redundancy/product-security); every third Sprint (non-blocking, next-Sprint PBIs) + mandatory thin re-check at Integration-Sprint entry
+  cross-review/          # Every-Sprint closeout ceremony; runs codebase-audit when N % 3 == 0
   pbi-pipeline/          # PBI conductor pipeline (orchestrator + references/)
   pbi-escalation-handler/ # SM-side escalation handler
   pbi-merge/             # SM-side per-PBI merge orchestration
@@ -288,8 +290,9 @@ SM merges per-PBI immediately by running the `pbi-merge` skill —
 the full protocol (merge-scoped clean check, failure matrix,
 3-strike escalation) is canonical in
 [skills/pbi-merge/SKILL.md](skills/pbi-merge/SKILL.md).
-The Sprint-end whole-repo audit (static analysis + 4-axis
-`codebase-audit`) still runs in `cross-review`.
+The Sprint-end cross-review and its PBI closeout still run every Sprint;
+the high-cost whole-repo audit (static analysis + 4-axis
+`codebase-audit`) runs there only when `N % 3 == 0`.
 
 In **deployed target projects** (registered via `setup-user.sh`), the
 hook `pre-tool-use-no-branch-ops.sh` scans each shell statement segment
