@@ -76,7 +76,9 @@ DEFAULT_MAX_WALL_HOURS=8
 DEFAULT_MAX_SPRINTS=8
 DEFAULT_MAX_CONSECUTIVE_FAILURES=3
 DEFAULT_PERMISSION_MODE="dontAsk"
-DEFAULT_PBI_IDLE_THRESHOLD_MIN=10
+# 30 minutes — see docs/contracts/agent-interfaces.md § External liveness
+# nudge for why quiet time alone is weak evidence (Issue #95).
+DEFAULT_PBI_IDLE_THRESHOLD_MIN=30
 
 # Rate-limit handling: when a session ends because Claude returned a
 # rate-limit / usage-limit / overload error, watchdog sleeps until the

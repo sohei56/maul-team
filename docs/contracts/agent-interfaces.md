@@ -553,11 +553,8 @@ and elided here.
     `<phase, situation>` exits 2 with the verbose reason;
     immediate repeats are logged-only and allow exit. In
     `pbi_pipeline_active` the gate only blocks on unresolved
-    `escalated` PBIs — Teammate liveness is monitored by the SM's
-    session-cron health check (`agents/scrum-master.md` § Periodic
-    pipeline health check), with the external
-    `scripts/stall-watchdog.sh` daemon launched by `scrum-start.sh`
-    as fallback.
+    `escalated` PBIs — teammate liveness is monitored entirely from
+    outside the session (§ External liveness nudge).
 - **Per-phase test/UAT gates** (both modes): in `integration_sprint`,
   blocks until `.scrum/test-results.json.overall_status` is `"passed"`
   or `"passed_with_skips"` (`"failed"` blocks naming the failed
@@ -609,6 +606,64 @@ and elided here.
   [`../data-model.md`](../data-model.md) § Entity: Autonomy).
 - **Output**: none; always exits 0. The `autonomy.json` write is
   fail-open — the dashboard event is the authoritative log.
+
+---
+
+## System: External liveness nudge
+
+The only mechanism that wakes the Scrum Master about teammate
+liveness. It lives outside the Claude session by design: the thin SM
+runs **no in-agent cron self-poll**, so nothing inside a session
+periodically re-checks the pipeline on its own.
+
+### Emitters
+- **Human mode** — `scripts/stall-watchdog.sh`, the background daemon
+  `scrum-start.sh` launches in its non-autonomous branch. It calls
+  `scripts/scrum/pbi-idle.sh`, exits silently on a fresh report, and
+  on a stale/unknown one sends one `[STALL-WATCHDOG] …` line through
+  `tmux send-keys` into `.scrum/runtime.json.sm_pane_id`.
+- **Autonomous mode** — `autonomous_liveness_handoff()` in
+  `scripts/autonomous/watchdog.sh`. Same `pbi-idle.sh` report; an
+  anomaly is appended to the next already-scheduled outer-loop
+  prompt. No second monitor and no separate timer LLM check start.
+
+### Receiver
+The Scrum Master. Its judgment rules are canonical in
+[`../../agents/scrum-master.md`](../../agents/scrum-master.md)
+§ Scrum Master judgment and are not restated here.
+
+### Invariants
+- The nudge text is **self-describing** — it carries the instruction
+  it wants executed, so no agent-side prompt encodes watchdog
+  semantics.
+- It requests a **bounded, read-only investigation** only: one
+  `scrum-explorer` handoff that gathers evidence, reports, and exits.
+  It never instructs a terminate, a re-spawn, or a state write.
+- **Quiet time alone never justifies terminating or re-spawning.** A
+  running reviewer sub-agent is positive evidence of progress; only
+  confirmed termination plus a missing expected artifact justifies
+  recovery.
+- The review stage is **structurally quiet for tens of minutes** — a
+  multi-aspect review emits no artifact until it finishes.
+
+### Configuration
+Both keys live under `config.json.stall_watchdog` (types and
+constraints: [`../data-model.md`](../data-model.md) § Entity: Config).
+
+| Key | Default | Consumed by |
+|---|---|---|
+| `idle_threshold_minutes` | 30 | `stall-watchdog.sh`; also the fallback for the key below |
+| `pbi_idle_threshold_minutes` | 30 | `stall-watchdog.sh`, `autonomous_liveness_handoff()` |
+
+**Why 30.** Issue #95 measured healthy multi-aspect review stages
+sitting at 11–25 minutes of zero artifact activity across five items,
+so a 10-minute probe fires on healthy work. A nudge starts an
+LLM-driven bounded investigation, so a false positive costs a model
+wakeup and risks a harmful "recovery" of work that was never stuck.
+Real stalls are not subtle — the observed ones ran 63 minutes and 8.6
+hours — so a 30-minute default still catches them with margin. Both
+keys stay configurable for projects whose stages are quieter or
+noisier than that.
 
 ---
 

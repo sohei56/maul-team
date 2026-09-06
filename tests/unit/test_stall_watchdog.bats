@@ -373,3 +373,38 @@ set_mtime_ago() {
   [ "$(nudge_count)" -eq 0 ]
   grep -q 'tmux session test-session no longer exists' .scrum/logs/stall-watchdog.log
 }
+
+# --------------------------------------------------------------------------
+# (h) the shipped default threshold, with no config override
+# --------------------------------------------------------------------------
+@test "stall-watchdog: shipped default threshold is 30 minutes (Issue #95)" {
+  # Config declares the daemon but omits both threshold keys, so the run
+  # falls back to DEFAULT_IDLE_THRESHOLD_MIN. Issue #95 measured healthy
+  # multi-aspect review stages at 11-25 minutes of zero artifact activity:
+  # 20 minutes must stay silent, a real stall past 30 must still nudge.
+  cat > .scrum/config.json <<'JSON'
+{
+  "stall_watchdog": {
+    "enabled": true,
+    "poll_interval_seconds": 1
+  }
+}
+JSON
+  seed_backlog_inflight 1
+  mkdir -p .scrum/pbi/pbi-001
+  printf '{"events":[]}\n' > .scrum/dashboard.json
+
+  set_mtime_ago .scrum/dashboard.json 20
+  set_mtime_ago .scrum/pbi/pbi-001 20
+  set_mtime_ago .scrum/pbi 20
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 0 ]
+
+  set_mtime_ago .scrum/dashboard.json 31
+  set_mtime_ago .scrum/pbi/pbi-001 31
+  set_mtime_ago .scrum/pbi 31
+  run "$WATCHDOG" "$TEST_TMP" --once
+  [ "$status" -eq 0 ]
+  [ "$(nudge_count)" -eq 1 ]
+}

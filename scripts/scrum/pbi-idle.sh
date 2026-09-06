@@ -16,7 +16,7 @@
 # Output — `#`-prefixed meta lines around one tab-separated row per in-flight
 # PBI (id, status, last_activity_epoch, idle_seconds, idle_minutes, verdict):
 #
-#   # now=1754700000 threshold_minutes=10
+#   # now=1754700000 threshold_minutes=30
 #   # id	status	last_activity_epoch	idle_seconds	idle_minutes	verdict
 #   pbi-001	in_progress_impl	1754697600	2400	40	stale
 #   # summary in_flight=1 fresh=0 stale=1 uninitialized=0
@@ -37,10 +37,11 @@
 # "nothing is stale" because the backlog could not be read is the same class
 # of false negative as NOW-NOW=0).
 #
-# The default 10 matches the SM health-check cadence. The external
-# stall-watchdog daemon's per-PBI backstop
-# (`config.json.stall_watchdog.pbi_idle_threshold_minutes`) is a separate knob,
-# deliberately set to fire later — see docs/data-model.md.
+# The default 30 matches the shipped stall-watchdog threshold; callers that
+# want a different window pass `--threshold-minutes`, and the daemons pass
+# `config.json.stall_watchdog.pbi_idle_threshold_minutes`. Why 30 and what a
+# nudge may ask for: docs/contracts/agent-interfaces.md § External liveness
+# nudge.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/errors.sh
@@ -49,7 +50,7 @@ source "$HERE/lib/errors.sh"
 source "$HERE/lib/activity.sh"
 
 USAGE="usage: pbi-idle.sh [--threshold-minutes N]"
-THRESHOLD_MINUTES=10
+THRESHOLD_MINUTES=30
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --threshold-minutes)

@@ -78,12 +78,12 @@
       "properties": {
         "enabled": {"type": "boolean"},
         "idle_threshold_minutes": {
-          "description": "Legacy-compatible idle threshold and default for pbi_idle_threshold_minutes. The monitor's default is 10 minutes.",
+          "description": "Legacy-compatible idle threshold and default for pbi_idle_threshold_minutes. The monitor's default is 30 minutes.",
           "type": "integer",
           "minimum": 1
         },
         "pbi_idle_threshold_minutes": {
-          "description": "Per-PBI activity threshold used by the read-only pbi-idle reporter. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to idle_threshold_minutes (10 minutes by default).",
+          "description": "Per-PBI activity threshold used by the read-only pbi-idle reporter. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to idle_threshold_minutes (30 minutes by default).",
           "type": "integer",
           "minimum": 1
         },

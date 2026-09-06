@@ -34,8 +34,8 @@
 # Config (.scrum/config.json -> .stall_watchdog):
 #   {
 #     "enabled": true,
-#     "idle_threshold_minutes": 10,
-#     "pbi_idle_threshold_minutes": 10,   // default: idle_threshold_minutes
+#     "idle_threshold_minutes": 30,
+#     "pbi_idle_threshold_minutes": 30,   // default: idle_threshold_minutes
 #     "cooldown_minutes": 15,
 #     "poll_interval_seconds": 60
 #   }
@@ -122,7 +122,11 @@ LOG_FILE="$LOG_DIR/stall-watchdog.log"
 STATE_FILE="$LOG_DIR/stall-watchdog.state"
 
 DEFAULT_ENABLED="true"
-DEFAULT_IDLE_THRESHOLD_MIN=10
+# 30 minutes, not 10: healthy multi-aspect review stages measured 11-25
+# minutes of zero artifact activity (Issue #95). Rationale and the full
+# nudge contract: docs/contracts/agent-interfaces.md
+# § External liveness nudge.
+DEFAULT_IDLE_THRESHOLD_MIN=30
 DEFAULT_COOLDOWN_MIN=15
 DEFAULT_POLL_INTERVAL_SEC=60
 
@@ -283,7 +287,7 @@ run_once() {
   fi
 
   # The timer's only normal path is the read-only pbi-idle reporter. A fresh
-  # report exits here without sending tmux input, so the ten-minute check does
+  # report exits here without sending tmux input, so the periodic check does
   # not wake an LLM merely to confirm that work is healthy. Stale and unknown
   # (never initialized or unreadable) results alone request one bounded,
   # read-only explorer investigation from the SM.

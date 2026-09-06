@@ -144,7 +144,9 @@ go through `.scrum/scripts/update-backlog-status.sh`.
 Stop-hook output is a state-machine constraint, not proof an agent failed.
 Inspect teammate status and expected artifacts before recovery. Probe stale
 in-flight work with the supplied idle/liveness wrappers; do not infer failure
-from silence or invent timestamp arithmetic.
+from silence or invent timestamp arithmetic. A `[STALL-WATCHDOG]`-prefixed
+message is a timer firing, not evidence of failure: follow only the
+instruction it carries.
 
 ## Product Owner and user interaction
 

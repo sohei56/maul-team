@@ -813,19 +813,21 @@ sequence is the writer's responsibility.
 | `autonomous.fallback_model` | string \| `null` | Passed to `claude -p --fallback-model` when non-null. |
 | `stall_watchdog` | object \| absent | PBI activity-monitor settings. Human tmux mode uses the external `scripts/stall-watchdog.sh`; autonomous mode consumes its per-PBI threshold inside the existing outer watchdog. |
 | `stall_watchdog.enabled` | boolean | When `false`, the daemon exits without nudging. Default `true`. |
-| `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Legacy-compatible threshold and fallback for `pbi_idle_threshold_minutes`. Default 10. |
-| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI activity threshold used by `pbi-idle.sh` over artifact trees, worktree commits, and dirty worktree files. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to `idle_threshold_minutes` (10). |
+| `stall_watchdog.idle_threshold_minutes` | integer ≥ 1 | Legacy-compatible threshold and fallback for `pbi_idle_threshold_minutes`. Default 30. |
+| `stall_watchdog.pbi_idle_threshold_minutes` | integer ≥ 1 | Per-PBI activity threshold used by `pbi-idle.sh` over artifact trees, worktree commits, and dirty worktree files. Fresh polls are silent; stale or unknown results request a bounded Explorer handoff. Defaults to `idle_threshold_minutes` (30). |
 | `stall_watchdog.cooldown_minutes` | integer ≥ 1 | Minimum gap between consecutive nudges. Default 15. |
 | `stall_watchdog.poll_interval_seconds` | integer ≥ 1 | Sleep between iterations of the daemon's main loop. Default 60. |
 
-The activity contract uses a 10-minute default in both human and autonomous
+The activity contract uses a 30-minute default in both human and autonomous
 modes. A normal timer poll is read-only and sends no tmux input or LLM prompt.
 In human mode, only an anomalous stale/unknown result is handed to the existing
 interactive SM through its tmux pane. In autonomous mode, the outer watchdog
 adds the anomaly to the next already-scheduled SM iteration; it never starts a
 separate cron/timer LLM check. A missing or malformed backlog is `unknown`, not
 evidence that there are no in-flight PBIs, and requests one bounded read-only
-`scrum-explorer` investigation.
+`scrum-explorer` investigation. Why 30 and what a nudge may ask the SM to do:
+[`contracts/agent-interfaces.md`](contracts/agent-interfaces.md) § External
+liveness nudge contract.
 
 `po_mode`, `po`, and `autonomous` are constrained by
 `docs/contracts/scrum-state/config.schema.json`. Other keys are
