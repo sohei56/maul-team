@@ -66,6 +66,9 @@ disable-model-invocation: false
 - The app process the skill launched is stopped before the skill
   exits.
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - `.scrum/config.json.po_mode == "agent"` (the PO is active).

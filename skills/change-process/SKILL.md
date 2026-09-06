@@ -15,6 +15,9 @@ disable-model-invocation: false
 - Updated document with revision_history entry (change_process: true)
 - Scope changes→backlog.json PBI add/modify
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## PO Mode (po_mode: "agent")
 
 When `.scrum/config.json.po_mode == "agent"`, every PO-approval prompt

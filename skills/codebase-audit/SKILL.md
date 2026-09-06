@@ -134,6 +134,9 @@ does **not** re-review single-PBI diff-local security.
   `CROSS_REVIEW_DOCS_PBI` for context (a), or
   `INTEGRATION_DOCS_PBI` for context (b).
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - ≥1 Development Sprint has completed (there is accumulated code to

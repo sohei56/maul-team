@@ -55,6 +55,9 @@ leave `merge_failure` / `merge_failure_count` untouched.
 - Worktree `.scrum/worktrees/<pbi-id>` removed on success
 - Sprint-level state untouched
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - SM has just received `[<pbi-id>] PBI_READY_TO_MERGE` from a Developer

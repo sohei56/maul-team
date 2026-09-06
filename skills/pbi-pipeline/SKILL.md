@@ -45,6 +45,9 @@ disable-model-invocation: false
   `in_progress_*` range; SM owns the rest of the 13-value enum).
 - Notification to SM via Agent Teams
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Status range owned by this skill (Developer side)
 
 ```

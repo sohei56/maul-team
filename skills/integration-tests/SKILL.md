@@ -44,6 +44,9 @@ disable-model-invocation: false
 - Defect PBIs in `.scrum/backlog.json` when the quality gate fails.
 - A completion report to the SM via `SendMessage`.
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - ≥1 Development Sprint completed (tests and running system exist).

@@ -30,6 +30,9 @@ disable-model-invocation: false
 - `state.json` → new→requirements_sprint→backlog_created
 - `backlog.json` — initial coarse-grained PBIs + `next_pbi_id`
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - state.json phase: "new" or "requirements_sprint"

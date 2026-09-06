@@ -51,6 +51,9 @@ The fill-in skeleton lives in [references/brief-template.md](references/brief-te
 - `docs/product/brief.md` — 1–2 page brief following the template
 - A short verbal summary of unresolved assumptions / open questions
 
+**Output discipline.** Follow `../../rules/scrum-context.md` § Output
+discipline — lead with the outcome, no preamble, no closing recap.
+
 ## Preconditions
 
 - A human is present (this is an interactive ceremony; it cannot run
