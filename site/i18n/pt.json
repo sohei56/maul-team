@@ -63,7 +63,7 @@
  "loop.c1_map": "≈ ciclo de agente + ciclo de verificação",
  "loop.c2_depth": "Intermediário · detecção de desvio",
  "loop.c2_h": "O ciclo do Sprint",
- "loop.c2_p": "Cada Sprint termina com uma auditoria de quatro eixos sobre todo o repositório que detecta o desvio entre o código mesclado e seus requisitos. Os achados críticos se transformam em PBIs em rascunho para o próximo Sprint; a Retrospective transmite as correções de processo adiante da mesma forma. Tanto o produto quanto o processo escalam a colina.",
+ "loop.c2_p": "Cada Sprint termina com um encerramento leve de cross-review, e a cada terceiro Sprint acrescenta-se uma auditoria de quatro eixos sobre todo o repositório que detecta o desvio entre o código mesclado e seus requisitos. Os achados são classificados por severidade e apresentados ao Product Owner; os aceitos se transformam em PBIs em rascunho para o próximo Sprint; a Retrospective transmite as correções de processo adiante da mesma forma. Tanto o produto quanto o processo escalam a colina.",
  "loop.c2_map": "≈ ciclo de escalada de colina",
  "loop.c3_depth": "O mais externo · sem supervisão",
  "loop.c3_h": "O ciclo de execução autônoma",

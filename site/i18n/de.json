@@ -63,7 +63,7 @@
  "loop.c1_map": "≈ Agenten-Loop + Verifikations-Loop",
  "loop.c2_depth": "Mitte · Drift-Erkennung",
  "loop.c2_h": "Der Sprint-Loop",
- "loop.c2_p": "Jeder Sprint endet mit einem Audit des gesamten Repos auf vier Achsen, das Drift zwischen dem gemergten Code und seinen Anforderungen aufspürt. Kritische Befunde werden zu Draft-PBIs für den nächsten Sprint; die Retrospective speist Prozessverbesserungen auf dieselbe Weise ein. Produkt und Prozess klettern beide bergauf.",
+ "loop.c2_p": "Jeder Sprint endet mit einem schlanken Cross-Review-Closeout, und jeder dritte Sprint ergänzt ein Audit des gesamten Repos auf vier Achsen, das Drift zwischen dem gemergten Code und seinen Anforderungen aufspürt. Befunde werden nach Schweregrad eingestuft und dem Product Owner vorgelegt; die angenommenen werden zu Draft-PBIs für den nächsten Sprint; die Retrospective speist Prozessverbesserungen auf dieselbe Weise ein. Produkt und Prozess klettern beide bergauf.",
  "loop.c2_map": "≈ Hill-Climbing-Loop",
  "loop.c3_depth": "Äußerster · unbeaufsichtigt",
  "loop.c3_h": "Der autonome Ausführungs-Loop",

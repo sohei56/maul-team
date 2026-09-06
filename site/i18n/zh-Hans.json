@@ -63,7 +63,7 @@
  "loop.c1_map": "≈ 智能体循环 + 验证循环",
  "loop.c2_depth": "中间层 · 漂移检测",
  "loop.c2_h": "Sprint 循环",
- "loop.c2_p": "每个 Sprint 都以一次全仓库、四维度的审计收尾，捕捉已合并代码与其需求之间的漂移。关键发现成为下个 Sprint 的草稿 PBI；Retrospective 则以同样方式把流程修复向前传递。产品与流程双双爬坡向上。",
+ "loop.c2_p": "每个 Sprint 都以一次轻量的 cross-review 收尾，每第三个 Sprint 再加做一次全仓库、四维度的审计，捕捉已合并代码与其需求之间的漂移。发现按严重程度分级并提交给 Product Owner；被采纳的成为下个 Sprint 的草稿 PBI；Retrospective 则以同样方式把流程修复向前传递。产品与流程双双爬坡向上。",
  "loop.c2_map": "≈ 爬山循环",
  "loop.c3_depth": "最外层 · 无人值守",
  "loop.c3_h": "自主执行循环",
