@@ -139,11 +139,11 @@ jobs:
       - name: Run unit tests
         # -r: bats does not recurse on its own — without it the scrum-state/,
         # hooks/, and autonomous/ subdirectories are silently skipped.
-        run: bats -r tests/unit/
+        run: bats -r --print-output-on-failure tests/unit/
       - name: Run lint tests
-        run: bats tests/lint/
+        run: bats --print-output-on-failure tests/lint/
       - name: Run integration tests
-        run: bats -r tests/integration/
+        run: bats -r --print-output-on-failure tests/integration/
 
   pytest:
     name: Pytest (dashboard)
