@@ -700,8 +700,10 @@ assert_gate_denied() {
 # ---------------------------------------------------------------------------
 
 @test "completion-gate.sh allows stop when no state file exists" {
-  # No .scrum/ directory at all
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  # No .scrum/ directory at all. stdin is closed explicitly: the hook reads
+  # its Stop payload with `cat`, and an inherited open stdin (a background
+  # runner, an IDE terminal) would make this test hang instead of fail.
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -710,7 +712,7 @@ assert_gate_denied() {
   # Create a state file with a phase that has no exit criteria
   jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -725,7 +727,7 @@ assert_gate_denied() {
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress_design"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -786,7 +788,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "escalated" | .items[0].id = "pbi-007"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
   [[ "$output" == *"escalated without resolution"* ]]
   [[ "$output" == *"pbi-007"* ]]
@@ -800,7 +802,7 @@ EOF
   mkdir -p .scrum/pbi/pbi-007
   echo "resolved" > .scrum/pbi/pbi-007/escalation-resolution.md
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -811,7 +813,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "awaiting_cross_review"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -823,7 +825,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress_merge"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -833,7 +835,7 @@ EOF
   cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json
   # Intentionally do NOT create sprint.json or backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -843,7 +845,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
 }
 
@@ -853,7 +855,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "done"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -875,7 +877,7 @@ EOF
       | .items += [(.items[0] | .id = "pbi-002" | .status = "done")]' \
     "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   assert_success
 }
 
@@ -885,7 +887,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "in_progress_impl"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
   [[ "$output" == *"pipeline is still running"* ]]
 }
@@ -896,7 +898,7 @@ EOF
   cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
   jq '.items[0].status = "escalated"' "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
   [[ "$output" == *"are not done"* ]]
 }
@@ -916,7 +918,7 @@ EOF
     ]
   }' > .scrum/dashboard.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
   [[ "$output" == *"1 subagent(s) still running"* ]]
   [[ "$output" == *"do NOT re-spawn"* ]]
@@ -936,7 +938,7 @@ EOF
     ]
   }' > .scrum/dashboard.json
 
-  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh" < /dev/null
   [ "$status" -eq 2 ]
   [[ "$output" != *"subagent(s) still running"* ]]
 }

@@ -3,6 +3,12 @@
 # Usage: sh scripts/setup-user.sh
 # Called by both scrum-start.sh and setup-dev.sh
 # NEVER modifies ~/.claude/ or any global settings
+# Re-exec under bash when started as `sh <script>` on a system whose /bin/sh is
+# not bash (Linux: dash). Everything below needs bash (pipefail, arrays), and
+# the documented launch command is `sh …`, so this keeps that command portable.
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

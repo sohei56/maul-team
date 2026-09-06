@@ -120,6 +120,8 @@ Wrapper invocations (`.scrum/scripts/foo.sh args` or `scripts/scrum/foo.sh args`
 
 The threat model is **honest agent**, not adversary. Sophisticated obfuscation (variable substitution, `eval`, `bash -c`, base64-encoded commands) can still bypass the regex-based check; this is acceptable for the project's threat model.
 
+The hook only fires when an agent *runs* the write, so instruction text that prescribes one ships fine and fails later, mid-ceremony, as a block the agent must recover from. `tests/lint/no-direct-scrum-json-writes.bats` closes that authoring-time half: it fails when a deployed instruction file (`skills/**/*.md`, `agents/*.md`, `rules/*.md`) tells an agent to redirect / `tee` / `mv`-`cp` / in-place-edit / `rm` / `open(…,'w')` a protected `.scrum` json, reusing the same exempt-artifact carve-outs (divergence from `is_exempt_artifact` is itself a test).
+
 ## Failure modes
 
 | Exit code | Constant | Meaning |

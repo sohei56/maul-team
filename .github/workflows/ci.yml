@@ -13,7 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install ShellCheck
-        run: sudo apt-get install -y shellcheck
+        # Pinned to the version contributors run locally (scripts/setup-dev.sh
+        # installs it from brew). The distro package lags several releases and
+        # reports a different finding set, so CI and local disagree on green.
+        env:
+          SHELLCHECK_VERSION: v0.11.0
+        run: |
+          set -euo pipefail
+          url="https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          curl -fsSL "$url" | tar -xJ -C "$RUNNER_TEMP" "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
+          echo "$RUNNER_TEMP/shellcheck-${SHELLCHECK_VERSION}" >> "$GITHUB_PATH"
+      - name: Show ShellCheck version
+        run: shellcheck --version
       - name: Run ShellCheck
         # Keep this list in sync with CLAUDE.md § Commands — a bare
         # scripts/*.sh glob silently skips the lib/, scrum/, migrations/,
@@ -37,7 +48,6 @@ jobs:
 
   schema-migration-pairing:
     name: Schema / migration pairing
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,24 +62,50 @@ jobs:
         # migration/consolidation wrapper change, or declare
         # "schema-migration: none-needed" in a commit message (for
         # purely additive / relaxing / description-only changes).
+        # Runs on push to main as well, so a direct commit (or a merge that
+        # never opened a PR) cannot slip an unpaired schema change through.
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          BASE="origin/$BASE_REF"
-          git fetch -q origin "$BASE_REF"
-          SCHEMAS="$(git diff --name-only "$BASE"...HEAD -- 'docs/contracts/scrum-state/*.schema.json')"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="origin/$BASE_REF"
+            git fetch -q origin "$BASE_REF"
+            DIFF_RANGE="$BASE...HEAD"
+            LOG_RANGE="$BASE..HEAD"
+          else
+            # push: compare against whatever main pointed at before this push.
+            # A first push / branch creation reports the all-zero SHA, and a
+            # history rewrite can leave a SHA this checkout does not have —
+            # neither is a schema-pairing violation, so skip with a message
+            # rather than failing the push.
+            case "$BEFORE_SHA" in
+              ""|0000000000000000000000000000000000000000)
+                echo "Push has no previous SHA to diff against — pairing check skipped."
+                exit 0
+                ;;
+            esac
+            if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              echo "Previous SHA $BEFORE_SHA is not in this checkout — pairing check skipped."
+              exit 0
+            fi
+            DIFF_RANGE="${BEFORE_SHA}..HEAD"
+            LOG_RANGE="${BEFORE_SHA}..HEAD"
+          fi
+          SCHEMAS="$(git diff --name-only "$DIFF_RANGE" -- 'docs/contracts/scrum-state/*.schema.json')"
           if [ -z "$SCHEMAS" ]; then
             echo "No scrum-state schema changes — pairing check not applicable."
             exit 0
           fi
           echo "Changed schemas:"; echo "$SCHEMAS"
-          MIGRATIONS="$(git diff --name-only "$BASE"...HEAD -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh' 'scripts/scrum/migrations/*.sh')"
+          MIGRATIONS="$(git diff --name-only "$DIFF_RANGE" -- 'scripts/scrum/migrate-*.sh' 'scripts/scrum/consolidate-*.sh' 'scripts/scrum/migrations/*.sh')"
           if [ -n "$MIGRATIONS" ]; then
             echo "Paired migration/consolidation wrapper changes found:"; echo "$MIGRATIONS"
             exit 0
           fi
-          if git log --format=%B "$BASE"..HEAD | grep -qi 'schema-migration: *none-needed'; then
+          if git log --format=%B "$LOG_RANGE" | grep -qi 'schema-migration: *none-needed'; then
             echo "Commit declares 'schema-migration: none-needed' — accepted."
             exit 0
           fi
@@ -86,15 +122,69 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
       - name: Install dependencies
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y bats jq
+          # jsonschema: the integration suites pin SCRUM_VALIDATOR_OVERRIDE to
+          # the `jsonschema` CLI so state-wrapper validation never depends on
+          # npx fetching ajv-cli. textual/watchdog: scrum-start.sh's
+          # check_python_prereqs pip-installs them mid-test when absent —
+          # pre-installing keeps the run deterministic and offline-stable.
+          pip install jsonschema textual watchdog
       - name: Run unit tests
         # -r: bats does not recurse on its own — without it the scrum-state/,
         # hooks/, and autonomous/ subdirectories are silently skipped.
-        run: bats -r tests/unit/
+        run: bats -r --print-output-on-failure tests/unit/
       - name: Run lint tests
-        run: bats tests/lint/
+        run: bats --print-output-on-failure tests/lint/
       - name: Run integration tests
-        run: bats tests/integration/script-compose.bats
+        run: bats -r --print-output-on-failure tests/integration/
+
+  pytest:
+    name: Pytest (dashboard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        # dashboard/app.py imports textual (which pulls rich) and watchdog;
+        # the widget tests drive it through Textual's run_test() pilot.
+        run: pip install pytest textual watchdog jsonschema
+      - name: Run dashboard tests
+        run: pytest -q tests/dashboard/
+
+  actionlint:
+    name: Actionlint (workflows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install ShellCheck
+        # actionlint shells out to shellcheck for every `run:` body, so pin the
+        # same version as the ShellCheck job — otherwise the workflow findings
+        # depend on whichever shellcheck the runner image happens to ship.
+        env:
+          SHELLCHECK_VERSION: v0.11.0
+        run: |
+          set -euo pipefail
+          url="https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          curl -fsSL "$url" | tar -xJ -C "$RUNNER_TEMP" "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
+          echo "$RUNNER_TEMP/shellcheck-${SHELLCHECK_VERSION}" >> "$GITHUB_PATH"
+      - name: Install actionlint
+        # Pinned release binary: no action reference, no secrets, and the
+        # version is reproducible locally with the same tarball.
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" | tar -xz -C "$RUNNER_TEMP" actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Run actionlint
+        run: actionlint -color .github/workflows/*.yml

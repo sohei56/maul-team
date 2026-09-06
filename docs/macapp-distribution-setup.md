@@ -158,6 +158,20 @@ NOTARY_PROFILE=scrum-notary sh macapp/scripts/sign-and-notarize.sh all
 stapled app, notarizes the DMG, and runs `spctl`/`stapler validate` on both.
 Expect `spctl` to print **"accepted … source=Notarized Developer ID"**.
 
+**Transient network failures are retried; Apple's verdict is not.** The upload
+and the status poll are separate connections, and a release run has failed with
+`NSURLErrorDomain Code=-1009` on the *poll* alone, minutes after the artifact
+was already uploaded. So the script submits without `--wait`, keeps the
+submission id, and re-polls it (`notarytool wait`) under a bounded backoff —
+and it retries the upload the same way when the connection dies before an id
+comes back. A definitive `Invalid` / `Rejected` is Apple's answer: the notary
+log is dumped and the run fails immediately, never retried. Success now
+requires an `Accepted` status in the output, not merely a zero exit code.
+Tune with `NOTARY_MAX_ATTEMPTS` (default 5), `NOTARY_BACKOFF_BASE` (default
+15s, doubled each retry) and `NOTARY_BACKOFF_MAX` (default 240s);
+`NOTARY_OUTPUT_FORMAT=` (empty) drops `--output-format json` if a notarytool
+without that flag is ever in play.
+
 **Clean-environment check** (the honest test): copy the `.dmg` to a *different*
 Mac (or a fresh user account), download it through a browser so it carries the
 `com.apple.quarantine` xattr, mount, drag to Applications, and launch. It must

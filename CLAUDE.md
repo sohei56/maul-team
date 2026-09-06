@@ -76,11 +76,15 @@ docs/design/             # Design document governance
 ## Commands
 
 ```bash
-# Run tests (-r is required: tests/unit/ has subdirectories, and a
+# Run tests — same set CI runs (-r is required: tests/unit/ and
+# tests/integration/ have subdirectories/multiple files, and a
 # non-recursive run silently skips them)
-bats -r tests/unit/ tests/lint/
+bats -r tests/unit/ tests/lint/ tests/integration/
 
-# Lint shell scripts
+# Run the dashboard tests (needs pytest + textual + watchdog)
+pytest -q tests/dashboard/
+
+# Lint shell scripts (CI pins shellcheck v0.11.0 to match a brew-installed local)
 shellcheck scrum-start.sh scripts/*.sh scripts/lib/*.sh scripts/scrum/*.sh scripts/scrum/lib/*.sh scripts/scrum/migrations/*.sh scripts/autonomous/*.sh scripts/autonomous/lib/*.sh hooks/*.sh hooks/lib/*.sh
 
 # Lint/format Python

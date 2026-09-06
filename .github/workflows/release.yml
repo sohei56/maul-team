@@ -48,7 +48,7 @@ jobs:
       # Same Xcode selection as swift.yml: the image-default Xcode 16.4
       # (Swift 6.1) breaks the SwiftLint prebuild plugin in CodeEdit deps.
       - name: Select latest stable Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n1)/Contents/Developer"
+        run: sudo xcode-select -s "$(printf '%s\n' /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -n1)/Contents/Developer"
 
       - name: Show toolchain
         run: swift --version
@@ -69,6 +69,8 @@ jobs:
           security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
             -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN"
+          # shellcheck disable=SC2046  # intentional word-split: each pre-existing
+          # keychain must be re-listed as its own argument.
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           rm -f "$RUNNER_TEMP/cert.p12"
 
@@ -98,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           cd macapp/build
-          DMG=$(ls MaulTeam-*.dmg | head -1)
+          DMG=$(printf '%s\n' MaulTeam-*.dmg | head -1)
           shasum -a 256 "$DMG" > "$DMG.sha256"
           cat "$DMG.sha256"
 
@@ -114,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           cd macapp/build
-          DMG=$(ls MaulTeam-*.dmg | head -1)
+          DMG=$(printf '%s\n' MaulTeam-*.dmg | head -1)
           cp "$DMG" MaulTeam.dmg
           shasum -a 256 MaulTeam.dmg > MaulTeam.dmg.sha256
           gh release upload "$TAG" \
