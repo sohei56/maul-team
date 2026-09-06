@@ -491,9 +491,28 @@ and elided here.
 
 ### Shared Hook Library
 - **File**: `hooks/lib/validate.sh`
-- **Provides**: `validate_json_file`, `log_hook`, `get_timestamp`, `ensure_scrum_dir`
+- **Provides**: `validate_json_file`, `log_hook`, `get_timestamp`, `ensure_scrum_dir`,
+  `resolve_project_root`, `hook_anchor_init`, `project_rel_path`
 - **Sourced by**: All hooks via `HOOK_DIR` pattern
 - **Logging**: Writes timestamped entries to `.scrum/hooks.log` (auto-trimmed at 500 lines)
+- **Project-root anchoring**: the three PreToolUse guards
+  (`status-gate.sh`, `pre-tool-use-path-guard.sh`,
+  `pre-tool-use-scrum-state-guard.sh`) judge every path against the
+  resolved project root, never the working directory the hook process
+  inherits from the agent. Resolution order: `$CLAUDE_PROJECT_DIR` when
+  it is a directory — Claude Code exports it, and both registration
+  templates spell the hook command `"$CLAUDE_PROJECT_DIR/…"`, so an
+  unset value means the hook never launched — otherwise a walk upward
+  from the hook's own installed directory to the nearest ancestor
+  carrying `.scrum/`, `.claude/settings.json`, or `.git`. When neither
+  resolves, a guard that has something to judge **fails closed**: exit 2
+  with `cannot resolve project root; refusing to judge the write`. A
+  payload with nothing to judge (no `file_path`, no command, unknown
+  tool, malformed JSON) still fails open. Normalization: an absolute
+  tool path as-is; a relative one against the agent cwd (payload `.cwd`,
+  else `$PWD`); the result then expressed relative to the root, with a
+  leading `.scrum/worktrees/<pbi>/` prefix stripped so a worktree write
+  through the shared `.scrum` symlink is judged as the SSOT it is.
 
 ### SessionStart Hook
 - **Script**: `hooks/session-context.sh`

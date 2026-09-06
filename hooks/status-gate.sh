@@ -21,6 +21,14 @@
 # the normal permission flow untouched, which is what the broken
 # `{"decision":"allow"}` effectively did anyway.
 #
+# Every path this hook reads or judges is anchored on the RESOLVED PROJECT ROOT,
+# never on the process working directory (Issue #93 (1)): a hook inherits the
+# agent's cwd, so from a package subdirectory or a PBI worktree the old
+# cwd-relative .scrum/state.json simply did not exist and the gate allowed
+# everything. When the root cannot be resolved the gate fails CLOSED — it denies
+# the Write/Edit rather than waving through a call it cannot judge. Resolution
+# order: lib/validate.sh::resolve_project_root.
+#
 # Note: this hook reads the project-level Scrum phase from .scrum/state.json
 # (which retains its `phase` field for the Sprint state machine:
 # sprint_planning, pbi_pipeline_active, review, sprint_review, ...). It is
@@ -32,9 +40,10 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/validate.sh
 . "$HOOK_DIR/lib/validate.sh"
 
-STATE_FILE=".scrum/state.json"
-CATALOG_FILE="docs/design/catalog.md"
-CONFIG_FILE="docs/design/catalog-config.json"
+# Assigned in Main once the project root is resolved (see require_anchor).
+STATE_FILE=""
+CATALOG_FILE=""
+CONFIG_FILE=""
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,6 +58,19 @@ deny() {
   log_hook "status-gate" "WARN" "Denied: $reason"
   # hook_block prefixes HOOK_NOTIFICATION_PREFIX, writes to stderr, exits 2.
   hook_block "status-gate" "$reason"
+}
+
+# Fail closed, and resolve every file this gate reads against the project root.
+# Deliberately NOT routed through deny(): log_hook would create a stray .scrum/
+# directory next to whatever cwd the hook happens to have inherited, which is
+# precisely the confusion this resolution exists to end.
+require_anchor() {
+  hook_anchor_init "$hook_event" || hook_block "status-gate" \
+    "cannot resolve project root; refusing to judge the write" \
+    "Set CLAUDE_PROJECT_DIR to the project root, or install the hook under it."
+  STATE_FILE="$HOOK_PROJECT_ROOT/.scrum/state.json"
+  CATALOG_FILE="$HOOK_PROJECT_ROOT/docs/design/catalog.md"
+  CONFIG_FILE="$HOOK_PROJECT_ROOT/docs/design/catalog-config.json"
 }
 
 # Check whether a file path targets source code (not metadata / config).
@@ -140,6 +162,9 @@ if [ "$tool_name" != "Write" ] && [ "$tool_name" != "Edit" ]; then
   allow
 fi
 
+# From here a mutating call must be judged, so the root is mandatory.
+require_anchor
+
 tool_input="$(echo "$hook_event" | jq -c '.tool_input // {}')"
 
 # If state file does not exist, allow everything (project not initialized)
@@ -154,10 +179,11 @@ phase="$(jq -r '.phase // "unknown"' "$STATE_FILE" 2>/dev/null)" || allow
 # Get the target file path (if determinable)
 target_path="$(get_target_path "$tool_name" "$tool_input")"
 
-# Normalize target_path to a root-anchored relative form: strip $PWD/ (or a
-# leading "./"), collapse /./, and strip a leading .scrum/worktrees/<pbi>/
-# prefix so worktree-relative paths match the same root-anchored globs
-# (docs/design/specs/*, source-file gating). See lib/validate.sh.
+# Normalize target_path to a root-anchored relative form: absolute as-is,
+# relative resolved against the agent cwd, then expressed relative to the
+# project root with a leading .scrum/worktrees/<pbi>/ prefix stripped — so a
+# subdirectory or worktree cwd matches the same root-anchored globs
+# (docs/design/specs/*, source-file gating). Rule canonical in lib/validate.sh.
 if [ -n "$target_path" ]; then
   target_path="$(project_rel_path "$target_path")"
 fi

@@ -5,9 +5,9 @@
 # scripts/scrum/* inside the framework source tree for dogfooding).
 #
 # v2 hardening (vs v1):
-#   1. File-path checks normalize against the absolute $PWD so that writes via
-#      './' prefix, '$PWD/' prefix, or absolute paths under $PWD are caught
-#      (v1 only matched the bare 'foo' relative form).
+#   1. File-path checks normalize a './' prefix, a '$PWD/' prefix and absolute
+#      paths to one canonical form (v1 only matched the bare 'foo' relative
+#      form).
 #   2. Bash check no longer short-circuits on a wrapper substring match.
 #      Legitimate wrapper invocations (e.g. '.scrum/scripts/foo.sh args')
 #      do not match the block patterns below, so they pass naturally.
@@ -15,11 +15,24 @@
 #      sneaking the wrapper string into a comment or unrelated argument
 #      while a raw write also exists in the same command.
 #
-# Stdin payload: JSON {tool_name, tool_input.{file_path,command,...}, ...}.
+# v3 hardening (Issue #93 (1)): the judgement is anchored on the RESOLVED
+# PROJECT ROOT, never on the process working directory. A hook inherits the
+# agent's cwd, which is routinely a package subdirectory or a per-PBI worktree;
+# a $PWD-anchored pattern then failed to match a write to the real SSOT and
+# exited 0, so protection was absent — and absent invisibly. Root resolution
+# order and the path-normalization rule live in lib/validate.sh
+# (resolve_project_root, hook_anchor_init, project_rel_path).
+#
+# Stdin payload: JSON {tool_name, cwd, tool_input.{file_path,command,...}, ...}.
 # Exit 2 = block (with stderr message). Exit 0 = allow.
 #
-# Fail-open principle: any unexpected input, unknown tool, missing fields → allow.
-# Better to miss enforcement than to break unrelated tool calls.
+# Fail policy:
+#   FAIL-OPEN, narrowly: a malformed/absent payload, an unknown tool, or a
+#   payload carrying no path or command at all — there is nothing to judge, and
+#   breaking unrelated tool calls buys nothing.
+#   FAIL-CLOSED, always: a payload that DOES carry something to judge while the
+#   project root cannot be resolved. An unjudgeable write is not thereby a
+#   harmless write, so the guard blocks (exit 2) instead of waving it through.
 set -euo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,24 +41,26 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 block() { hook_block "scrum-guard" "$1" "Use .scrum/scripts/* instead. See docs/MIGRATION-scrum-state-tools.md."; }
 
-# normalize_path / strip_worktree_prefix are provided by lib/validate.sh.
-
-# Collapse a ".scrum/worktrees/<pbi>/" symlink prefix from an ABSOLUTE path.
-# A write to .scrum/worktrees/<pbi>/.scrum/backlog.json targets the real shared
-# SSOT (each worktree has .scrum -> ../../../.scrum), so stripping the prefix
-# makes it match the same guard / exempt patterns as a main-repo write. Only
-# fires under "$PWD"/.scrum/worktrees/<seg>/…; paths elsewhere are untouched.
-abs_strip_worktree() {
-  local a="$1"
-  case "$a" in
-    "$PWD"/.scrum/worktrees/*/*)
-      printf '%s' "$PWD/$(strip_worktree_prefix "${a#"$PWD"/}")"
-      ;;
-    *)
-      printf '%s' "$a"
-      ;;
-  esac
+# Fail closed: the payload carries something to judge but the project root is
+# unknown, so no path judgement is trustworthy. Same block shape (stderr +
+# exit 2) as every other deny here.
+fail_closed() {
+  hook_block "scrum-guard" \
+    "cannot resolve project root; refusing to judge the write" \
+    "Set CLAUDE_PROJECT_DIR to the project root, or install the hook under it."
 }
+
+# Resolve HOOK_PROJECT_ROOT / HOOK_CWD from the payload, or fail closed.
+# Idempotent: the Bash branch calls it once per destination batch.
+require_anchor() {
+  [ -n "${HOOK_PROJECT_ROOT:-}" ] && return 0
+  hook_anchor_init "$payload" || fail_closed
+}
+
+# project_rel_path / project_rel_candidates / strip_worktree_prefix are provided
+# by lib/validate.sh, which owns the normalization rule. Both candidate readings
+# of a relative path are judged (agent-cwd-relative and root-relative) so a
+# subdirectory cwd can neither hide an SSOT write nor invent one.
 
 # A .scrum/**/*.json path that is an agent-authored review/metric ARTIFACT,
 # not wrapper-managed SSOT state. These have NO .scrum/scripts/* wrapper and
@@ -54,29 +69,59 @@ abs_strip_worktree() {
 # to force SSOT state (state/sprint/backlog/pbi state.json) through wrappers;
 # it must not catch these artifact paths. No SSOT file lives under these
 # directories, so the carve-out cannot expose state to a raw write.
+# Takes an ALREADY root-relative path (one candidate), not a raw tool path:
+# exemption is decided per candidate so an exempt reading of one candidate
+# cannot excuse a protected sibling reading of another.
 is_exempt_artifact() {
-  local p
-  p="$(abs_strip_worktree "$(normalize_path "$1")")"
-  case "$p" in
-    "$PWD"/.scrum/reviews/*.json)        return 0 ;;
-    "$PWD"/.scrum/pbi/*/metrics/*.json)  return 0 ;;
-    "$PWD"/.scrum/pbi/*/ut/*.json)       return 0 ;;
+  case "$1" in
+    .scrum/reviews/*.json)        return 0 ;;
+    .scrum/pbi/*/metrics/*.json)  return 0 ;;
+    .scrum/pbi/*/ut/*.json)       return 0 ;;
   esac
   return 1
 }
 
+# True when a root-relative candidate names wrapper-managed SSOT state.
+# Bash glob `*` matches '/', so `.scrum/*.json` covers nested paths such as
+# .scrum/pbi/pbi-001/state.json. A candidate outside the project root stayed
+# absolute during normalization and therefore matches nothing here.
+is_guarded_ssot() {
+  case "$1" in
+    .scrum/*.json) ! is_exempt_artifact "$1" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Block when ANY candidate reading of <path> is non-exempt SSOT state.
+# Prints the offending root-relative path via `block` (exits 2).
+block_if_ssot() {
+  local path="$1" reason="$2" cand
+  # `if`, not `a && b`: a false condition would make the loop (and therefore
+  # this function) exit non-zero under `set -e`, turning an ALLOW into a hook
+  # error. An `if` with no else always ends 0.
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    if is_guarded_ssot "$cand"; then
+      block "$reason$cand"
+    fi
+  done <<EOF
+$(project_rel_candidates "$path")
+EOF
+}
+
 # Block if ANY write destination in $1 (newline-separated paths) is a non-exempt
 # SSOT .scrum json. A command can contain multiple write targets
-# (e.g. `... > .scrum/reviews/ok.json; ... > .scrum/backlog.json`); validating
+# (e.g. one redirect to an exempt artifact and one to backlog.json); validating
 # each destination individually prevents an exempt artifact path from masking a
 # sibling SSOT write — a single-capture check (BASH_REMATCH) would only see the
 # first match and let the rest through. `block` exits 2, so the first non-exempt
 # destination short-circuits.
 block_unless_all_exempt() {
   local dests="$1" reason="$2" d
+  require_anchor
   while IFS= read -r d; do
     [ -n "$d" ] || continue
-    is_exempt_artifact "$d" || block "$reason: $d"
+    block_if_ssot "$d" "$reason: "
   done <<EOF
 $dests
 EOF
@@ -94,16 +139,8 @@ case "$tool" in
   Write|Edit)
     file="$(payload_get "$payload" '.tool_input.file_path')"
     [ -n "$file" ] || exit 0
-    abs_file="$(abs_strip_worktree "$(normalize_path "$file")")"
-    # Bash glob `*` matches '/', so the pattern covers nested paths like
-    # $PWD/.scrum/pbi/pbi-001/state.json too.
-    case "$abs_file" in
-      "$PWD"/.scrum/*.json)
-        is_exempt_artifact "$abs_file" && exit 0
-        rel="${abs_file#"$PWD"/}"
-        block "$tool $rel"
-        ;;
-    esac
+    require_anchor
+    block_if_ssot "$file" "$tool "
     ;;
   Bash)
     cmd="$(payload_get "$payload" '.tool_input.command')"
