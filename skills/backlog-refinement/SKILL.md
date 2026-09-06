@@ -285,8 +285,8 @@ resolution:
             tests passed without anyone (human or model) reading the
             doc. Never again.
 
-          Extra Check 6 — demo_plan locality (applies when
-          kind == "code"):
+          Extra Check 6 — demo_plan locality + guard negative case
+          (applies when kind == "code"):
           - Flag a demo_plan that is null/empty, requires a cloud
             deployment ("deploy to ...", a cloud provider name as the
             only way to observe behavior), or reduces to "read the
@@ -294,6 +294,13 @@ resolution:
             start command and an observable check; cloud-only
             dependencies name their local substitute (stub / fake /
             local container).
+          - Flag a demo_plan whose PBI delivers a guard / assertion /
+            test / lint / hook / gate / alarm / validator / check but
+            that carries no labelled `negative:` step injecting the
+            defect the guard catches and showing it FAIL, followed by
+            a `positive:` step showing PASS once removed (step 3.c2).
+            A guard demonstrated only in the passing direction was
+            never shown to be able to fail.
 
           Output: JSON
             {
@@ -305,7 +312,7 @@ resolution:
                   "rewrite_suggestion": "..." | null }
               ],
               "missing_acs": [ "<concrete AC to add>" ],
-              "demo_plan_issue": "<why the plan is not locally executable>" | null
+              "demo_plan_issue": "<why the plan is not locally executable, or lacks the guard negative case>" | null
             }
         EOF
       })
@@ -314,8 +321,8 @@ resolution:
       SM main loop reads the JSON. If `verdict == "needs_revision"`,
       apply `rewrite_suggestion` for flagged AC and append every
       `missing_acs` entry before persisting; a non-null
-      `demo_plan_issue` means the demo_plan is not locally executable —
-      rewrite it per step 3.c2. Do not advance status to
+      `demo_plan_issue` means the demo_plan is not locally executable
+      or lacks the guard negative case — rewrite it per step 3.c2. Do not advance status to
       `refined` until the next audit returns `verdict: pass`. If an AC
       cannot be made verifiable without a PO-only decision (e.g. an
       undecided acceptance threshold), route that question through step
@@ -356,6 +363,22 @@ resolution:
       - `ux_change=false` → the plan names the observable local check
         (CLI invocation / curl / data assertion), not a UI tour.
       - `kind=docs` → exempt (the doc is the demo); leave it null.
+
+      **Guard-type deliverables MUST demo the failing direction.** When
+      the PBI's deliverable is (or includes) a guard, assertion, test,
+      lint, hook, gate, alarm, validator, or check, the demo_plan MUST
+      contain two explicitly labelled steps:
+      - `negative:` inject the specific defect this guard exists to
+        catch, run the guard, and show it FAIL — name the command and
+        the expected failing output (message / exit code).
+      - `positive:` remove the injected defect, re-run the same
+        command, and show it PASS.
+
+      A guard that cannot be made to fail on demand is not accepted as
+      a guard; a plan showing only the passing direction is incomplete.
+      Example — `negative: delete the required frontmatter from one
+      spec file, run scripts/check-frontmatter.sh, expect exit 1
+      naming that file; positive: restore it, re-run, expect exit 0`.
 
       "Deploy to <cloud> to see it" and "read the code" are NOT demo
       plans. If no local demonstration path exists, the item is not
@@ -420,6 +443,10 @@ Ref: FR-003
 - Every refined `kind=code` PBI has a non-empty `demo_plan` naming a
   fully local demonstration (Step 3.c2; `update-backlog-status.sh`
   enforces this at `→refined`)
+- Every refined PBI delivering a guard / assertion / test / lint /
+  hook / gate / alarm / validator / check has a `demo_plan` with both
+  labelled steps — `negative:` (guard FAILs on the injected defect)
+  and `positive:` (guard PASSes once it is removed) — per Step 3.c2
 - Every `acceptance_criteria[i]` is independently verifiable per Step 3b
   (Given/When/Then or measurable assertion; no bare vague adjective)
 - For kind=docs PBIs: no AC reduces to a grep-pattern hit count (see Check 5 above)

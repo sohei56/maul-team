@@ -6,10 +6,19 @@
 #   - product-owner: Write/Edit allowed only under
 #     docs/product/** and .scrum/po/** (Bash is NOT blocked — the PO
 #     needs to launch the app for acceptance verification)
-# Reads payload (JSON) from stdin: {agent_name, tool_name, tool_input.file_path}
-# Reads .scrum/config.json for path_guard.impl_globs and test_globs.
+# Reads payload (JSON) from stdin:
+#   {agent_name, cwd, tool_name, tool_input.file_path}
+# Reads <project-root>/.scrum/config.json for path_guard.impl_globs and
+# test_globs.
 # Exit 2 + stderr message → blocks tool. Exit 0 → allow.
-# Missing config or unknown agent → allow (fail-open for non-target agents).
+#
+# Fail policy (Issue #93 (1)):
+#   FAIL-OPEN for a non-target agent, a payload with no file_path, or a missing
+#   config — there is no sandbox to enforce.
+#   FAIL-CLOSED when a target agent's path DOES need judging but the project
+#   root cannot be resolved. Every glob here (src/**, tests/**, docs/product/**)
+#   is root-anchored, so a path judged against the wrong root is not a judgement
+#   at all. Root resolution order: lib/validate.sh::resolve_project_root.
 
 set -euo pipefail
 
@@ -17,7 +26,16 @@ HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/validate.sh
 . "$HOOK_DIR/lib/validate.sh"
 
-CONFIG=".scrum/config.json"
+# Set once the project root is known (see require_anchor below).
+CONFIG=""
+
+# Fail closed: a restricted agent's path cannot be judged without a root.
+require_anchor() {
+  hook_anchor_init "$payload" || hook_block "path-guard" \
+    "cannot resolve project root; refusing to judge the write" \
+    "Set CLAUDE_PROJECT_DIR to the project root, or install the hook under it."
+  CONFIG="$HOOK_PROJECT_ROOT/.scrum/config.json"
+}
 
 # Read entire payload from stdin into a variable
 payload="$(read_hook_payload)"
@@ -50,9 +68,13 @@ fi
 # Path-based checks below require file_path.
 [ -n "$path" ] || exit 0
 
-# Normalize path to a root-anchored relative form: strip $PWD/, collapse /./,
-# and strip a leading .scrum/worktrees/<pbi>/ prefix so worktree-relative paths
-# match the same root-anchored impl/test globs (see lib/validate.sh).
+require_anchor
+
+# Normalize path to a root-anchored relative form: absolute as-is, relative
+# resolved against the agent cwd, then expressed relative to the project root
+# with a leading .scrum/worktrees/<pbi>/ prefix stripped — so a subdirectory or
+# worktree cwd matches the same root-anchored impl/test globs. The rule and its
+# worked cases are canonical in lib/validate.sh.
 rel="$(project_rel_path "$path")"
 
 # Glob match helper using bash pattern matching

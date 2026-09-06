@@ -58,7 +58,12 @@ unchanged, and Steps not overridden in this table run verbatim.
       — the local demo path decided at refinement, including its
       stubs/local substitutes. Legacy PBIs refined before `demo_plan`
       existed: derive the demo from the ACs (navigate/call API/run
-      command) and record the gap per step 9
+      command) and record the gap per step 9.
+      For a guard-type deliverable, executing the plan means running
+      **both** labelled steps (`negative:` then `positive:`) and
+      recording the failing output verbatim; a demo showing only the
+      passing direction is "not demonstrated" (rule:
+      `../backlog-refinement/SKILL.md` Step 3.c2)
    c. Point out what to verify (be specific: "login form with email + password fields")
    d. Ask user to confirm→wait→next PBI. Skip only if user explicitly says no need.
       For each PBI, write the observed demo steps and confirmation to
@@ -92,8 +97,9 @@ unchanged, and Steps not overridden in this table run verbatim.
    a. **NEVER fix during Sprint Review** (not even quick fixes — inspection ceremony only)
    b. Each defect/change/feedback item → `add-backlog-item.sh` (status: draft). Track each new pbi-id.
    b2. **A demo gap is a defect.** A PBI whose `demo_plan` cannot be
-      executed locally — or that has none and cannot be demonstrated —
-      is recorded as a draft PBI (`Demo gap: <pbi-id> — <what blocks a
+      executed locally — or that has none and cannot be demonstrated,
+      or whose `negative:` step did not make the guard fail — is
+      recorded as a draft PBI (`Demo gap: <pbi-id> — <what blocks a
       local demo>`). "Read the code instead" and "needs cloud deploy to
       see it" are never acceptable demo outcomes.
    c. "Will be prioritized in next Sprint via Backlog Refinement→Sprint Planning"

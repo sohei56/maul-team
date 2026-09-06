@@ -32,9 +32,14 @@ selection (conductor responsibility) below.
   conductor immediately before spawn
 - Related catalog spec paths (for consistency check)
 - requirements.md path
-- PBI backlog entry (the verbatim `acceptance_criteria` array, for
+- PBI id + the backlog record path `.scrum/backlog.json` (valid from
+  the worktree root — `.scrum` is a symlink to the shared SSOT). You
+  read the entry yourself:
+  `jq '.items[] | select(.id=="<pbi-id>")' .scrum/backlog.json`. That
+  record's `acceptance_criteria` array is the ONLY AC source for
   byte-for-byte comparison against the design's `Acceptance Criteria
-  Mapping` table)
+  Mapping` table — never compare against a summary or restatement in
+  the spawn prompt.
 - Output target: .scrum/pbi/<pbi-id>/design/review-r{n}.md
 
 ## Does NOT Receive (intentional)
@@ -52,12 +57,19 @@ dev communications, Sprint context.
 5. **Scope** — nothing outside the PBI scope?
 6. **AC Mapping completeness** — design.md contains an
    `## Acceptance Criteria Mapping` section, AND every AC string from
-   the supplied PBI backlog entry appears verbatim in the table
-   (same text, same 1-based order), AND every AC maps to ≥1
+   the backlog record you read (§ Receives) appears verbatim in the
+   table (same text, same 1-based order), AND every AC maps to ≥1
    interface signature that itself appears in the doc's `Interfaces`
    section. Missing section, missing/extra/paraphrased AC rows, or
    any AC mapped to nothing / to an undefined interface →
    `missing_ac_mapping` Critical finding + verdict FAIL.
+   **Evidence obligation.** Every `missing_ac_mapping` finding MUST
+   list, for each criterion it claims is unmapped: (a) the exact AC
+   text from the backlog record, (b) the exact string(s) you searched
+   for in the mapping table, and (c) the matching mapping-table row
+   verbatim, or the literal word `absent` if the search matched none.
+   A finding missing any of (a)-(c) for any criterion it names is
+   malformed — drop it rather than report it.
 7. **Library Selection completeness** — design.md contains a
    `## Library Selection` section. Either it declares
    `No third-party libraries required (stdlib only).`, OR every listed
@@ -98,14 +110,22 @@ missing_error_handling, missing_ac_mapping, missing_library_spec.
    envelope `status=error`, `verdict=null`, summary
    `stale_snapshot: design.md expected=<hash> actual=<hash>` and
    STOP — do NOT write a review file.
-2. Read all provided files in full.
+2. Read all provided files in full, then read the PBI backlog entry
+   with the `jq` command in § Receives. If `.scrum/backlog.json` is
+   unreadable or has no entry for the PBI id, emit the JSON envelope
+   `status=error`, `verdict=null`, summary
+   `backlog_entry_unreadable: <pbi-id> not in .scrum/backlog.json`
+   and STOP — an unreadable AC source is an error, never a FAIL
+   verdict, and no review file is written.
 3. Build the review instruction payload per § Codex instruction
-   payload below, to a temp file under `"${TMPDIR:-/tmp}"`. The
-   Codex invocation below MUST be cd-ed into (or `-C`-targeted at)
-   the PBI worktree directory `.scrum/worktrees/<pbi-id>` so file
-   resolution honors the same checkout the impl/UT reviewers will
-   read; the design doc itself sits at the SSOT path under that
-   worktree's `.scrum` symlink.
+   payload below, to a temp file under `"${TMPDIR:-/tmp}"`. The AC
+   block of that payload is the step-2 `jq` output pasted unedited —
+   Codex compares against those bytes, so never summarize or re-key
+   them. The Codex invocation below MUST be cd-ed into (or
+   `-C`-targeted at) the PBI worktree directory
+   `.scrum/worktrees/<pbi-id>` so file resolution honors the same
+   checkout the impl/UT reviewers will read; the design doc itself
+   sits at the SSOT path under that worktree's `.scrum` symlink.
 4. Source `.scrum/scripts/lib/codex-invoke.sh` then call
    `codex_review_or_fallback "$instr" "$out" "$log"` with `$out` a
    second temp path under `"${TMPDIR:-/tmp}"` and `$log` the

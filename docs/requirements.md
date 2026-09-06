@@ -380,6 +380,9 @@ use support sub-agents.
   Every refined `kind=code` PBI MUST carry a non-empty `demo_plan`
   describing a fully local demonstration (machine-enforced by
   `update-backlog-status.sh` at the transition into `refined`).
+  When the deliverable is a guard (assertion / test / lint / hook /
+  gate / alarm / validator / check), that plan MUST also demonstrate
+  the guard FAILING on an injected defect before showing it pass.
   Canonical slicing and demo-plan rules:
   `skills/backlog-refinement/SKILL.md` Steps 3.a–3.c2.
 
@@ -485,7 +488,9 @@ use support sub-agents.
   CLI / HTTP probe / data assertion — when false). A PBI that cannot
   be demonstrated locally is a Sprint Review finding recorded as a
   draft defect PBI; "read the code" or "requires a cloud deploy" are
-  not acceptable demo outcomes.
+  not acceptable demo outcomes. For a guard-type deliverable both
+  labelled steps of the plan MUST be run (see FR-003); a guard shown
+  only passing is not demonstrated.
 
 - **FR-011**: The Scrum Master MUST report Product Backlog
   remaining scope and Product Goal achievement progress at every

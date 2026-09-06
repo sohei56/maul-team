@@ -9,6 +9,8 @@ if [ "${_VALIDATE_SH_LOADED:-}" = "1" ]; then
 fi
 _VALIDATE_SH_LOADED=1
 
+# Cwd-relative by default; log_hook re-anchors it on HOOK_PROJECT_ROOT once a
+# PreToolUse guard has resolved one (see the resolution block below).
 HOOK_LOG_FILE=".scrum/hooks.log"
 HOOK_LOG_MAX_LINES=500
 
@@ -79,18 +81,87 @@ read_hook_payload() {
 }
 
 # ---------------------------------------------------------------------------
-# Path normalization (shared by the PreToolUse guards)
+# Project-root resolution + path normalization (shared by the PreToolUse guards)
 # ---------------------------------------------------------------------------
-# These are the single source of truth for how the guard hooks reduce a
-# tool-supplied path to a canonical form before glob-matching. Threat model is
-# an honest agent: we normalize trivial forms (./, $PWD/, absolute, /./, and a
-# .scrum/worktrees/<pbi>/ symlink prefix), not adversarial obfuscation
-# (eval, $(...) substitutions, ../ traversals into PWD).
+# A hook process inherits the AGENT's working directory, which is routinely NOT
+# the project root: a package subdirectory, or a per-PBI worktree under
+# .scrum/worktrees/<pbi>/. Anchoring a path judgement on $PWD therefore
+# mis-judges silently and exits 0 — the guard looks healthy while protecting
+# nothing (Issue #93 (1)). Every guard anchors on the RESOLVED PROJECT ROOT
+# instead, and fails closed when the root cannot be resolved.
+#
+# Threat model is unchanged: an honest agent. We normalize trivial forms (./,
+# absolute, /./, and a .scrum/worktrees/<pbi>/ symlink prefix), not adversarial
+# obfuscation (eval, $(...) substitutions, ../ traversals).
 
-# Normalize a path against $PWD: make absolute, collapse '/./' segments.
+# Resolve the project root. Prints it on stdout; returns 1 when it cannot.
+# Order:
+#   1. $CLAUDE_PROJECT_DIR when set and a directory. Claude Code exports it for
+#      every hook process, and BOTH registration templates spell the hook
+#      command as "$CLAUDE_PROJECT_DIR/..." (framework: hooks/, deployed
+#      target: .claude/hooks/) — so an unset value means the hook could not
+#      have been launched at all. This is the primary anchor.
+#   2. Walk up from the hook's own INSTALLED directory looking for a project
+#      marker, in this order per directory: .scrum/, .claude/settings.json,
+#      .git (a file inside a worktree, a directory in a normal clone). Nearest
+#      ancestor wins. Covers a hand-invocation and a relocated/copied install
+#      under either layout.
+#   3. Neither → return 1. Callers MUST fail closed; see the guards.
+# The result is cached in HOOK_PROJECT_ROOT_CACHE: a guard resolves once per
+# write destination and this walks the filesystem.
+resolve_project_root() {
+  if [ -n "${HOOK_PROJECT_ROOT_CACHE:-}" ]; then
+    printf '%s' "$HOOK_PROJECT_ROOT_CACHE"
+    return 0
+  fi
+  local d resolved=""
+  if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
+    resolved="$(cd "$CLAUDE_PROJECT_DIR" 2>/dev/null && pwd)" || resolved=""
+  fi
+  if [ -z "$resolved" ]; then
+    d="${HOOK_DIR:-}"
+    if [ -z "$d" ]; then
+      d="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || d=""
+    fi
+    while [ -n "$d" ] && [ "$d" != "/" ]; do
+      if [ -d "$d/.scrum" ] || [ -f "$d/.claude/settings.json" ] || [ -e "$d/.git" ]; then
+        resolved="$d"
+        break
+      fi
+      d="$(dirname "$d")"
+    done
+  fi
+  [ -n "$resolved" ] || return 1
+  HOOK_PROJECT_ROOT_CACHE="$resolved"
+  printf '%s' "$resolved"
+}
+
+# Establish the two anchors every guard judges against, from the hook payload:
+#   HOOK_PROJECT_ROOT — the resolved project root (see resolve_project_root)
+#   HOOK_CWD          — the AGENT's working directory: payload `.cwd`, falling
+#                       back to $PWD. That is the base the tool itself resolves
+#                       a relative path against, so the guard must use the same
+#                       one or it judges a different file than the one written.
+# Returns non-zero ONLY when the root cannot be resolved. Callers MUST then
+# fail closed (exit 2) rather than allow — a write the guard cannot judge is
+# not thereby a harmless write.
+# Usage: hook_anchor_init "$payload" || <fail closed>
+hook_anchor_init() {
+  local payload="${1:-}"
+  HOOK_CWD="$(payload_get "$payload" '.cwd')"
+  [ -n "$HOOK_CWD" ] || HOOK_CWD="$PWD"
+  while [ "${#HOOK_CWD}" -gt 1 ] && [ "${HOOK_CWD%/}" != "$HOOK_CWD" ]; do
+    HOOK_CWD="${HOOK_CWD%/}"
+  done
+  HOOK_PROJECT_ROOT="$(resolve_project_root)" || return 1
+  [ -n "$HOOK_PROJECT_ROOT" ] || return 1
+}
+
+# Normalize a path to absolute form against <base> (default: HOOK_CWD, itself
+# defaulting to $PWD), collapsing '/./' segments.
 normalize_path() {
-  local p="$1"
-  [ "${p:0:1}" = "/" ] || p="$PWD/$p"
+  local p="$1" base="${2:-${HOOK_CWD:-$PWD}}"
+  [ "${p:0:1}" = "/" ] || p="$base/$p"
   while [[ "$p" == */./* ]]; do
     p="${p/\/.\//\/}"
   done
@@ -118,16 +189,51 @@ strip_worktree_prefix() {
   esac
 }
 
-# Reduce a tool-supplied path to a root-anchored relative path suitable for
-# matching against project-root globs. Steps: (1) normalize to absolute +
-# collapse /./  (2) strip $PWD/ back to relative  (3) strip a leading
-# .scrum/worktrees/<pbi>/ prefix. Paths outside $PWD stay absolute (step 2 is a
-# no-op) and are left untouched by step 3.
+# THE NORMALIZATION RULE — single source of truth for every guard:
+#   1. An ABSOLUTE tool path is taken as-is.
+#   2. A RELATIVE tool path is resolved against the AGENT'S CWD (HOOK_CWD),
+#      NOT against the project root, because that is what the tool will do.
+#   3. The absolute result is then expressed relative to the PROJECT ROOT, and
+#      a leading .scrum/worktrees/<pbi>/ prefix is stripped (that prefix is a
+#      symlink back into the root's own .scrum tree). Anything outside the root
+#      stays absolute and therefore matches no root-anchored glob.
+# Worked cases. cwd = <root>/packages/web, tool path <root>/.scrum/backlog.json:
+# step 1 keeps it absolute, step 3 yields `.scrum/backlog.json` — this is the
+# write that used to pass. cwd = <root>/.scrum/worktrees/pbi-001, tool path
+# `.scrum/backlog.json`: step 2 yields
+# <root>/.scrum/worktrees/pbi-001/.scrum/backlog.json and step 3 yields
+# `.scrum/backlog.json`; the absolute spelling of the same file lands there too.
+# Requires a successful hook_anchor_init.
 project_rel_path() {
   local p
   p="$(normalize_path "$1")"
-  p="${p#"$PWD"/}"
+  p="${p#"${HOOK_PROJECT_ROOT:-$PWD}"/}"
   strip_worktree_prefix "$p"
+}
+
+# The root-anchored reading of the SAME tool path: a relative path is resolved
+# against the PROJECT ROOT instead of the agent cwd. This is the second
+# candidate meaning of a relative path — an agent that names `.scrum/backlog.json`
+# from a subdirectory almost always means the SSOT and has its cwd wrong.
+# Guards protecting a specific tree judge BOTH candidates and block when EITHER
+# is protected, so the harmless reading cannot excuse the dangerous one.
+# For an absolute path this returns exactly what project_rel_path returns.
+project_rel_path_from_root() {
+  local p
+  p="$(normalize_path "$1" "${HOOK_PROJECT_ROOT:-$PWD}")"
+  p="${p#"${HOOK_PROJECT_ROOT:-$PWD}"/}"
+  strip_worktree_prefix "$p"
+}
+
+# Print every candidate root-relative spelling of a tool path, deduped, one per
+# line: project_rel_path first, then project_rel_path_from_root when it differs.
+# See project_rel_path_from_root for why both are judged.
+project_rel_candidates() {
+  local a b
+  a="$(project_rel_path "$1")"
+  b="$(project_rel_path_from_root "$1")"
+  printf '%s\n' "$a"
+  [ "$b" = "$a" ] || printf '%s\n' "$b"
 }
 
 # Get current ISO 8601 timestamp (works on both BSD and GNU date).
@@ -313,21 +419,26 @@ log_hook() {
   local level="$2"
   local message="$3"
 
-  ensure_scrum_dir
-
-  local ts
+  # Anchor the log on the project root when a guard resolved one, so a deny
+  # raised from a package subdirectory or a worktree appends to the project's
+  # real .scrum/hooks.log instead of creating a stray .scrum/ beside the cwd the
+  # hook happened to inherit. Every other hook (HOOK_PROJECT_ROOT unset) keeps
+  # the cwd-relative behaviour unchanged.
+  local ts log
+  log="${HOOK_PROJECT_ROOT:+$HOOK_PROJECT_ROOT/}$HOOK_LOG_FILE"
+  mkdir -p "$(dirname "$log")" 2>/dev/null || true
   ts="$(get_timestamp)"
 
-  printf '%s [%s] %s: %s\n' "$ts" "$level" "$hook_name" "$message" >> "$HOOK_LOG_FILE"
+  printf '%s [%s] %s: %s\n' "$ts" "$level" "$hook_name" "$message" >> "$log"
 
   # Trim log to max lines (keep newest)
-  if [ -f "$HOOK_LOG_FILE" ]; then
+  if [ -f "$log" ]; then
     local line_count
-    line_count="$(wc -l < "$HOOK_LOG_FILE" | tr -d ' ')"
+    line_count="$(wc -l < "$log" | tr -d ' ')"
     if [ "$line_count" -gt "$HOOK_LOG_MAX_LINES" ]; then
       # $$.${RANDOM}: same collision hardening as the sibling tmp writers.
-      local tmp_log="${HOOK_LOG_FILE}.tmp.$$.${RANDOM}"
-      tail -n "$HOOK_LOG_MAX_LINES" "$HOOK_LOG_FILE" > "$tmp_log" && mv "$tmp_log" "$HOOK_LOG_FILE"
+      local tmp_log="${log}.tmp.$$.${RANDOM}"
+      tail -n "$HOOK_LOG_MAX_LINES" "$log" > "$tmp_log" && mv "$tmp_log" "$log"
     fi
   fi
 }

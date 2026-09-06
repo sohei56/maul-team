@@ -165,9 +165,15 @@ Inputs:
 - Related catalog specs (consistency check):
   - <path1>
 - requirements.md: <path>
-- PBI backlog entry (for verbatim AC comparison against the design's
-  `Acceptance Criteria Mapping` table):
-{paste backlog.json entry for {pbi_id}}
+- PBI backlog record — the AC source. This prompt carries no AC text:
+  read the entry yourself before comparing, from `.scrum/backlog.json`
+  (valid relative to the worktree root; `create-pbi-worktree.sh`
+  installs a `.scrum` symlink to the shared SSOT in every worktree):
+    jq '.items[] | select(.id=="{pbi_id}")' .scrum/backlog.json
+  Compare the design's `Acceptance Criteria Mapping` table against
+  that record's `acceptance_criteria` array ONLY — never against any
+  summary or restatement. Unreadable file / no such entry →
+  status=error envelope, not a FAIL verdict.
 
 Output to: .scrum/pbi/{pbi_id}/design/review-r{n}.md
 

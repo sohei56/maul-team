@@ -9,7 +9,13 @@ load '../test_helper/common-setup'
 
 setup() {
   setup_temp_dir
-  # Hooks resolve paths relative to cwd, so we work inside TEMP_DIR
+  # The PreToolUse guards anchor every path judgement on the project root, which
+  # Claude Code hands them as CLAUDE_PROJECT_DIR (both hook registration
+  # templates spell the command "$CLAUDE_PROJECT_DIR/..."). Exporting it is what
+  # makes TEMP_DIR the project root here rather than this repository.
+  export CLAUDE_PROJECT_DIR="$TEMP_DIR"
+  # The remaining hooks still read .scrum/ relative to cwd, so we work inside
+  # TEMP_DIR.
   cd "$TEMP_DIR"
 }
 
@@ -662,6 +668,130 @@ assert_gate_denied() {
 
   run bash -c "echo '$event_json' | bash '$PROJECT_ROOT/hooks/status-gate.sh'"
     assert_gate_allowed
+}
+
+# ---------------------------------------------------------------------------
+# status-gate.sh root anchoring (Issue #93 (1))
+#
+# The gate reads .scrum/state.json, docs/design/catalog.md and
+# docs/design/catalog-config.json, and matches root-anchored globs. All of that
+# used to be resolved against whatever cwd the hook inherited: from a package
+# subdirectory the state file simply did not exist and the gate allowed
+# everything. Cases: (a) cwd = root — every test above; (b) subdirectory;
+# (c) PBI worktree; (d) unresolvable root → fail closed.
+# ---------------------------------------------------------------------------
+
+# Run status-gate with a specific working directory; production sends both the
+# process cwd and the payload's `.cwd`. Payload via file — stdin stays closed.
+gate_at() {  # <cwd> <tool> <path>
+  jq -nc --arg c "$1" --arg t "$2" --arg p "$3" \
+    '{cwd:$c, tool_name:$t, tool_input:{file_path:$p}}' > "$TEMP_DIR/payload.json"
+  run bash -c "cd '$1' && bash '$PROJECT_ROOT/hooks/status-gate.sh' < '$TEMP_DIR/payload.json'"
+}
+
+seed_catalog() {
+  mkdir -p docs/design
+  printf '| ID | Spec Name | Granularity |\n|---|---|---|\n| S-030 | Screen Design | One per screen |\n' \
+    > docs/design/catalog.md
+  echo '{"enabled": ["S-030"]}' > docs/design/catalog-config.json
+}
+
+@test "status-gate.sh(subdir cwd): denies the absolute catalog.md write" {
+  mkdir -p .scrum packages/web
+  seed_catalog
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/packages/web" Write "$TEMP_DIR/docs/design/catalog.md"
+  assert_gate_denied
+}
+
+@test "status-gate.sh(subdir cwd): denies the absolute source Edit in sprint_planning" {
+  mkdir -p .scrum packages/web
+  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/packages/web" Edit "$TEMP_DIR/src/main.py"
+  assert_gate_denied
+}
+
+@test "status-gate.sh(subdir cwd): allows the absolute source Edit in pbi_pipeline_active" {
+  mkdir -p .scrum packages/web
+  cp "$FIXTURES_DIR/valid-state.json" .scrum/state.json  # phase=pbi_pipeline_active
+  gate_at "$TEMP_DIR/packages/web" Edit "$TEMP_DIR/src/main.py"
+  assert_gate_allowed
+}
+
+@test "status-gate.sh(subdir cwd): metadata json stays exempt from source gating" {
+  mkdir -p .scrum packages/web
+  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/packages/web" Edit "$TEMP_DIR/.scrum/backlog.json"
+  assert_gate_allowed
+}
+
+@test "status-gate.sh(subdir cwd): denies an unlisted spec, allows a listed one" {
+  mkdir -p .scrum packages/web
+  seed_catalog
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/packages/web" Write "$TEMP_DIR/docs/design/specs/ui/S-999-nope.md"
+  assert_gate_denied
+  gate_at "$TEMP_DIR/packages/web" Write "$TEMP_DIR/docs/design/specs/ui/S-030-screen-design.md"
+  assert_gate_allowed
+}
+
+@test "status-gate.sh(worktree cwd): denies a relative source Edit in sprint_planning" {
+  mkdir -p .scrum/worktrees/pbi-001/src
+  ln -s ../../../.scrum .scrum/worktrees/pbi-001/.scrum
+  jq -n '{"phase": "sprint_planning", "current_sprint_id": "sprint-001"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/.scrum/worktrees/pbi-001" Edit src/main.py
+  assert_gate_denied
+}
+
+@test "status-gate.sh(worktree cwd): denies catalog.md through the worktree prefix" {
+  mkdir -p .scrum/worktrees/pbi-001
+  ln -s ../../../.scrum .scrum/worktrees/pbi-001/.scrum
+  seed_catalog
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/.scrum/worktrees/pbi-001" Write docs/design/catalog.md
+  assert_gate_denied
+}
+
+@test "status-gate.sh(worktree cwd): allows a listed spec write" {
+  mkdir -p .scrum/worktrees/pbi-001
+  ln -s ../../../.scrum .scrum/worktrees/pbi-001/.scrum
+  seed_catalog
+  echo '{"phase": "pbi_pipeline_active"}' > .scrum/state.json
+  gate_at "$TEMP_DIR/.scrum/worktrees/pbi-001" Write docs/design/specs/ui/S-030-screen-design.md
+  assert_gate_allowed
+}
+
+@test "status-gate.sh(no root): fails CLOSED, and leaves non-mutating tools alone" {
+  local orphan d
+  orphan="$(mktemp -d "$TEMP_DIR/../status-gate-orphan.XXXXXX")"
+  mkdir -p "$orphan/hooks/lib"
+  cp "$PROJECT_ROOT/hooks/status-gate.sh" "$orphan/hooks/"
+  cp "$PROJECT_ROOT/hooks/lib/validate.sh" "$orphan/hooks/lib/"
+  # The marker walk stops at "/" without testing it, so this only holds while
+  # the temp ancestors are marker-free — asserted, so a dirty environment fails
+  # loudly rather than passing vacuously.
+  d="$orphan/hooks"
+  while [ -n "$d" ] && [ "$d" != "/" ]; do
+    if [ -d "$d/.scrum" ] || [ -f "$d/.claude/settings.json" ] || [ -e "$d/.git" ]; then
+      echo "test environment is dirty: project marker at $d" >&2
+      return 1
+    fi
+    d="$(dirname "$d")"
+  done
+
+  jq -nc '{tool_name:"Write", tool_input:{file_path:"src/main.py"}}' > "$TEMP_DIR/payload.json"
+  run env -u CLAUDE_PROJECT_DIR bash -c \
+    "cd '$TEMP_DIR' && bash '$orphan/hooks/status-gate.sh' < '$TEMP_DIR/payload.json'"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"cannot resolve project root; refusing to judge the write"* ]]
+
+  # The fast path still short-circuits: a non-mutating tool is never judged, so
+  # an unresolvable root must not break it.
+  jq -nc '{tool_name:"Read", tool_input:{file_path:"src/main.py"}}' > "$TEMP_DIR/payload.json"
+  run env -u CLAUDE_PROJECT_DIR bash -c \
+    "cd '$TEMP_DIR' && bash '$orphan/hooks/status-gate.sh' < '$TEMP_DIR/payload.json'"
+  rm -rf "$orphan"
+  assert_gate_allowed
 }
 
 @test "setup-user.sh settings.json template uses Write|Edit|NotebookEdit status-gate matcher (no retired MultiEdit)" {
