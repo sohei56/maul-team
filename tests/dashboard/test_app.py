@@ -53,7 +53,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 class TestFormatPhase:
     def test_known_phase_renders_blue(self) -> None:
         result = format_phase("pbi_pipeline_active")
-        assert "PBI Pipelines Running" in result
+        assert "PBI Development" in result
         assert "white on blue" in result
 
     def test_known_phase_complete(self) -> None:
