@@ -1,0 +1,58 @@
+{
+  "updated_at": "2026-09-06T10:00:00Z",
+  "classes": [
+    {
+      "identity": "notify-order::send-before-write",
+      "axis": ["logic-defect", "redundancy"],
+      "severity": "critical",
+      "status": "sweeping",
+      "occurrences": [
+        {
+          "path": "src/orders/notify.py",
+          "symbol": "notify_created",
+          "note": "publish precedes the commit",
+          "first_seen_sprint": "sprint-003",
+          "last_seen_sprint": "sprint-006"
+        },
+        { "path": "src/orders/refund.py", "symbol": null, "note": null }
+      ],
+      "exclusions": [
+        {
+          "path": "src/generated/api_client.py",
+          "symbol": null,
+          "reason": "generated file, regenerated from the OpenAPI spec",
+          "dec_id": "dec-0042",
+          "round": "r2"
+        }
+      ],
+      "detector": null,
+      "pbi_ids": [
+        { "id": "pbi-101", "role": "detector" },
+        { "id": "pbi-102", "role": "sweep" }
+      ],
+      "first_seen_sprint": "sprint-003",
+      "last_confirmed_sprint": "sprint-006",
+      "closed_evidence": null
+    },
+    {
+      "identity": "config-read::default-swallowed",
+      "status": "guarded",
+      "severity": null,
+      "detector": {
+        "command": "rg -n 'get\\(.*, *None\\)' src/ && exit 1 || exit 0",
+        "registered_sprint": "sprint-006",
+        "verified_at": "2026-09-06T09:58:00Z",
+        "verified_exit": 0,
+        "scope_caveat": "cannot see dynamic attribute access"
+      },
+      "first_seen_sprint": "sprint-005",
+      "last_confirmed_sprint": null
+    },
+    {
+      "identity": "stale-doc::contradicts-code",
+      "status": "closed",
+      "first_seen_sprint": "sprint-001",
+      "closed_evidence": "rg -c 'legacy phase field' docs/ == 0 at HEAD"
+    }
+  ]
+}

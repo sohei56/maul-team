@@ -58,6 +58,10 @@ analysis reports. At ceremony end every reviewed PBI transitions
   `docs/design/specs/**` — audit inputs (spec-conformance axis).
 - `.scrum/po/decisions.json` — PO decision log (spec-conformance axis
   checks it before flagging a spec-vs-spec conflict).
+- `.scrum/audit-ledger.json` — the defect-class ledger. Step 7 hands it
+  to the auditors with its scope table; Step 7a's synthesis transcribes
+  into it before the report. Both per `../codebase-audit/SKILL.md`
+  Steps 1 and 3a.
 - Sprint base SHA: `sprint.base_sha` (static-analysis Pass A diff scope).
 - Project source code + test suites (whole repo at HEAD — the audit
   scope).
@@ -229,11 +233,12 @@ discipline — lead with the outcome, no preamble, no closing recap.
    `../codebase-audit/SKILL.md` context (a), Steps 3–5:
    - Read the 4 axis final messages; dedup within the audit (a
      cross-boundary defect landing on two axes counts once, keep the
-     higher severity, note both axes); write the report to
-     `.scrum/reviews/codebase-audit-s{N}.md` (`N` = numeric sprint
-     number). The `redundancy` axis is grounded in the Step-5
-     static-analysis file (it is the sole Sprint-level owner of
-     whole-repo dead-code findings).
+     higher severity, note both axes); transcribe every class into
+     `.scrum/audit-ledger.json` (canonical Step 3a) and only then write
+     the report to `.scrum/reviews/codebase-audit-s{N}.md` (`N` =
+     numeric sprint number) from the ledger. The `redundancy` axis is
+     grounded in the Step-5 static-analysis file (it is the sole
+     Sprint-level owner of whole-repo dead-code findings).
    - Route the non-DOCS findings the PO approved to the **next** Sprint as draft
      PBIs (`[codebase-audit:<sprint-id>:F<n>:<Severity>]` plus the
      canonical `--audit-severity`) at **class granularity** — one PBI

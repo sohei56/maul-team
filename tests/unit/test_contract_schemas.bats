@@ -20,6 +20,8 @@ setup() {
   PROJECT_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   CONTRACTS="$PROJECT_ROOT/docs/contracts"
   FIX="$PROJECT_ROOT/tests/fixtures/contracts"
+  SCRUM_STATE="$PROJECT_ROOT/docs/contracts/scrum-state"
+  FIXROOT="$PROJECT_ROOT/tests/fixtures"
 }
 
 # Validate through the SAME path production uses (scripts/scrum/lib/atomic.sh)
@@ -147,6 +149,72 @@ _reviewer_keys() {
     echo "criterion_key values declared by a reviewer but missing from the envelope enum:$missing"
     return 1
   }
+}
+
+# --- audit-ledger.schema.json ----------------------------------------------
+# A scrum-state schema rather than one of the four LLM-authored contracts
+# above, but it belongs in the same suite for the same reason: its teeth are
+# the four patterns/enums below, and NOTHING else validates them until a
+# wrapper write happens in a real project. The wrapper's own bats exercise the
+# happy paths; these pin the shapes the schema must REJECT.
+
+@test "audit-ledger: the schema is parseable and declares a \$schema and a title" {
+  run jq -e 'has("$schema") and has("title")' "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "audit-ledger: a well-formed ledger validates" {
+  run VALIDATE "$FIXROOT/valid-audit-ledger.json" "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "audit-ledger: a guarded class with detector null is schema-VALID by design" {
+  # Deliberate: "guarded ⇒ wired" is the wrapper's invariant (four-part check
+  # in update-audit-ledger.sh set-status guarded), not the schema's. Encoding
+  # it here would only duplicate half of it — the schema cannot express "the
+  # deployed merge-pbi.sh calls run-detectors.sh". The valid fixture carries
+  # exactly this shape, so a future "tightening" that quietly moves the
+  # invariant into the schema fails this test and gets discussed.
+  run jq -e '[.classes[] | select(.status == "sweeping" and .detector == null)] | length > 0' \
+    "$FIXROOT/valid-audit-ledger.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "audit-ledger: a path-shaped identity is rejected" {
+  # The pattern is copied from lib/errors.sh assert_audit_identity. If the two
+  # ever disagree, the wrapper and the schema disagree on what a class IS —
+  # which is the identity drift the ledger exists to end.
+  run VALIDATE "$FIXROOT/invalid-audit-ledger-bad-identity.json" "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -ne 0 ]
+}
+
+@test "audit-ledger: an exclusion dec_id outside the dec-NNNN pattern is rejected" {
+  # A waiver that cites an unresolvable decision id reads as justified while
+  # grounding nothing.
+  run VALIDATE "$FIXROOT/invalid-audit-ledger-bad-dec-id.json" "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -ne 0 ]
+}
+
+@test "audit-ledger: an axis outside the four codebase-audit axes is rejected" {
+  run VALIDATE "$FIXROOT/invalid-audit-ledger-unknown-axis.json" "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -ne 0 ]
+}
+
+@test "audit-ledger: a pbi_ids[].role outside {sweep, detector} is rejected" {
+  # Promotion to guarded reads the role to find WHICH merged PBI wired the
+  # detector; an unrecognised role silently removes a class from that path.
+  run VALIDATE "$FIXROOT/invalid-audit-ledger-unknown-role.json" "$SCRUM_STATE/audit-ledger.schema.json"
+  [ "$status" -ne 0 ]
+}
+
+@test "audit-ledger: the identity pattern matches assert_audit_identity byte for byte" {
+  local schema_pat lib_pat
+  schema_pat="$(jq -r '.properties.classes.items.properties.identity.pattern' \
+    "$SCRUM_STATE/audit-ledger.schema.json")"
+  lib_pat="$(sed -n "s/.*grep -Eq '\(\^\[a-z0-9\][^']*\)'.*/\1/p" \
+    "$PROJECT_ROOT/scripts/scrum/lib/errors.sh" | head -1)"
+  [ -n "$lib_pat" ]
+  [ "$schema_pat" = "$lib_pat" ]
 }
 
 @test "the reviewer enum extractor actually finds keys (guards against a silent no-op)" {

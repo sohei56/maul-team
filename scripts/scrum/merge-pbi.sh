@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # scripts/scrum/merge-pbi.sh — SM-side merge orchestrator.
-# Phases: pre-check → no-ff merge → artifact verify → regression gate →
-# record → cleanup. Failure modes call mark-pbi-merge-failure.sh and roll
-# back main. The regression gate runs the command at
+# Phases: pre-check → no-ff merge → artifact verify → detector gate →
+# regression gate → record → cleanup. Failure modes call
+# mark-pbi-merge-failure.sh and roll back main. The detector gate runs
+# run-detectors.sh (guard-first audit ratchets from
+# `.scrum/audit-ledger.json`; silent no-op when none are guarded). The
+# regression gate runs the command at
 # `.scrum/config.json.merge_regression.command` (absent → gate skipped
 # with WARN); the full Sprint-end lint/quality review still lives in
 # cross-review.
@@ -30,8 +33,9 @@ source "$HERE/lib/git-guards.sh"
 #      SM fixes the precondition and re-runs (NOT a 3-strike attempt, do NOT
 #      read merge_failure.kind).
 #   2  a merge failure was recorded THIS attempt (conflict|artifact_missing|
-#      regression) and main is back at its pre-merge HEAD — the ONLY exit where
-#      SM reads merge_failure.kind and runs the 3-strike recovery matrix.
+#      detector_regression|regression) and main is back at its pre-merge HEAD —
+#      the ONLY exit where SM reads merge_failure.kind and runs the 3-strike
+#      recovery matrix.
 #   3  the merge commit landed but post-merge bookkeeping/cleanup (or a rollback
 #      after a recorded failure) did not complete — main was mutated; SM
 #      verifies/repairs manually and NEVER routes to the failure matrix.
@@ -179,6 +183,39 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
     die 2 "artifact_missing: $CSV"
   fi
   die 3 "CRITICAL: rollback failed after artifact_missing — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD)"
+fi
+
+# Detector gate: guard-first audit ratchets. Every class the codebase-audit
+# has promoted to `guarded` in .scrum/audit-ledger.json owns a registered
+# detector command; run-detectors.sh runs them all against the merged tree.
+# Ordered BEFORE the project regression command on purpose — detectors are
+# cheap, deterministic, and name the offending class, and a slow test suite
+# must not mask them. Silent no-op (exit 0, no output) when the target has no
+# ledger or no guarded class, so a project that never adopts guard-first
+# detectors sees the pre-existing merge behaviour unchanged; an older
+# deployment without the runner skips the gate entirely.
+DET_LOG=".scrum/pbi/$PBI/detector-regression.log"
+if [ -x "$HERE/run-detectors.sh" ]; then
+  DET_RC=0
+  "$HERE/run-detectors.sh" >"$DET_LOG" 2>&1 || DET_RC=$?
+  if [ "$DET_RC" -eq 0 ]; then
+    # Keep the common silent path artifact-free (see the byte-identical note).
+    [ -s "$DET_LOG" ] || rm -f "$DET_LOG"
+  else
+    # Fail-closed: rc=1 (a detector reported violations) AND rc=2 (a detector
+    # could not execute — 127 / timeout / no registered command) both fail the
+    # merge. A ratchet that silently passes while broken is the exact state
+    # this gate exists to prevent. Record BEFORE rolling back, mirroring the
+    # artifact_missing / regression arms.
+    if ! "$HERE/mark-pbi-merge-failure.sh" "$PBI" detector_regression "$PRE_HEAD" "$DET_LOG"; then
+      git reset --hard "$PRE_HEAD" >/dev/null 2>&1 || true
+      die 3 "CRITICAL: detector_regression but failed to record merge_failure for $PBI — verify main is at $PRE_HEAD (rollback attempted); do NOT route to the failure matrix"
+    fi
+    if git reset --hard "$PRE_HEAD" >/dev/null; then
+      die 2 "detector_regression: guarded audit detector(s) failed after merge (run-detectors.sh exit $DET_RC) — see $DET_LOG. To un-guard a class deliberately (auditable in the ledger): .scrum/scripts/update-audit-ledger.sh set-status --identity <identity> --status open"
+    fi
+    die 3 "CRITICAL: rollback failed after detector_regression — main is at merged commit, manual intervention required (PRE_HEAD=$PRE_HEAD)"
+  fi
 fi
 
 # Regression gate: run a project-configured command from the main repo

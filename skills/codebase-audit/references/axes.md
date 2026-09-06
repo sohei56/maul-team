@@ -4,8 +4,9 @@ The Scrum Master spawns one `Agent`-tool auditor per axis, in parallel.
 This file holds the shared protocol, the finding-return schema, and the
 four axis-specific prompt templates. Paste the **Common protocol** head
 plus **one** axis section into each auditor's prompt, and append the
-shared read set (enabled specs, requirements, PBI summary, most recent
-`static-analysis-r*.json` path) assembled in SKILL.md Step 2.
+shared read set (enabled specs, requirements, PBI summary, the class
+ledger + its scope table, most recent `static-analysis-r*.json` path)
+assembled in SKILL.md Step 1.
 
 ---
 
@@ -29,6 +30,15 @@ Rules:
   list, never one finding per site. A class reported from a single site
   without a sweep is the primary cause of audit churn: the remaining
   sites resurface Sprint after Sprint as "new" findings.
+- **Respect the ledger scope, and dispute it in the open.** The class
+  ledger tells you which classes are already owned by a detector or a
+  decision; the scope table in your prompt says which statuses are out
+  of scope for you (SKILL.md Step 1). Do not re-report those. A class's
+  `exclusions[]` suppress single `(path, symbol)` sites inside a class
+  that is otherwise yours: skip them silently **unless** you believe the
+  waiver no longer holds, in which case report the occurrence and
+  **cite the entry's `dec_id`** with what changed. Never drop an
+  occurrence because a decision merely exists.
 - **Evidence discipline.** Every finding needs a concrete `file:line`
   anchor and the observed fact. Keep **fact** and **interpretation**
   strictly separate — never present a hypothesis as an observation.
@@ -83,11 +93,15 @@ persists the report. Use this schema per finding:
   under refactoring, so an identity built from them mints a NEW class
   and the same defect is filed again next Sprint. Name the RULE the
   code broke, not the place it broke.
-  REUSE, never re-mint: the PBI summary you were given carries an
-  `audit_identity` on every audit PBI already filed. If this class is
-  among them, emit that exact string byte-for-byte. Mint a new
-  identity only for a class with no entry there. The SM matches on
-  this field exactly, so one character of drift files a duplicate.>
+  REUSE, never re-mint: the **class ledger** you were given
+  (`.scrum/audit-ledger.json`, one entry per class the audit has ever
+  seen) is the source of truth for existing identities. It is strictly
+  larger than the PBI summary's `audit_identity` list, because a class
+  outlives its PBI. If this class is in the ledger, emit that exact
+  string byte-for-byte; mint a new identity only for a class the ledger
+  does not carry. The SM matches on this string exactly, so one
+  character of drift files a duplicate — and the wrapper rejects a
+  malformed key rather than repairing it.>
 - fact: <what is literally observed in the code/spec — no inference>
 - interpretation: <why it is a defect; the failure it causes>
 - confidence: High | Medium | Low

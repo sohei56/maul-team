@@ -970,6 +970,83 @@ human or autonomous). Schema:
 
 ---
 
+## Entity: AuditLedger
+
+**File**: `.scrum/audit-ledger.json` (created on the first mutating
+  `update-audit-ledger.sh` call, or by `migrations/008-seed-audit-ledger.sh`
+  at launch in any project that has a `backlog.json`)
+**Owner**: `scripts/scrum/update-audit-ledger.sh` — the only permitted writer
+**Readers**: the `codebase-audit` skill (the authoritative class list handed
+  to the auditors, and the per-class scope exclusions),
+  `add-backlog-item.sh` (membership check on `--audit-identity`),
+  `run-detectors.sh` (the `guarded` classes and their commands)
+
+One entry per defect **class** the audit has ever seen, keyed by the same
+`audit_identity` that `backlog.json.items[]` carries. Its purpose is
+cross-round class IDENTITY and occurrence retention — a PBI closes and
+disappears from the working set, the class does not. It is **not** an
+issuance-suppression store: the audit still re-detects `accepted` and
+detector-less `closed` classes (see the lifecycle table). Schema:
+`docs/contracts/scrum-state/audit-ledger.schema.json`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `updated_at` | ISO 8601 string | Refreshed by `atomic_write` on every mutation. |
+| `classes[]` | AuditClass[] | One entry per defect class, insertion-ordered. |
+
+### Embedded: AuditClass
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `identity` | string | The class key. Same pattern as `backlog.json.items[].audit_identity` and `lib/errors.sh::assert_audit_identity` — `<defect-class>::<pattern>`, lower kebab both sides. Reused byte-for-byte; never re-minted for a class already here. |
+| `axis[]` | enum[] | Which codebase-audit axes have reported it. Unioned across rounds, never narrowed. |
+| `severity` | `critical \| high \| low \| null` | Raised monotonically (`low < high < critical`); a later, lower rating never erases the worst sighting. |
+| `status` | enum | `open \| sweeping \| guarded \| accepted \| closed` — see the lifecycle table. |
+| `occurrences[]` | `{path, symbol?, note?, first_seen_sprint?, last_seen_sprint?}` | The structured occurrence set, unioned on `(path, symbol)`. An occurrence not re-seen keeps its old `last_seen_sprint` instead of vanishing, so "did the sweep shrink?" stays measurable. `--replace` is the explicit correction path. |
+| `exclusions[]` | `{path, reason, dec_id, symbol?, round?}` | Per-occurrence waivers. `dec_id` must exist in `po/decisions.json` with `kind ∈ {defect_triage, spec_clarification}`. Upserted on `(path, symbol)`. |
+| `detector` | object \| `null` | `{command, registered_sprint, verified_at, verified_exit, scope_caveat?}`. Carries its own verification stamp — the wrapper re-runs `run-detectors.sh --check` and writes the result rather than trusting a flag an agent typed. |
+| `pbi_ids[]` | `{id, role}` | Linked PBIs and what each one is for (`sweep` fixes the class, `detector` wires the ratchet). The role is what lets promotion know which merged PBI to register. |
+| `first_seen_sprint` | string | `sprint-N` of the first sighting. |
+| `last_confirmed_sprint` | string \| `null` | The only decay signal. A class never confirmed again is **not** auto-closed — auto-closure would be fiction. |
+| `closed_evidence` | string \| `null` | The re-runnable zero-check recorded when a class is closed without a clean detector run. |
+
+### Lifecycle
+
+| Event | Ledger effect |
+|-------|---------------|
+| audit sees a class | `upsert-class` (which also confirms the sprint) + `add-occurrences` |
+| class filed as a PBI | `link-pbi --role sweep`, `set-status sweeping` |
+| PO `reject` / `defer` / `accept_as_is` | `set-status accepted --dec-id <id>` |
+| per-occurrence waiver | `add-exclusion --dec-id <id>` |
+| detector PBI merged | `register-detector`, then `set-status guarded` |
+| sweep PBI done | `set-status closed` with a clean detector run or `--evidence` |
+| class re-detected while `closed` | audit files `[REGRESSION]`, `upsert-class` raises severity, `set-status open` |
+
+### Rules
+
+- **Wrapper-only writes.** Direct Write/Edit is blocked by
+  `pre-tool-use-scrum-state-guard.sh` (`.scrum/*.json`, not in the
+  artifact carve-out). Every mutation is one schema-validated,
+  directory-locked `atomic_write`.
+- **Reject, never repair.** An identity that fails the form check is
+  refused; the wrapper never lower-cases or trims one into shape,
+  because a silently normalized key is how false cross-round matches
+  are created.
+- **`guarded` ⇒ wired.** `set-status guarded` is the single choke
+  point, and it refuses unless a detector command is on record, the
+  DEPLOYED `merge-pbi.sh` greps as invoking `run-detectors.sh`, and a
+  live `--check` actually executed (exit 0 or 1; exit 2 means it did
+  not). `upsert-class` never sets `status`, so there is no other path
+  in.
+- **Auditor scope follows status.** `guarded`, and `closed` **with** a
+  wired detector, leave LLM audit scope — a machine owns them.
+  `closed` **without** a detector stays in scope (re-detection is how a
+  regression is caught). `accepted` stays in scope for *detection* and
+  is excluded only at filing, so the audit never self-suppresses on a
+  decision record.
+
+---
+
 ## Entity: StopGateLedger
 
 **File**: `.scrum/stop-gate.json` (created on first human-mode block;
@@ -1165,6 +1242,12 @@ po/decisions.json
   └── decisions[].evidence[] -> .scrum/po/acceptance/<sprint-id>/<pbi-id>.md (demo)
                               | .scrum/po/uat-<sprint-id>.md#us-nnn        (uat)
                               | .scrum/test-results.json                   (release_decision=go)
+
+audit-ledger.json
+  └── classes[].identity            -> backlog.json.items[].audit_identity
+  └── classes[].pbi_ids[].id        -> backlog.json.items[].id
+  └── classes[].exclusions[].dec_id -> po/decisions.json.decisions[].id
+  └── classes[].detector.command    -> run by .scrum/scripts/run-detectors.sh
 
 stop-gate.json
   └── phase -> state.json.phase (reset on phase change)

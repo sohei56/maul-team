@@ -12,7 +12,7 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 |---|---|
 | `jq '(.items[] | select(.id == "$PBI")).status = "in_progress_design"' .scrum/backlog.json > tmp && mv tmp .scrum/backlog.json` | `.scrum/scripts/update-backlog-status.sh "$PBI" in_progress_design` |
 | Same pattern for any of the 13 statuses | `.scrum/scripts/update-backlog-status.sh "$PBI" {draft\|refined\|blocked\|in_progress_design\|in_progress_impl\|in_progress_pbi_review\|in_progress_ut_run\|in_progress_merge\|awaiting_cross_review\|cross_review\|escalated\|done\|cancelled}` |
-| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}] [--audit-identity <class>::<pattern>] [--audit-severity {critical\|high\|low}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout; `--audit-identity` and `--audit-severity` are both required for `[codebase-audit:*]` titles, and the severity must match the title's `:<Severity>]` suffix case-insensitively) |
+| `jq '.items += [{id:"pbi-NNN",title:"...",status:"draft",...}] \| .next_pbi_id += 1' .scrum/backlog.json > tmp && mv ...` | `.scrum/scripts/add-backlog-item.sh --title <text> [--description <text>] [--ac <criterion>]... [--parent <pbi-id>] [--ux-change] [--kind {code\|docs}] [--audit-identity <class>::<pattern>] [--audit-severity {critical\|high\|low}]` (allocates id from `next_pbi_id`, prints new pbi-id to stdout; `--audit-identity` and `--audit-severity` are both required for `[codebase-audit:*]` titles, the severity must match the title's `:<Severity>]` suffix case-insensitively, and — once `.scrum/audit-ledger.json` exists — the identity must already name a class in it) |
 | `jq '.status = "active"' .scrum/sprint.json > tmp && mv tmp .scrum/sprint.json` | `.scrum/scripts/update-sprint-status.sh active` (also: `planning`, `cross_review`, `sprint_review`, `complete`, `failed`) |
 | `jq '.developers["dev-001-s1"].current_pbi = "pbi-007"' .scrum/sprint.json > tmp && mv ...` | `.scrum/scripts/set-sprint-developer.sh dev-001-s1 current_pbi pbi-007` (fields: `status`, `current_pbi`, `assigned_work` (JSON object), `sub_agents` (JSON array); `current_pbi_phase` was removed in v2 — read `backlog.json.items[<current_pbi>].status` instead) |
 | `jq '.phase = "pbi_pipeline_active"' .scrum/state.json > tmp && mv ...` | `.scrum/scripts/update-state-phase.sh pbi_pipeline_active` |
@@ -30,6 +30,8 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Draft a framework-improvement issue from a Retrospective finding (was: **no path at all** — the SM has no `Write` tool, and hand-written prose has no mechanical guard against publishing the target's Sprint/PBI ids, home paths, or domain terms, which is why the upstream leg stayed deferred) | `.scrum/scripts/draft-framework-issue.sh --sprint <sprint-id> --identity <area>::<failure-mode> --title <text> --where <text> --why <text> --improvement <text> [--summary <text>] [--frequency <text>]` (writes `.scrum/framework-issues/<sprint-id>-NN.md` + `.meta`; prints the path on stdout and a ready-to-run `gh issue create` line on stderr; sanitizer violations fail `E_INVALID_ARG` naming every offending field at once, and there is no `--force`; a repeat `--identity` bumps the existing draft instead of writing a second one). Recording a post: `--record-posted <draft-path> --url <issue-url>` |
 | Ask how long each in-flight PBI has been quiet before probing its Developer (was: **no wrapper** — every SM session improvised its own `stat` / `date` arithmetic, and a live run's empty-variable fallback evaluated `NOW - NOW = 0`, reported stalled PBIs as `0m quiet`, and suppressed the probe indefinitely) | `.scrum/scripts/pbi-idle.sh [--threshold-minutes N]` (read-only — reads `backlog.json` plus the per-PBI activity signals and writes nothing; emits one tab-separated row per in-flight PBI: `id status last_activity_epoch idle_seconds idle_minutes verdict`, `verdict ∈ {fresh, stale, uninitialized}`, where `uninitialized` means no `.scrum/pbi/<id>/` exists yet and prints `-` for both idle fields. Exits `0` whether or not anything is stale — staleness is data, not an error; `67` on a missing backlog, `65` on an unparseable one) |
 | Advance from a completed Sprint to the next (was: **no wrapper** — `init-sprint.sh` refused while `sprint.json` existed and `freeze-sprint-base.sh` refused while `base_sha` was frozen, leaving the team unable to start any Sprint after Sprint 1) | `.scrum/scripts/rollover-sprint.sh` (archives the `status: complete` `sprint.json` to `sprint-history.json`, then removes `sprint.json` so `init-sprint.sh` + `freeze-sprint-base.sh` can start the next Sprint on a fresh base; refuses a non-complete Sprint; idempotent no-op when no `sprint.json`) |
+
+| Record a codebase-audit defect CLASS and its occurrences (was: **no store at all** — the class key lived on one PBI at a time and the occurrence list only ever existed as `--description` prose, so a class with no open PBI had no identity to reuse and a sweep's completeness was unmeasurable) | `.scrum/scripts/update-audit-ledger.sh <upsert-class\|add-occurrences\|set-status\|add-exclusion\|link-pbi\|confirm-seen\|register-detector\|list>` (writes `.scrum/audit-ledger.json`; `list` is read-only and takes no lock. `set-status` carries the machine preconditions — `guarded` needs a verified detector **and** a deployed `merge-pbi.sh` that invokes `run-detectors.sh`; `accepted` / `add-exclusion` need a `--dec-id` that exists with `kind ∈ {defect_triage, spec_clarification}`; `closed` needs a linked `done` PBI plus a clean detector run or `--evidence`) |
 
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
 field was removed in v2; lifecycle moves through
@@ -510,3 +512,90 @@ byte-identical — whole-file rather than per-record, because
 `atomic_write` re-validates the result, so a partial clean could not be
 written without bypassing the schema-validated-write contract. It exits
 0; hand-edit the named records and relaunch to clean the rest.
+
+## v6 → v7: the codebase-audit class ledger (2026-09-06)
+
+A new SSOT file, `.scrum/audit-ledger.json`
+(`audit-ledger.schema.json`), with a new sole writer,
+`update-audit-ledger.sh`. It holds one entry per defect **class** the
+codebase audit has ever seen, keyed by the same `audit_identity`
+`backlog.json` already carries.
+
+This is **additive**: no existing schema, wrapper, or field changes, and
+a project that never writes the file behaves exactly as before. The
+reason it is a state file rather than a report is that the two things
+the audit most needed to remember — the class identity and its
+occurrence set — used to live only where they could not survive: the
+identity on whichever PBI happened to be open (so a class with no open
+PBI had no key to reuse), and the occurrences in `--description` prose
+(so "did the sweep shrink?" was unanswerable, and re-transcription lost
+most of the list every round).
+
+Two shapes deviate from the obvious minimum, both deliberately:
+`pbi_ids[]` holds `{id, role}` objects rather than plain ids, because
+promotion to `guarded` has to know *which* merged PBI wired the
+detector; and `detector` is an object carrying its own
+`verified_at` / `verified_exit` stamp rather than a boolean, because the
+wrapper must not trust a flag an agent typed — it re-runs
+`run-detectors.sh --check` and writes the result it observed.
+
+`guarded` is the one status with teeth, and its preconditions are
+checked in the wrapper rather than the schema, because two of them are
+statements the schema cannot make: that the **deployed**
+`merge-pbi.sh` greps as invoking `run-detectors.sh`, and that a live
+`--check` actually executed (exit 0 clean or 1 violations — 2 means the
+detector could not run and 64 is a runner usage error; both are
+refused). A `guarded` class leaves LLM audit scope, so a ledger that
+claims it while no gate runs would silently stop auditing the class
+altogether. There is no other path to the status: `upsert-class` never
+writes `status`, and `pre-tool-use-scrum-state-guard.sh` blocks a
+hand-written file.
+
+### Backward compatibility
+
+`--audit-identity` on `add-backlog-item.sh` now has to name a class
+already present in `.scrum/audit-ledger.json` — but **only when the
+ledger exists**. An absent ledger is accepted, so a target that has
+never launched since the upgrade is not bricked. Migration 008 closes
+that window on the first launch: it creates the file for every project
+that has a `backlog.json`, so from that moment enforcement is live.
+
+A session still running stale skill text hits a self-describing
+`E_INVALID_ARG` naming the exact `upsert-class` call to make, and
+recovers without a human. Nothing else changes: no existing schema,
+field, or wrapper behaviour is altered, and a project that never
+promotes a class to `guarded` sees no behaviour change at all.
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/008-seed-audit-ledger.sh [--dry-run]
+```
+
+Seeds one class per distinct `audit_identity` on `[codebase-audit:*]`
+PBIs. `severity` is the **highest** rating across the class's PBIs
+(`// "high"` for an unrated one), mirroring the wrapper's monotonic
+raise; `first_seen_sprint` / `last_confirmed_sprint` are the earliest
+and latest sprint ids from the titles' 2nd colon segment, falling back
+to `sprint.json.id`; `pbi_ids` are all matching ids with `role: sweep`
+(no pre-existing PBI can have been a detector PBI). Status: `open` if
+any linked item is neither `done` nor `cancelled`; `closed` — with
+`closed_evidence` naming this migration — if some are `done` and none
+are open; `open` otherwise, so a **cancelled-only class stays
+detectable** (descoped is not fixed).
+
+`occurrences`, `axis`, and `detector` are **never** invented — the same
+discipline as 005/006. Prose descriptions cannot be parsed into a stable
+`(path, symbol)` key, and a fabricated occurrence set would make the
+"did the sweep shrink?" measurement lie from day one; a detector is only
+trustworthy once the wrapper has actually run it.
+
+A class whose sprint cannot be derived at all (unparseable title **and**
+no `sprint.json`) is **skipped and named on stderr**, because
+`first_seen_sprint` is required and there is nothing to derive it from.
+Transcribe those by hand with `update-audit-ledger.sh upsert-class`.
+
+Idempotent: a re-run merges newly-filed PBIs into existing classes and
+touches nothing else — `status`, `occurrences`, `detector`, `severity`,
+and both sprint stamps on an existing class are left exactly as the
+wrapper left them.

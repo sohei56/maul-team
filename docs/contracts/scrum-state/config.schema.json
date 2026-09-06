@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Scrum framework configuration",
-  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression, static_analysis) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
+  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression, detectors, static_analysis) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -50,6 +50,18 @@
         "accepted_none": {
           "description": "true = the team deliberately runs no per-PBI regression gate (recorded via set-merge-regression-command.sh --none). Distinguishes an explicit opt-out from a never-decided unset gate, so merge-pbi.sh drops its WARN to a quiet note. Not required; absent/false means the gate is either configured or undecided.",
           "type": "boolean"
+        }
+      }
+    },
+    "detectors": {
+      "description": "Guard-first codebase-audit detector settings. The detector COMMANDS themselves are not configured here — they live in .scrum/audit-ledger.json (classes[].detector.command, written only by update-audit-ledger.sh); this block only bounds their execution. Read by scripts/scrum/run-detectors.sh, which merge-pbi.sh runs as a merge gate and the smoke-test skill records as the `detectors` test category.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "timeout_seconds": {
+          "description": "Per-detector wall-clock budget in seconds. A detector that exceeds it is killed and counted as could-not-execute (runner exit 2), which FAILS the merge gate — a timing-out ratchet is a failure, never a pass. Defaults to 120 when absent; a non-integer or non-positive value falls back to the same default rather than disabling the bound.",
+          "type": "integer",
+          "minimum": 1
         }
       }
     },

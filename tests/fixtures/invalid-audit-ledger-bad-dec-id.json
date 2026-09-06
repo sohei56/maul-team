@@ -1,0 +1,16 @@
+{
+  "classes": [
+    {
+      "identity": "notify-order::send-before-write",
+      "status": "open",
+      "first_seen_sprint": "sprint-003",
+      "exclusions": [
+        {
+          "path": "src/generated/api_client.py",
+          "reason": "generated file",
+          "dec_id": "dec-42"
+        }
+      ]
+    }
+  ]
+}

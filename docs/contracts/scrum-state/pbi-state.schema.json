@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PBI pipeline internal state",
-  "description": "Naming convention: merge_failure.kind uses bare values (conflict, artifact_missing, regression) while escalation_reason carries the merge_* prefix (merge_conflict, merge_artifact_missing, merge_regression) so it never collides with non-merge reasons such as stagnation or divergence.",
+  "description": "Naming convention: merge_failure.kind uses bare values (conflict, artifact_missing, regression, detector_regression) while escalation_reason carries the merge_* prefix (merge_conflict, merge_artifact_missing, merge_regression, merge_detector_regression) so it never collides with non-merge reasons such as stagnation or divergence.",
   "type": "object",
   "required": ["pbi_id", "started_at", "updated_at"],
   "additionalProperties": false,
@@ -30,6 +30,7 @@
         "merge_conflict",
         "merge_artifact_missing",
         "merge_regression",
+        "merge_detector_regression",
         "kind_mismatch",
         "teammate_unrecoverable"
       ]
@@ -47,7 +48,7 @@
       "additionalProperties": false,
       "required": ["kind", "pre_head_at_failure"],
       "properties": {
-        "kind": {"enum": ["conflict", "artifact_missing", "regression"]},
+        "kind": {"enum": ["conflict", "artifact_missing", "regression", "detector_regression"]},
         "paths": {"type": "array", "items": {"type": "string"}},
         "pre_head_at_failure": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"}
       }

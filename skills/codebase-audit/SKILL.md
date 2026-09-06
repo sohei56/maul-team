@@ -75,6 +75,14 @@ does **not** re-review single-PBI diff-local security.
   cross-PBI duplication reasoning, and for **cross-Sprint PBI dedup**
   (`audit_identity` on existing `[codebase-audit:*]` items). PBI
   `description` is **not** passed to the auditors — see Step 1.
+- `.scrum/audit-ledger.json` — the defect-**class** ledger: every
+  `identity`, `status`, `severity`, `occurrences[]`, `exclusions[]` and
+  `detector`. It is the authoritative class list handed to the auditors
+  and is strictly larger than the PBI summary, because a class outlives
+  its PBI (`accepted` / `closed` / `guarded` classes have no open item).
+  Read freely; every **write** goes through
+  `.scrum/scripts/update-audit-ledger.sh` (run it with `--help` for the
+  subcommand signatures), never a direct edit.
 - `docs/requirements.md` — the requirement SSOT.
 - `docs/design/catalog-config.json` — the `enabled` array of spec IDs.
 - `docs/design/specs/**` — enabled spec files (per
@@ -128,6 +136,13 @@ does **not** re-review single-PBI diff-local security.
   newly-found DOCS drift at any severity:**
   `state.json` phase → `backlog_created` via
   `.scrum/scripts/update-state-phase.sh`.
+- `.scrum/audit-ledger.json` — one class entry per finding the audit
+  saw, with its occurrence list, written in Step 3a **before** `$REPORT`,
+  plus the Step 4a/5 status and link follow-ups. All via
+  `.scrum/scripts/update-audit-ledger.sh`.
+- `.scrum/reviews/audit-occurrences-s{N}.json` — the merged occurrence
+  sets as transcribed (Step 3a), kept as the durable artifact behind the
+  ledger write.
 - A report to the user / PO (severity counts + PBIs created / skipped
   by dedup + regressions).
 - When DOCS drift exists, a validated context handoff id:
@@ -226,20 +241,47 @@ report.
 
 Collect for the auditors: enabled spec IDs + files, `requirements.md`,
 the PBI summary (`id`, `title`, `acceptance_criteria`, `kind`,
-**`audit_identity`**), and the most recent static-analysis file:
+**`audit_identity`**), the **class ledger**, and the most recent
+static-analysis file:
 ```bash
 STATIC="$(ls .scrum/reviews/static-analysis-r*.json 2>/dev/null | sort -V | tail -1)"
+# The class list handed to the auditors. Reading .scrum/audit-ledger.json is
+# unrestricted; writing it is Step 3a's job, through the wrapper only.
+LEDGER="$(jq -c '[.classes[]? | {identity, status, severity,
+  exclusions: (.exclusions // []), has_detector: (.detector != null)}]' \
+  .scrum/audit-ledger.json 2>/dev/null || printf '[]')"
 ```
 Do NOT pass `.scrum/` pipeline state, dev communications, or PBI
 descriptions beyond the fields above.
 
-`audit_identity` is in the read set for one reason: it is the key the
-auditors themselves mint, and cross-Sprint dedup matches on it exactly.
-An auditor that cannot see the keys already filed re-invents a different
-string for the same defect class every audit, and the class is filed
-again as new. Pass the field even when it is null — the auditors are
-told to reuse an existing key byte-for-byte and mint only for a class
-that has none (`references/axes.md`, `identity`).
+`audit_identity` and the ledger are in the read set for one reason: the
+identity is the key the auditors themselves mint, and cross-Sprint dedup
+matches on it exactly. An auditor that cannot see the keys already
+minted re-invents a different string for the same defect class every
+audit, and the class is filed again as new. The **ledger is the source
+of truth** for that list; the PBI summary's `audit_identity` is the
+filing-side key and is a subset of it. Pass both, `audit_identity`
+included even when null — the auditors are told to reuse a ledger
+identity byte-for-byte and mint only for a class the ledger does not
+have (`references/axes.md`, `identity`).
+
+**Scope handed to the auditors.** A class's ledger `status` decides
+whether it is still theirs to detect. Hand each auditor this table with
+the ledger:
+
+| ledger `status` | auditor scope |
+|---|---|
+| `open`, `sweeping` | in scope |
+| `guarded` | **excluded** — a registered detector owns the class ([`references/detectors.md`](references/detectors.md)). Nothing is dropped silently: the status is unreachable without a wired detector that actually executed. |
+| `closed` **with** a `detector` | excluded |
+| `closed` **without** a `detector` | **in scope** — re-detection is the only regression signal; a hit becomes a `[REGRESSION]` PBI (Step 5) |
+| `accepted` | **in scope for detection**, excluded from *filing* at Step 5. Same reason as § Strict Rules "the audit never self-suppresses on a `defect_triage` record": the escalation re-open is only computable from a fresh rating. |
+
+`exclusions[]` suppress per `(path, symbol)`, not per class — an excluded
+site is out of scope inside an otherwise in-scope class. Tell the auditor
+to report such an occurrence anyway, **citing that entry's `dec_id`**,
+when it believes the waiver no longer holds: the audit neither silently
+overrides a PO decision nor silently obeys a stale one.
 
 ### Step 2 — Announce, spawn the 4 auditors, wait (canonical procedure)
 
@@ -291,9 +333,10 @@ falls through to a fresh audit; a standalone invocation runs it as-is.
 
 ### Step 3 — Synthesize + dedup + classify → report
 
-Produce the report at `$REPORT` (persist via a Bash heredoc —
-`.scrum/reviews/` is carved out of the scrum-state guard; the SM has no
-`Write` tool):
+Merge and classify here. `$REPORT` itself is **written at the end of
+Step 3a**, after the classes are transcribed into the ledger, so its
+occurrence lists are generated from the ledger and the two cannot
+disagree. Report content:
 - **Within-audit dedup:** the same defect surfaced by two axes counts
   **once** (keep the higher severity, note both axes). A cross-boundary
   defect commonly lands on two axes — e.g. a missing authz check that is
@@ -375,6 +418,67 @@ the Step 5 escalation re-open (a strictly higher rating lapses a
 (`critical`/`high`/`low`) is what `audit_severity` stores; Title-case is
 prose and the title suffix only.
 
+### Step 3a — Transcribe the classes into the ledger, then write the report
+
+Prose is a lossy transport for occurrence lists: measured in a local A/B
+experiment, carrying them only through the report text collapsed 293
+occurrences to 50 distinct paths and dropped sweep completeness from
+36/36 to 29/36. So the ledger is written **first** and the report is
+generated from it. Do this for **every** class the audit saw, including
+ones the PO will later waive — Step 4 decides what is *filed*, never
+what is *recorded*.
+
+1. Persist the merged occurrence sets. `.scrum/reviews/*.json` is carved
+   out of the scrum-state guard, so this heredoc needs no wrapper and
+   leaves the transcription auditable next to the report:
+
+   ```bash
+   OCC=".scrum/reviews/audit-occurrences-s${N}.json"
+   ONE=".scrum/reviews/audit-occurrences-s${N}-current.json"
+   cat > "$OCC" <<'JSON'
+   {
+     "<identity>": [
+       {"path": "<path>", "symbol": "<symbol or null>", "note": "<one line or null>"}
+     ]
+   }
+   JSON
+   ```
+
+2. Per class: create-or-merge the class, then transcribe its
+   occurrences. `upsert-class` unions the axes and raises severity
+   monotonically; `add-occurrences` unions on `(path, symbol)` and
+   stamps `last_seen_sprint`, so a site that has stopped appearing stays
+   visible instead of vanishing:
+
+   ```bash
+   for IDENTITY in $(jq -r 'keys[]' "$OCC"); do
+     .scrum/scripts/update-audit-ledger.sh upsert-class \
+       --identity "$IDENTITY" --sprint "$SPRINT_ID" \
+       --axis "<axis[,axis]>" --severity "<critical|high|low>"
+     jq -c --arg k "$IDENTITY" '.[$k]' "$OCC" > "$ONE"
+     .scrum/scripts/update-audit-ledger.sh add-occurrences \
+       --identity "$IDENTITY" --sprint "$SPRINT_ID" --from "$ONE"
+   done
+   ```
+
+   A malformed identity is **rejected, not repaired** — the wrapper
+   applies the same normalization rule as `references/axes.md`
+   § `identity`. Fix the finding's key and re-run; do not hand-normalize
+   it, which is how two spellings of one class get created.
+
+3. **Only now write `$REPORT`** — the Step 3 heredoc — reading each
+   class's occurrence list back out of the ledger rather than out of the
+   axis messages:
+
+   ```bash
+   jq -r --arg k "$IDENTITY" '.classes[] | select(.identity == $k)
+     | .occurrences[] | "- \(.path)\(if .symbol then " — " + .symbol else "" end)"' \
+     .scrum/audit-ledger.json
+   cat > "$REPORT" <<'MD'
+   <report per Step 3, occurrence lists from the query above>
+   MD
+   ```
+
 ### Step 4 — Route findings (PO)
 
 Two separate requests. The first asks **whether to file**; the second
@@ -431,9 +535,29 @@ the separate axis).
   `--assumption` flag — the human did decide. This is the one place the
   SM writes a PO decision record, and it exists so suppression works
   identically in both modes.
-- **Resume safety.** `$REPORT` is written in Step 3, *before* the PO is
-  asked, so a session restart resumes from the report with no finding
-  list lost.
+- **Ledger follow-up for a suppressing verdict.** With the `dec_id`
+  `append-po-decision.sh` returned in hand, record the verdict on the
+  class so the auditors keep detecting it while Step 5 stops filing it:
+
+  ```bash
+  .scrum/scripts/update-audit-ledger.sh set-status \
+    --identity "${IDENTITY}" --status accepted --dec-id "${DEC_ID}"
+  ```
+
+  When the waiver covers only some sites, it is a per-occurrence
+  exclusion, not a class status — the rest of the class stays in scope:
+
+  ```bash
+  .scrum/scripts/update-audit-ledger.sh add-exclusion \
+    --identity "${IDENTITY}" --path "<path>" --symbol "<symbol>" \
+    --reason "<the PO's own reason>" --dec-id "${DEC_ID}"
+  ```
+
+  Both refuse a `dec_id` that is not in `.scrum/po/decisions.json`, so a
+  suppression can never cite a decision nobody made.
+- **Resume safety.** `$REPORT` and the ledger are both written in
+  Step 3a, *before* the PO is asked, so a session restart resumes from a
+  complete class list with no finding or occurrence lost.
 - **Unanswered findings.** A finding the PO never ruled on is recorded
   in the report as *awaiting triage*: nothing is logged, nothing is
   filed, nothing is suppressed, and the next audit re-detects it. This
@@ -511,7 +635,7 @@ finding is offered only the first and third):
 |---|---|
 | `fix_spec` | Run the **`change-process`** skill against the clause (it takes the `kind=change_request` approval, edits the doc, and appends the `revision_history` entry with `change_process: true` + the `dec_id`). Frozen is not exempt — that is what the Change Process is for. **Do not** file a pipeline PBI for the spec edit: `pbi-implementer` is denied writes to `docs/design/specs/` (`hooks/status-gate.sh`), and routing it as `kind=code` would put the UT and coverage gates on a documentation change. File a separate code PBI only if the implementation must move too. For a class 5 batch, one `change-process` run may cover every passage in the batch — one `change_request`, one `revision_history` entry per doc touched. |
 | `fix_code` | File a normal class PBI below (`--kind code`). The spec stands. |
-| `accept_as_is` | File nothing. The `spec_clarification` decision is now in `.scrum/po/decisions.json`, and Axis A classes 3 and 4 both skip an adjudicated clause — so the next audit will not re-raise it. Note the `dec_id` in the report. |
+| `accept_as_is` | File nothing. The `spec_clarification` decision is now in `.scrum/po/decisions.json`, and Axis A classes 3 and 4 both skip an adjudicated clause — so the next audit will not re-raise it. Note the `dec_id` in the report and record it on the class: `update-audit-ledger.sh set-status --identity <k> --status accepted --dec-id <id>`. |
 
 Record the verdict and `dec_id` per finding in the report, so a reader
 can tell an unraised question from an answered one.
@@ -583,10 +707,22 @@ else
     --audit-identity "${IDENTITY}" \
     --audit-severity "${SEV}" \
     --description "${REGRESS}Codebase-audit ${Fn} (${SEVERITY}). Occurrences: <path:line — symbol, one per line, ALL of them>. Sweep: <the search establishing the list is complete>. See ${REPORT}." \
-    --ac "<expected vs actual per the class, independently verifiable>" \
+    --ac "<the three-line AC template below>" \
     --kind <code|docs>)"
+  # Only the file branch links: on the reuse branch the open PBI is already
+  # in the class's pbi_ids (linked when it was filed, or seeded by migration).
+  .scrum/scripts/update-audit-ledger.sh link-pbi \
+    --identity "${IDENTITY}" --pbi "${RESULT_PBI}" --role sweep
 fi
+
+# Both branches: the class now has a live PBI working it.
+.scrum/scripts/update-audit-ledger.sh set-status \
+  --identity "${IDENTITY}" --status sweeping
 ```
+
+`add-backlog-item.sh` refuses an `--audit-identity` that the ledger does
+not carry, so Step 3a is a hard precondition for filing, not a habit.
+The error names the `upsert-class` call that fixes it.
 
 For either mandatory DOCS marker, execute the fixed-DOCS branch above
 even if Step 4a or an older decision says `defer`/`reject`: suppression
@@ -632,8 +768,19 @@ non-DOCS findings.
   and the suffix is the filing-time snapshot. Note the escalation in
   the report.
 - **Done match, no open match** → the finding was fixed and has
-  **regressed**; file a fresh PBI tagged `[REGRESSION]` and say so in
-  the report.
+  **regressed**; file a fresh PBI tagged `[REGRESSION]`, say so in the
+  report, and re-open the class before the filing block's `sweeping`
+  follow-up runs:
+
+  ```bash
+  .scrum/scripts/update-audit-ledger.sh upsert-class \
+    --identity "${IDENTITY}" --sprint "${SPRINT_ID}" --severity "${SEV}"
+  .scrum/scripts/update-audit-ledger.sh set-status \
+    --identity "${IDENTITY}" --status open
+  ```
+
+  `upsert-class` raises severity monotonically and never lowers it, so a
+  class that regressed at a higher rating keeps the higher one.
 - **No match** → file a new PBI.
 
 `cancelled` counts as **not open**, matching the Step 1b block-check: a
@@ -654,14 +801,59 @@ CUR="$(jq -r --arg id "$EXISTING" '.items[] | select(.id == $id) | .description 
 Additional occurrences found in ${SPRINT_ID}: <path:line — symbol, one per line>. See ${REPORT}."
 ```
 
-Each AC states expected vs actual and is independently verifiable —
-never a bare `grep` hit count. **A class PBI's AC closes the whole
-class, not one site**: it carries the full occurrence list plus a
-re-runnable zero-check derived from the sweep ("the sweep pattern
-finds no remaining instance"), so fixing a subset of occurrences does
-not satisfy the AC. `--kind docs` only when every occurrence is
-confined to `**/*.md`; else `code` (the `DOCS` batch commonly mixes
-`*.md` drift with in-source docstrings — then it is `code`).
+**AC template (three lines, all mandatory).** Each AC states expected vs
+actual and is independently verifiable — never a bare `grep` hit count.
+**A class PBI's AC closes the whole class, not one site**, so fixing a
+subset of occurrences does not satisfy it:
+
+```
+--ac "The class <identity> cannot recur: <mechanism-level expected vs actual>.
+Zero-check: <re-runnable sweep pattern> reports no instance at HEAD.
+Not closed by this check: <occurrence kinds the zero-check cannot see>."
+```
+
+The third line is required whenever a detector exists or the sweep
+pattern is narrower than the class; when nothing is out of scope it
+reads `Not closed by this check: none`. It exists because a zero-check
+is almost always narrower than the class it stands for, and applying one
+verbatim as if it were the class is how a partly-swept class gets
+recorded as closed (measured in a local A/B experiment). `--kind docs`
+only when every occurrence is confined to `**/*.md`; else `code` (the
+`DOCS` batch commonly mixes `*.md` drift with in-source docstrings —
+then it is `code`).
+
+**Machine-checkable class → file the pair, ratchet first.** When the
+class can be decided by a bounded, deterministic command — contract in
+[`references/detectors.md`](references/detectors.md) — Step 5 files
+**two** PBIs under the same identity, detector before sweep:
+
+1. **Detector PBI**, `link-pbi --role detector`:
+
+   ```bash
+   DET_PBI="$(.scrum/scripts/add-backlog-item.sh \
+     --title "[codebase-audit:${SPRINT_ID}:${Fn}:${SEVERITY}] detector: <class>" \
+     --audit-identity "${IDENTITY}" --audit-severity "${SEV}" --kind code \
+     --description "Ratchet for ${IDENTITY}. See ${REPORT}." \
+     --ac "A command exists that exits non-zero on a synthetic violation of ${IDENTITY} and 0 at clean HEAD; it runs in under <N> s and writes no files.
+   .scrum/scripts/update-audit-ledger.sh register-detector --identity ${IDENTITY} --command '<cmd>' --sprint ${SPRINT_ID} succeeds.
+   Not closed by this check: <occurrence kinds the detector cannot see>.")"
+   .scrum/scripts/update-audit-ledger.sh link-pbi \
+     --identity "${IDENTITY}" --pbi "${DET_PBI}" --role detector
+   ```
+
+   File it inside the `else` (no open match) arm above, **before** the
+   sweep PBI: the ratchet lands first so the sweep has something to
+   verify against.
+
+2. **Sweep PBI** — the ordinary class PBI above, `--role sweep`, its AC
+   additionally naming the detector's zero report.
+
+`OPEN_MATCH` is computed once, before either is filed, so the pair files
+together; a **later** audit sees an open match on the shared identity and
+files nothing more — correct, not a collision. Do **not** promote the
+class to `guarded` here: a command registered from a worktree does not
+exist on `main` yet, so registration and promotion happen after the
+detector PBI merges (`../pbi-merge/SKILL.md`).
 
 `--audit-identity` is the dedup key and is **required** by the wrapper
 for a `[codebase-audit:*]` title (it fails `E_INVALID_ARG` without it).
@@ -717,6 +909,15 @@ swept to zero.
   removes.
 - **Documentation drift always batches** into the single per-audit
   `DOCS` PBI — individual doc-fix PBIs are never filed.
+- **Transcribe before you report.** Every class the audit sees is
+  written into `.scrum/audit-ledger.json` through
+  `.scrum/scripts/update-audit-ledger.sh` in Step 3a — **before**
+  `$REPORT` is written — and the report's occurrence lists are generated
+  from the ledger, so the two cannot disagree. Identities are reused
+  **byte-for-byte** from the ledger; a class the ledger does not carry is
+  the only case where one is minted. The ledger is never written by hand:
+  the scrum-state guard blocks a direct edit, and the wrapper rejects a
+  malformed identity rather than repairing it.
 - **Cross-Sprint dedup keys on `audit_identity`.** Match the finding's
   identity exactly against the `audit_identity` field, not the
   per-Sprint prefix and not a substring of the description. An open
@@ -757,7 +958,9 @@ swept to zero.
   the report's spec-exempted section. **Every finding has a recorded
   disposition**: filed as a new/regression draft PBI, deduped against an
   existing open PBI (id noted), suppressed by a named `dec_id`, or
-  recorded as awaiting triage. Phase untouched.
+  recorded as awaiting triage. **Every class is in
+  `.scrum/audit-ledger.json` with its occurrence list** (Step 3a), and
+  every filed PBI is linked to its class with a role. Phase untouched.
 - **Context (b):** either **proceed** (fresh report + no open blocking
   (non-`low`) audit PBI → handed back, phase untouched) or **block**
   (open/newly-found blocking PBI, or newly-found documentation drift at
@@ -769,6 +972,12 @@ swept to zero.
 - [`references/axes.md`](references/axes.md) — common auditor protocol,
   the finding-return schema (incl. the `identity` dedup key), and the 3
   axis prompt templates.
+- [`references/detectors.md`](references/detectors.md) — the detector
+  contract (command shape, exit codes, timeout) behind the issuance pair
+  and every `guarded` class.
+- `.scrum/scripts/update-audit-ledger.sh --help` — the ledger subcommand
+  signatures. This skill names only the calls it makes; the wrapper is
+  the SSOT for their flags and refusals.
 
 Ref: FR-009 (cross-review, context (a)) + FR-013 (Integration Sprint
 entry re-check, context (b)). The audit itself is a framework-level

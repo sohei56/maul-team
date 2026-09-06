@@ -28,6 +28,15 @@ disable-model-invocation: false
   suppresses both the WARN and the attention append — a single quiet
   note prints instead. Output (stdout+stderr) is captured to
   `.scrum/pbi/<pbi-id>/merge-regression.log` (overwritten per attempt).
+  `detectors.timeout_seconds` bounds each guard-first detector run
+  (default 120 s).
+- `.scrum/audit-ledger.json` (optional) — classes at `status:
+  "guarded"` carry a registered detector command that `merge-pbi.sh`
+  runs against the merged tree, before the regression gate. Absent
+  file or no guarded class → the gate is a silent no-op and merge
+  behaviour is unchanged. Output is captured to
+  `.scrum/pbi/<pbi-id>/detector-regression.log` (overwritten per
+  attempt; not created when the gate is a no-op).
 
 ## Outputs
 
@@ -42,15 +51,16 @@ leave `merge_failure` / `merge_failure_count` untouched.
     wrapper exit 0)
   - `in_progress_merge` (recoverable failure under the 3-strike threshold,
     wrapper **exit 2**; `mark-pbi-merge-failure.sh` records
-    `state.merge_failure.kind ∈ {conflict, artifact_missing, regression}`
-    but leaves backlog status untouched so the Developer can fix on
-    `pbi/<id>` and re-notify).
+    `state.merge_failure.kind ∈ {conflict, artifact_missing,
+    regression, detector_regression}` but leaves backlog status
+    untouched so the Developer can fix on `pbi/<id>` and re-notify).
     Status stays `in_progress_merge` across retries; each
     `mark-pbi-ready-to-merge.sh` re-notification re-stamps `head_sha`,
     `paths_touched`, and `ready_at`.
   - `escalated` (3rd consecutive failure — `mark-pbi-merge-failure.sh`
     sets `escalation_reason ∈ {merge_conflict, merge_artifact_missing,
-    merge_regression}` and `pbi-escalation-handler` takes over).
+    merge_regression, merge_detector_regression}` and
+    `pbi-escalation-handler` takes over).
 - backlog.json `items[].merged_sha` mirrored on success
 - Worktree `.scrum/worktrees/<pbi-id>` removed on success
 - Sprint-level state untouched
@@ -114,8 +124,8 @@ discipline — lead with the outcome, no preamble, no closing recap.
      `merge_failure_count < 3`. The wrapper's main-state cleanup
      differs by kind: `conflict` aborts the merge via
      `git merge --abort` so main stays exactly where it was;
-     `artifact_missing` and `regression` both have a partial merge
-     commit on main that is rolled back via
+     `artifact_missing`, `detector_regression` and `regression` all
+     have a merge commit on main that is rolled back via
      `git reset --hard <pre-merge HEAD>`. The SM does not need to
      redo any git operation on main — only the per-kind SendMessage
      below.
@@ -144,11 +154,28 @@ discipline — lead with the outcome, no preamble, no closing recap.
        command actually ran against. The Developer reproduces the
        failure from the captured log instead. SendMessage:
        `[<pbi-id>] MERGE_REGRESSION log=.scrum/pbi/<pbi-id>/merge-regression.log. Reproduce/fix in .scrum/worktrees/<pbi-id> using the regression log (main was rolled back to pre-merge HEAD, so the post-merge state cannot be replayed locally), then commit-pbi.sh and mark-pbi-ready-to-merge.sh to re-notify.`
+     - `detector_regression` → a guard-first audit detector fired
+       (`run-detectors.sh`; see
+       `../codebase-audit/references/detectors.md`). Main was rolled
+       back exactly as for `regression`, so the post-merge state cannot
+       be replayed locally. SendMessage:
+       `[<pbi-id>] DETECTOR_REGRESSION log=.scrum/pbi/<pbi-id>/detector-regression.log. Fix in .scrum/worktrees/<pbi-id> using the log — each line is prefixed with the guarded class identity (main was rolled back to pre-merge HEAD), then commit-pbi.sh and mark-pbi-ready-to-merge.sh to re-notify.`
+       The log distinguishes the two failing modes, and **both** fail
+       the merge (fail-closed): violation lines mean the PBI
+       reintroduced the class; a `DETECTOR COULD NOT EXECUTE` line
+       means the ratchet itself is broken (exit 127, timeout, or no
+       registered command). A broken ratchet is never merged around
+       silently — un-guarding the class is a deliberate, ledger-audited
+       act:
+       `.scrum/scripts/update-audit-ledger.sh set-status --identity <identity> --status open`
+       returns it to LLM audit scope. Do that only on a PO/SM decision,
+       never to unblock a queue.
      - 3rd consecutive failure of any kind (status flips to `escalated`,
        `merge_failure_count >= 3`, `escalation_reason ∈ {merge_conflict,
-       merge_artifact_missing, merge_regression}`) → invoke
-       `pbi-escalation-handler` skill with `<pbi-id>` (further Developer
-       iteration is unproductive).
+       merge_artifact_missing, merge_regression,
+       merge_detector_regression}`) → invoke `pbi-escalation-handler`
+       skill with `<pbi-id>` (further Developer iteration is
+       unproductive).
    - exit 3 → **the merge commit landed on main but post-merge
      bookkeeping/cleanup did not complete** (or a rollback after a
      recorded failure failed — main was mutated). The PBI is
@@ -164,9 +191,10 @@ discipline — lead with the outcome, no preamble, no closing recap.
      `pbi/<pbi-id>` are gone before moving on.
 
    Note: `merge_failure.kind` uses unprefixed values (`conflict`,
-   `artifact_missing`, `regression`) while `escalation_reason` uses the
-   `merge_*` prefix (`merge_conflict`, `merge_artifact_missing`,
-   `merge_regression`). The mapping is one-to-one;
+   `artifact_missing`, `regression`, `detector_regression`) while
+   `escalation_reason` uses the `merge_*` prefix (`merge_conflict`,
+   `merge_artifact_missing`, `merge_regression`,
+   `merge_detector_regression`). The mapping is one-to-one;
    `mark-pbi-merge-failure.sh` writes both.
 
    Throughout the recovery loop the backlog status remains
@@ -177,7 +205,39 @@ discipline — lead with the outcome, no preamble, no closing recap.
    the merge succeeds (→ `awaiting_cross_review`) or when the 3rd
    consecutive failure flips it to `escalated`.
 
-4. **No further coordination work** until the merge attempt finishes
+4. **Promote a merged detector PBI to `guarded`** — exit 0 only, and
+   only when the merged PBI is a `role: detector` entry in the ledger.
+   Registration happens **after** the merge commit lands, never at PBI
+   done: a detector registered from the worktree names a command that
+   does not exist on `main`, so every *other* PBI merging in between
+   would hit exit 127 and be failed by the fail-closed gate.
+
+   ```bash
+   PBI=<pbi-id>
+   IDENT="$(jq -r --arg id "$PBI" '
+     .classes[]? | select(any(.pbi_ids[]?; .id == $id and .role == "detector")) | .identity
+   ' .scrum/audit-ledger.json 2>/dev/null || true)"
+   # Empty → not a detector PBI; skip this step entirely.
+   if [ -n "$IDENT" ]; then
+     SPRINT="$(jq -r '.id' .scrum/sprint.json)"
+     .scrum/scripts/update-audit-ledger.sh register-detector \
+       --identity "$IDENT" --command '<the command from the PBI acceptance criteria>' \
+       --sprint "$SPRINT" \
+     && .scrum/scripts/update-audit-ledger.sh set-status \
+       --identity "$IDENT" --status guarded
+   fi
+   ```
+
+   `register-detector` runs `run-detectors.sh --check` itself and
+   refuses a command that cannot execute; `set-status guarded`
+   re-verifies and additionally proves the deployed `merge-pbi.sh` is
+   wired to the runner. **A failure here never fails the merge** — the
+   merge already landed. Leave the class at `sweeping`, report the
+   wrapper's stderr verbatim, and append one line to
+   `.scrum/po/attention.md` naming the class and the refusal, so an
+   unwired ratchet cannot be mistaken for a live one.
+
+5. **No further coordination work** until the merge attempt finishes
    and the Developer (if applicable) has been messaged. Receive
    priority: equal to `pbi-escalation-handler`.
 

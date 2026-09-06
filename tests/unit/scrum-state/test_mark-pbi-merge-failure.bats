@@ -57,6 +57,31 @@ teardown() { [ -n "${TEST_TMP:-}" ] && [ -d "$TEST_TMP" ] && rm -rf "$TEST_TMP";
   [ "$output" = "escalated" ]
 }
 
+@test "mark-failure detector_regression: records the kind + log path, status untouched" {
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" \
+    pbi-001 detector_regression abcdef0 ".scrum/pbi/pbi-001/detector-regression.log"
+  [ "$status" -eq 0 ]
+  run jq -r '.merge_failure.kind' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "detector_regression" ]
+  run jq -r '.merge_failure.paths[0]' .scrum/pbi/pbi-001/state.json
+  [ "$output" = ".scrum/pbi/pbi-001/detector-regression.log" ]
+  run jq -r '.merge_failure_count' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "1" ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "in_progress_merge" ]
+}
+
+@test "mark-failure: 3rd consecutive detector_regression → reason=merge_detector_regression" {
+  jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" \
+    pbi-001 detector_regression abcdef0 ".scrum/pbi/pbi-001/detector-regression.log"
+  [ "$status" -eq 0 ]
+  run jq -r '.escalation_reason' .scrum/pbi/pbi-001/state.json
+  [ "$output" = "merge_detector_regression" ]
+  run jq -r '.items[0].status' .scrum/backlog.json
+  [ "$output" = "escalated" ]
+}
+
 @test "mark-failure: 3rd consecutive artifact_missing → reason=merge_artifact_missing" {
   jq '.merge_failure_count = 2' .scrum/pbi/pbi-001/state.json > "${TMPDIR:-/tmp}/x" && mv "${TMPDIR:-/tmp}/x" .scrum/pbi/pbi-001/state.json
   run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/mark-pbi-merge-failure.sh" pbi-001 artifact_missing abcdef0 "src/missing"

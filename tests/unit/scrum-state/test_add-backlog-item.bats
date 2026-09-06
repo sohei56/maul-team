@@ -267,6 +267,63 @@ teardown() {
   [ "$output" = "1001" ]
 }
 
+# --- ledger membership ------------------------------------------------------
+# The form check above says the key LOOKS like a class. These say it IS one.
+# A well-formed key that names no known class is a new class minted at filing
+# time — the identity drift the ledger exists to end.
+
+_seed_ledger() {
+  cat > "$TEST_TMP/.scrum/audit-ledger.json" <<'EOF'
+{
+  "updated_at": "2026-09-06T10:00:00Z",
+  "classes": [
+    {"identity":"known-class::known-pattern","status":"open","first_seen_sprint":"sprint-001"}
+  ]
+}
+EOF
+}
+
+@test "add-backlog-item: an --audit-identity present in the ledger is accepted" {
+  _seed_ledger
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-002:F1:High] known defect" \
+    --audit-identity known-class::known-pattern --audit-severity high
+  [ "$status" -eq 0 ]
+  run jq -r '.items[-1].audit_identity' "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "known-class::known-pattern" ]
+}
+
+@test "add-backlog-item: an --audit-identity absent from the ledger is refused with the upsert-class hint" {
+  _seed_ledger
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-002:F1:High] freshly minted" \
+    --audit-identity unknown-class::unknown-pattern --audit-severity high
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"is not in .scrum/audit-ledger.json"* ]]
+  [[ "$output" == *"upsert-class"* ]]
+  # nothing was filed
+  run jq -r '[.items[] | select(.audit_identity == "unknown-class::unknown-pattern")] | length' \
+    "$TEST_TMP/.scrum/backlog.json"
+  [ "$output" = "0" ]
+}
+
+@test "add-backlog-item: the membership check applies to a non-audit title carrying the flag" {
+  # --audit-identity is inert on a non-audit title, but it still lands in the
+  # field, so it must still name a real class.
+  _seed_ledger
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "ordinary feature" --audit-identity unknown-class::unknown-pattern
+  [ "$status" -eq 64 ]
+}
+
+@test "add-backlog-item: an ABSENT ledger is accepted (bootstrap; an unmigrated target is not bricked)" {
+  [ ! -f "$TEST_TMP/.scrum/audit-ledger.json" ]
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/add-backlog-item.sh" \
+    --title "[codebase-audit:sprint-002:F1:High] pre-migration filing" \
+    --audit-identity any-class::any-pattern --audit-severity high
+  [ "$status" -eq 0 ]
+}
+
 @test "add-backlog-item: fallback max-scan parses 4-digit ids" {
   jq 'del(.next_pbi_id) | .items[0].id = "pbi-1000"' .scrum/backlog.json > backlog.tmp \
     && mv backlog.tmp .scrum/backlog.json
