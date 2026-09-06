@@ -455,3 +455,56 @@ actively misleads") is squarely the new High — and the error direction
 was chosen deliberately: `medium→low` would silently drop those PBIs out
 of the block set (an invisible failure), while `medium→high` adds them
 (a visible one the PO can clear with a single `reject` or `cancelled`).
+
+## v5 → v6: non-blank `evidence` entries in the PO decisions log (2026-09-06)
+
+`po-decisions.schema.json` gains `"pattern": "\\S"` on
+`decisions[].evidence[]`: an evidence path must contain at least one
+non-whitespace character. `append-po-decision.sh` gained the matching
+argument check, so `--evidence ""` is now rejected at the source.
+
+This is a **tightening**, and it is the failure class the CI job
+"Schema / migration pairing" exists to catch. `append-po-decision.sh`
+writes through `atomic_write`, which re-validates the *whole* file
+before the mv, so one pre-existing blank entry does not merely fail the
+launch gate — it makes every future PO decision unappendable, and
+`pre-tool-use-scrum-state-guard.sh` blocks agents from repairing the
+JSON by hand. Blank entries are a real legacy shape: the wrapper
+accepted them until this same change.
+
+### Backward compatibility
+
+- The `sprint_acceptance` addition to the `kind` enum in the same
+  change is purely additive — existing records validate unchanged and
+  it needs no migration of its own.
+- `config.schema.json` also changed in this range, but description-only;
+  no data is affected.
+- No field is removed, and no evidence path that carries information is
+  altered.
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/007-po-decisions-evidence-nonempty.sh [--dry-run]
+```
+
+Drops empty / whitespace-only `evidence` entries from **every** decision,
+preserving order and every other field. Idempotent.
+
+Approval kinds (`demo_acceptance`, `sprint_acceptance`, `uat_item`,
+`release_decision`) are cleaned too, even when that leaves the array
+empty. The schema carries no `minItems`, so `[]` is valid and the launch
+gate passes; the non-empty rule lives in wrapper guard (b) and applies to
+new records, and re-adjudicating an approval already recorded without a
+usable path is not a migration's job. Each such record is named in a
+stderr WARNING (`dec-NNNN (kind=…)`) so a human can attach the evidence
+through `append-po-decision.sh`.
+
+One shape is **held**: an `evidence` entry that is not a string. That is
+pre-existing malformation the schema rejected before this tightening
+too, and deleting data a machine cannot interpret is the failure 005/006
+are written to avoid. The migration names the records and leaves the file
+byte-identical — whole-file rather than per-record, because
+`atomic_write` re-validates the result, so a partial clean could not be
+written without bypassing the schema-validated-write contract. It exits
+0; hand-edit the named records and relaunch to clean the rest.
