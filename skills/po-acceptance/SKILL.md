@@ -145,7 +145,11 @@ a time):
 
 1. **Map** the AC (demo) or story verification scenario (uat) to a
    runnable verification command — first choice: the command/steps
-   named in the PBI's `demo_plan`, when present. Otherwise:
+   named in the PBI's `demo_plan`, when present. When that plan carries
+   labelled `negative:` / `positive:` steps (guard-type deliverable),
+   run **both** and paste the failing output into the transcript — a
+   guard shown only passing is `fail`, not `pass` (rule:
+   `../backlog-refinement/SKILL.md` Step 3.c2). Otherwise:
    - HTTP API → `curl` (capture status code with
      `-s -o /dev/null -w '%{http_code}'`, capture response body
      only for failing or content-asserting cases).

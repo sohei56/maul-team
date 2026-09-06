@@ -22,7 +22,9 @@
 # One content gate IS enforced: a transition into `refined` requires a
 # non-empty `demo_plan` on the item when its kind is `code` (kind=docs
 # is exempt — the doc itself is the demo). See backlog.schema.json and
-# skills/backlog-refinement/SKILL.md Step 3.c2.
+# skills/backlog-refinement/SKILL.md Step 3.c2. The same transition also
+# prints a non-blocking WARNING when a guard-shaped demo_plan has no
+# `negative:` step (heuristic; see GUARD_DEMO_KEYWORDS below).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/errors.sh
@@ -53,6 +55,13 @@ pbi_in_backlog "$PBI" "$PATHF" || fail E_INVALID_ARG "pbi not found: $PBI"
 
 # Demo-plan gate: a PBI only becomes `refined` once refinement has decided how
 # it will be demonstrated locally at Sprint Review (kind=docs exempt).
+#
+# Whether a PBI's deliverable IS a guard is a judgment call, so the
+# negative-case rule (skills/backlog-refinement/SKILL.md Step 3.c2) cannot be
+# machine-enforced. The keyword heuristic below is the single place that
+# approximates it: guard-ish demo_plan text with no `negative` marker earns a
+# WARNING, never a refusal — false positives are expected and harmless.
+GUARD_DEMO_KEYWORDS='test|lint|hook|gate|guard|alarm|validator|assert|check'
 if [ "$STATUS" = "refined" ]; then
   jq -e --arg id "$PBI" '
     .items[] | select(.id == $id)
@@ -60,6 +69,16 @@ if [ "$STATUS" = "refined" ]; then
   ' "$PATHF" >/dev/null \
     || fail E_INVALID_ARG \
       "refined requires non-empty demo_plan for kind=code (set via set-backlog-item-field.sh $PBI demo_plan '<how to demo locally>')"
+
+  DEMO_PLAN="$(jq -r --arg id "$PBI" '.items[] | select(.id == $id) | .demo_plan // ""' "$PATHF")"
+  if printf '%s' "$DEMO_PLAN" | grep -Eiq "$GUARD_DEMO_KEYWORDS" \
+    && ! printf '%s' "$DEMO_PLAN" | grep -Eiq 'negative'; then
+    printf 'WARNING: %s demo_plan looks guard-shaped but has no "negative:" step.\n' "$PBI" >&2
+    printf '  A guard that cannot be made to fail on demand is not a guard: the plan\n' >&2
+    printf '  must inject the defect the guard catches and show it FAIL ("negative:"),\n' >&2
+    printf '  then remove it and show PASS ("positive:").\n' >&2
+    printf '  See skills/backlog-refinement/SKILL.md Step 3.c2. Not blocking.\n' >&2
+  fi
 fi
 
 # Stamp updated_at alongside the status change. atomic_write's auto-touch only

@@ -225,3 +225,39 @@ _schema_enum_edit() {
   [ "$status" -eq 65 ]
   [[ "$output" == *"cannot read status enum"* ]]
 }
+
+# --- guard negative-case heuristic: advisory WARNING, never a refusal -------
+# Mirrors GUARD_DEMO_KEYWORDS in update-backlog-status.sh (Issue #97).
+
+_set_demo_plan() {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli \
+    "$PROJECT_ROOT/scripts/scrum/set-backlog-item-field.sh" pbi-001 demo_plan "$1"
+}
+
+@test "update-backlog-status: warns on guard-shaped demo_plan without a negative step" {
+  _set_demo_plan "run scripts/check-frontmatter.sh and see the lint pass"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"WARNING"* ]]
+  [[ "$output" == *"pbi-001"* ]]
+  [[ "$output" == *'"negative:" step'* ]]
+  [[ "$output" == *"backlog-refinement/SKILL.md Step 3.c2"* ]]
+  # Advisory only — the transition still lands.
+  [ "$(backlog_status pbi-001)" = "refined" ]
+}
+
+@test "update-backlog-status: no warning when the guard demo_plan carries a negative step" {
+  _set_demo_plan "negative: delete the frontmatter, run the lint hook, expect exit 1; positive: restore it, expect exit 0"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"WARNING"* ]]
+  [ "$(backlog_status pbi-001)" = "refined" ]
+}
+
+@test "update-backlog-status: no warning for a demo_plan with no guard keyword" {
+  _set_demo_plan "npm run dev, open http://localhost:3000, confirm the dashboard renders"
+  run env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli "$PROJECT_ROOT/scripts/scrum/update-backlog-status.sh" pbi-001 refined
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"WARNING"* ]]
+  [ "$(backlog_status pbi-001)" = "refined" ]
+}
