@@ -143,6 +143,12 @@ unchanged, and Steps not overridden in this table run verbatim.
     a. Create a new draft PBI capturing the remaining work via `add-backlog-item.sh` — embed origin in description (`Carry-over from <pbi-id>: <what is left>`).
     b. Original PBI keeps its current status (immutable historical record of this Sprint).
     c. Track each new pbi-id for the Leftover Summary.
+    d. **A PBI still `blocked` at Sprint end must be named explicitly in
+       the review summary together with its external blocker**, and this
+       ceremony decides its fate: carry over to the next Sprint, or return
+       it to the backlog for re-prioritization. The Stop gate accepts
+       `blocked` as a settled Sprint outcome (Issue #94) precisely because
+       that decision belongs here, not to the hook.
 
     ```bash
     .scrum/scripts/add-backlog-item.sh \

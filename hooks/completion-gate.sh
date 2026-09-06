@@ -351,7 +351,7 @@ autonomous_next_action() {
       printf '%s' "Phase 'pbi_pipeline_active': all in-flight PBIs are settled. Advance phase to review."
       ;;
     review)
-      printf '%s' "Phase 'review': all PBIs are done. Advance phase to sprint_review and run the sprint-review skill."
+      printf '%s' "Phase 'review': all PBIs are settled (done, cancelled, or blocked). Advance phase to sprint_review and run the sprint-review skill — name any still-blocked PBI and its blocker there."
       ;;
     sprint_review)
       printf '%s' "Phase 'sprint_review': summary recorded. Advance phase to retrospective and run the retrospective skill."
@@ -406,7 +406,12 @@ current_sprint_id="$(jq -r '.current_sprint_id // "none"' "$STATE_FILE")"
 
 case "$phase" in
   review)
-    # All Sprint PBIs must have status "done" (or "cancelled" — no remaining work)
+    # Accepted set: "done", "cancelled" (no remaining work) and "blocked".
+    # This gate exists to catch PBIs still mid-pipeline, and a `blocked` PBI
+    # is not one: it is parked on an external blocker, which is the
+    # escalation-handler's third legitimate outcome. `blocked` is
+    # non-terminal and resumable by design, so the Sprint Review ceremony —
+    # not this hook — decides carry-over vs. return-to-backlog (Issue #94).
     if [ ! -f "$SPRINT_FILE" ] || [ ! -f "$BACKLOG_FILE" ]; then
       # Allow stop when state files are missing — blocking would trap users
       stderr_log "completion-gate" "WARNING" "sprint.json or backlog.json missing; cannot verify PBI status."
@@ -419,7 +424,7 @@ case "$phase" in
       [ -z "$pbi_id" ] && continue
       status="$(get_pbi_status "$pbi_id")"
       case "$status" in
-        done|cancelled) ;;
+        done|cancelled|blocked) ;;
         in_progress_*)
           # A pipeline is running inside `review` — the Sprint-end audit
           # follow-up closes documentation drift before the ceremony ends.
@@ -443,7 +448,7 @@ EOF
     # when another PBI is still running.
     if [ -n "$incomplete_pbis" ]; then
       block_stop \
-        "Review phase: the following Sprint PBIs are not done: ${incomplete_pbis}. All PBIs must be 'done' (or 'cancelled') before stopping." \
+        "Review phase: the following Sprint PBIs are not done and not otherwise settled: ${incomplete_pbis}. Every Sprint PBI must be 'done', 'cancelled', or 'blocked' before stopping ('blocked' is accepted because it is parked on an external blocker — non-terminal and resumable — and the Sprint Review names it and decides carry-over vs. return-to-backlog)." \
         "review_incomplete" \
         "$incomplete_pbis"
     fi

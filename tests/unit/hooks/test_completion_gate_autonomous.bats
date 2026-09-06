@@ -567,6 +567,28 @@ stdin_session() {
   [ "$output" = "1" ]
 }
 
+# Issue #94: `blocked` is a legitimate escalation outcome (parked on an
+# external blocker), non-terminal and resumable by design. It must NOT be
+# read as "still mid-pipeline": the review gate has to fall through to the
+# allow path, so the only block left is the autonomous next-action nudge
+# toward sprint_review — never the `review_incomplete` exit-criteria miss.
+@test "agent mode lead session: review with a blocked PBI is settled, not a review_incomplete miss" {
+  write_config_agent 8
+  write_autonomy sess-lead review 0
+  write_state_phase review sprint-001
+  cp "$FIXTURES/valid-sprint.json" .scrum/sprint.json
+  # One Sprint PBI parked on an external blocker, one done.
+  jq '.items[0].status = "blocked"
+      | .items += [(.items[0] | .id = "pbi-002" | .status = "done")]' \
+    "$FIXTURES/valid-backlog.json" > .scrum/backlog.json
+  run bash -c "printf '%s' '$(stdin_session sess-lead)' | $HOOK 2>&1"
+  # Still exit 2 — but from the autonomous "advance the phase" interception,
+  # not from the review exit-criteria gate.
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Advance phase to sprint_review"* ]]
+  [[ "$output" != *"not done"* ]]
+}
+
 @test "agent mode lead session: review with a stuck PBI TRIPS the breaker once budget exceeded (the missing terminal)" {
   write_config_agent 2
   # count=2, same phase: next bump → 3 > budget 2 → trip.

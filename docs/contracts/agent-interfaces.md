@@ -534,6 +534,14 @@ and elided here.
 - **Output**: exit code 2 + `reason` if exit criteria not met
 - **Logging**: Logs all blocked stop attempts to `.scrum/hooks.log`
 - **Purpose**: Prevent premature phase completion
+- **Review-phase accepted set**: in `review`, every Sprint PBI must be
+  `done`, `cancelled`, or `blocked`. `blocked` is accepted because the
+  gate exists to catch PBIs still mid-pipeline, and a PBI parked on an
+  external blocker is not one — the status is non-terminal and
+  resumable by design (Issue #94); the Sprint Review names the parked
+  PBI and decides carry-over vs. return-to-backlog. Any other status
+  is a bounded `review_incomplete` block; `in_progress_*` is the
+  unbounded `pipeline_in_flight` inner loop.
 - **Mode-dependent policy**:
   - *Autonomy loop active* (`autonomy_loop_active` = autonomous mode
     **and** a live watchdog, verified via `kill -0 watchdog_pid`):

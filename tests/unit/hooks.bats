@@ -861,6 +861,24 @@ EOF
 # the healthy inner loop, so its block must be UNBOUNDED — a bounded block
 # would consume the per-phase breaker budget and fail an autonomous run for
 # doing what the ceremony asked. A genuinely stalled PBI stays bounded.
+# Issue #94: `blocked` is the escalation-handler's third legitimate outcome
+# (parked on an external blocker) and is non-terminal by design. The review
+# gate exists to catch mid-pipeline PBIs, which a parked one is not — so it
+# must not block Stop. Naming the blocker and deciding carry-over vs.
+# return-to-backlog belongs to the Sprint Review ceremony.
+@test "completion-gate.sh allows stop when a review PBI is blocked and the rest are done" {
+  mkdir -p .scrum
+  jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
+  cp "$FIXTURES_DIR/valid-sprint.json" .scrum/sprint.json
+  # Two Sprint PBIs: one parked on an external blocker, the other done.
+  jq '.items[0].status = "blocked"
+      | .items += [(.items[0] | .id = "pbi-002" | .status = "done")]' \
+    "$FIXTURES_DIR/valid-backlog.json" > .scrum/backlog.json
+
+  run bash "$PROJECT_ROOT/hooks/completion-gate.sh"
+  assert_success
+}
+
 @test "completion-gate.sh blocks in-flight review pipeline as pipeline_in_flight (unbounded)" {
   mkdir -p .scrum
   jq '.phase = "review"' "$FIXTURES_DIR/valid-state.json" > .scrum/state.json
