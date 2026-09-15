@@ -109,7 +109,8 @@ Flags accepted by `scrum-start.sh`:
 | `--brief <file>` | Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. Required on a new non-TTY run; TTY behaviour → [§ Brief co-authoring pre-flight](#brief-co-authoring-pre-flight-create-brief). |
 | `--max-sprints N` | Overrides `.scrum/config.json.autonomous.max_sprints`. |
 | `--max-hours H` | Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`. |
-| `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
+| `--sm-model <name>` | Sets the model used by the `scrum-master` agent, in both human-PO and autonomous-PO modes. CLI aliases (`opus`, `fable`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/scrum-master.md` frontmatter `model:` before launch; the deployed file IS the SSOT and a prior choice persists across re-runs. Default `opus`. |
+| `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `fable`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
 | `--bypass-permissions` | Sets `autonomous.permission_mode = bypassPermissions` (default `dontAsk`). See [Permission model](#permission-model) — this is a destructive switch. |
 | `--no-attach` | Skips `tmux attach-session` after launching. The session runs in the background; attach later with `tmux attach-session -t scrum-team-<basename>-<hash>`. |
 
@@ -214,7 +215,8 @@ Code agent parser reads at teammate spawn). The `--po-model` flag on
 `scrum-start.sh --autonomous` (or the interactive wizard, see below)
 patches that line in place. The deployed file value is captured before
 each `setup-user.sh` overwrite so a prior `--po-model` choice persists
-across re-runs without a shadow key in config.
+across re-runs without a shadow key in config. The Scrum Master model
+works the same way via `--sm-model` and `.claude/agents/scrum-master.md`.
 
 ## Observing a run
 

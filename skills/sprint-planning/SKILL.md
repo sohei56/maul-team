@@ -185,9 +185,9 @@ decision is `choice:start_sprint`. No additional PO request is needed.
     **Opus override for the path overlap analysis (mandatory).** The
     same failure mode has recurred across 4 Sprints in 2 target
     projects even after the three rules above were pinned into this
-    SKILL. The SM
-    main loop runs on Sonnet (see `../../agents/scrum-master.md`); pinned
-    text alone has not been sufficient. Delegate the overlap analysis
+    SKILL. Pinned text alone has not been sufficient; the analysis
+    needs a fresh context that carries nothing but this one question.
+    Delegate the overlap analysis
     to an Opus-backed sub-agent via the `Agent` tool — do NOT compute
     the matrix in the SM main loop:
 
