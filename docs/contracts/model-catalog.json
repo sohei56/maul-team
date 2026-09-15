@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "description": "Per-seat LLM provider/model catalog. Source of seat membership, per-seat defaults (must equal the source agents/*.md frontmatter — pinned by tests/lint/model-catalog.bats) and advisory model menus. Consumed by scrum-start.sh, scripts/scrum/agent-models.sh, migrations/009-seed-agent-models.sh and the Mac app. Deployed to <target>/docs/contracts/ by setup-user.sh. Model ids churn: edit this file, not code. `providers` per seat = accepted now; `phase_b_providers` = the superset a later pane-harness release will accept (UI renders them greyed).",
+  "providers": {
+    "claude": {
+      "label": "Claude Code",
+      "cli": "claude",
+      "materialize_frontmatter": true,
+      "efforts": ["low", "medium", "high", "xhigh"],
+      "models": [
+        {"id": "opus", "label": "Opus (alias)"},
+        {"id": "fable", "label": "Fable (alias)"},
+        {"id": "sonnet", "label": "Sonnet (alias)"},
+        {"id": "haiku", "label": "Haiku (alias)"},
+        {"id": "claude-fable-5-1", "label": "Claude Fable 5.1"},
+        {"id": "claude-opus-5", "label": "Claude Opus 5"},
+        {"id": "claude-sonnet-5", "label": "Claude Sonnet 5"}
+      ]
+    },
+    "codex": {
+      "label": "OpenAI Codex CLI",
+      "cli": "codex",
+      "materialize_frontmatter": false,
+      "models": [
+        {"id": "gpt-6-astra", "label": "GPT-6 Astra"},
+        {"id": "gpt-5.6-sol", "label": "GPT-5.6 Sol"},
+        {"id": "gpt-5.6-terra", "label": "GPT-5.6 Terra"},
+        {"id": "gpt-5.6-luna", "label": "GPT-5.6 Luna"},
+        {"id": "gpt-5.3-codex-spark", "label": "GPT-5.3 Codex Spark"}
+      ]
+    }
+  },
+  "seats": {
+    "scrum-master": {
+      "order": 1, "group": "team", "label": "Scrum Master", "short_label": "SM",
+      "agents": ["scrum-master"],
+      "providers": ["claude"], "phase_b_providers": ["claude", "codex"],
+      "default": {"provider": "claude", "model": "opus", "effort": "high"}
+    },
+    "product-owner": {
+      "order": 2, "group": "team", "label": "Product Owner (agent)", "short_label": "PO",
+      "agents": ["product-owner"],
+      "providers": ["claude"], "phase_b_providers": ["claude", "codex"],
+      "default": {"provider": "claude", "model": "opus", "effort": "xhigh"}
+    },
+    "requirements-analyst": {
+      "order": 3, "group": "team", "label": "Requirements Analyst", "short_label": "RA",
+      "agents": ["requirements-analyst"],
+      "providers": ["claude"], "phase_b_providers": ["claude", "codex"],
+      "default": {"provider": "claude", "model": "opus", "effort": "high"}
+    },
+    "developer": {
+      "order": 4, "group": "team", "label": "Developer (conductor)", "short_label": "Dev",
+      "agents": ["developer"],
+      "providers": ["claude"], "phase_b_providers": ["claude"],
+      "default": {"provider": "claude", "model": "sonnet", "effort": "high"}
+    },
+    "codex-reviewers": {
+      "order": 5, "group": "team", "label": "Codex cross-model reviewers", "short_label": "Rev",
+      "agents": ["codex-design-reviewer", "codex-impl-reviewer", "codex-ut-reviewer"],
+      "providers": ["codex"], "phase_b_providers": ["codex"],
+      "default": {"provider": "codex", "model": null}
+    },
+    "pbi-designer": {
+      "order": 6, "group": "pipeline", "label": "PBI designer", "short_label": "Design",
+      "agents": ["pbi-designer"],
+      "providers": ["claude"], "phase_b_providers": ["claude"],
+      "default": {"provider": "claude", "model": "opus", "effort": "high"}
+    },
+    "pbi-implementer": {
+      "order": 7, "group": "pipeline", "label": "PBI implementer", "short_label": "Impl",
+      "agents": ["pbi-implementer"],
+      "providers": ["claude"], "phase_b_providers": ["claude"],
+      "default": {"provider": "claude", "model": "opus", "effort": "high"}
+    },
+    "pbi-ut-author": {
+      "order": 8, "group": "pipeline", "label": "PBI UT author", "short_label": "UT",
+      "agents": ["pbi-ut-author"],
+      "providers": ["claude"], "phase_b_providers": ["claude"],
+      "default": {"provider": "claude", "model": "opus", "effort": "high"}
+    },
+    "integrity-reviewers": {
+      "order": 9, "group": "pipeline", "label": "Integrity reviewers (5 aspects)", "short_label": "Integ",
+      "agents": ["requirement-conformance-reviewer", "functional-quality-reviewer", "security-reviewer", "maintainability-reviewer", "docs-consistency-reviewer"],
+      "providers": ["claude"], "phase_b_providers": ["claude"],
+      "default": {"provider": "claude", "model": "opus", "effort": "xhigh"}
+    }
+  },
+  "excluded_agents": ["scrum-explorer", "ceremony-operator"]
+}

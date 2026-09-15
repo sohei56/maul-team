@@ -61,6 +61,10 @@ backs off on rate-limit signals, and writes a morning report to
 `.scrum/reports/autonomous-run-<run_id>.md`. Full operator guide:
 [docs/autonomous-mode.md](autonomous-mode.md).
 
+Every `scrum-start.sh` flag — including per-seat LLM selection with
+`--agent-model` — is tabled in [docs/autonomous-mode.md § Starting an
+autonomous run](autonomous-mode.md#starting-an-autonomous-run).
+
 ### Configure PBI Pipeline coverage tooling
 
 The Developer agent runs the `pbi-pipeline` skill per assigned PBI,

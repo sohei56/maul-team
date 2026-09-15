@@ -324,10 +324,11 @@ extract_frontmatter() {
 }
 
 @test "product-owner.md has model field set to opus" {
-  # The source default. scrum-start.sh --autonomous patches the deployed
-  # copy's `model:` line in place (--po-model flag or the wizard); the
-  # deployed .claude/agents/product-owner.md is the SSOT — there is no
-  # shadow key in .scrum/config.json.
+  # The source default (must equal docs/contracts/model-catalog.json
+  # seats.product-owner.default — pinned by tests/lint/model-catalog.bats).
+  # The launch-time choice lives in .scrum/config.json.agents (the SSOT,
+  # written by agent-models.sh from --po-model / --agent-model); the
+  # deployed copy's `model:` line is a view materialized from it.
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/product-owner.md' | yq -r '.model'"
   assert_success
   assert_output "opus"

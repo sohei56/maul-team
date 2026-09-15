@@ -31,6 +31,8 @@ Agents must no longer edit `.scrum/*.json` directly. All writes flow through val
 | Ask how long each in-flight PBI has been quiet before probing its Developer (was: **no wrapper** — every SM session improvised its own `stat` / `date` arithmetic, and a live run's empty-variable fallback evaluated `NOW - NOW = 0`, reported stalled PBIs as `0m quiet`, and suppressed the probe indefinitely) | `.scrum/scripts/pbi-idle.sh [--threshold-minutes N]` (read-only — reads `backlog.json` plus the per-PBI activity signals and writes nothing; emits one tab-separated row per in-flight PBI: `id status last_activity_epoch idle_seconds idle_minutes verdict`, `verdict ∈ {fresh, stale, uninitialized}`, where `uninitialized` means no `.scrum/pbi/<id>/` exists yet and prints `-` for both idle fields. Exits `0` whether or not anything is stale — staleness is data, not an error; `67` on a missing backlog, `65` on an unparseable one) |
 | Advance from a completed Sprint to the next (was: **no wrapper** — `init-sprint.sh` refused while `sprint.json` existed and `freeze-sprint-base.sh` refused while `base_sha` was frozen, leaving the team unable to start any Sprint after Sprint 1) | `.scrum/scripts/rollover-sprint.sh` (archives the `status: complete` `sprint.json` to `sprint-history.json`, then removes `sprint.json` so `init-sprint.sh` + `freeze-sprint-base.sh` can start the next Sprint on a fresh base; refuses a non-complete Sprint; idempotent no-op when no `sprint.json`) |
 
+| Pick the LLM provider + model for one team seat (was: `--sm-model` / `--po-model` patched the deployed `.claude/agents/<name>.md` `model:` line in place and that file was deliberately the only record — no key in config; every other seat was fixed by its source frontmatter and Codex reviewers always ran the CLI default) | `.scrum/scripts/agent-models.sh set <seat> [<provider>:]<model>[@<effort>]` or `set-table '<json>'` (sole writer of `.scrum/config.json.agents`, validated against `config.schema.json` + `docs/contracts/model-catalog.json`); `resolve` prints the effective table (config over catalog defaults); `materialize` patches the deployed `.claude/agents/*.md` `model:` / `effort:` for Claude seats. Driven by `scrum-start.sh --agent-model` / `--sm-model` / `--po-model` on every launch; `codex-invoke.sh` reads `codex-reviewers.model` for `codex exec -m` |
+
 | Record a codebase-audit defect CLASS and its occurrences (was: **no store at all** — the class key lived on one PBI at a time and the occurrence list only ever existed as `--description` prose, so a class with no open PBI had no identity to reuse and a sweep's completeness was unmeasurable) | `.scrum/scripts/update-audit-ledger.sh <upsert-class\|add-occurrences\|set-status\|add-exclusion\|link-pbi\|confirm-seen\|register-detector\|list>` (writes `.scrum/audit-ledger.json`; `list` is read-only and takes no lock. `set-status` carries the machine preconditions — `guarded` needs a verified detector **and** a deployed `merge-pbi.sh` that invokes `run-detectors.sh`; `accepted` / `add-exclusion` need a `--dec-id` that exists with `kind ∈ {defect_triage, spec_clarification}`; `closed` needs a linked `done` PBI plus a clean detector run or `--evidence`) |
 
 `update-pbi-state.sh` accepts variadic field/value pairs (the `phase`
@@ -599,3 +601,61 @@ Idempotent: a re-run merges newly-filed PBIs into existing classes and
 touches nothing else — `status`, `occurrences`, `detector`, `severity`,
 and both sprint stamps on an existing class are left exactly as the
 wrapper left them.
+
+## v7 → v8: the per-seat agent model table (2026-09-15)
+
+A new `config.json` block, `agents` (`config.schema.json`
+`properties.agents`), with a new sole writer, `agent-models.sh`. It
+holds one `{provider, model[, effort]}` entry per team seat; seat
+membership and per-seat defaults come from
+`docs/contracts/model-catalog.json`. Field reference and the SSOT
+statement: `docs/data-model.md` § Entity: Config.
+
+This **reverses an earlier, deliberate decision**. Until now the
+`--sm-model` / `--po-model` choice lived *only* in the deployed
+`.claude/agents/<name>.md` `model:` line — `scrum-start.sh` re-read it
+from there before each `setup-user.sh` overwrite, and there was
+explicitly no shadow key in config, so that the file the Claude Code
+agent parser actually reads could never disagree with a second copy.
+Two facts broke that design: a *provider* is not expressible in
+frontmatter at all (the Codex reviewers' `codex exec -m` model had no
+home), and the Mac app needs a machine-readable surface to prefill and
+write the whole team's choices. So the direction of truth flips:
+`.agents` is the SSOT, and for Claude seats the deployed frontmatter
+`model:` / `effort:` lines are a **materialized view** re-written by
+`agent-models.sh materialize` on every launch (after `setup-user.sh`
+has copied the source files, whose own `model:` lines are the catalog
+defaults — pinned equal by `tests/lint/model-catalog.bats`). The
+no-disagreement property is kept by construction rather than by
+having a single copy: the view is regenerated from the table each
+time, and only the table is ever edited.
+
+### Backward compatibility
+
+Additive: an absent `agents` block or an absent seat resolves to the
+catalog default, so a project that never sets a seat behaves exactly
+as before. `developer` is Claude-only by design (the pbi-pipeline
+conductor needs the Claude `Agent` tool) and `codex-reviewers` is
+Codex-only; the schema and the wrapper both refuse the other provider
+rather than silently falling back. `--po-model` is now accepted in
+both modes (it only sets the table; the PO teammate is still spawned
+only under `po_mode = "agent"`).
+
+### One-shot migration
+
+```bash
+.scrum/scripts/migrations/009-seed-agent-models.sh [--dry-run]
+```
+
+Imports the pre-table choice, once, so the launcher's catalog-default
+seeding does not silently drop it. For each Claude seat it reads
+`model:` / `effort:` from the deployed `.claude/agents/<first agent>.md`
+when that file exists; a token outside the schema alphabet or an
+effort outside the provider's list is reported and the catalog default
+kept, so a malformed deployed file cannot brick the launch. Codex seats
+are always seeded `{provider: "codex", model: null}` — nothing in a
+deployed agent file describes a Codex model, and none is invented.
+
+Idempotent: an existing `.agents` block is a byte-identical no-op (the
+launcher owns the table from then on); no `.claude/agents/` → skip; an
+undeployed catalog → WARN, exit 0.

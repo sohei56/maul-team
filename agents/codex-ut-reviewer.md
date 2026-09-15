@@ -124,6 +124,9 @@ conductor preflights Codex via `codex_is_available` from
 `.scrum/scripts/lib/codex-invoke.sh`; on absent Codex the spawn is `Agent(
 subagent_type="codex-ut-reviewer", model="opus", ...)`.
 Timeout contract: see `codex-design-reviewer` § Model selection.
+The Codex-side model (`codex exec -m`) likewise comes from
+`.scrum/config.json.agents.codex-reviewers.model` via the helper — see
+the header of `.scrum/scripts/lib/codex-invoke.sh`.
 
 ## Strict Rules
 

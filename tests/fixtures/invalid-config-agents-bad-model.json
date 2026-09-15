@@ -1,0 +1,5 @@
+{
+  "agents": {
+    "scrum-master": {"provider": "claude", "model": "opus 4", "effort": "high"}
+  }
+}

@@ -39,6 +39,17 @@
     "max_clarification_rounds": 2,
     "max_integration_cycles": 3
   },
+  "agents": {
+    "scrum-master": {"provider": "claude", "model": "opus", "effort": "high"},
+    "product-owner": {"provider": "claude", "model": "opus", "effort": "xhigh"},
+    "requirements-analyst": {"provider": "claude", "model": "opus", "effort": "high"},
+    "developer": {"provider": "claude", "model": "sonnet", "effort": "high"},
+    "codex-reviewers": {"provider": "codex", "model": null},
+    "pbi-designer": {"provider": "claude", "model": "opus", "effort": "high"},
+    "pbi-implementer": {"provider": "claude", "model": "opus", "effort": "high"},
+    "pbi-ut-author": {"provider": "claude", "model": "opus", "effort": "high"},
+    "integrity-reviewers": {"provider": "claude", "model": "opus", "effort": "xhigh"}
+  },
   "autonomous": {
     "max_iterations": 50,
     "max_wall_clock_hours": 8,

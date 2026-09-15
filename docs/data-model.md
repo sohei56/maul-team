@@ -786,10 +786,14 @@ sequence is the writer's responsibility.
 
 **File**: `.scrum/config.json` (optional; defaults apply if absent)
 **Owner**: Project (authored by the user, or by `scrum-start.sh
-  --autonomous` for the autonomy keys)
+  --autonomous` for the autonomy keys); `agent-models.sh` for the
+  `agents` block (its sole writer)
 **Readers**: `pbi-pipeline` skill (test runner, coverage tool, path
   guard globs), `quality-gate.sh`, `pre-tool-use-path-guard.sh` (PO
-  sandbox check), `hooks/lib/autonomy.sh`, `scripts/autonomous/watchdog.sh`
+  sandbox check), `hooks/lib/autonomy.sh`, `scripts/autonomous/watchdog.sh`;
+  for `agents`: `agent-models.sh materialize` (frontmatter view),
+  `scripts/lib/codex-invoke.sh` (`codex exec -m`), the Mac app
+  (launch-sheet prefill)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -803,6 +807,10 @@ sequence is the writer's responsibility.
 | `po` | object \| absent | Settings for the autonomous PO (only consulted when `po_mode == "agent"`). |
 | `po.max_clarification_rounds` | integer ≥ 0 | Max `PO_CLARIFY` round-trips per `PO_DECISION_REQUEST` before the PO must commit a decision with `assumption=true` (default 2 when key absent). |
 | `po.max_integration_cycles` | integer ≥ 0 | Advisory cap on Integration-Sprint defect-fix loops before the PO must answer `release_decision=no_go`. |
+| `agents` | object \| absent | Per-seat LLM provider + model — **the SSOT for model selection**. Written only by `agent-models.sh` (`set <seat> [<provider>:]<model>[@<effort>]` / `set-table '<json>'`, driven by `scrum-start.sh --agent-model` / `--sm-model` / `--po-model` on every launch; `migrations/009-seed-agent-models.sh` imports a pre-table `--sm-model` / `--po-model` choice once from the deployed frontmatter). Seat membership, per-seat defaults, and known model ids come from `docs/contracts/model-catalog.json` (deployed to `<target>/docs/contracts/`); an absent block or absent seat means the catalog default (`agent-models.sh resolve` prints the effective table). For Claude seats `agent-models.sh materialize` patches the deployed `.claude/agents/*.md` `model:` / `effort:` lines — that frontmatter is a materialized view, never a source. `scrum-explorer` and `ceremony-operator` have no seat (catalog `excluded_agents`). |
+| `agents.<seat>.provider` | enum (`"claude"` \| `"codex"`) | Which CLI serves the seat. Allowed providers are per seat in the catalog: `codex-reviewers` is Codex-only; `developer` (and today every other seat) is Claude-only — the pbi-pipeline conductor needs the Claude `Agent` tool. |
+| `agents.<seat>.model` | string \| `null` | Model id — a Claude alias (`opus`, `sonnet`, …) or full id for `claude`; a Codex model id for `codex`, where `null` = the Codex CLI default (no `-m`). `codex-invoke.sh` passes `agents.codex-reviewers.model` as `codex exec -m` (`CODEX_MODEL` env overrides). |
+| `agents.<seat>.effort` | enum (`"low"` \| `"medium"` \| `"high"` \| `"xhigh"`) \| absent | Claude seats only; materialized as frontmatter `effort:`. Rejected (not ignored) on a `codex` seat — it is not a Codex CLI flag. |
 | `autonomous` | object \| absent | Watchdog (Ralph-Loop) settings; populated by `scrum-start.sh --autonomous`. |
 | `autonomous.max_iterations` | integer ≥ 1 | Hard cap on outer-loop iterations (default 50). |
 | `autonomous.max_wall_clock_hours` | number ≥ 0 | Hard cap on wall-clock from `started_at` (default 8). |

@@ -53,10 +53,13 @@ docs PBI.
 
 ## Reviewer model & backing
 
-The five aspect reviewers are Claude-backed (`model: opus` in their
-frontmatter) — **not** codex-backed. The codex preflight
+The five aspect reviewers are Claude-backed — `opus` by default,
+overridable as one seat via `config.json.agents.integrity-reviewers`
+(`docs/data-model.md` § Entity: Config), which is materialized into
+their frontmatter at launch — **not** codex-backed. The codex preflight
 (`sub-agent-prompts.md` § Conductor codex preflight) does **not** apply
-here; spawn them with no `model` override. The
+here; spawn them with no `model` override (the frontmatter already
+carries the configured model). The
 `reviewer-stall-fallback.md` codex-stall protocol also does not apply
 because the codex second opinion two of these reviewers run (below) is
 bounded inside the reviewer's own turn — with its own availability

@@ -109,8 +109,9 @@ Flags accepted by `scrum-start.sh`:
 | `--brief <file>` | Copied to `docs/product/brief.md` if that file does not already exist. The PO teammate uses it as the YAGNI anchor. Required on a new non-TTY run; TTY behaviour → [§ Brief co-authoring pre-flight](#brief-co-authoring-pre-flight-create-brief). |
 | `--max-sprints N` | Overrides `.scrum/config.json.autonomous.max_sprints`. |
 | `--max-hours H` | Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`. |
-| `--sm-model <name>` | Sets the model used by the `scrum-master` agent, in both human-PO and autonomous-PO modes. CLI aliases (`opus`, `fable`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/scrum-master.md` frontmatter `model:` before launch; the deployed file IS the SSOT and a prior choice persists across re-runs. Default `opus`. |
-| `--po-model <name>` | Sets the model used by the `product-owner` teammate. CLI aliases (`opus`, `fable`, `sonnet`, `haiku`) or a specific model ID. Applied by patching `.claude/agents/product-owner.md` frontmatter `model:` before launch. The deployed file IS the SSOT — there is no shadow key in `.scrum/config.json`. The deployed value is captured before each `setup-user.sh` overwrite, so a prior `--po-model` choice persists across re-runs. Default `opus`. Rejected outside autonomous mode (exit 2) because the product-owner teammate is not spawned in human mode. |
+| `--agent-model <seat>=[<provider>:]<model>[@<effort>]` (repeatable) | Sets one seat's LLM provider + model in `.scrum/config.json.agents` — the SSOT for model selection ([data-model.md § Entity: Config](data-model.md#entity-config), `agents` rows) — via `agent-models.sh`, which also materializes the deployed `.claude/agents/*.md` frontmatter for Claude seats. Provider defaults to `claude`; `codex:default` = the Codex CLI default. Examples: `--agent-model codex-reviewers=codex:gpt-5.6-luna`, `--agent-model developer=claude:opus@high`, `--agent-model integrity-reviewers=sonnet`. Seat names, per-seat defaults, and known model ids: `docs/contracts/model-catalog.json`. Accepted in both modes; a prior choice persists in config across re-runs (an unset seat keeps the catalog default). Unknown seat, disallowed provider, or bad effort → exit 2. |
+| `--sm-model <name>` | Shorthand for `--agent-model scrum-master=claude:<name>`; both modes. CLI aliases (`opus`, `fable`, `sonnet`, `haiku`) or a specific model ID. |
+| `--po-model <name>` | Shorthand for `--agent-model product-owner=claude:<name>`. Accepted and persisted in **both** modes; the `product-owner` teammate itself is only spawned in autonomous mode (`po_mode = "agent"`). |
 | `--bypass-permissions` | Sets `autonomous.permission_mode = bypassPermissions` (default `dontAsk`). See [Permission model](#permission-model) — this is a destructive switch. |
 | `--no-attach` | Skips `tmux attach-session` after launching. The session runs in the background; attach later with `tmux attach-session -t scrum-team-<basename>-<hash>`. |
 
@@ -141,8 +142,9 @@ is also usable standalone any time via `/create-brief`.
 
 ### Interactive wizard
 
-When stdin is a TTY (no pipe/redirect) and `--autonomous` is given,
-any setting **not** supplied via CLI flag is prompted at startup:
+When stdin is a TTY (no pipe/redirect), the Scrum Master model is
+prompted in both modes; with `--autonomous`, every other setting **not**
+supplied via CLI flag is prompted too:
 
 ```text
 Autonomous mode configuration (press Enter to accept defaults):
@@ -158,16 +160,19 @@ Each default in `[…]` is the **prior value** for that setting:
 - `--max-sprints`, `--max-hours`, `--bypass-permissions` defaults
   come from `.scrum/config.json.autonomous.*` (or the built-in
   default when the key is absent).
-- `--po-model` default comes from `.claude/agents/product-owner.md`
-  `model:` (captured before `setup-user.sh` overwrites it), or
-  `opus` if the deployed file does not exist yet.
+- The Scrum Master (all modes) and Product Owner (autonomous) model
+  prompts default to the seat's current value in
+  `.scrum/config.json.agents` ([data-model.md § Entity:
+  Config](data-model.md#entity-config)), or the catalog default when
+  unset. No other seat is prompted — set those with `--agent-model`
+  or from the Mac app.
 
 This means a re-run remembers your last choices and you can press
 Enter through every prompt for a no-touch resume. The wizard is
 automatically skipped when stdin is not a TTY (cron / pipe / bats
 integration tests) — the CLI flags + prior values in
-`.scrum/config.json` / the deployed agent file remain authoritative
-in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
+`.scrum/config.json` remain authoritative in that case. It is also
+skipped under `SCRUM_START_DRY_RUN=1`.
 
 ## Config reference
 
@@ -208,15 +213,11 @@ in that case. It is also skipped under `SCRUM_START_DRY_RUN=1`.
 | `autonomous.notify_command` | `null` | Shell command run at the end of the run with `WATCHDOG_EXIT=<exit-code>` in env. Useful for desktop notification / Slack ping. Failures are swallowed. |
 | `autonomous.fallback_model` | `null` | Passed to `claude -p --fallback-model` when set. The CLI falls back to this model when the primary model is unavailable. |
 
-The PO teammate's model is **not** stored in `.scrum/config.json`. Its
-single source of truth is the `model:` field in
-`.claude/agents/product-owner.md` (the deployed copy that the Claude
-Code agent parser reads at teammate spawn). The `--po-model` flag on
-`scrum-start.sh --autonomous` (or the interactive wizard, see below)
-patches that line in place. The deployed file value is captured before
-each `setup-user.sh` overwrite so a prior `--po-model` choice persists
-across re-runs without a shadow key in config. The Scrum Master model
-works the same way via `--sm-model` and `.claude/agents/scrum-master.md`.
+Per-seat LLM choices (SM, PO, and every other seat) are the `agents`
+block of the same file, written only by `agent-models.sh` from the
+flags above; the deployed `.claude/agents/*.md` frontmatter is a
+materialized view of it. Field reference and the SSOT statement:
+[data-model.md § Entity: Config](data-model.md#entity-config).
 
 ## Observing a run
 
