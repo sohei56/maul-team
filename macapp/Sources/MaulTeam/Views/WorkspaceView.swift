@@ -43,7 +43,9 @@ struct WorkspaceView: View {
             }
         }
         .onAppear {
-            _ = sessions.session(for: project, frameworkPath: state.resolvedFrameworkPath, mode: state.pendingLaunchMode)
+            _ = sessions.session(
+                for: project, frameworkPath: state.resolvedFrameworkPath,
+                options: state.pendingLaunchOptions, seatOrder: state.modelCatalog.seatOrder)
         }
         .task {
             // Poll .scrum/ state for the native dashboard + work log while shown.
@@ -105,7 +107,7 @@ struct WorkspaceView: View {
         )
         let right = AnyView(
             paneContainer(title: "Dashboard", systemImage: "chart.bar.doc.horizontal") {
-                DashboardView(model: dashboard)
+                DashboardView(model: dashboard, catalog: state.modelCatalog)
             }
             .environmentObject(state)
             .textSelection(.enabled)

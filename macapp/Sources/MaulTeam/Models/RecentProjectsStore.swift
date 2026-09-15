@@ -20,17 +20,26 @@ enum RecentProjectsStore {
     }
 
     static func load() -> [Project] {
-        guard let data = try? Data(contentsOf: fileURL),
-              let items = try? JSONDecoder.iso.decode([Project].self, from: data)
-        else { return [] }
+        guard let data = try? Data(contentsOf: fileURL), let items = decode(data) else { return [] }
         // Drop entries whose directory has since been deleted/moved.
         return items.filter { FileManager.default.fileExists(atPath: $0.path) }
             .sorted { $0.lastOpened > $1.lastOpened }
     }
 
     static func save(_ projects: [Project]) {
-        guard let data = try? JSONEncoder.iso.encode(Array(projects.prefix(maxRecents))) else { return }
+        guard let data = encode(projects) else { return }
         try? data.write(to: fileURL, options: .atomic)
+    }
+
+    /// The on-disk shape (`recents.json`): a list of projects, capped, with the
+    /// optional `teamModels` cache per entry. Split out so the round-trip can
+    /// be tested without touching Application Support.
+    static func encode(_ projects: [Project]) -> Data? {
+        try? JSONEncoder.iso.encode(Array(projects.prefix(maxRecents)))
+    }
+
+    static func decode(_ data: Data) -> [Project]? {
+        try? JSONDecoder.iso.decode([Project].self, from: data)
     }
 
     /// Insert or move-to-front while deduping by path.

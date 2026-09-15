@@ -23,6 +23,8 @@ struct ProjectPickerView: View {
     @State private var showInfo = false
     @State private var modeTarget: Project?
     @State private var selectedMode: LaunchMode = .normal
+    @State private var teamModels = TeamModelConfig()
+    @State private var coercedSeats: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -57,11 +59,16 @@ struct ProjectPickerView: View {
         .sheet(item: $modeTarget) { project in
             LaunchModeSheet(
                 project: project,
+                catalog: state.modelCatalog,
+                coercedSeats: coercedSeats,
                 selection: $selectedMode,
+                teamModels: $teamModels,
                 onStart: {
-                    let mode = selectedMode
+                    let options = LaunchOptions(
+                        mode: selectedMode, teamModels: teamModels,
+                        flagStyle: LaunchOptions.flagStyle(for: state.modelCatalog))
                     modeTarget = nil
-                    state.open(project, mode: mode)
+                    state.open(project, options: options)
                 },
                 onCancel: { modeTarget = nil }
             )
@@ -186,13 +193,17 @@ struct ProjectPickerView: View {
 
     // MARK: - Actions
 
-    /// Decide whether to prompt for a launch mode. A running background session
-    /// is re-attached as-is (its original mode stands); a fresh launch opens the
-    /// mode picker.
+    /// Decide whether to prompt for launch options. A running background
+    /// session is re-attached as-is (its original options stand); a fresh
+    /// launch opens the mode + team-models sheet, prefilled from the project's
+    /// `.scrum/config.json`, then its recents cache, then catalog defaults.
     private func launch(_ project: Project) {
         if sessions.isRunning(project.id) {
             state.open(project)
         } else {
+            let prefill = TeamModelPrefill.resolve(project: project, catalog: state.modelCatalog)
+            teamModels = prefill.config
+            coercedSeats = prefill.coerced
             selectedMode = .normal
             modeTarget = project
         }
@@ -259,113 +270,5 @@ struct ProjectPickerView: View {
             ? "Choose or create a folder for the new project"
             : "Choose an existing project folder"
         return panel.runModal() == .OK ? panel.url : nil
-    }
-}
-
-/// Modal shown before a fresh session starts: choose Normal vs Autonomous, with
-/// an explanation of each. Re-attaching to a running session skips this.
-private struct LaunchModeSheet: View {
-    let project: Project
-    @Binding var selection: LaunchMode
-    let onStart: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("How should the team run?").font(.title2.bold())
-                Text(project.name).font(.callout).foregroundStyle(.secondary)
-            }
-
-            ForEach(LaunchMode.allCases) { mode in
-                modeCard(mode)
-            }
-
-            if selection == .autonomous {
-                autonomousGuidance
-            }
-
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel, action: onCancel)
-                    .keyboardShortcut(.cancelAction)
-                Button(selection == .autonomous ? "Continue in Terminal" : "Start", action: onStart)
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(width: 520)
-    }
-
-    /// Heads-up shown once Autonomous is selected: the run is configured through
-    /// the terminal, not this dialog. Sets the expectation that the next prompts
-    /// (sprint count, limits, and — for a new project — the brief brainstorm)
-    /// must be answered in the terminal pane.
-    private var autonomousGuidance: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Setup continues in the terminal", systemImage: "terminal")
-                .font(.callout.weight(.semibold))
-            guidanceRow(
-                "number.square",
-                "First, the terminal asks you to set the run limits — how many "
-                + "sprints to auto-run, max hours, and so on. Type your answers "
-                + "in the terminal pane; the run won't start until you do.")
-            if !project.hasBrief {
-                guidanceRow(
-                    "text.book.closed",
-                    "This project has no product brief yet. The terminal then "
-                    + "walks you through co-authoring one — finish that Q&A "
-                    + "(the \"壁打ち\") in the terminal before the autonomous run begins.")
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.10)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.orange.opacity(0.35)))
-    }
-
-    private func guidanceRow(_ icon: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon).foregroundStyle(.orange).font(.caption)
-            Text(text).font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func modeCard(_ mode: LaunchMode) -> some View {
-        let isSelected = selection == mode
-        return Button { selection = mode } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: mode.systemImage).foregroundStyle(.tint)
-                        Text(mode.title).font(.headline)
-                        Text(mode.subtitle).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Text(mode.explanation)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.10)) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(isSelected ? Color.accentColor : Color(nsColor: .separatorColor),
-                                  lineWidth: isSelected ? 2 : 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
     }
 }

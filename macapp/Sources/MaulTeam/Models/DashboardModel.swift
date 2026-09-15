@@ -164,6 +164,9 @@ final class DashboardModel: ObservableObject {
     @Published var testResults: TestResults?
     @Published var messages: [LogMessage] = []
     @Published var events: [WorkEvent] = []
+    /// `.scrum/config.json.agents` — the seat → model table the framework is
+    /// running with. nil until the launcher writes it.
+    @Published var agents: TeamModelConfig?
     @Published var lastRefresh: Date?
 
     init(projectPath: String) {
@@ -214,6 +217,7 @@ final class DashboardModel: ObservableObject {
         testResults = decode("test-results.json", as: TestResults.self)
         messages = decode("communications.json", as: Communications.self)?.messages ?? []
         events = decode("dashboard.json", as: DashboardEvents.self)?.events ?? []
+        agents = decode("config.json", as: ScrumConfigFile.self)?.teamModels
         lastRefresh = Date()
     }
 

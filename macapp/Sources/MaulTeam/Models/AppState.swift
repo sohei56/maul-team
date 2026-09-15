@@ -15,9 +15,15 @@ final class AppState: ObservableObject {
     /// The project currently open in the workspace. `nil` => show the picker.
     @Published var currentProject: Project?
 
-    /// The mode chosen for the project being opened. Read once by the workspace
-    /// when it starts the session; ignored when re-attaching to a running one.
-    @Published var pendingLaunchMode: LaunchMode = .normal
+    /// The options chosen for the project being opened (mode + team models).
+    /// Read once by the workspace when it starts the session; ignored when
+    /// re-attaching to a running one.
+    @Published var pendingLaunchOptions = LaunchOptions()
+
+    /// The model catalog of the resolved framework (or the builtin fallback).
+    /// Drives the launch sheet's seat rows and the dashboard's Team chips;
+    /// reloaded whenever the framework override changes.
+    @Published var modelCatalog: ModelCatalog = .builtin
 
     /// Recently opened projects, most-recent first. Persisted across launches.
     @Published var recents: [Project]
@@ -39,7 +45,10 @@ final class AppState: ObservableObject {
     /// means "use the app's built-in framework"; set it only to run your own
     /// fork/checkout. The actual path the app runs is `resolvedFrameworkPath`.
     @Published var frameworkPath: String {
-        didSet { UserDefaults.standard.set(frameworkPath, forKey: Keys.frameworkPath) }
+        didSet {
+            UserDefaults.standard.set(frameworkPath, forKey: Keys.frameworkPath)
+            reloadModelCatalog()
+        }
     }
 
     private enum Keys {
@@ -57,15 +66,33 @@ final class AppState: ObservableObject {
         // Warm the built-in framework extraction so the first project opens
         // without a copy delay (no-op for dev builds with no bundle).
         FrameworkLocator.ensureExtracted()
+        reloadModelCatalog()
     }
 
-    func open(_ project: Project, mode: LaunchMode = .normal) {
+    /// Open a project in the workspace. Pass `options` for a fresh launch —
+    /// they become the pending options the workspace starts the session with,
+    /// and the chosen team models are cached on the recents entry so the next
+    /// launch sheet prefills them. Omit it to re-attach / switch tabs, which
+    /// leaves the cache alone.
+    func open(_ project: Project, options: LaunchOptions? = nil) {
         var p = project
         p.lastOpened = Date()
+        if let options {
+            p.teamModels = options.teamModels
+            pendingLaunchOptions = options
+        } else {
+            // Re-attach / tab switch: callers often pass a freshly built
+            // Project (teamModels nil); keep the cached table from recents.
+            p.teamModels = project.teamModels
+                ?? recents.first { $0.id == project.id }?.teamModels
+        }
         recents = RecentProjectsStore.upsert(p, into: recents)
         RecentProjectsStore.save(recents)
-        pendingLaunchMode = mode
         currentProject = p
+    }
+
+    func reloadModelCatalog() {
+        modelCatalog = ModelCatalog.load(frameworkPath: resolvedFrameworkPath)
     }
 
     func closeProject() {
