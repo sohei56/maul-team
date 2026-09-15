@@ -476,7 +476,8 @@ Otherwise the review file MUST begin with two header lines:
 ## Integrity aspect reviewers
 
 The 5 aspect reviewers of the per-PBI **Integrity stage** (see
-`integrity-stage.md`) are Claude-backed (`model: opus` frontmatter) and
+`integrity-stage.md`) are Claude-backed (`opus` by default; seat
+`integrity-reviewers` in `config.json.agents`) and
 **message-based** — they have no `Write` tool and return their review
 as their final assistant message; the conductor reads it from the
 synchronous `Agent` call. No codex preflight, no pin-mismatch respawn

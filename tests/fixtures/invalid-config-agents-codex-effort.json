@@ -1,0 +1,5 @@
+{
+  "agents": {
+    "codex-reviewers": {"provider": "codex", "model": null, "effort": "high"}
+  }
+}

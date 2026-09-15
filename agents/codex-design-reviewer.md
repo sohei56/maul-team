@@ -238,6 +238,12 @@ hung Codex never blocks the review. This contract applies identically
 to all three codex-\* reviewers; other documents point here instead
 of restating it.
 
+**Codex-side model.** The model passed to `codex exec -m` is resolved
+by the helper from `.scrum/config.json.agents.codex-reviewers.model`
+(`CODEX_MODEL` env overrides; rules in the header of
+`.scrum/scripts/lib/codex-invoke.sh`) and is independent of this
+agent's own Claude model above.
+
 See `../skills/pbi-pipeline/references/sub-agent-prompts.md` § Conductor
 codex preflight for the canonical spawn shape.
 

@@ -206,6 +206,14 @@ re-stating one inside the other.
   `.scrum/config.json` back to `"human"` at launch, so a normal
   start after a prior autonomous run does not silently re-spawn the
   PO teammate; the `.autonomous.*` tuning block is preserved.
+- Per-seat LLM provider + model SSOT is `.scrum/config.json.agents`
+  (seats/defaults: `docs/contracts/model-catalog.json`; fields:
+  `docs/data-model.md` § Entity: Config). Written only by
+  `agent-models.sh` from `scrum-start.sh --agent-model` /
+  `--sm-model` / `--po-model`; the deployed `.claude/agents/*.md`
+  `model:` / `effort:` frontmatter is a view it materializes, and
+  `codex-invoke.sh` takes `codex exec -m` from the same table. The
+  `developer` seat is Claude-only (conductor needs the `Agent` tool).
 - Autonomous mode (`scrum-start.sh --autonomous`) drives the team
   end-to-end without human input via the outer watchdog loop
   (`scripts/autonomous/watchdog.sh`). Run state lives in

@@ -8,6 +8,10 @@
 #   - --max-sprints CLI override propagates into .scrum/config.json.
 #   - A plain `scrum-start.sh` (no flags) does NOT inject po_mode or the
 #     autonomous block (regression).
+#   - Per-seat model table (.scrum/config.json.agents): --sm-model /
+#     --po-model / --agent-model persistence + materialized frontmatter,
+#     legacy frontmatter import (migration 009), and pre-side-effect
+#     rejections (exit 2, nothing deployed).
 #
 # Uses SCRUM_START_DRY_RUN=1 to short-circuit just before the actual
 # tmux / claude / watchdog launch, and a PATH shim that provides stub `claude`
@@ -188,6 +192,16 @@ JSON
     [ "$output" = "absent" ]
   }
   [ ! -f ".scrum/autonomy.json" ]
+
+  # The per-seat model table IS written on every launch (catalog defaults,
+  # 9 seats) — it is the SSOT for model selection, not an autonomous artefact.
+  [ -f ".scrum/config.json" ]
+  run jq -r '.agents | type' .scrum/config.json
+  [ "$output" = "object" ]
+  run jq -r '.agents | keys | length' .scrum/config.json
+  [ "$output" = "9" ]
+  run jq -r '.agents."scrum-master".model' .scrum/config.json
+  [ "$output" = "opus" ]
 }
 
 @test "scrum-start (no flags) resets leftover po_mode=agent to human" {
@@ -244,9 +258,9 @@ JSON
 }
 
 # --- (e) PO model: default opus applied to deployed agent file --------------
-# SSOT is the deployed .claude/agents/product-owner.md `model:` field.
-# .scrum/config.json must NOT carry a shadow `po_model` key (single-source
-# design).
+# SSOT is `.scrum/config.json.agents."product-owner"` (per-seat model table);
+# the deployed .claude/agents/product-owner.md `model:` line is materialized
+# from it. The legacy `.autonomous.po_model` shadow key must never appear.
 
 @test "scrum-start --autonomous (no --po-model): deployed PO agent file defaults to opus" {
   run bash "$PROJECT_ROOT/scrum-start.sh" \
@@ -255,18 +269,20 @@ JSON
 
   [ "$status" -eq 0 ]
 
-  # No shadow key in config (agent file is the only SSOT).
+  # No legacy shadow key; the seat table carries the catalog default.
   run jq -r '.autonomous | has("po_model")' .scrum/config.json
   [ "$output" = "false" ]
+  run jq -r '.agents."product-owner".model' .scrum/config.json
+  [ "$output" = "opus" ]
 
-  # Deployed agent file's frontmatter `model:` line was patched in place.
+  # Deployed agent file's frontmatter `model:` line was materialized.
   [ -f ".claude/agents/product-owner.md" ]
   run grep -E '^model:' .claude/agents/product-owner.md
   [ "$status" -eq 0 ]
   [ "$output" = "model: opus" ]
 }
 
-# --- (f) --po-model patches deployed agent file (no config shadow) ----------
+# --- (f) --po-model lands in the seat table and the deployed agent file -----
 
 @test "scrum-start --autonomous --po-model sonnet patches deployed agent file" {
   run bash "$PROJECT_ROOT/scrum-start.sh" \
@@ -276,27 +292,35 @@ JSON
 
   [ "$status" -eq 0 ]
 
-  # SSOT is the agent file; no shadow key in config.
+  # Seat table is the SSOT; no legacy shadow key.
   run jq -r '.autonomous | has("po_model")' .scrum/config.json
   [ "$output" = "false" ]
+  run jq -r '.agents."product-owner".model' .scrum/config.json
+  [ "$output" = "sonnet" ]
 
   run grep -E '^model:' .claude/agents/product-owner.md
   [ "$status" -eq 0 ]
   [ "$output" = "model: sonnet" ]
 }
 
-# --- (g) --po-model without --autonomous is rejected (exit 2) ---------------
+# --- (g) --po-model is accepted in human-PO mode and persisted --------------
 
-@test "scrum-start --po-model without --autonomous exits 2" {
-  run bash "$PROJECT_ROOT/scrum-start.sh" --po-model opus
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"--po-model requires --autonomous"* ]]
+@test "scrum-start --po-model without --autonomous persists the PO seat" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --po-model haiku
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Product Owner model persisted"* ]]
+
+  run jq -r '.agents."product-owner".model' .scrum/config.json
+  [ "$output" = "haiku" ]
+  run grep -E '^model:' .claude/agents/product-owner.md
+  [ "$status" -eq 0 ]
+  [ "$output" = "model: haiku" ]
 }
 
-# --- (h) --po-model choice persists across re-runs via deployed agent file --
-# Verifies the capture-before-setup-user.sh logic: a prior --po-model choice
-# survives a re-run with no flag, because the deployed agent file IS the
-# memory.
+# --- (h) --po-model choice persists across re-runs via the seat table -------
+# A prior --po-model choice survives a re-run with no flag because
+# `.scrum/config.json.agents` is the memory; setup-user.sh restores the
+# source default in the agent file and materialize re-applies the table.
 
 @test "scrum-start --autonomous: --po-model sonnet persists to next run" {
   # Run 1 — set sonnet, creates .scrum/state.json so Run 2 takes the
@@ -306,20 +330,23 @@ JSON
     --brief "$TEMP_DIR/seed/brief.md" \
     --po-model sonnet
   [ "$status" -eq 0 ]
+  run jq -r '.agents."product-owner".model' .scrum/config.json
+  [ "$output" = "sonnet" ]
   run grep -E '^model:' .claude/agents/product-owner.md
   [ "$status" -eq 0 ]
   [ "$output" = "model: sonnet" ]
 
-  # Run 2 — no --po-model. The script captures the deployed value before
-  # setup-user.sh overwrites it, then re-applies it to the freshly copied
-  # agent file. Result: sonnet preserved without any shadow state.
+  # Run 2 — no --po-model. The persisted seat table wins over the source
+  # default that setup-user.sh just re-deployed.
   run bash "$PROJECT_ROOT/scrum-start.sh" --autonomous
   [ "$status" -eq 0 ]
+  run jq -r '.agents."product-owner".model' .scrum/config.json
+  [ "$output" = "sonnet" ]
   run grep -E '^model:' .claude/agents/product-owner.md
   [ "$status" -eq 0 ]
   [ "$output" = "model: sonnet" ]
 
-  # And still no shadow key in config.
+  # And still no legacy shadow key in config.
   run jq -r '.autonomous | has("po_model")' .scrum/config.json
   [ "$output" = "false" ]
 }
@@ -403,8 +430,151 @@ JSON
 @test "scrum-start help documents Scrum Master model flag" {
   run bash "$PROJECT_ROOT/scrum-start.sh" --help
   [ "$status" -eq 0 ]
+  [[ "$output" == *"--agent-model <seat>"* ]]
   [[ "$output" == *"--sm-model <name>"* ]]
   [[ "$output" == *"human-PO and"* ]]
+}
+
+# --- (j) Per-seat model table: legacy import, --agent-model, rejections -----
+
+# A project launched before the table existed carries its last model choice
+# only in deployed frontmatter. Migration 009 (run from source BEFORE
+# setup-user.sh overwrites the file) imports it into .agents.
+@test "scrum-start imports a legacy deployed frontmatter model into .agents" {
+  mkdir -p .claude/agents
+  printf -- '---\nname: scrum-master\nmodel: fable\neffort: high\n---\nbody\n' \
+    > .claude/agents/scrum-master.md
+  [ ! -f ".scrum/config.json" ]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"seeded agents"* ]]
+
+  run jq -r '.agents."scrum-master".model' .scrum/config.json
+  [ "$output" = "fable" ]
+  run grep -E '^model:' .claude/agents/scrum-master.md
+  [ "$output" = "model: fable" ]
+}
+
+@test "scrum-start --agent-model integrity-reviewers fans out to all five reviewer files" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --agent-model integrity-reviewers=claude:sonnet@high
+  [ "$status" -eq 0 ]
+
+  local f
+  for f in requirement-conformance-reviewer functional-quality-reviewer \
+           security-reviewer maintainability-reviewer docs-consistency-reviewer; do
+    run grep -E '^model:' ".claude/agents/$f.md"
+    [ "$output" = "model: sonnet" ]
+    run grep -E '^effort:' ".claude/agents/$f.md"
+    [ "$output" = "effort: high" ]
+  done
+
+  # Excluded agents carry no model: line at all.
+  [ -f ".claude/agents/scrum-explorer.md" ]
+  [ -f ".claude/agents/ceremony-operator.md" ]
+  ! grep -qE '^model:' .claude/agents/scrum-explorer.md
+  ! grep -qE '^model:' .claude/agents/ceremony-operator.md
+
+  run jq -c '.agents."integrity-reviewers"' .scrum/config.json
+  [ "$output" = '{"provider":"claude","model":"sonnet","effort":"high"}' ]
+}
+
+@test "scrum-start --agent-model codex-reviewers persists a codex model without touching frontmatter" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --agent-model codex-reviewers=codex:gpt-5.6-luna
+  [ "$status" -eq 0 ]
+  run jq -r '.agents."codex-reviewers".model' .scrum/config.json
+  [ "$output" = "gpt-5.6-luna" ]
+  run jq -r '.agents."codex-reviewers".provider' .scrum/config.json
+  [ "$output" = "codex" ]
+  # Codex seats are not materialized: the deployed file keeps its source default.
+  run grep -E '^model:' .claude/agents/codex-impl-reviewer.md
+  [ "$output" = "model: sonnet" ]
+
+  # `codex:default` = Codex CLI default (no -m) → stored as null.
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --agent-model codex-reviewers=codex:default
+  [ "$status" -eq 0 ]
+  run jq -r '.agents."codex-reviewers" | has("model") and (.model == null)' .scrum/config.json
+  [ "$output" = "true" ]
+}
+
+@test "scrum-start --agent-model with provider omitted uses the seat default provider and effort" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer=opus
+  [ "$status" -eq 0 ]
+  run jq -c '.agents.developer' .scrum/config.json
+  [ "$output" = '{"provider":"claude","model":"opus","effort":"high"}' ]
+  run grep -E '^model:' .claude/agents/developer.md
+  [ "$output" = "model: opus" ]
+}
+
+@test "scrum-start --agent-model keeps a persisted effort when a later override omits it" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer=claude:opus@xhigh
+  [ "$status" -eq 0 ]
+  run jq -r '.agents.developer.effort' .scrum/config.json
+  [ "$output" = "xhigh" ]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer=sonnet
+  [ "$status" -eq 0 ]
+  run jq -r '.agents.developer.model' .scrum/config.json
+  [ "$output" = "sonnet" ]
+  run jq -r '.agents.developer.effort' .scrum/config.json
+  [ "$output" = "xhigh" ]
+  run grep -E '^effort:' .claude/agents/developer.md
+  [ "$output" = "effort: xhigh" ]
+}
+
+# Each rejection exits 2 BEFORE any side effect: nothing is deployed.
+@test "scrum-start --agent-model rejects an unknown seat" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model nope=opus
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"unknown seat"* ]]
+  [ ! -d ".claude/agents" ]
+}
+
+@test "scrum-start --agent-model rejects a provider the seat does not allow" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer=codex:gpt-6-astra
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"not allowed"* ]]
+  [ ! -d ".claude/agents" ]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model codex-reviewers=claude:opus
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"not allowed"* ]]
+  [ ! -d ".claude/agents" ]
+}
+
+@test "scrum-start rejects the same seat set more than once" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --agent-model developer=opus --agent-model developer=sonnet
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"more than once"* ]]
+  [ ! -d ".claude/agents" ]
+
+  # --sm-model overlapping with --agent-model scrum-master=...
+  run bash "$PROJECT_ROOT/scrum-start.sh" \
+    --sm-model opus --agent-model scrum-master=sonnet
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"more than once"* ]]
+  [ ! -d ".claude/agents" ]
+}
+
+@test "scrum-start --agent-model rejects a bad effort, an unsafe token, and a missing '='" {
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer=opus@turbo
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"effort"* ]]
+  [ ! -d ".claude/agents" ]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer='op us'
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"must be"* ]]
+  [ ! -d ".claude/agents" ]
+
+  run bash "$PROJECT_ROOT/scrum-start.sh" --agent-model developer
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"expects"* ]]
+  [ ! -d ".claude/agents" ]
 }
 
 @test "resume startup prompt uses SessionStart summary and targeted explorer" {

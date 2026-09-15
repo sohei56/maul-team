@@ -14,6 +14,18 @@ struct Project: Identifiable, Codable, Hashable {
     var path: String          // absolute directory path
     var lastOpened: Date
 
+    /// The team-model table this project was last launched with, cached so
+    /// the launch sheet prefills it (behind `.scrum/config.json.agents`, ahead
+    /// of catalog defaults). Optional: recents written before this field
+    /// existed still decode.
+    var teamModels: TeamModelConfig?
+
+    init(path: String, lastOpened: Date, teamModels: TeamModelConfig? = nil) {
+        self.path = path
+        self.lastOpened = lastOpened
+        self.teamModels = teamModels
+    }
+
     var id: String { path }
     var name: String { (path as NSString).lastPathComponent }
     var url: URL { URL(fileURLWithPath: path, isDirectory: true) }

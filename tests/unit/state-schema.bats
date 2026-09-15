@@ -308,3 +308,65 @@ EOF
   ' "$file"
   assert_success
 }
+
+# ---------------------------------------------------------------------------
+# config.schema.json — agents (per-seat LLM provider/model table)
+# ---------------------------------------------------------------------------
+
+# Validate through the SAME path production uses (scripts/scrum/lib/atomic.sh)
+# rather than hardcoding one validator's CLI — mirrors
+# tests/unit/test_contract_schemas.bats::VALIDATE.
+# Usage: VALIDATE <instance.json> <schema.json>
+VALIDATE() {
+  env SCRUM_VALIDATOR_OVERRIDE=jsonschema-cli bash -c '
+    source "$1/scripts/scrum/lib/errors.sh"
+    source "$1/scripts/scrum/lib/atomic.sh"
+    _validate_against_schema "$2" "$3"
+  ' _ "$PROJECT_ROOT" "$1" "$2"
+}
+
+CONFIG_SCHEMA="$PROJECT_ROOT/docs/contracts/scrum-state/config.schema.json"
+
+@test "config schema top-level description mentions agents" {
+  run jq -e '.description | test("agents")' "$CONFIG_SCHEMA"
+  assert_success
+}
+
+@test "config schema agents block declares exactly the 9 catalog seats" {
+  # Seat membership is pinned by the catalog; the schema must name the same set.
+  local catalog="$PROJECT_ROOT/docs/contracts/model-catalog.json"
+  run jq -e --slurpfile cat "$catalog" \
+    '(.properties.agents.properties | keys) == ($cat[0].seats | keys)' "$CONFIG_SCHEMA"
+  assert_success
+  assert_output "true"
+}
+
+@test "config schema: full 9-seat agents table validates" {
+  run VALIDATE "$FIXTURES_DIR/valid-config-agents.json" "$CONFIG_SCHEMA"
+  assert_success
+}
+
+@test "config schema: example config (with agents block) validates" {
+  run VALIDATE "$PROJECT_ROOT/.scrum-config.example.json" "$CONFIG_SCHEMA"
+  assert_success
+}
+
+@test "config schema rejects developer seat on provider codex" {
+  run VALIDATE "$FIXTURES_DIR/invalid-config-agents-developer-codex.json" "$CONFIG_SCHEMA"
+  assert_failure
+}
+
+@test "config schema rejects an unknown seat name under agents" {
+  run VALIDATE "$FIXTURES_DIR/invalid-config-agents-unknown-seat.json" "$CONFIG_SCHEMA"
+  assert_failure
+}
+
+@test "config schema rejects a model id containing a space" {
+  run VALIDATE "$FIXTURES_DIR/invalid-config-agents-bad-model.json" "$CONFIG_SCHEMA"
+  assert_failure
+}
+
+@test "config schema rejects effort on the codex seat" {
+  run VALIDATE "$FIXTURES_DIR/invalid-config-agents-codex-effort.json" "$CONFIG_SCHEMA"
+  assert_failure
+}

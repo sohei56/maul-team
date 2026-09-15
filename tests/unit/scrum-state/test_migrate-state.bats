@@ -64,6 +64,18 @@ _seed_kindless_backlog() {
   [[ "$output" == *"ok:"* ]]
 }
 
+# This fixture deploys only the schemas (no model-catalog.json) and no
+# .claude/agents/ — the pre-per-seat-table target shape. Migration 009 must
+# report a skip rather than fail, and the launch must still reach validation.
+@test "migrate-state: a target without .claude/agents runs every migration; 009 skips" {
+  _seed_valid_state
+  run bash .scrum/scripts/migrate-state.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[009-seed-agent-models] skip"* ]]
+  [[ "$output" == *"ok:"* ]]
+  [ ! -f .scrum/config.json ]
+}
+
 @test "migrate-state: runs migrations then validates (pre-002 backlog gets kind backfilled)" {
   _seed_valid_state
   _seed_kindless_backlog

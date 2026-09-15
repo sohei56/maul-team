@@ -249,6 +249,9 @@ sh /path/to/maul-team/scrum-start.sh
 
 # Or: autonomous mode — state the end goal in a brief; the agent PO + SM loop unattended
 sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
+
+# Pick the LLM per seat (repeatable; full flag table in docs/autonomous-mode.md)
+sh /path/to/maul-team/scrum-start.sh --agent-model developer=claude:opus@high --agent-model codex-reviewers=codex:gpt-5.6-luna
 ```
 
 The script launches a tmux session with Claude Code (the Scrum Master) and the TUI dashboard.

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Scrum framework configuration",
-  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression, detectors, static_analysis) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained.",
+  "description": "Schema for .scrum/config.json. Pipeline keys (test_runner, coverage_tool, pragma_pattern, path_guard, merge_regression, detectors, static_analysis) and the stall_watchdog block are now described here; per-language sub-objects keep additionalProperties:true so language keys stay free-form. Top-level additionalProperties stays true so unforeseen keys don't force a migration. The autonomous-PO keys (po_mode, po, autonomous) are constrained. The per-seat LLM table (agents) is the SSOT for provider+model selection (see docs/contracts/model-catalog.json).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -12,12 +12,18 @@
     },
     "coverage_tool": {
       "description": "Per-language coverage tool. null disables the coverage gate project-wide.",
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "additionalProperties": true
     },
     "pragma_pattern": {
       "description": "Pragma marker for the coverage pragma-audit step. A plain string (single global marker, as in .scrum-config.example.json) or an object keyed per language. Consumers MUST branch on the shape: a bare `jq -r` yields the JSON text for the object form and the literal `null` when absent, either of which makes the pragma audit match nothing and pass vacuously. See skills/pbi-pipeline/references/coverage-gate.md step (e).",
-      "type": ["string", "object"],
+      "type": [
+        "string",
+        "object"
+      ],
       "additionalProperties": true
     },
     "c0_threshold": {
@@ -37,8 +43,18 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "impl_globs": {"type": "array", "items": {"type": "string"}},
-        "test_globs": {"type": "array", "items": {"type": "string"}}
+        "impl_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "test_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "merge_regression": {
@@ -46,7 +62,12 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "command": {"type": ["string", "null"]},
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "accepted_none": {
           "description": "true = the team deliberately runs no per-PBI regression gate (recorded via set-merge-regression-command.sh --none). Distinguishes an explicit opt-out from a never-decided unset gate, so merge-pbi.sh drops its WARN to a quiet note. Not required; absent/false means the gate is either configured or undecided.",
           "type": "boolean"
@@ -76,8 +97,12 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "name": {"type": "string"},
-              "command": {"type": "string"}
+              "name": {
+                "type": "string"
+              },
+              "command": {
+                "type": "string"
+              }
             }
           }
         }
@@ -88,7 +113,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": {"type": "boolean"},
+        "enabled": {
+          "type": "boolean"
+        },
         "idle_threshold_minutes": {
           "description": "Legacy-compatible idle threshold and default for pbi_idle_threshold_minutes. The monitor's default is 30 minutes.",
           "type": "integer",
@@ -99,8 +126,14 @@
           "type": "integer",
           "minimum": 1
         },
-        "cooldown_minutes": {"type": "integer", "minimum": 1},
-        "poll_interval_seconds": {"type": "integer", "minimum": 1}
+        "cooldown_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "poll_interval_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "framework_issue": {
@@ -111,13 +144,18 @@
         "forbidden_tokens": {
           "description": "Operator-maintained denylist of domain terms that must never leave this project. The wrapper rejects a draft containing any of them (case-insensitive substring). This is the only mechanical defense against the leak class no pattern can catch — a business noun that is meaningless outside this project. Nothing forces the list to be populated; an empty or absent list leaves the human review gate as the sole guard.",
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
     "po_mode": {
       "description": "Who plays the Product Owner role. 'human' = wait for user input at PO decision points (default when key absent). 'agent' = a Claude teammate (product-owner) decides automatically.",
-      "enum": ["human", "agent"]
+      "enum": [
+        "human",
+        "agent"
+      ]
     },
     "po": {
       "type": "object",
@@ -139,14 +177,127 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "max_iterations": {"type": "integer", "minimum": 1},
-        "max_wall_clock_hours": {"type": "number", "minimum": 0},
-        "max_sprints": {"type": "integer", "minimum": 1},
-        "max_consecutive_failures": {"type": "integer", "minimum": 1},
-        "stop_block_budget_per_phase": {"type": "integer", "minimum": 1},
-        "permission_mode": {"enum": ["dontAsk", "bypassPermissions"]},
-        "notify_command": {"type": ["string", "null"]},
-        "fallback_model": {"type": ["string", "null"]}
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_wall_clock_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_sprints": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_consecutive_failures": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "stop_block_budget_per_phase": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "permission_mode": {
+          "enum": [
+            "dontAsk",
+            "bypassPermissions"
+          ]
+        },
+        "notify_command": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fallback_model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "agents": {
+      "description": "Per-seat LLM provider + model. SSOT for model selection; written only by agent-models.sh (scrum-start.sh on every launch; migrations/009-seed-agent-models.sh as the legacy import). For claude seats the deployed .claude/agents/*.md `model:`/`effort:` lines are a materialized view of this table; codex-reviewers.model is passed as `codex exec -m` by codex-invoke.sh (null = Codex CLI default). Seat membership, defaults and known model ids: docs/contracts/model-catalog.json. Absent block or absent seat = catalog default. developer is Claude-only by design (the pbi-pipeline conductor needs the Claude Agent tool).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scrum-master": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "product-owner": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "requirements-analyst": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "developer": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "pbi-designer": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "pbi-implementer": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "pbi-ut-author": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "integrity-reviewers": {
+          "$ref": "#/definitions/claude_seat"
+        },
+        "codex-reviewers": {
+          "$ref": "#/definitions/codex_seat"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "claude_seat": {
+      "description": "A seat served by Claude Code. model = CLI alias or full model id (same token alphabet as scrum-start.sh is_safe_model_token); effort = Claude Code effort level (validated against model-catalog.json providers.claude.efforts by the wrapper).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model"
+      ],
+      "properties": {
+        "provider": {
+          "enum": [
+            "claude"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "effort": {
+          "type": "string",
+          "pattern": "^[a-z]+$"
+        }
+      }
+    },
+    "codex_seat": {
+      "description": "A seat served by the OpenAI Codex CLI. model null = the CLI default (no -m flag). effort is not a Codex CLI flag and is rejected rather than silently ignored.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model"
+      ],
+      "properties": {
+        "provider": {
+          "enum": [
+            "codex"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        }
       }
     }
   }

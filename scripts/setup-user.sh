@@ -262,6 +262,10 @@ fi
 if [ -d "$PROJECT_ROOT/docs/contracts" ]; then
   mkdir -p "$TARGET_DIR/docs/contracts"
   cp "$PROJECT_ROOT/docs/contracts/"*.schema.json "$TARGET_DIR/docs/contracts/" 2>/dev/null || true
+  # Per-seat model catalog: read by the deployed agent-models.sh wrapper and
+  # migration 009 via resolve_schema_dir (seat membership + defaults).
+  cp "$PROJECT_ROOT/docs/contracts/model-catalog.json" "$TARGET_DIR/docs/contracts/" 2>/dev/null \
+    || echo "  WARNING: model catalog not deployed — agent-models.sh will refuse to run (E_FILE_MISSING)" >&2
 fi
 # --- Copy scrum-state SSOT schemas ---
 # Required by scripts/scrum/migrate-state.sh (and any hand-run validation).

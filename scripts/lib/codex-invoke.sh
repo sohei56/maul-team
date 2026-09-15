@@ -57,6 +57,28 @@
 #                        exists (e.g. stock macOS) the call runs
 #                        unbounded and a one-line WARN is printed to
 #                        stderr.
+#   CODEX_MODEL          Codex model id passed as `codex exec -m`.
+#                        When SET it wins outright — even an empty
+#                        value means "pass no -m, let codex pick".
+#                        When unset, the id is read from the per-seat
+#                        LLM table `.agents["codex-reviewers"].model`
+#                        (string or null) in SCRUM_CONFIG_FILE.
+#   SCRUM_CONFIG_FILE    config path (default `.scrum/config.json`,
+#                        relative to the caller's cwd — inside a PBI
+#                        worktree `.scrum` is a symlink to the main
+#                        repo's `.scrum`, so the default resolves).
+#                        Missing file / null model → no `-m`.
+#
+# Model ids must match ^[A-Za-z0-9][A-Za-z0-9._-]*$; anything else is
+# dropped with a `codex-invoke: WARN ignoring invalid codex model` on
+# stderr and the call proceeds without `-m` — a bad config value must
+# never fail a review. The resolved id is recorded as the first log
+# line (`codex-invoke: model=<id|default>`) for post-hoc diagnosis.
+#
+# Constraint: setup-user.sh deploys this file ALONE to
+# `<target>/.scrum/scripts/lib/`, so it must not `source` any other
+# lib (validate.sh, scrum-state helpers, …) — config reads use `jq`
+# directly.
 
 codex_is_available() {
   local cmd="${CODEX_CMD_OVERRIDE:-codex}"
@@ -73,6 +95,34 @@ _codex_invoke_fail() {
   local log=$1 reason=$2
   echo "codex-invoke: FAIL reason=$reason" >> "$log" 2>/dev/null || true
   echo "codex-invoke: FAIL reason=$reason (log: $log)" >&2
+}
+
+# Internal: resolve the Codex model id for `-m` (see header). Prints
+# the id, or nothing when codex should use its own default. Always
+# returns 0 — resolution problems degrade to "no -m", never to a
+# failed review.
+_codex_model() {
+  local model=""
+  if [ -n "${CODEX_MODEL+set}" ]; then
+    model="$CODEX_MODEL"
+  else
+    local cfg="${SCRUM_CONFIG_FILE:-.scrum/config.json}"
+    if [ -f "$cfg" ] && command -v jq >/dev/null 2>&1; then
+      model="$(jq -r '.agents["codex-reviewers"].model // empty' "$cfg" 2>/dev/null)" || model=""
+    fi
+  fi
+  [ -n "$model" ] || return 0
+  # Validate with `case` globs rather than `[[ =~ ]]`: this file may be
+  # sourced under zsh (see the word-splitting note below) and the two
+  # shells disagree on regex quoting; globs behave identically.
+  case "$model" in
+    [A-Za-z0-9]*) ;;
+    *) echo "codex-invoke: WARN ignoring invalid codex model '$model'" >&2; return 0 ;;
+  esac
+  case "$model" in
+    *[!A-Za-z0-9._-]*) echo "codex-invoke: WARN ignoring invalid codex model '$model'" >&2; return 0 ;;
+  esac
+  printf '%s\n' "$model"
 }
 
 codex_review_or_fallback() {
@@ -122,15 +172,31 @@ codex_review_or_fallback() {
     echo "codex-invoke: WARN no timeout binary (timeout/gtimeout) found; running codex unbounded" >&2
   fi
 
+  # Model id for `-m` (empty = codex default). Same explicit-branch
+  # policy as the timeout prefix: no args array, no `${model:+-m ...}`
+  # — four spelled-out branches (timeout × model) so nothing depends
+  # on word-splitting.
+  local model
+  model="$(_codex_model)"
+  echo "codex-invoke: model=${model:-default}" > "$log"
+
   local rc=0
-  if [ -n "$timeout_bin" ]; then
+  if [ -n "$timeout_bin" ] && [ -n "$model" ]; then
+    "$timeout_bin" "$timeout_secs" "$cmd" exec -m "$model" --sandbox read-only --skip-git-repo-check \
+      --output-last-message "$output" - \
+      < "$instructions" >> "$log" 2>&1 || rc=$?
+  elif [ -n "$timeout_bin" ]; then
     "$timeout_bin" "$timeout_secs" "$cmd" exec --sandbox read-only --skip-git-repo-check \
       --output-last-message "$output" - \
-      < "$instructions" > "$log" 2>&1 || rc=$?
+      < "$instructions" >> "$log" 2>&1 || rc=$?
+  elif [ -n "$model" ]; then
+    "$cmd" exec -m "$model" --sandbox read-only --skip-git-repo-check \
+      --output-last-message "$output" - \
+      < "$instructions" >> "$log" 2>&1 || rc=$?
   else
     "$cmd" exec --sandbox read-only --skip-git-repo-check \
       --output-last-message "$output" - \
-      < "$instructions" > "$log" 2>&1 || rc=$?
+      < "$instructions" >> "$log" 2>&1 || rc=$?
   fi
 
   if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then

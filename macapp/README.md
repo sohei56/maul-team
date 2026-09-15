@@ -40,6 +40,45 @@ framework's own scripts so they remain the single source of truth:
 A future iteration can replace the Scrum Master pane with a native chat UI
 driving `claude` programmatically (approach B) without touching the layout.
 
+## Launch options: mode and team models
+
+Opening a project that has no running session shows the launch sheet: the
+mode (Normal / Autonomous) plus a **Team models** table with one row per
+seat — provider toggle, model menu (catalog models + Custom…), and an effort
+menu where the provider defines efforts. Team seats (SM, PO, RA, Dev, Codex
+reviewers) are always shown; the pipeline sub-agent seats fold into
+"Pipeline sub-agents". Re-attaching to a running session skips the sheet.
+
+- **Hand-off.** Every seat is passed to `scrum-start.sh` as repeatable
+  `--agent-model <seat>=<provider>:<model>[@<effort>]` flags, `--autonomous`
+  first in Autonomous mode. A Codex seat on its CLI default is spelled
+  `codex:default`. Because all seats are always sent, the launcher's
+  in-terminal model wizard never fires (`ProcessLauncher.scrumStartArguments`).
+- **Catalog.** Seats, per-seat defaults, allowed providers and the model
+  menus come from `<framework>/docs/contracts/model-catalog.json`
+  (`ModelCatalog.load`). A framework checkout without that file falls back
+  to a builtin Claude-only catalog (SM + PO, the four aliases) and the app
+  switches to the legacy `--sm-model` / `--po-model` flags that older
+  launchers understand. Providers listed in `phase_b_providers` but not in
+  `providers` are rendered greyed ("Available in a later release").
+- **Prefill.** Each seat is prefilled from `.scrum/config.json.agents` (what
+  the framework last ran; read-only — the app never writes that file), then
+  the project's cache in `recents.json` (`teamModels`, written on every fresh
+  launch; older recents files without it still load), then the catalog
+  defaults. A saved choice the catalog no longer allows is reset to the
+  seat default and the sheet says which seats were reset.
+- **Validation.** A custom model id must match `[A-Za-z0-9][A-Za-z0-9._/-]*`
+  (the framework's `is_safe_model_token`); an invalid id gets a red border
+  and disables Start.
+- **CLI warning.** The sheet probes the login shell for each provider's CLI
+  (`command -v`). A missing `codex` is an orange advisory (the launch
+  proceeds); a missing `claude` is flagged red because the launch will
+  abort. Advisory only — nothing is blocked on the probe.
+- **Team chips.** Once the launcher has written `.scrum/config.json.agents`,
+  the dashboard's Sprint card shows one chip per seat (`SM opus · Dev sonnet
+  · Rev codex:gpt-5.6-luna`); the provider prefix appears only for
+  non-Claude seats.
+
 ## Background sessions
 
 Each open project's SM + dashboard processes are owned by a long-lived

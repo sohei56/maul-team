@@ -186,7 +186,8 @@ See `references/sub-agent-prompts.md` for full input prompt templates.
   `security-reviewer` ‖ `maintainability-reviewer` ‖
   `docs-consistency-reviewer` — Integrity Stage (parallel barrage;
   kind=code all 5, kind=docs aspects 1 + 5 only). These are
-  Claude-backed (`model: opus`) and message-based — no codex preflight,
+  Claude-backed (`opus` by default; seat `integrity-reviewers` in
+  `config.json.agents`) and message-based — no codex preflight,
   no `Write` tool; the conductor consolidates their returned messages.
   functional-quality and security internally add a codex second opinion
   (adjudicated, non-fatal on codex absence) — invisible to the

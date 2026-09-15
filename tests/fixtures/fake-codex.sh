@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # fake-codex.sh — test stub mimicking `codex exec` for integration tests.
 # Usage (matches scripts/lib/codex-invoke.sh):
-#   fake-codex.sh exec --sandbox read-only --skip-git-repo-check \
+#   fake-codex.sh exec [-m <model>] --sandbox read-only --skip-git-repo-check \
 #     --output-last-message <verdict_file> - < <instructions_file>
 # Behavior: reads instructions from stdin (discarded), writes a
 # deterministic verdict to the --output-last-message file (falling
@@ -10,6 +10,8 @@
 # (codex_review_or_fallback) captures both into its log file.
 # Override behavior via FAKE_CODEX_VERDICT (PASS or FAIL) and
 # FAKE_CODEX_FINDINGS (newline-separated "signature|severity|criterion|description").
+# When FAKE_CODEX_ARGS_FILE is set, the full `exec` argv is written there
+# (one argument per line) so tests can assert on flags such as `-m`.
 set -euo pipefail
 
 # Fast-path the availability probe: codex_is_available (codex-invoke.sh)
@@ -19,6 +21,12 @@ set -euo pipefail
 # Assert the subcommand switched to `exec` (was `review` in the old
 # broken invocation).
 [ "${1:-}" = "exec" ] || { echo "fake-codex: expected 'exec' subcommand, got '${1:-}'" >&2; exit 1; }
+
+# Record the argv for flag assertions (opt-in; the --version probe
+# above never reaches this line, so only the exec call is captured).
+if [ -n "${FAKE_CODEX_ARGS_FILE:-}" ]; then
+  printf '%s\n' "$@" > "$FAKE_CODEX_ARGS_FILE"
+fi
 
 # Extract the --output-last-message target (the real codex writes its
 # final agent message there; empty when the flag is absent).

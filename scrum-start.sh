@@ -2,7 +2,7 @@
 # scrum-start.sh — Entry point for Maul Team (AI-powered Scrum team)
 #
 # Usage (interactive / human-PO mode):
-#   sh scrum-start.sh [--sm-model <name>]
+#   sh scrum-start.sh [--sm-model <name>] [--agent-model <seat>=<spec>]...
 #   On a NEW project with no docs/product/brief.md, an interactive Claude
 #   session co-authors the product brief (create-brief skill) first; the
 #   Scrum Master's Requirement Definition then begins with that brief as its
@@ -11,8 +11,8 @@
 # Usage (autonomous-PO mode — Ralph Loop, no human at the keyboard):
 #   sh scrum-start.sh --autonomous [--brief docs/product/brief.md] \
 #                     [--max-sprints N] [--max-hours H] \
-#                     [--sm-model <name>] \
-#                     [--po-model <name>] \
+#                     [--sm-model <name>] [--po-model <name>] \
+#                     [--agent-model <seat>=<spec>]... \
 #                     [--bypass-permissions] [--no-attach]
 #
 # Flags:
@@ -26,35 +26,49 @@
 #                           docs/product/brief.md as the seed input.
 #   --max-sprints N         Overrides `.scrum/config.json.autonomous.max_sprints`.
 #   --max-hours H           Overrides `.scrum/config.json.autonomous.max_wall_clock_hours`.
+#   --agent-model <seat>=[<provider>:]<model>[@<effort>]
+#                           Repeatable. Sets one seat of the per-seat model
+#                           table `.scrum/config.json.agents` (the SSOT for
+#                           provider + model; seats, defaults and menus in
+#                           docs/contracts/model-catalog.json). Examples:
+#                             --agent-model codex-reviewers=codex:gpt-5.6-luna
+#                             --agent-model developer=claude:opus@high
+#                             --agent-model integrity-reviewers=sonnet
+#                           Provider omitted = the seat's default provider;
+#                           `codex:default` = the Codex CLI default (no -m).
+#                           Unknown seat / disallowed provider / bad effort /
+#                           unsafe token, or the same seat twice: exit 2.
 #   --sm-model <name>       Sets the Scrum Master model in both human-PO and
-#                           autonomous-PO modes. Accepts CLI aliases (including
-#                           `opus`, `fable`, `sonnet`, and `haiku`) or a
-#                           specific model ID. Default `opus`; a prior choice
-#                           persists across re-runs via the deployed agent file.
-#   --po-model <name>       Autonomous-only. Sets the model used by the
-#                           product-owner teammate. Accepts CLI aliases
-#                           (including `opus`, `fable`, `sonnet`, and
-#                           `haiku`) or a specific model
-#                           ID. Default `opus`. The deployed
-#                           `.claude/agents/product-owner.md` frontmatter
-#                           `model:` is the single source of truth — this
-#                           flag patches that line in place. The deployed
-#                           value is captured before `setup-user.sh`
-#                           overwrites the file, so a prior `--po-model`
-#                           choice persists across re-runs. Rejected
-#                           outside autonomous mode (exit 2).
+#                           autonomous-PO modes. Shorthand for
+#                           `--agent-model scrum-master=claude:<name>`.
+#                           Accepts CLI aliases (`opus`, `fable`, `sonnet`,
+#                           `haiku`) or a specific model ID.
+#   --po-model <name>       Shorthand for
+#                           `--agent-model product-owner=claude:<name>`.
+#                           Accepted in both modes and persisted; the
+#                           product-owner teammate itself is only spawned in
+#                           autonomous mode.
 #   --bypass-permissions    Sets autonomous.permission_mode = bypassPermissions
 #                           (default: dontAsk).
 #   --no-attach             Skip `tmux attach-session` after launching; useful
 #                           when starting overnight runs.
 #
+# Per-seat models: choices persist in `.scrum/config.json.agents` across
+#   re-runs (a pre-table project's deployed frontmatter is imported once by
+#   migration 009). After setup-user.sh refreshes the deployed agent files,
+#   `.scrum/scripts/agent-models.sh materialize` rewrites each Claude seat's
+#   `model:` / `effort:` frontmatter from the table; the Codex reviewer model
+#   is passed as `codex exec -m` by codex-invoke.sh. Fields:
+#   docs/data-model.md § Entity: Config.
+#
 # Interactive wizard:
-#   On a TTY, the Scrum Master model is selected in both PO modes; autonomous
-#   mode also prompts for any other setting not supplied via CLI. Press Enter
-#   to accept the prior/default value. Defaults come from persisted config and
-#   deployed agent files, so re-runs remember the last choices. Prompts are
-#   skipped on non-TTY stdin and under SCRUM_START_DRY_RUN=1 — CLI flags and
-#   persisted values remain authoritative in those cases.
+#   On a TTY, the Scrum Master model is selected in both PO modes (autonomous
+#   mode also asks for the Product Owner model); other seats are set only via
+#   --agent-model or the Mac app. Autonomous mode also prompts for any other
+#   setting not supplied via CLI. Press Enter to accept the prior/default
+#   value (persisted table > catalog default). Prompts are skipped on non-TTY
+#   stdin and under SCRUM_START_DRY_RUN=1 — CLI flags and persisted values
+#   remain authoritative in those cases.
 #
 # Prerequisites:
 #   - Claude Code CLI on PATH (>= 2.1.172 recommended; older versions
@@ -78,6 +92,7 @@
 #
 # Note: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set process-scoped
 # when launching claude. Users do NOT need to export it globally.
+# --- end of help ---
 # Re-exec under bash when started as `sh <script>` on a system whose /bin/sh is
 # not bash (Linux: dash). Everything below needs bash (pipefail, arrays), and
 # the documented launch command is `sh …`, so this keeps that command portable.
@@ -97,6 +112,8 @@ OPT_SM_MODEL=""
 SM_MODEL_GIVEN=0
 OPT_PO_MODEL=""
 PO_MODEL_GIVEN=0
+# Raw `--agent-model` specs, newline-separated (Bash 3.2: no arrays needed).
+AGENT_MODEL_SPECS=""
 BYPASS_PERMS=0
 # Distinguish "flag not given" from "flag explicitly set to 0". The interactive
 # wizard reads BYPASS_PERMS_GIVEN to decide whether to prompt.
@@ -121,10 +138,14 @@ while [ "$#" -gt 0 ]; do
     --po-model)
       [ "$#" -ge 2 ] || { echo "Error: --po-model requires a value." >&2; exit 2; }
       OPT_PO_MODEL="$2"; PO_MODEL_GIVEN=1; shift 2 ;;
+    --agent-model)
+      [ "$#" -ge 2 ] || { echo "Error: --agent-model requires <seat>=[<provider>:]<model>[@<effort>]." >&2; exit 2; }
+      AGENT_MODEL_SPECS="${AGENT_MODEL_SPECS}${2}"$'\n'; shift 2 ;;
     --bypass-permissions) BYPASS_PERMS=1; BYPASS_PERMS_GIVEN=1; shift ;;
     --no-attach)          NO_ATTACH=1; shift ;;
     -h|--help)
-      sed -n '1,70p' "$0"
+      # Print the header comment up to the end-of-help marker.
+      awk 'NR > 1 && /^# --- end of help ---$/ { exit } { print }' "$0"
       exit 0 ;;
     *)
       echo "Error: unknown argument: $1" >&2
@@ -154,56 +175,90 @@ validate_model() {
 if [ "$SM_MODEL_GIVEN" = "1" ]; then
   validate_model "--sm-model" "$OPT_SM_MODEL"
 fi
-
-# --po-model is only meaningful in autonomous mode (it patches the deployed
-# product-owner agent frontmatter, which only autonomous mode bothers to do).
-# Reject the combination explicitly rather than silently ignoring the flag.
-if [ "$PO_MODEL_GIVEN" = "1" ] && [ "$AUTONOMOUS" = "0" ]; then
-  echo "Error: --po-model requires --autonomous." >&2
-  echo "  In non-autonomous (human) mode the product-owner teammate is not used;" >&2
-  echo "  the PO seat is the human at the keyboard." >&2
-  exit 2
-fi
 if [ "$PO_MODEL_GIVEN" = "1" ]; then
   validate_model "--po-model" "$OPT_PO_MODEL"
 fi
 
-# --- Capture prior deployed PO model BEFORE setup-user.sh overwrites it -----
-# Single source of truth for the PO model is the deployed
-# .claude/agents/product-owner.md `model:` line (Claude Code reads it at
-# teammate spawn). Capturing the value here lets a prior --po-model choice
-# persist across re-runs without storing a shadow key in .scrum/config.json.
-# Defaults to "opus" when the deployed file does not exist yet (first run)
-# or when the model: line is missing.
-PRIOR_PO_MODEL="opus"
-if [ "$AUTONOMOUS" = "1" ] && [ -f ".claude/agents/product-owner.md" ]; then
-  _cap="$(awk '
-    BEGIN { depth = 0 }
-    /^---$/ { depth++; if (depth > 1) exit; next }
-    depth == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }
-  ' .claude/agents/product-owner.md 2>/dev/null || true)"
-  if is_safe_model_token "$_cap"; then
-    PRIOR_PO_MODEL="$_cap"
-  elif [ -n "$_cap" ]; then
-    echo "Warning: ignoring syntactically invalid deployed Product Owner model; using opus." >&2
-  fi
-fi
+# --- Per-seat model overrides ----------------------------------------------
+# Every model flag lands in OVERRIDES_JSON: an object keyed by seat whose
+# values are {provider, model, effort?}. `--sm-model X` / `--po-model X` are
+# shorthands for `--agent-model scrum-master=claude:X` /
+# `--agent-model product-owner=claude:X`. The launcher pre-validates each
+# flag against the SOURCE catalog so a typo exits 2 before any side effect;
+# the deployed .scrum/scripts/agent-models.sh re-validates authoritatively
+# when the table is written (after setup-user.sh deploys it).
+MODEL_CATALOG="$SCRIPT_DIR/docs/contracts/model-catalog.json"
+OVERRIDES_JSON='{}'
 
-# The deployed Scrum Master agent file is also the persistence layer for the
-# lead model. Capture it before setup-user.sh refreshes the deployed agents so
-# an earlier selection survives subsequent starts in either PO mode.
-PRIOR_SM_MODEL="opus"
-if [ -f ".claude/agents/scrum-master.md" ]; then
-  _cap="$(awk '
-    BEGIN { depth = 0 }
-    /^---$/ { depth++; if (depth > 1) exit; next }
-    depth == 1 && /^model:/ { sub(/^model:[[:space:]]*/, ""); print; exit }
-  ' .claude/agents/scrum-master.md 2>/dev/null || true)"
-  if is_safe_model_token "$_cap"; then
-    PRIOR_SM_MODEL="$_cap"
-  elif [ -n "$_cap" ]; then
-    echo "Warning: ignoring syntactically invalid deployed Scrum Master model; using opus." >&2
+override_seat() {
+  # override_seat <flag-label> <seat> <provider|""> <model> <effort|"">
+  local flag="$1" seat="$2" provider="$3" model="$4" effort="$5"
+  if jq -e --arg s "$seat" 'has($s)' <<<"$OVERRIDES_JSON" >/dev/null; then
+    echo "Error: $flag: seat '$seat' is set more than once" \
+         "(--agent-model / --sm-model / --po-model overlap)." >&2
+    exit 2
   fi
+  if ! jq -e --arg s "$seat" '.seats[$s] != null' "$MODEL_CATALOG" >/dev/null; then
+    echo "Error: $flag: unknown seat '$seat'. Known seats:" >&2
+    jq -r '.seats | to_entries | sort_by(.value.order) | .[] | "  " + .key' \
+      "$MODEL_CATALOG" >&2
+    exit 2
+  fi
+  if [ -z "$provider" ]; then
+    provider="$(jq -r --arg s "$seat" '.seats[$s].default.provider' "$MODEL_CATALOG")"
+  fi
+  if ! jq -e --arg s "$seat" --arg p "$provider" \
+       '.seats[$s].providers | index($p) != null' "$MODEL_CATALOG" >/dev/null; then
+    echo "Error: $flag: provider '$provider' is not allowed for seat '$seat'" \
+         "(allowed: $(jq -r --arg s "$seat" '.seats[$s].providers | join(", ")' "$MODEL_CATALOG"))." >&2
+    exit 2
+  fi
+  if [ "$provider" = "codex" ] && [ "$model" = "default" ]; then
+    :  # Codex CLI default: stored as null by agent-models.sh.
+  elif ! is_safe_model_token "$model" \
+       || { [ "$provider" = "codex" ] && [[ "$model" == */* ]]; }; then
+    echo "Error: $flag must be a non-empty, single-line model alias or ID" >&2
+    echo "  using only letters, digits, '.', '_', and '-' ('/' allowed for claude)." >&2
+    exit 2
+  fi
+  if [ -n "$effort" ] && ! jq -e --arg p "$provider" --arg e "$effort" \
+       '(.providers[$p].efforts // []) | index($e) != null' "$MODEL_CATALOG" >/dev/null; then
+    echo "Error: $flag: effort '$effort' is not valid for provider '$provider'" \
+         "(allowed: $(jq -r --arg p "$provider" '(.providers[$p].efforts // []) | join(", ")' "$MODEL_CATALOG"))." >&2
+    exit 2
+  fi
+  OVERRIDES_JSON="$(jq -c --arg s "$seat" --arg p "$provider" --arg m "$model" --arg e "$effort" \
+    '. + {($s): ({provider: $p, model: $m} + (if $e == "" then {} else {effort: $e} end))}' \
+    <<<"$OVERRIDES_JSON")"
+}
+
+if [ -n "$AGENT_MODEL_SPECS" ]; then
+  while IFS= read -r _spec; do
+    [ -n "$_spec" ] || continue
+    case "$_spec" in
+      *=*) : ;;
+      *) echo "Error: --agent-model expects <seat>=[<provider>:]<model>[@<effort>], got '$_spec'." >&2
+         exit 2 ;;
+    esac
+    _seat="${_spec%%=*}"; _rest="${_spec#*=}"
+    case "$_rest" in
+      *:*) _provider="${_rest%%:*}"; _rest="${_rest#*:}" ;;
+      *)   _provider="" ;;
+    esac
+    case "$_rest" in
+      *@*) _model="${_rest%%@*}"; _effort="${_rest#*@}" ;;
+      *)   _model="$_rest"; _effort="" ;;
+    esac
+    override_seat "--agent-model $_spec" "$_seat" "$_provider" "$_model" "$_effort"
+  done <<EOF
+$AGENT_MODEL_SPECS
+EOF
+fi
+if [ "$SM_MODEL_GIVEN" = "1" ]; then
+  override_seat "--sm-model" scrum-master claude "$OPT_SM_MODEL" ""
+fi
+if [ "$PO_MODEL_GIVEN" = "1" ]; then
+  override_seat "--po-model" product-owner claude "$OPT_PO_MODEL" ""
 fi
 
 # --- Validate prerequisites ---
@@ -272,35 +327,53 @@ prompt_yes_no() {
 
 prompt_model_choice() {
   # prompt_model_choice <label> <default>
-  # Offers the well-known aliases plus a validated custom model ID. On
-  # non-TTY and dry-run launches, simply returns the persisted/default value.
-  local label="$1" default="$2" answer custom
+  # Offers the Claude model menu from docs/contracts/model-catalog.json plus
+  # a validated custom model ID. Answer by number or by id. On non-TTY and
+  # dry-run launches, simply returns the persisted/default value.
+  local label="$1" default="$2" answer custom menu n_menu i id
   if [ ! -t 0 ] || [ "${SCRUM_START_DRY_RUN:-0}" = "1" ]; then
     printf '%s' "$default"
     return 0
   fi
+  menu="$(jq -r '.providers.claude.models[].id' "$MODEL_CATALOG")"
+  n_menu="$(printf '%s\n' "$menu" | grep -c .)"
   while :; do
     printf '\n%s (current default: %s):\n' "$label" "$default" >&2
-    printf '  1) opus\n  2) fable\n  3) sonnet\n  4) haiku\n  5) custom model ID\n' >&2
+    i=0
+    while IFS= read -r id; do
+      i=$((i + 1))
+      printf '  %d) %s\n' "$i" "$id" >&2
+    done <<EOF
+$menu
+EOF
+    printf '  %d) custom model ID\n' "$((n_menu + 1))" >&2
     printf '  Choice [Enter keeps %s]: ' "$default" >&2
     IFS= read -r answer || answer=""
-    case "$answer" in
-      "")      printf '%s' "$default"; return 0 ;;
-      1|opus)  printf 'opus'; return 0 ;;
-      2|fable) printf 'fable'; return 0 ;;
-      3|sonnet) printf 'sonnet'; return 0 ;;
-      4|haiku) printf 'haiku'; return 0 ;;
-      5|custom)
-        printf '  Custom model ID: ' >&2
-        IFS= read -r custom || custom=""
-        if is_safe_model_token "$custom"; then
-          printf '%s' "$custom"
-          return 0
-        fi
-        echo "    Enter a non-empty single-line token using letters, digits, '.', '_', '/', or '-'." >&2
-        ;;
-      *) echo "    Choose 1-5 (opus, fable, sonnet, haiku, or custom)." >&2 ;;
-    esac
+    if [ -z "$answer" ]; then
+      printf '%s' "$default"
+      return 0
+    fi
+    if [ "$answer" = "custom" ] || [ "$answer" = "$((n_menu + 1))" ]; then
+      printf '  Custom model ID: ' >&2
+      IFS= read -r custom || custom=""
+      if is_safe_model_token "$custom"; then
+        printf '%s' "$custom"
+        return 0
+      fi
+      echo "    Enter a non-empty single-line token using letters, digits, '.', '_', '/', or '-'." >&2
+      continue
+    fi
+    i=0
+    while IFS= read -r id; do
+      i=$((i + 1))
+      if [ "$answer" = "$i" ] || [ "$answer" = "$id" ]; then
+        printf '%s' "$id"
+        return 0
+      fi
+    done <<EOF
+$menu
+EOF
+    echo "    Choose 1-$((n_menu + 1)) (a listed id, or custom)." >&2
   done
 }
 
@@ -322,27 +395,55 @@ jq_write_inplace() {
   fi
 }
 
-# Resolve the Scrum Master model for every launch mode. On first use the
-# default is opus; thereafter the deployed agent file supplies the default.
-if [ "$SM_MODEL_GIVEN" = "0" ]; then
-  OPT_SM_MODEL="$(prompt_model_choice 'Scrum Master model' "$PRIOR_SM_MODEL")"
+# --- Prior per-seat model choices (BEFORE setup-user.sh) -------------------
+# A project launched before the model table existed carries its last
+# --sm-model / --po-model choice only in the deployed agent frontmatter,
+# which setup-user.sh is about to overwrite. Import it now by running the
+# SOURCE copy of migration 009 (no-op once .agents exists, and on projects
+# that never deployed agents); the deployed copy re-runs later under
+# migrate-state.sh as a no-op.
+# Non-fatal on purpose: the import validates the whole config file, and a
+# config that has drifted from the schema must reach the upgrade gate below
+# (migrate-state.sh) to be diagnosed, not fail here under a model-import
+# message. A skipped import only costs the prior frontmatter choice.
+if _seed_out="$(bash "$SCRIPT_DIR/scripts/scrum/migrations/009-seed-agent-models.sh" 2>&1)"; then
+  case "$_seed_out" in
+    *"seeded agents"*) echo "  $_seed_out" ;;
+  esac
+else
+  echo "Warning: could not import prior model choices from the deployed agent files;" >&2
+  echo "  continuing with the persisted table / catalog defaults. Detail:" >&2
+  printf '%s\n' "$_seed_out" | sed 's/^/    /' >&2
 fi
-validate_model "--sm-model" "$OPT_SM_MODEL"
+PRIOR_AGENTS_JSON='{}'
+if [ -f ".scrum/config.json" ]; then
+  PRIOR_AGENTS_JSON="$(jq -c '.agents | if type == "object" then . else {} end' \
+    .scrum/config.json 2>/dev/null || printf '{}')"
+fi
+
+seat_model_default() {
+  # seat_model_default <seat> → CLI override > persisted table > catalog default
+  jq -r --arg s "$1" --argjson o "$OVERRIDES_JSON" --argjson p "$PRIOR_AGENTS_JSON" \
+    '$o[$s].model // $p[$s].model // .seats[$s].default.model' "$MODEL_CATALOG"
+}
+
+# Wizard: the Scrum Master model in every mode; the Product Owner model in
+# autonomous mode. Skipped for a seat already set via CLI. Other seats are
+# set only via --agent-model (or the Mac app) — a nine-seat prompt on every
+# launch would be noise.
+if ! jq -e 'has("scrum-master")' <<<"$OVERRIDES_JSON" >/dev/null; then
+  _choice="$(prompt_model_choice 'Scrum Master model' "$(seat_model_default scrum-master)")"
+  validate_model "--sm-model" "$_choice"
+  override_seat "--sm-model" scrum-master claude "$_choice" ""
+fi
+if [ "$AUTONOMOUS" = "1" ] && ! jq -e 'has("product-owner")' <<<"$OVERRIDES_JSON" >/dev/null; then
+  _choice="$(prompt_model_choice 'Product Owner model' "$(seat_model_default product-owner)")"
+  validate_model "--po-model" "$_choice"
+  override_seat "--po-model" product-owner claude "$_choice" ""
+fi
 
 # --- Run setup (copies agents, skills, hooks, configures settings) ---
 bash "$SCRIPT_DIR/scripts/setup-user.sh"
-
-# setup-user.sh just restored the source agent definition. Reapply the resolved
-# Scrum Master model to its deployed frontmatter (the single source of truth).
-SM_AGENT_FILE=".claude/agents/scrum-master.md"
-if [ -f "$SM_AGENT_FILE" ]; then
-  TMP_AGENT="${SM_AGENT_FILE}.tmp.$$.${RANDOM}"
-  awk -v m="$OPT_SM_MODEL" '
-    !done && /^model:/ { print "model: " m; done=1; next }
-    { print }
-  ' "$SM_AGENT_FILE" > "$TMP_AGENT" && mv "$TMP_AGENT" "$SM_AGENT_FILE"
-  echo "  Scrum Master model: $OPT_SM_MODEL"
-fi
 
 # --- Upgrade gate: migrate state + validate against the deployed schemas ---
 # setup-user.sh above just refreshed .scrum/scripts/ and the schemas; existing
@@ -359,6 +460,31 @@ if ! bash .scrum/scripts/migrate-state.sh; then
   echo "  Inspect:  bash .scrum/scripts/migrate-state.sh --check" >&2
   echo "  Deployed framework rev: .scrum/deploy-stamp.json" >&2
   exit 1
+fi
+
+# --- Persist + materialize the per-seat model table ------------------------
+# Effective table = catalog defaults ⊕ persisted .agents ⊕ CLI/wizard
+# overrides (recursive merge: an override without @<effort> keeps the prior
+# or default effort). Written in ONE validated write by the deployed wrapper
+# (the sole writer of .agents), then the deployed Claude agent files —
+# freshly restored to source defaults by setup-user.sh — get their `model:` /
+# `effort:` frontmatter rewritten from the table. Runs after the migrate gate
+# so a stale config is migrated before it is validated here.
+DEFAULTS_JSON="$(jq -c '.seats | to_entries | sort_by(.value.order)
+  | map({(.key): .value.default}) | add' "$MODEL_CATALOG")"
+# Persisted seats the current catalog no longer defines are dropped here
+# (the wrapper would also drop them with a WARN) so a renamed seat can never
+# wedge the launch.
+AGENTS_TABLE="$(jq -cn --argjson d "$DEFAULTS_JSON" --argjson p "$PRIOR_AGENTS_JSON" \
+  --argjson o "$OVERRIDES_JSON" '$d * ($p | with_entries(select(.key | in($d)))) * $o')"
+if ! bash .scrum/scripts/agent-models.sh set-table "$AGENTS_TABLE" >/dev/null; then
+  echo "Error: could not persist the per-seat model table (.scrum/config.json.agents)." >&2
+  exit 2
+fi
+echo "Team models (.scrum/config.json.agents):"
+bash .scrum/scripts/agent-models.sh materialize
+if [ "$PO_MODEL_GIVEN" = "1" ] && [ "$AUTONOMOUS" = "0" ]; then
+  echo "  Product Owner model persisted (the PO teammate is spawned only with --autonomous)."
 fi
 
 # --- Detect new vs resume and set initial prompt ---
@@ -395,8 +521,8 @@ NEED_BRIEF_BUILDER=0
 if [ "$AUTONOMOUS" = "1" ]; then
   # Compute prior values for the wizard defaults BEFORE the defaults-merge
   # runs. For settings that live in .scrum/config.json, the prior value is
-  # the current key (or the baked-in default when absent). For PO model,
-  # the prior value was captured before setup-user.sh into $PRIOR_PO_MODEL.
+  # the current key (or the baked-in default when absent). The PO model was
+  # already resolved (and persisted in .agents) before setup-user.sh.
   mkdir -p .scrum
   CONFIG_FILE=".scrum/config.json"
   if [ ! -f "$CONFIG_FILE" ]; then
@@ -422,7 +548,6 @@ if [ "$AUTONOMOUS" = "1" ]; then
     if [ "$IS_NEW_PROJECT" = "1" ] && [ -z "$BRIEF_FILE" ]; then _wizard_needed=1; fi
     if [ -z "$OPT_MAX_SPRINTS" ];   then _wizard_needed=1; fi
     if [ -z "$OPT_MAX_HOURS" ];     then _wizard_needed=1; fi
-    if [ -z "$OPT_PO_MODEL" ];      then _wizard_needed=1; fi
     if [ "$BYPASS_PERMS_GIVEN" = "0" ]; then _wizard_needed=1; fi
     if [ "$_wizard_needed" = "1" ]; then
       echo "" >&2
@@ -444,9 +569,6 @@ if [ "$AUTONOMOUS" = "1" ]; then
   fi
   if [ -z "$OPT_MAX_HOURS" ]; then
     OPT_MAX_HOURS="$(prompt_value 'Maximum wall-clock hours' "$_cur_max_hours")"
-  fi
-  if [ -z "$OPT_PO_MODEL" ]; then
-    OPT_PO_MODEL="$(prompt_model_choice 'Product Owner model' "$PRIOR_PO_MODEL")"
   fi
   if [ "$BYPASS_PERMS_GIVEN" = "0" ]; then
     _ans="$(prompt_yes_no \
@@ -516,8 +638,8 @@ if [ "$AUTONOMOUS" = "1" ]; then
   fi
 
   # Defaults match .scrum-config.example.json. Overrides applied last.
-  # PO model is intentionally absent — its SSOT is the deployed
-  # .claude/agents/product-owner.md frontmatter, patched below.
+  # Models are not here: the per-seat table `.agents` was already written
+  # above by agent-models.sh and this in-place merge leaves it untouched.
   # shellcheck disable=SC2016  # $perm is a jq --arg binding, not shell
   jq_write_inplace "$CONFIG_FILE" '
     .po_mode = "agent"
@@ -546,30 +668,6 @@ if [ "$AUTONOMOUS" = "1" ]; then
     # shellcheck disable=SC2016  # $v is a jq --argjson binding, not shell
     jq_write_inplace "$CONFIG_FILE" '.autonomous.max_wall_clock_hours = $v' \
       --argjson v "$OPT_MAX_HOURS"
-  fi
-
-  # --- Apply PO model to deployed agent file (the SSOT) --------------------
-  # setup-user.sh above overwrote .claude/agents/product-owner.md with the
-  # source default. Patch the `model:` line to the resolved value
-  # (CLI flag > wizard input > captured prior value > "opus"). $OPT_PO_MODEL
-  # holds the resolved value at this point: wizard helpers fill empty
-  # OPT_PO_MODEL with $PRIOR_PO_MODEL on TTY, and silently echo
-  # $PRIOR_PO_MODEL on non-TTY. There is no shadow key in .scrum/config.json.
-  if [ -z "$OPT_PO_MODEL" ]; then
-    OPT_PO_MODEL="$PRIOR_PO_MODEL"
-  fi
-  validate_model "--po-model" "$OPT_PO_MODEL"
-  PO_AGENT_FILE=".claude/agents/product-owner.md"
-  if [ -f "$PO_AGENT_FILE" ]; then
-    TMP_AGENT="${PO_AGENT_FILE}.tmp.$$.${RANDOM}"
-    # Replace only the FIRST `^model:` line (always inside the YAML
-    # frontmatter — the body uses fenced code blocks where any `model:`
-    # would not start at column 0).
-    awk -v m="$OPT_PO_MODEL" '
-      !done && /^model:/ { print "model: " m; done=1; next }
-      { print }
-    ' "$PO_AGENT_FILE" > "$TMP_AGENT" && mv "$TMP_AGENT" "$PO_AGENT_FILE"
-    echo "  PO teammate model: $OPT_PO_MODEL"
   fi
 
   # Initialise .scrum/autonomy.json. UUID via shared scripts/lib/ids.sh.

@@ -26,7 +26,8 @@ enum ProcessLauncher {
     /// In `.autonomous` mode the `--autonomous` flag starts the Ralph-Loop
     /// watchdog instead of an interactive Scrum Master. The framework's own
     /// pre-flight (in the no-tmux branch) co-authors a product brief in this
-    /// same pane when none exists, then launches the watchdog.
+    /// same pane when none exists, then launches the watchdog. The per-seat
+    /// model table travels as flags too (see `scrumStartArguments`).
     ///
     /// We deliberately do NOT `exec` the script: scrum-start.sh aborts with a
     /// non-zero exit (missing `claude`, Python < 3.9, brief-builder abort, a
@@ -37,9 +38,13 @@ enum ProcessLauncher {
     /// above" footer, and hold the pane on `read` until the user dismisses it.
     /// A clean exit (Claude session ended normally, code 0) closes the pane as
     /// before.
-    static func scrumMaster(project: Project, frameworkPath: String, mode: LaunchMode = .normal) -> Command {
+    static func scrumMaster(
+        project: Project, frameworkPath: String,
+        options: LaunchOptions = LaunchOptions(), seatOrder: [String] = []
+    ) -> Command {
         let start = shellQuote((frameworkPath as NSString).appendingPathComponent("scrum-start.sh"))
-        let flags = mode == .autonomous ? " --autonomous" : ""
+        let args = scrumStartArguments(options, seatOrder: seatOrder)
+        let flags = args.isEmpty ? "" : " " + args.map(shellQuote).joined(separator: " ")
         let rule = "────────────────────────────────────────────"
         let inner = "cd \(shellQuote(project.path)) && SCRUM_NO_TMUX=1 sh \(start)\(flags)"
             + "; code=$?; if [ \"$code\" -ne 0 ]; then"
@@ -52,6 +57,37 @@ enum ProcessLauncher {
             + " read -r _;"
             + " fi"
         return Command(executable: loginShell, args: ["-lc", inner])
+    }
+
+    /// The argument list handed to `scrum-start.sh`, unquoted. `--autonomous`
+    /// comes first; then the team-model flags:
+    ///
+    /// - `.agentModel`: `--agent-model <seat>=<provider>:<model>[@<effort>]`
+    ///   for every seat in `seatOrder` (catalog order) that has a choice. A nil
+    ///   model is spelled `default`. Every seat is always sent, so the
+    ///   launcher's in-terminal model wizard never fires.
+    /// - `.legacy`: `--sm-model <model>` always, `--po-model <model>` only in
+    ///   Autonomous mode (the old launcher rejects it otherwise); a seat with
+    ///   no model is omitted.
+    static func scrumStartArguments(_ options: LaunchOptions, seatOrder: [String]) -> [String] {
+        var args: [String] = []
+        if options.mode == .autonomous { args.append("--autonomous") }
+        switch options.flagStyle {
+        case .agentModel:
+            for seat in seatOrder {
+                guard let choice = options.teamModels[seat] else { continue }
+                args += ["--agent-model", "\(seat)=\(choice.flagValue)"]
+            }
+        case .legacy:
+            if let sm = options.teamModels[AgentSeat.scrumMaster.rawValue]?.model {
+                args += ["--sm-model", sm]
+            }
+            if options.mode == .autonomous,
+               let po = options.teamModels[AgentSeat.productOwner.rawValue]?.model {
+                args += ["--po-model", po]
+            }
+        }
+        return args
     }
 
     /// One-shot framework deployment into a freshly created project directory.

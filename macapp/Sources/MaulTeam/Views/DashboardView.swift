@@ -12,6 +12,9 @@ import SwiftUI
 /// board (click a PBI for details), and Integration Sprint test results.
 struct DashboardView: View {
     @ObservedObject var model: DashboardModel
+    /// For seat short labels on the Team chips; the builtin catalog when the
+    /// framework ships none.
+    var catalog: ModelCatalog = .builtin
     @State private var selected: BacklogItem?
     @State private var pbiScope: PBIScope = .current
 
@@ -130,6 +133,46 @@ struct DashboardView: View {
                 Divider()
                 integrationResults
             }
+            teamChips
+        }
+    }
+
+    // MARK: Team chips
+
+    /// One capsule per seat from `.scrum/config.json.agents` — the model the
+    /// framework is actually running each seat on. Provider is shown only when
+    /// it is not claude (`Rev codex:gpt-5.6-luna`). Absent until the launcher
+    /// has written the block.
+    @ViewBuilder
+    private var teamChips: some View {
+        if let agents = model.agents, !agents.isEmpty {
+            HStack(alignment: .top, spacing: 4) {
+                Text("Team").font(.caption2).foregroundStyle(.secondary).padding(.top, 3)
+                FlowLayout(spacing: 4) {
+                    ForEach(teamChipEntries(agents), id: \.seat) { entry in
+                        Text(entry.text)
+                            .font(.caption2.weight(.medium).monospaced())
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(.secondary.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.secondary)
+                            .help(entry.seat)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Catalog seats first in catalog order, then any seat the file names that
+    /// the catalog does not (labelled by its id).
+    private func teamChipEntries(_ agents: TeamModelConfig) -> [(seat: String, text: String)] {
+        let known = catalog.seatOrder.filter { agents[$0] != nil }
+        let extra = agents.choices.keys.filter { !known.contains($0) }.sorted()
+        return (known + extra).compactMap { seat in
+            guard let choice = agents[seat] else { return nil }
+            let short = catalog.seat(seat)?.short_label ?? seat
+            let model = choice.model ?? "default"
+            let text = choice.provider == .claude ? model : "\(choice.provider.rawValue):\(model)"
+            return (seat, "\(short) \(text)")
         }
     }
 
@@ -173,6 +216,7 @@ struct DashboardView: View {
                 Label(names, systemImage: "person.2")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            teamChips
         }
     }
 
@@ -190,6 +234,7 @@ struct DashboardView: View {
                         .foregroundStyle(.blue)
                 }
             }
+            teamChips
         }
     }
 
@@ -370,5 +415,44 @@ struct DashboardView: View {
             "integration_sprint": "Integration Tests", "uat_release": "UAT & Release",
             "complete": "Complete",
         ][phase] ?? phase
+    }
+}
+
+/// Left-to-right layout that wraps to a new line when the row is full — for
+/// chip rows whose count varies (Team chips), so a narrow dashboard pane
+/// stacks them instead of clipping.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        return place(in: width, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = place(in: bounds.width, subviews: subviews)
+        for (index, origin) in result.origins.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                proposal: .unspecified)
+        }
+    }
+
+    private func place(in width: CGFloat, subviews: Subviews) -> (size: CGSize, origins: [CGPoint]) {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, maxX: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            origins.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            maxX = max(maxX, x - spacing)
+        }
+        return (CGSize(width: maxX, height: y + rowHeight), origins)
     }
 }

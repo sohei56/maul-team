@@ -252,6 +252,9 @@ sh /path/to/maul-team/scrum-start.sh
 
 # あるいは: 自律モード — ブリーフでゴールを一度指定すれば、エージェント PO + SM が無人でループ
 sh /path/to/maul-team/scrum-start.sh --autonomous --brief docs/product/brief.md
+
+# 席ごとに LLM を選ぶ (複数指定可。フラグ一覧は docs/autonomous-mode.md)
+sh /path/to/maul-team/scrum-start.sh --agent-model developer=claude:opus@high --agent-model codex-reviewers=codex:gpt-5.6-luna
 ```
 
 このスクリプトはClaude Code (Scrum Master) と TUI ダッシュボードを伴う tmux セッションを起動します。

@@ -71,7 +71,8 @@ the Integrity stage — the final quality gate before ready-to-merge
 (kind=code: all 5 after UT Run PASS;
 kind=docs: aspects 1 + 5 after impl-review PASS). They are PBI-scoped
 (diff bounded by `{base_sha}..{review_sha}` over the PBI's
-`paths_touched`), Claude-backed (`model: opus`), and **message-based**:
+`paths_touched`), Claude-backed (`opus` by default; overridable via
+`config.json.agents.integrity-reviewers`), and **message-based**:
 they have no `Write` tool and return a **markdown** verdict
 (`**Verdict: PASS | FAIL**` + a Findings list) as their final assistant
 message — **not** the pbi-pipeline JSON envelope (its `criterion_key`
