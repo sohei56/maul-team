@@ -210,9 +210,10 @@ resolution:
       check above (Given/When/Then or measurable assertion) but miss
       one of: (i) scenario coverage (normal / failure / edge), (ii)
       mandatory grep-zero on deleted config variables, (iii) parity
-      with a reference implementation when one exists. The SM main
-      loop runs on Sonnet; pinning these rules in skill text has not
-      been sufficient. Delegate the per-AC verifiability + coverage
+      with a reference implementation when one exists. Pinning these
+      rules in skill text has not been sufficient; run the audit in a
+      fresh context scoped to one PBI's AC list. Delegate the per-AC
+      verifiability + coverage
       audit to an Opus-backed sub-agent via the `Agent` tool, on each
       PBI's draft AC list, before setting `status: refined`:
 

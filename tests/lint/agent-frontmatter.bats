@@ -324,9 +324,10 @@ extract_frontmatter() {
 }
 
 @test "product-owner.md has model field set to opus" {
-  # The source default. scrum-start.sh --autonomous patches the deployed copy
-  # at .claude/agents/product-owner.md to .scrum/config.json.autonomous.po_model
-  # (defaults to opus, overridable by --po-model).
+  # The source default. scrum-start.sh --autonomous patches the deployed
+  # copy's `model:` line in place (--po-model flag or the wizard); the
+  # deployed .claude/agents/product-owner.md is the SSOT — there is no
+  # shadow key in .scrum/config.json.
   run bash -c "awk 'NR==1 && !/^---$/{exit} NR==1{next} /^---$/{exit} {print}' '${PROJECT_ROOT}/agents/product-owner.md' | yq -r '.model'"
   assert_success
   assert_output "opus"

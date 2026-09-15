@@ -33,7 +33,8 @@
 #                           persists across re-runs via the deployed agent file.
 #   --po-model <name>       Autonomous-only. Sets the model used by the
 #                           product-owner teammate. Accepts CLI aliases
-#                           (`opus`, `sonnet`, `haiku`) or a specific model
+#                           (including `opus`, `fable`, `sonnet`, and
+#                           `haiku`) or a specific model
 #                           ID. Default `opus`. The deployed
 #                           `.claude/agents/product-owner.md` frontmatter
 #                           `model:` is the single source of truth — this
