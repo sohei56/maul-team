@@ -23,7 +23,10 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
+        // Capped below 1.99.0: upstream's "preview before 2.0" tag breaks the
+        // API despite the 1.x version, so SemVer `from:` would let it in. The
+        // 2.0 migration must be a deliberate bump tested in the running app.
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", "1.2.0"..<"1.99.0"),
         // Tree-sitter based code editor (CodeEdit): semantic highlighting,
         // line-number gutter, find/replace. Pinned exact — upstream README
         // declares the package "not ready for production use", so upgrades
@@ -38,7 +41,7 @@ let package = Package(
         // the embedded framework is re-signed inside-out by make-app.sh and the
         // appcast is EdDSA-signed per release, so an upstream bump must be a
         // deliberate re-verification of both, not a silent range upgrade.
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6")
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")
     ],
     targets: [
         .executableTarget(

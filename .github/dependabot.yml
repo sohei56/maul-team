@@ -16,6 +16,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # 1.99.0+ is the breaking 2.0 preview; see the cap in macapp/Package.swift.
+      - dependency-name: "github.com/migueldeicaza/swiftterm"
+        versions: [">=1.99.0"]
     groups:
       swift-minor-patch:
         applies-to: version-updates
